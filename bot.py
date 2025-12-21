@@ -7,7 +7,6 @@ import random
 import requests
 import datetime
 import time
-import ast
 
 startup = time.time()
 
@@ -109,7 +108,7 @@ async def calc(interaction: Interaction, expression: str):
         await interaction.response.send_message("> invalid expression", ephemeral=True)
         return
     try:
-        result = ast.literal_eval(expression)
+        result = eval(expression)
         await interaction.response.send_message(f"> `{expression}` = {result}", ephemeral=True)
     except Exception as e:
         await interaction.response.send_message(f"> Error evaluating expression: {e}", ephemeral=True)
@@ -347,7 +346,7 @@ async def on_message(message):
         await message.add_reaction("🦆")
         await message.channel.send("Quack! 🦆")
         return
-    
+
     if isinstance(message.channel, discord.DMChannel):
         await message.channel.send("Hello! I'm a bot. Please use slash commands to interact with me. Type /help to see available commands.")
         return
