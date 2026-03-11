@@ -1,6 +1,7 @@
 from discord import app_commands, Interaction
 from discord.ext import commands
 from dotenv import load_dotenv
+from simpleeval import simple_eval
 import datetime
 import requests
 import discord
@@ -122,7 +123,7 @@ async def calc(interaction: Interaction, expression: str):
         await interaction.response.send_message("> invalid expression", ephemeral=True)
         return
     try:
-        result = eval(expression)
+        result = simple_eval(expression)
         await interaction.response.send_message(f"> `{expression}` = {result}", ephemeral=True)
     except Exception as e:
         await interaction.response.send_message(f"> Error evaluating expression: {e}", ephemeral=True)
@@ -403,8 +404,8 @@ async def on_message(message):
                 "user_id": message.author.id,
                 "display_name": message.author.display_name,
                 "username": message.author.name,
-                "guild_id": message.guild.id,
-                "guild": message.guild.name,
+                "guild_id": message.guild.id if message.guild.id else None,
+                "guild": message.guild.name if message.guild.name else None,
                 "level": 0,
                 "progress": 0,
                 "out_of": 100,
