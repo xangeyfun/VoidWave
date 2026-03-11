@@ -50,10 +50,13 @@ async def on_ready():
     total_members = sum(guild.member_count or 0 for guild in bot.guilds)
     sync_time = f"{done - start_sync:.2f}s"
     print(f"\n{date()} DEBUG  --- Bot is ready! ---")
-    print(f"{date()} DEBUG  Invite link: https://discord.com/api/oauth2/authorize?client_id={bot.user.id}&permissions=8&scope=bot%20applications.commands")
+    if bot.user:
+        print(f"{date()} DEBUG  Invite link: https://discord.com/api/oauth2/authorize?client_id={bot.user.id}&permissions=8&scope=bot%20applications.commands")
+    else:
+        exit(1)
     print(f"{date()} DEBUG  Connected to {total_guilds} guilds ({total_members} members)")
     print(f"{date()} DEBUG  Synced {len(synced)} slash commands in {sync_time}")
-    print(f"{date()} DEBUG  Startup time: {done - startup:.2f} seconds")
+    print(f"{date()} DEBUG  Startup time: {done - startup:.4f} seconds")
     print(f"{date()} DEBUG ---------------------\n")
 
 @bot.event
@@ -400,6 +403,8 @@ async def on_message(message):
                 "user_id": message.author.id,
                 "display_name": message.author.display_name,
                 "username": message.author.name,
+                "guild_id": message.guild.id,
+                "guild": message.guild.name,
                 "level": 0,
                 "progress": 0,
                 "out_of": 100,
