@@ -1,12 +1,13 @@
-import discord
 from discord import app_commands, Interaction
 from discord.ext import commands
-import os
 from dotenv import load_dotenv
-import random
-import requests
 import datetime
+import requests
+import discord
+import random
 import time
+import json
+import os
 
 startup = time.time()
 
@@ -19,6 +20,14 @@ bot = commands.Bot(command_prefix="!", intents=intents, status=discord.Status.on
 TOKEN = os.getenv("TOKEN")
 allowed_user = os.getenv("ALLOWED_USER_ID")
 guild = discord.Object(id=int(os.getenv("GUILD_ID")))
+
+LEVEL_ROLES = {
+    1: 1203672643413221397, # cool guy role
+    3: 1217379957412593695, # GIF perms
+    5: 1206262995223584859, # photo perms
+    10: 1203672754843422761 # very cool guy role
+}
+
 def date():
     return datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
@@ -337,20 +346,85 @@ async def shutdown(interaction: discord.Interaction):
     print(f"{date()} DEBUG  Shutdown command issued by {interaction.user.name} (ID: {interaction.user.id})")
     await bot.close()
 
+@bot.tree.command(name="level", description="Check your server level")
+async def level(interaction: discord.Interaction, hidden: bool = False):
+    await interaction.response.defer(ephemeral=hidden)
+    try:
+        with open(f"data/{interaction.guild.id}/{interaction.user.id}.json", "r") as f:
+            data = json.load(f)
+    except FileNotFoundError:
+        await interaction.followup.send("Your data file was not found! Try sending a message to create one.", ephemeral=hidden)
+        return
+    filled_blocks = round(data["progress"] / data["out_of"] * 20)
+    bar = f"{'█'*filled_blocks:<20}".replace(" ", "░")
+    await interaction.followup.send(f"You are level {data['level']}\n{bar} {data['progress']}/{data['out_of']} XP")
+
 @bot.event
 async def on_message(message):
-    if message.author == bot.user:
+    if message.author.bot:
         return
-    
+
+    # duck reaction
     if any(word in message.content.lower() for word in ["duck", "quack"]):
         await message.add_reaction("🦆")
         await message.channel.send("Quack! 🦆")
         return
 
+    # DM message
     if isinstance(message.channel, discord.DMChannel):
-        await message.channel.send("Hello! I'm a bot. Please use slash commands to interact with me. Type /help to see available commands.")
+        await message.channel.send(
+            "Hello! I'm a bot. Please use slash commands to interact with me."
+        )
         return
-    
+
+    guild_id = message.guild.id
+    user_id = message.author.id
+
+    os.makedirs(f"data/{guild_id}", exist_ok=True)
+    path = f"data/{guild_id}/{user_id}.json"
+
+    if not os.path.exists(path):
+        with open(path, "w") as f:
+            json.dump({
+                "level": 0,
+                "progress": 0,
+                "out_of": 100,
+                "last_message": ""
+            }, f, indent=2)
+
+    with open(path, "r") as f:
+        data = json.load(f)
+
+    data["progress"] += 5
+    data["last_message"] = str(datetime.datetime.now())
+    if data["progress"] >= data["out_of"]:
+        data["progress"] = 0
+        data["level"] += 1
+
+        level = data["level"]
+
+        level_channel = bot.get_channel(1450192627478564916)
+
+        if level_channel:
+            await level_channel.send(
+                f"{message.author.mention} reached **level {level}**! 🎉"
+            )
+
+        if level in LEVEL_ROLES:
+            role_id = LEVEL_ROLES[level]
+            role = message.guild.get_role(role_id)
+
+            if role:
+                await message.author.add_roles(role)
+
+                if level_channel:
+                    await level_channel.send(
+                        f"{message.author.mention} unlocked **{role.name}**!"
+                    )
+
+    with open(path, "w") as f:
+        json.dump(data, f, indent=2)
+
     await bot.process_commands(message)
 
-bot.run(TOKEN)
+bot.run(TOKEN) # type: ignore
