@@ -491,13 +491,16 @@ async def on_message(message):
         now = time.time()
 
         if len(message.content) < 5:
-            cur.execute("UPDATE users SET total_messages = total_messages + 1 WHERE guild_id=? AND user_id=?", (guild_id, user_id))
+            cur.execute("UPDATE users SET total_messages = total_messages + 1, last_message=? WHERE guild_id=? AND user_id=?", (str(datetime.datetime.now()), guild_id, user_id))
             conn.commit()
             conn.close()
             return
         
         if user_id in last_xp:
             if now - last_xp[user_id] < COOLDOWN:
+                cur.execute("UPDATE users SET total_messages = total_messages + 1, last_message=? WHERE guild_id=? AND user_id=?", (str(datetime.datetime.now()), guild_id, user_id))
+                conn.commit()
+                conn.close()
                 return
             
         xp = random.randint(1, 15)
