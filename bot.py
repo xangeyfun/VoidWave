@@ -8,6 +8,7 @@ import discord
 import sqlite3
 import random
 import time
+import json
 import os
 
 startup = time.time()
@@ -464,11 +465,28 @@ async def on_message(message):
     if message.author.bot:
         return
 
+    print(f"{date()} MESSAGE from {message.author} in {message.guild.name if message.guild else 'DM'}: {message.content} {message.attachments[0].url if message.attachments else ''} {message.embeds[0].url if message.embeds else ''} {message.stickers[0].url if message.stickers else ''}")
+
     # duck reaction
     if any(word in message.content.lower() for word in ["duck", "quack"]):
         await message.add_reaction("🦆")
         await message.channel.send("Quack! 🦆")
-        return
+
+    if any(word in message.content.lower() for word in ["cat", "meow"]):
+        await message.add_reaction("🐱")
+        await message.channel.send("Meow! 🐱")
+    
+    with open("banned_ids.json", "r") as f:
+        banned_ids = json.load(f)
+
+    if "https://cdn.discordapp.com/stickers/1488531621996134430.png" in [sticker.url for sticker in message.stickers] and message.author.id not in banned_ids:
+        await message.add_reaction("❓")
+        await message.channel.send("<@&1488533311776227469>")
+        
+    if "https://cdn.discordapp.com/stickers/1488531621996134430.png" in [sticker.url for sticker in message.stickers] and message.author.id in banned_ids:
+        await message.delete()
+        await message.author.send(f"<@{message.author.id}> You have been banned from using the sticker for repeatedly spamming it. If you think this is a mistake, please DM the admins")
+        print(f"{date()} DEBUG  Deleted message from banned user {message.author} (ID: {message.author.id}) for using the sticker.")
 
     # DM message
     if isinstance(message.channel, discord.DMChannel):

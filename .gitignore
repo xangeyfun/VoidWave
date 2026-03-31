@@ -1,3 +1,4 @@
 .env
 data/
 database.db
+banned_ids.json
