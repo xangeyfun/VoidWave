@@ -465,17 +465,16 @@ async def on_message(message):
     if message.author.bot:
         return
 
-    print(f"{date()} MESSAGE from {message.author} in {message.guild.name if message.guild else 'DM'}: {message.content} {message.attachments[0].url if message.attachments else ''} {message.embeds[0].url if message.embeds else ''} {message.stickers[0].url if message.stickers else ''}")
+    print(f"{date()} MESSAGE from {message.author} in {message.guild.name if message.guild else 'DM'}/{message.channel.name if message.channel else 'Unknown'}: {message.content} {message.attachments[0].url if message.attachments else ''} {message.embeds[0].url if message.embeds else ''} {message.stickers[0].url if message.stickers else ''}")
 
     # duck reaction
     if any(word in message.content.lower() for word in ["duck", "quack"]):
         await message.add_reaction("🦆")
         await message.channel.send("Quack! 🦆")
 
-    if any(word in message.content.lower() for word in ["cat", "meow"]):
-        await message.add_reaction("🐱")
-        await message.channel.send("Meow! 🐱")
-    
+    if any(word in message.content.lower() for word in [":3"]):
+        await message.add_reaction(bot.get_emoji(1488541008261288088) or "😺")
+
     with open("banned_ids.json", "r") as f:
         banned_ids = json.load(f)
 
