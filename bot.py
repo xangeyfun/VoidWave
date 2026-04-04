@@ -40,11 +40,11 @@ def get_db():
     conn.row_factory = sqlite3.Row
     return conn
 
-print(f"{date()} DEBUG  Starting bot...\n")
+print(f"{date()} INFO  Starting bot...\n")
 
 @bot.event
 async def on_ready():
-    print(f"\n{date()} DEBUG  Logged in as {bot.user}")
+    print(f"\n{date()} INFO  Logged in as {bot.user}")
     try:
         print(f"{date()} DEBUG  Syncing commands...")
         start_sync = time.time()
@@ -56,15 +56,15 @@ async def on_ready():
     total_guilds = len(bot.guilds)
     total_members = sum(guild.member_count or 0 for guild in bot.guilds)
     sync_time = f"{done - start_sync:.2f}s"
-    print(f"\n{date()} DEBUG  --- Bot is ready! ---")
+    print(f"\n{date()} INFO  --- Bot is ready! ---")
     if bot.user:
-        print(f"{date()} DEBUG  Invite link: https://discord.com/api/oauth2/authorize?client_id={bot.user.id}&permissions=8&scope=bot%20applications.commands")
+        print(f"{date()} INFO  Invite link: https://discord.com/api/oauth2/authorize?client_id={bot.user.id}&permissions=8&scope=bot%20applications.commands")
     else:
-        exit(1)
+        exit(1) 
     print(f"{date()} DEBUG  Connected to {total_guilds} guilds ({total_members} members)")
     print(f"{date()} DEBUG  Synced {len(synced)} slash commands in {sync_time}")
     print(f"{date()} DEBUG  Startup time: {done - startup:.4f} seconds")
-    print(f"{date()} DEBUG ---------------------\n")
+    print(f"{date()} INFO ---------------------\n")
 
 @bot.event
 async def on_interaction(interaction: discord.Interaction):
@@ -222,7 +222,7 @@ async def quote(interaction: discord.Interaction, choice: str, hidden: bool = Fa
         return
     try:
         r = requests.get(f"https://zenquotes.io/api/{choice.lower()}")
-        print(f"{date()} DEBUG  Quote API response status: {r.status_code}")
+        print(f"{date()} INFO  Quote API response status: {r.status_code}")
     except Exception as e:
         await interaction.followup.send(f"> Could not fetch quote. Please try again later.\nDetails: {e}", ephemeral=True)
         return
@@ -239,7 +239,7 @@ async def meme(interaction: discord.Interaction, subreddit: str | None = None, h
     url = f"https://meme-api.com/gimme/{subreddit}" if subreddit else "https://meme-api.com/gimme"
     try:
         r = requests.get(url)
-        print(f"{date()} DEBUG  Meme API response status: {r.status_code}")
+        print(f"{date()} INFO  Meme API response status: {r.status_code}")
     except Exception as e:
         embed = discord.Embed(title="Error", description="Could not fetch meme. Please try again later.", color=discord.Color.red())
         embed.add_field(name="Details", value=str(e))
@@ -267,7 +267,7 @@ async def duck(interaction: discord.Interaction, hidden: bool = False):
     await interaction.response.defer(ephemeral=hidden)
     try:
         r = requests.get("https://random-d.uk/api/v2/random")
-        print(f"{date()} DEBUG  Duck API response status: {r.status_code}")
+        print(f"{date()} INFO  Duck API response status: {r.status_code}")
     except Exception as e:
         embed = discord.Embed(title="Error", description="Could not fetch duck image. Please try again later.", color=discord.Color.red())
         embed.add_field(name="Details", value=str(e))
@@ -288,7 +288,7 @@ async def fox(interaction: discord.Interaction, hidden: bool = False):
     await interaction.response.defer(ephemeral=hidden)
     try:
         r = requests.get("https://randomfox.ca/floof/")
-        print(f"{date()} DEBUG  Fox API response status: {r.status_code}")
+        print(f"{date()} INFO  Fox API response status: {r.status_code}")
     except Exception as e:
         embed = discord.Embed(title="Error", description="Could not fetch fox image. Please try again later.", color=discord.Color.red())
         embed.add_field(name="Details", value=str(e))
@@ -325,7 +325,7 @@ async def fact(interaction: discord.Interaction, choice: str, hidden: bool = Fal
         return
     try:
         r = requests.get(f"https://uselessfacts.jsph.pl/{'today' if choice.lower() == 'today' else 'random'}.json?language=en")
-        print(f"{date()} DEBUG  Fact API response status: {r.status_code}")
+        print(f"{date()} INFO  Fact API response status: {r.status_code}")
     except Exception as e:
         await interaction.followup.send(f"> Could not fetch fact. Please try again later.\nDetails: {e}", ephemeral=True)
         return
@@ -341,7 +341,7 @@ async def dog(interaction: discord.Interaction, hidden: bool = False):
     await interaction.response.defer(ephemeral=hidden)
     try:
         r = requests.get("https://random.dog/woof.json")
-        print(f"{date()} DEBUG  Dog API response status: {r.status_code}")
+        print(f"{date()} INFO  Dog API response status: {r.status_code}")
     except Exception as e:
         embed = discord.Embed(title="Error", description="Could not fetch dog image. Please try again later.", color=discord.Color.red())
         embed.add_field(name="Details", value=str(e))
@@ -362,7 +362,7 @@ async def shutdown(interaction: discord.Interaction):
         await interaction.response.send_message("> You do not have permission to use this command.", ephemeral=True)
         return
     await interaction.response.send_message("> Shutting down...", ephemeral=True)
-    print(f"{date()} DEBUG  Shutdown command issued by {interaction.user.name} (ID: {interaction.user.id})")
+    print(f"{date()} INFO  Shutdown command issued by {interaction.user.name} (ID: {interaction.user.id})")
     await bot.close()
 
 @bot.tree.command(name="level", description="Check your server level") #, guild=guild)
@@ -465,7 +465,7 @@ async def on_message(message):
     if message.author.bot:
         return
 
-    print(f"{date()} MESSAGE from {message.author} in {message.guild.name if message.guild else 'DM'}/{message.channel.name if message.channel else 'Unknown'}: {message.content} {message.attachments[0].url if message.attachments else ''} {message.embeds[0].url if message.embeds else ''} {message.stickers[0].url if message.stickers else ''}")
+    print(f"{date()} MESSAGE from {message.author} in {message.guild.name if message.guild else 'DM'}{'/' + message.channel.name if message.guild else ''}: {message.content} [{message.attachments[0].url if message.attachments else ''}] [{message.embeds[0].url if message.embeds else ''}] [{message.stickers[0].url if message.stickers else ''}]")
 
     # duck reaction
     if message.content.lower() in ["duck", "quack"]:
@@ -483,6 +483,13 @@ async def on_message(message):
     if any(word in message.content.lower() for word in [":3"]):
         await message.add_reaction(bot.get_emoji(1488541008261288088) or "😺")
 
+    # DM message
+    if isinstance(message.channel, discord.DMChannel):
+        await message.channel.send(
+            "Hello! I'm a bot. 🤖\n> Please use slash commands (/) to interact with me!"
+        )
+        return
+
     with open("banned_ids.json", "r") as f:
         banned_ids = json.load(f)
 
@@ -493,14 +500,7 @@ async def on_message(message):
     if "https://cdn.discordapp.com/stickers/1488531621996134430.png" in [sticker.url for sticker in message.stickers] and message.author.id in banned_ids:
         await message.delete()
         await message.author.send(f"<@{message.author.id}> You have been banned from using the sticker for repeatedly spamming it. If you think this is a mistake, please DM the admins")
-        print(f"{date()} DEBUG  Deleted message from banned user {message.author} (ID: {message.author.id}) for using the sticker.")
-
-    # DM message
-    if isinstance(message.channel, discord.DMChannel):
-        await message.channel.send(
-            "Hello! I'm a bot. Please use slash commands to interact with me."
-        )
-        return
+        print(f"{date()} INFO  Deleted message from banned user {message.author} (ID: {message.author.id}) for using the sticker.")
 
     guild_id = message.guild.id
     user_id = message.author.id
