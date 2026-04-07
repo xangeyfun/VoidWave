@@ -1,4 +1,5 @@
 .env
 data/
+qotd.json
 database.db
 banned_ids.json

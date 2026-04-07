@@ -1,7 +1,7 @@
 from discord import app_commands, Interaction
-from discord.ext import commands
-from dotenv import load_dotenv
+from discord.ext import commands, tasks
 from simpleeval import simple_eval
+from dotenv import load_dotenv
 import datetime
 import requests
 import discord
@@ -9,6 +9,7 @@ import sqlite3
 import random
 import time
 import json
+import html
 import os
 
 startup = time.time()
@@ -31,6 +32,7 @@ LEVEL_ROLES = {
     5: 1206262995223584859, # photo perms
     10: 1203672754843422761 # very cool guy role
 }
+last_qotd = None
 
 def date():
     return datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -65,6 +67,7 @@ async def on_ready():
     print(f"{date()} DEBUG  Synced {len(synced)} slash commands in {sync_time}")
     print(f"{date()} DEBUG  Startup time: {done - startup:.4f} seconds")
     print(f"{date()} INFO ---------------------\n")
+    qotd.start()
 
 @bot.event
 async def on_interaction(interaction: discord.Interaction):
@@ -600,6 +603,88 @@ async def on_message(message):
 
     conn.close()
     await bot.process_commands(message)
+
+@tasks.loop(minutes=1)
+async def qotd():
+    now = datetime.datetime.now()
+    if now.hour != 13 or now.minute != 0:
+        return
+
+    # make sure the file exists
+    if not os.path.exists("qotd.json"):
+        with open("qotd.json", "w") as f:
+            json.dump({}, f)
+
+    # load last QOTD IDs
+    with open("qotd.json", "r") as f:
+        data = json.load(f)
+        last_qotd_id = data.get("last_qotd")
+        last_qotd_thread_id = data.get("last_qotd_thread")
+
+    channel = bot.get_channel(1488186829562970334)
+    if not channel:
+        return
+
+    print(f"{date()} INFO  Fetching QOTD...")
+    r = requests.get("https://opentdb.com/api.php?amount=1").json()
+    if r['response_code'] != 0:
+        return
+
+    question = r['results'][0]
+
+    # cleanup old QOTD
+    if last_qotd_thread_id:
+        try:
+            thread = await bot.fetch_channel(last_qotd_thread_id)
+            await thread.delete()
+        except Exception as e:
+            print(f"Failed to delete old QOTD thread: {e}")
+
+    if last_qotd_id:
+        try:
+            old_msg = await channel.fetch_message(last_qotd_id)
+            await old_msg.delete()
+        except Exception as e:
+            print(f"Failed to delete old QOTD message: {e}")
+
+    # create embed
+    embed = discord.Embed(
+        title="🧠 Question of the Day",
+        description=f"**{html.unescape(question['question'])}**",
+        color=0x5865F2,
+        timestamp=datetime.datetime.now(datetime.timezone.utc)
+    )
+    embed.add_field(name="📚 Category", value=f"`{question['category']}`", inline=True)
+    embed.add_field(name="⚡ Difficulty", value=f"`{question['difficulty'].capitalize()}`", inline=True)
+    embed.set_footer(text="New question every day • Powered by OpenTDB")
+
+    # send message & ping role
+    msg = await channel.send(embed=embed)
+
+    # create thread
+    thread = await msg.create_thread(
+        name=html.unescape(question['question'][:80]),
+        auto_archive_duration=1440
+    )
+    await thread.send(f"""
+# 💬 QOTD Discussion
+
+Hey <@&1491188025898832125>! :3
+
+Feel free to share your answer, thoughts, or debate others 👀
+
+🕒 **Posted:** <t:{int(datetime.datetime.now().timestamp())}:F> (<t:{int(datetime.datetime.now().timestamp())}:R>)
+📊 **Difficulty:** `{question['difficulty'].capitalize()}`  
+
+Have fun! ✨
+    """)
+
+    # save last QOTD IDs
+    with open("qotd.json", "w") as f:
+        json.dump({
+            "last_qotd": msg.id,
+            "last_qotd_thread": thread.id
+        }, f)
 
 if __name__ == "__main__":
     # Setup DB
