@@ -32,7 +32,6 @@ LEVEL_ROLES = {
     5: 1206262995223584859, # photo perms
     10: 1203672754843422761 # very cool guy role
 }
-last_qotd = None
 
 def date():
     return datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -608,6 +607,7 @@ async def on_message(message):
 async def qotd():
     now = datetime.datetime.now()
     if now.hour != 13 or now.minute != 0:
+        print(f"{date()} INFO  Not time for QOTD yet. Current time: {now.hour}:{now.minute:02d}")
         return
 
     # make sure the file exists
@@ -623,11 +623,13 @@ async def qotd():
 
     channel = bot.get_channel(1488186829562970334)
     if not channel:
+        print(f"{date()} ERROR  QOTD channel not found!")
         return
 
     print(f"{date()} INFO  Fetching QOTD...")
     r = requests.get("https://opentdb.com/api.php?amount=1").json()
     if r['response_code'] != 0:
+        print(f"{date()} ERROR  Failed to fetch QOTD. Response code: {r['response_code']}")
         return
 
     question = r['results'][0]
@@ -638,14 +640,14 @@ async def qotd():
             thread = await bot.fetch_channel(last_qotd_thread_id)
             await thread.delete()
         except Exception as e:
-            print(f"Failed to delete old QOTD thread: {e}")
+            print(f"{date()} ERROR  Failed to delete old QOTD thread: {e}")
 
     if last_qotd_id:
         try:
             old_msg = await channel.fetch_message(last_qotd_id)
             await old_msg.delete()
         except Exception as e:
-            print(f"Failed to delete old QOTD message: {e}")
+            print(f"{date()} ERROR  Failed to delete old QOTD message: {e}")
 
     # create embed
     embed = discord.Embed(
