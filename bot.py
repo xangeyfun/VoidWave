@@ -467,7 +467,7 @@ async def on_message(message):
     if message.author.bot:
         return
 
-    print(f"{date()} MESSAGE from {message.author} in {message.guild.name if message.guild else 'DM'}{'/' + message.channel.name if message.guild else ''}: {message.content} [{message.attachments[0].url if message.attachments else ''}] [{message.embeds[0].url if message.embeds else ''}] [{message.stickers[0].url if message.stickers else ''}]")
+    print(f"{date()} MESSAGE  from {message.author} in {message.guild.name if message.guild else 'DM'}{'/' + message.channel.name if message.guild else ''}: {message.content} [{message.attachments[0].url if message.attachments else ''}] [{message.embeds[0].url if message.embeds else ''}] [{message.stickers[0].url if message.stickers else ''}]")
 
     # duck reaction
     if message.content.lower() in ["duck", "quack"]:
@@ -607,7 +607,7 @@ async def on_message(message):
 async def qotd():
     now = datetime.datetime.now()
     if now.hour != 13 or now.minute != 0:
-        print(f"{date()} INFO  Not time for QOTD yet. Current time: {now.hour}:{now.minute:02d}")
+        print(f"{date()} INFO  Not time for QOTD yet. Current time: {now.hour}:{now.minute:02d}/13:00 - sleeping...")
         return
 
     # make sure the file exists
@@ -627,12 +627,10 @@ async def qotd():
         return
 
     print(f"{date()} INFO  Fetching QOTD...")
-    r = requests.get("https://opentdb.com/api.php?amount=1").json()
-    if r['response_code'] != 0:
-        print(f"{date()} ERROR  Failed to fetch QOTD. Response code: {r['response_code']}")
-        return
+    r = requests.get("https://zenquotes.io/api/random").json()
 
-    question = r['results'][0]
+    quote = r[0]['q']
+    author = r[0]['a']
 
     # cleanup old QOTD
     if last_qotd_thread_id:
@@ -652,20 +650,22 @@ async def qotd():
     # create embed
     embed = discord.Embed(
         title="🧠 Question of the Day",
-        description=f"**{html.unescape(question['question'])}**",
+        description=(
+            f"**{quote}**\n\n"
+            "*Do you agree with this? Why or why not?*"
+        ),
         color=0x5865F2,
         timestamp=datetime.datetime.now(datetime.timezone.utc)
     )
-    embed.add_field(name="📚 Category", value=f"`{question['category']}`", inline=True)
-    embed.add_field(name="⚡ Difficulty", value=f"`{question['difficulty'].capitalize()}`", inline=True)
-    embed.set_footer(text="New question every day • Powered by OpenTDB")
+    embed.add_field(name="✍️ Quote Author", value=f"`{author}`", inline=True)
+    embed.set_footer(text="New question every day • Powered by ZenQuotes")
 
     # send message & ping role
     msg = await channel.send(embed=embed)
 
     # create thread
     thread = await msg.create_thread(
-        name=html.unescape(question['question'][:80]),
+        name=f"💬 QOTD • {datetime.datetime.now().strftime('%b %d')}",
         auto_archive_duration=1440
     )
     await thread.send(f"""
@@ -673,12 +673,17 @@ async def qotd():
 
 Hey <@&1491188025898832125>! :3
 
-Feel free to share your answer, thoughts, or debate others 👀
+What do you think about today’s question?  
+There’s no right or wrong answer, just share your thoughts, opinions, or experiences 👀
+
+Feel free to:
+* agree or disagree  
+* explain your reasoning  
+* respond to others and start a discussion  
 
 🕒 **Posted:** <t:{int(datetime.datetime.now().timestamp())}:F> (<t:{int(datetime.datetime.now().timestamp())}:R>)
-📊 **Difficulty:** `{question['difficulty'].capitalize()}`  
 
-Have fun! ✨
+Have fun and keep it respectful! ✨
     """)
 
     # save last QOTD IDs
