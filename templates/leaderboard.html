@@ -28,11 +28,11 @@
         </div>
         
         {% for entry in leaderboard %}
-        <div class="leaderboard-row {% if loop.index == 1 %}top-1{% elif loop.index == 2 %}top-2{% elif loop.index == 3 %}top-3{% endif %}">
-            <span class="rank {% if loop.index == 1 %}rank-1{% elif loop.index == 2 %}rank-2{% elif loop.index == 3 %}rank-3{% endif %}">
-                {% if loop.index == 1 %}🥇
-                {% elif loop.index == 2 %}🥈
-                {% elif loop.index == 3 %}🥉
+        <div class="leaderboard-row {% if (page - 1) * per_page + loop.index == 1 %}top-1{% elif (page - 1) * per_page + loop.index == 2 %}top-2{% elif (page - 1) * per_page + loop.index == 3 %}top-3{% endif %}">
+            <span class="rank {% if (page - 1) * per_page + loop.index == 1 %}rank-1{% elif (page - 1) * per_page + loop.index == 2 %}rank-2{% elif (page - 1) * per_page + loop.index == 3 %}rank-3{% endif %}">
+                {% if (page - 1) * per_page + loop.index == 1 %}🥇
+                {% elif (page - 1) * per_page + loop.index == 2 %}🥈
+                {% elif (page - 1) * per_page + loop.index == 3 %}🥉
                 {% else %}#{{ (page - 1) * per_page + loop.index }}{% endif %}
             </span>
             <div class="user-cell">
