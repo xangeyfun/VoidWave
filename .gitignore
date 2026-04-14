@@ -3,3 +3,7 @@ data/
 qotd.json
 database.db
 banned_ids.json
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
