@@ -74,7 +74,7 @@ MIT - do whatever, just don't be a jerk.
 
 ## Contact
 
-- Discord: [xangey's server](https://discord.gg/xangey)
+- Discord: [xangey's server](https://discord.gg/tyQksBReAS)
 - GitHub: [xangeyfun/discord-bot](https://github.com/xangeyfun/discord-bot)
 
 Made by xangey (:
