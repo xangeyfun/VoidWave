@@ -594,7 +594,7 @@ async def on_message(message):
 
     global llm_active
 
-    if "<@1442229230384709752>" in message.content:
+    if "<@1442229230384709752>" in message.content and message.content.startswith("<@1442229230384709752>"):
         if llm_active:
             await message.reply("LLM is currently busy. Please wait a moment and try again.")
             return
