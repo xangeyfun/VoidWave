@@ -2,10 +2,12 @@ from discord import app_commands, Interaction
 from discord.ext import commands, tasks
 from simpleeval import simple_eval
 from dotenv import load_dotenv
+from llm import ask_llm
 import datetime
 import requests
 import discord
 import sqlite3
+import asyncio
 import random
 import time
 import json
@@ -25,6 +27,9 @@ TOKEN = os.getenv("TOKEN")
 allowed_user = os.getenv("ALLOWED_USER_ID")
 guild = discord.Object(id=int(os.getenv("GUILD_ID"))) # type: ignore
 COOLDOWN = 30
+LLM_COOLDOWN = 60
+last_llm = {}
+llm_active = False
 last_xp = {}
 LEVEL_ROLES = {
     1: 1203672643413221397, # cool guy role
@@ -586,6 +591,32 @@ async def on_message(message):
         await message.delete()
         await message.author.send(f"<@{message.author.id}> You have been banned from using the sticker for repeatedly spamming it. If you think this is a mistake, please DM the admins")
         print(f"{date()} INFO  Deleted message from banned user {message.author} (ID: {message.author.id}) for using the sticker.")
+
+    global llm_active
+
+    if "<@1442229230384709752>" in message.content:
+        if llm_active:
+            await message.reply("LLM is currently busy. Please wait a moment and try again.")
+            return
+        llm_active = True
+        if message.author.id in last_llm and time.time() - last_llm[message.author.id] < LLM_COOLDOWN and message.author.id != 996771607630585856:
+            await message.reply(f"Please wait before using the LLM again. Cooldown: `{LLM_COOLDOWN - (time.time() - last_llm[message.author.id]):.1f} seconds left.`")
+            llm_active = False
+            return
+        last_llm[message.author.id] = time.time()
+        msg = message.content.replace("<@1442229230384709752>", "").strip()
+        if not msg:
+            await message.reply("Please provide a message for the LLM to respond to.")
+            llm_active = False
+            return
+        try:
+            async with message.channel.typing():
+                reply = await asyncio.to_thread(ask_llm, msg, message.author.display_name)
+        except Exception as e:
+            reply = f"Error occurred while fetching LLM response.\n> {e}"
+        await message.reply(reply)
+        print(f"{date()} INFO  LLM response to {message.author} (ID: {message.author.id}): {reply}")
+        llm_active = False
 
     guild_id = message.guild.id
     user_id = message.author.id
