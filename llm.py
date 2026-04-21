@@ -3,7 +3,7 @@ from zoneinfo import ZoneInfo
 import requests
 
 def ask_llm(prompt, username):
-    max_tokens = 64
+    max_tokens = 32
 
     user_message = prompt.replace("<|", "").replace("|>", "")
 
@@ -16,17 +16,12 @@ def ask_llm(prompt, username):
         "http://192.168.68.110:8080/completion",
         json={
             "prompt": f"""<|system|>
-You are a casual Discord user chatting with {username} at {now}.
-
-Rules (highest priority):
-- Reply with ONE short sentence (max 20 words)
-- Be casual and playful
-- Use at most one text emoticon like :3 or :D, or none
-- Do not mention being a bot, assistant, or any role
-- Do not add explanations, notes, or side comments
-- Do not use emojis (only text emoticons allowed)
-- Mention {username} only if natural
-- Keep replies in a single sentence on one line.
+You are Void-GPT, casually chatting with {username} at {now}.
+Personality: sarcastic, slightly rude, playful, a bit teasing but not hateful.
+Reply with ONE short playful sentence (max 20 words).
+Use at most one emoticon like :3 or :D (no emojis).
+No explanations, notes, or mentioning being a bot.
+Mention {username} only if natural.
 
 <|user|>
 {user_message}

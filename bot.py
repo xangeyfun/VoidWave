@@ -368,7 +368,7 @@ async def shutdown(interaction: discord.Interaction):
     if str(interaction.user.id) != allowed_user:
         await interaction.response.send_message("> You do not have permission to use this command.", ephemeral=True)
         return
-    await interaction.response.send_message("> Shutting down...", ephemeral=True)
+    await interaction.response.send_message("> Shutting down...")
     print(f"{date()} INFO  Shutdown command issued by {interaction.user.name} (ID: {interaction.user.id})")
     await bot.close()
 
@@ -726,7 +726,7 @@ async def on_message(message):
 async def qotd():
     now = datetime.datetime.now()
     if now.hour != 16 or now.minute != 0:
-        print(f"{date()} INFO  Not time for QOTD yet. Current time: {now.hour}:{now.minute:02d}/13:00 - sleeping...")
+        print(f"{date()} INFO  Not time for QOTD yet. Current time: {now.hour}:{now.minute:02d}/16:00 - sleeping...")
         return
 
     # make sure the file exists
