@@ -22,9 +22,9 @@ load_dotenv()
 intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
-bot = commands.Bot(command_prefix="!", intents=intents, status=discord.Status.online, activity=discord.Activity(type=discord.ActivityType.watching, name="/help | VoidWave"))
+bot = commands.Bot(command_prefix="%", intents=intents, status=discord.Status.online, activity=discord.Activity(type=discord.ActivityType.watching, name="/help | VoidWave"))
 TOKEN = os.getenv("TOKEN")
-allowed_user = os.getenv("ALLOWED_USER_ID")
+allowed_user = int( os.getenv("ALLOWED_USER_ID"))
 guild = discord.Object(id=int(os.getenv("GUILD_ID"))) # type: ignore
 COOLDOWN = 30
 LLM_COOLDOWN = 60
@@ -37,6 +37,10 @@ LEVEL_ROLES = {
     5: 1206262995223584859, # photo perms
     10: 1203672754843422761 # very cool guy role
 }
+with open("banned_ids.json", "r") as f:
+    banned_ids = json.load(f)
+
+# Helpers
 
 def date():
     return datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -45,6 +49,40 @@ def get_db():
     conn = sqlite3.connect("database.db")
     conn.row_factory = sqlite3.Row
     return conn
+
+def get_user(cur, user_id):
+    user = cur.execute("SELECT * FROM economy WHERE user_id = ?", (user_id,)).fetchone()
+
+    if user is None:
+        cur.execute("INSERT INTO economy (user_id) VALUES (?)", (user_id,))
+        return {"user_id": user_id, "wallet": 0, "bank": 0, "last_daily": 0}
+
+    return user
+
+def get_guild_settings(cur, guild_id):
+    row = cur.execute("SELECT * FROM guild_settings WHERE guild_id = ?", (guild_id,)).fetchone()
+
+    if row is None:
+        cur.execute("INSERT INTO guild_settings (guild_id, coin_emoji) VALUES (?, ?)", (guild_id, "💰"))
+        return {"guild_id": guild_id, "coin_emoji": "💰", "currency_name": "coins"}
+
+    return row
+
+def format_seconds(seconds):
+    hours, remainder = divmod(seconds, 3600)
+    minutes, seconds = divmod(remainder, 60)
+
+    parts = []
+    if hours:
+        parts.append(f"{hours}h")
+    if minutes:
+        parts.append(f"{minutes}m")
+    if seconds or not parts:
+        parts.append(f"{seconds}s")
+
+    return " ".join(parts)
+
+# Bot
 
 print(f"{date()} INFO  Starting bot...\n")
 
@@ -365,7 +403,7 @@ async def dog(interaction: discord.Interaction, hidden: bool = False):
 
 @bot.tree.command(name="shutdown", description="Shut down the bot (owner only).") #, guild=guild)
 async def shutdown(interaction: discord.Interaction):
-    if str(interaction.user.id) != allowed_user:
+    if interaction.user.id != allowed_user:
         await interaction.response.send_message("> You do not have permission to use this command.", ephemeral=True)
         return
     await interaction.response.send_message("> Shutting down...")
@@ -546,6 +584,312 @@ async def fact(interaction: discord.Interaction, sort: str, global_lb: bool = Fa
     conn.close()
     await interaction.followup.send(embed=embed, ephemeral=hidden)
     
+# Economy
+
+@bot.group(invoke_without_command=True)
+async def eco(ctx):
+    if not ctx.guild:
+        return await ctx.reply("this only works in servers")
+
+    msg = [
+        "**💰 Economy Commands**",
+        "`%eco` - show this menu",
+        "`%eco balance` - check your money",
+        "`%eco daily` - claim daily reward",
+        "`%eco deposit <amount>` - put money in bank",
+        "`%eco withdraw <amount>` - take money out",
+        "`%eco transfer <user> <amount>` - send money",
+    ]
+
+    if ctx.author.guild_permissions.administrator or ctx.author.id == allowed_user:
+        msg.append("\n**Server Admin Commands:**")
+        msg.append("`%eco settings` - show settings menu")
+
+    if ctx.author.id == allowed_user:
+        msg.append("`%eco admin` - show admin menu")
+
+    await ctx.reply("\n".join(msg))
+
+@eco.command(aliases=["bal", "b"])
+async def balance(ctx, member: discord.Member = None):
+    if not ctx.guild:
+        return await ctx.reply("this only works in servers")
+
+    conn = get_db()
+    cur = conn.cursor()
+
+    user = get_user(cur, ctx.author.id if not member else member.id)
+    settings = get_guild_settings(cur, ctx.guild.id)
+
+    await ctx.reply(f"{settings['coin_emoji']} {ctx.author.display_name if not member else member.display_name}'s Balance Info\n> **Wallet: {user['wallet']:,}**\n> **Bank: {user['bank']:,}**")
+
+    conn.commit()
+    conn.close()
+
+@eco.command()
+async def daily(ctx):
+    if not ctx.guild:
+        return await ctx.reply("this only works in servers")
+
+    conn = get_db()
+    cur = conn.cursor()
+
+    user = get_user(cur, ctx.author.id)
+    settings = get_guild_settings(cur, ctx.guild.id)
+
+    now = int(time.time())
+    cooldown = 86400
+
+    if now - user["last_daily"] < cooldown:
+        remaining = cooldown - (now - user["last_daily"])
+        return await ctx.reply(f"come back in {format_seconds(remaining)} :3")
+
+    reward = random.randint(500, 1000)
+
+    cur.execute("UPDATE economy SET wallet = wallet + ?, last_daily = ? WHERE user_id = ?", (reward, now, ctx.author.id))
+
+    conn.commit()
+    conn.close()
+
+    await ctx.reply(f"🎁 you got +{reward:,} {settings['coin_emoji']} :D")
+
+@eco.command(aliases=["dep", "d"])
+async def deposit(ctx, amount: str):
+    if not ctx.guild:
+        return await ctx.reply("this only works in servers")
+        
+    conn = get_db()
+    cur = conn.cursor()
+
+    user = get_user(cur, ctx.author.id)
+    settings = get_guild_settings(cur, ctx.guild.id)
+
+    if amount.lower() == "all":
+        amount = user["wallet"]
+    else:
+        try:
+            amount = int(amount)
+        except ValueError:
+            return await ctx.reply("invalid amount")
+
+    if amount <= 0:
+        return await ctx.reply("invalid amount")
+
+    if amount > user["wallet"]:
+        return await ctx.reply("you dont have that much in wallet")
+
+    cur.execute("UPDATE economy SET wallet = wallet - ?, bank = bank + ? WHERE user_id = ?", (amount, amount, ctx.author.id))
+
+    conn.commit()
+    conn.close()
+
+    await ctx.reply(f"⬆️ deposited +{amount:,} {settings['coin_emoji']} into your bank")
+
+@eco.command(aliases=["with", "w"])
+async def withdraw(ctx, amount: str):
+    if not ctx.guild:
+        return await ctx.reply("this only works in servers")
+        
+    conn = get_db()
+    cur = conn.cursor()
+
+    user = get_user(cur, ctx.author.id)
+    settings = get_guild_settings(cur, ctx.guild.id)
+
+    if user["bank"] <= 0:
+        return await ctx.reply("you have nothing in bank")
+
+    if amount.lower() == "all":
+        amount = user["bank"]
+    else:
+        try:
+            amount = int(amount)
+        except ValueError:
+            return await ctx.reply("invalid amount")
+
+    if amount <= 0:
+        return await ctx.reply("invalid amount")
+
+    if amount > user["bank"]:
+        return await ctx.reply("you dont have that much in bank")
+
+    cur.execute("UPDATE economy SET wallet = wallet + ?, bank = bank - ? WHERE user_id = ?", (amount, amount, ctx.author.id))
+
+    conn.commit()
+    conn.close()
+
+    await ctx.reply(f"⬇️ withdrew -{amount:,} {settings['coin_emoji']} from your bank")
+
+@eco.command()
+async def transfer(ctx, member: discord.Member, amount: int):
+    if not ctx.guild:
+        return await ctx.reply("this only works in servers")
+        
+    if member.bot:
+        return await ctx.reply("no bots :sob:")
+
+    conn = get_db()
+    cur = conn.cursor()
+
+    user = get_user(cur, ctx.author.id)
+    target = get_user(cur, member.id)
+    settings = get_guild_settings(cur, ctx.guild.id)
+
+    if amount <= 0 or amount > user["wallet"]:
+        return await ctx.reply("invalid amount")
+
+    if user["wallet"] < amount:
+        return await ctx.reply("not enough money in wallet")
+
+    cur.execute("UPDATE economy SET wallet = wallet - ? WHERE user_id = ?", (amount, ctx.author.id))
+
+    cur.execute("UPDATE economy SET wallet = wallet + ? WHERE user_id = ?", (amount, member.id))
+
+    conn.commit()
+    conn.close()
+
+    await ctx.reply(f"🔁 sent -{amount:,} {settings['coin_emoji']} to {member.mention}")
+
+# Economy settings
+
+@eco.group(invoke_without_command=True)
+async def settings(ctx):
+    if not ctx.guild:
+        return await ctx.reply("this only works in servers")
+        
+    if not ctx.author.guild_permissions.administrator and ctx.author.id != allowed_user:
+        return await ctx.reply("no permission :3")
+    await ctx.reply(
+        "⚙️ Server Settings:\n"
+        "`%eco settings emoji <emoji>`"
+    )
+
+@settings.command()
+async def emoji(ctx, emoji: str):
+    if not ctx.guild:
+        return await ctx.reply("this only works in servers")
+        
+    if not ctx.author.guild_permissions.administrator and ctx.author.id != allowed_user:
+        return await ctx.reply("no permission :3")
+
+    if not emoji:
+        return await ctx.reply("invalid emoji")
+
+    conn = get_db()
+    cur = conn.cursor()
+
+    cur.execute("INSERT INTO guild_settings (guild_id, coin_emoji) VALUES (?, ?) ON CONFLICT(guild_id) DO UPDATE SET coin_emoji = excluded.coin_emoji", (ctx.guild.id, emoji))
+
+    conn.commit()
+    conn.close()
+
+    await ctx.reply(f"coin emoji set to {emoji}")
+
+# Economy admin
+
+@eco.group(invoke_without_command=True)
+async def admin(ctx):
+    if not ctx.guild:
+        return await ctx.reply("this only works in servers")
+        
+    if ctx.author.id != allowed_user:
+        return await ctx.reply("no permission :3")
+
+    await ctx.reply(
+        f"**{bot.get_emoji(1488541008261288088)} Admin Commands**\n"
+        "`%eco admin addmoney <user> <amount>`\n"
+        "`%eco admin removemoney <user> <amount>`\n"
+        "`%eco admin setmoney <user> <amount>`\n"
+        "`%eco admin reseteco <user>`"
+    )
+
+@admin.command()
+async def addmoney(ctx, member: discord.Member, amount: int):
+    if not ctx.guild:
+        return await ctx.reply("this only works in servers")
+        
+    if ctx.author.id != allowed_user:
+        return await ctx.reply("no permission :3")
+
+    if amount <= 0:
+        return await ctx.reply("invalid amount")
+
+    conn = get_db()
+    cur = conn.cursor()
+    settings = get_guild_settings(cur, ctx.guild.id)
+
+    cur.execute("INSERT INTO economy (user_id, wallet, bank, last_daily) VALUES (?, 0, 0, 0) ON CONFLICT(user_id) DO NOTHING", (member.id,))
+
+    cur.execute("UPDATE economy SET wallet = wallet + ? WHERE user_id = ?", (amount, member.id))
+
+    conn.commit()
+    conn.close()
+
+    await ctx.reply(f"➕ added +{amount:,} {settings['coin_emoji']} to {member.display_name}")
+
+@admin.command()
+async def removemoney(ctx, member: discord.Member, amount: int):
+    if not ctx.guild:
+        return await ctx.reply("this only works in servers")
+        
+    if ctx.author.id != allowed_user:
+        return await ctx.reply("no permission :3")
+
+    conn = get_db()
+    cur = conn.cursor()
+    settings = get_guild_settings(cur, ctx.guild.id)
+
+    cur.execute("INSERT INTO economy (user_id, wallet, bank, last_daily) VALUES (?, 0, 0, 0) ON CONFLICT(user_id) DO NOTHING", (member.id,))
+
+    cur.execute("UPDATE economy SET wallet = MAX(wallet - ?, 0) WHERE user_id = ?", (amount, member.id)
+    )
+
+    conn.commit()
+    conn.close()
+
+    await ctx.reply(f"➖ removed -{amount:,} {settings['coin_emoji']} from {member.display_name}")
+
+@admin.command()
+async def setmoney(ctx, member: discord.Member, amount: int):
+    if not ctx.guild:
+        return await ctx.reply("this only works in servers")
+        
+    if ctx.author.id != allowed_user:
+        return await ctx.reply("no permission :3")
+
+    conn = get_db()
+    cur = conn.cursor()
+    settings = get_guild_settings(cur, ctx.guild.id)
+
+    cur.execute("INSERT INTO economy (user_id, wallet, bank, last_daily) VALUES (?, 0, 0, 0) ON CONFLICT(user_id) DO NOTHING", (member.id,))
+
+    cur.execute("UPDATE economy SET wallet = ? WHERE user_id = ?", (amount, member.id))
+
+    conn.commit()
+    conn.close()
+
+    await ctx.reply(f"🛠️ set {member.display_name}'s wallet to {amount:,} {settings['coin_emoji']}")
+
+@admin.command()
+async def reseteco(ctx, member: discord.Member):
+    if not ctx.guild:
+        return await ctx.reply("this only works in servers")
+        
+    if ctx.author.id != allowed_user:
+        return await ctx.reply("no permission :3")
+
+    conn = get_db()
+    cur = conn.cursor()
+
+    cur.execute("DELETE FROM economy WHERE user_id = ?", (member.id,))
+
+    conn.commit()
+    conn.close()
+
+    await ctx.reply(f"🧨 reset economy for {member.display_name}")
+
+# Message events
+
 @bot.event
 async def on_message(message):
     if message.author.bot:
@@ -575,13 +919,9 @@ async def on_message(message):
 
     # DM message
     if isinstance(message.channel, discord.DMChannel):
-        await message.channel.send(
-            "Hello! I'm a bot. 🤖\n> Please use slash commands (/) to interact with me!"
-        )
+        await message.channel.send("Hello! I'm a bot. 🤖\n> Please use slash commands (/) to interact with me!")
+        await bot.process_commands(message)
         return
-
-    with open("banned_ids.json", "r") as f:
-        banned_ids = json.load(f)
 
     if "https://cdn.discordapp.com/stickers/1488531621996134430.png" in [sticker.url for sticker in message.stickers] and message.author.id not in banned_ids:
         await message.add_reaction("❓")
@@ -597,17 +937,20 @@ async def on_message(message):
     if "<@1442229230384709752>" in message.content and message.content.startswith("<@1442229230384709752>"):
         if llm_active:
             await message.reply("LLM is currently busy. Please wait a moment and try again.")
+            await bot.process_commands(message)
             return
         llm_active = True
         if message.author.id in last_llm and time.time() - last_llm[message.author.id] < LLM_COOLDOWN and message.author.id != 996771607630585856:
             await message.reply(f"Please wait before using the LLM again. Cooldown: `{LLM_COOLDOWN - (time.time() - last_llm[message.author.id]):.1f} seconds left.`")
             llm_active = False
+            await bot.process_commands(message)
             return
         last_llm[message.author.id] = time.time()
         msg = message.content.replace("<@1442229230384709752>", "").strip()
         if not msg:
             await message.reply("Please provide a message for the LLM to respond to.")
             llm_active = False
+            await bot.process_commands(message)
             return
         try:
             async with message.channel.typing():
@@ -651,6 +994,7 @@ async def on_message(message):
             cur.execute("UPDATE users SET total_messages = total_messages + 1, last_message=?, display_name=?, username=?, avatar_hash=? WHERE guild_id=? AND user_id=?", (str(datetime.datetime.now()), message.author.display_name, message.author.name, message.author.avatar.key if message.author.avatar else None, guild_id, user_id))
             conn.commit()
             conn.close()
+            await bot.process_commands(message)
             return
         
         if user_id in last_xp:
@@ -658,6 +1002,7 @@ async def on_message(message):
                 cur.execute("UPDATE users SET total_messages = total_messages + 1, last_message=?, display_name=?, username=?, avatar_hash=? WHERE guild_id=? AND user_id=?", (str(datetime.datetime.now()), message.author.display_name, message.author.name, message.author.avatar.key if message.author.avatar else None, guild_id, user_id))
                 conn.commit()
                 conn.close()
+                await bot.process_commands(message)
                 return
             
         xp = random.randint(1, 15)
@@ -717,6 +1062,7 @@ async def on_message(message):
     except Exception as e:
         await message.reply(f"Something went wrong... Please DM <@996771607630585856> about this\n> {e}", allowed_mentions=discord.AllowedMentions(users=False))
         conn.close()
+        await bot.process_commands(message)
         return
 
     conn.close()
@@ -834,8 +1180,27 @@ if __name__ == "__main__":
         PRIMARY KEY (guild_id, user_id)
     )
     """)
-
     conn.commit()
+
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS economy (
+        user_id INTEGER PRIMARY KEY,
+        wallet INTEGER DEFAULT 0,
+        bank INTEGER DEFAULT 0,
+        last_daily INTEGER DEFAULT 0
+    )
+    """)
+    conn.commit()
+
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS guild_settings (
+        guild_id INTEGER PRIMARY KEY,
+        coin_emoji TEXT DEFAULT "💰",
+        currency_name TEXT DEFAULT "coins"
+    )
+    """)
+    conn.commit()
+
     conn.close()
 
     # Run the bot
