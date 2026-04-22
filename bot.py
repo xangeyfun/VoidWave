@@ -11,7 +11,6 @@ import asyncio
 import random
 import time
 import json
-import html
 import os
 
 startup = time.time()
@@ -24,7 +23,7 @@ intents.message_content = True
 intents.members = True
 bot = commands.Bot(command_prefix="%", intents=intents, status=discord.Status.online, activity=discord.Activity(type=discord.ActivityType.watching, name="/help | VoidWave"))
 TOKEN = os.getenv("TOKEN")
-allowed_user = int( os.getenv("ALLOWED_USER_ID"))
+allowed_user = int(os.getenv("ALLOWED_USER_ID") or 0)
 guild = discord.Object(id=int(os.getenv("GUILD_ID"))) # type: ignore
 COOLDOWN = 30
 LLM_COOLDOWN = 60
@@ -142,7 +141,7 @@ async def on_interaction(interaction: discord.Interaction):
 
 
 @bot.tree.command(name="help", description="Get help about the bot.") #, guild=guild)
-async def help(interaction: discord.Interaction):
+async def help_command(interaction: discord.Interaction):
     help_text = (
         "## **Available Commands:**\n"
         "> **<required>**  |  **[optional]**\n\n"
@@ -194,7 +193,7 @@ async def flip(interaction: Interaction, hidden: bool = False):
 
 @bot.tree.command(name="github", description="Find the code on github!") #, guild=guild)
 async def github(interaction: discord.Interaction):
-    await interaction.response.send_message(f"Bot made by `xangey` (<@996771607630585856>)\n> <https://github.com/xangeyfun/discord-bot>\n> <https://voidwave.xangey.dev/>", ephemeral=True, allowed_mentions=discord.AllowedMentions(users=False))
+    await interaction.response.send_message("Bot made by `xangey` (<@996771607630585856>)\n> <https://github.com/xangeyfun/discord-bot>\n> <https://voidwave.xangey.dev/>", ephemeral=True, allowed_mentions=discord.AllowedMentions(users=False))
 
 @bot.tree.command(name="rps", description="Rock Paper Scissors") #, guild=guild)
 @app_commands.describe(hand="Rock / Paper / Scissors", hidden="Hide the command from others")
@@ -528,18 +527,18 @@ async def fact(interaction: discord.Interaction, sort: str, global_lb: bool = Fa
     try:
         if not global_lb:
             if sort == "Level":
-                leaderboad = cur.execute(f"SELECT username, level, guild_id FROM users WHERE guild_id=? ORDER BY level DESC LIMIT 10", (interaction.guild.id,)).fetchall()
+                leaderboad = cur.execute("SELECT username, level, guild_id FROM users WHERE guild_id=? ORDER BY level DESC LIMIT 10", (interaction.guild.id,)).fetchall()
             if sort == "Total XP":
-                leaderboad = cur.execute(f"SELECT username, total_xp, guild_id FROM users WHERE guild_id=? ORDER BY total_xp DESC LIMIT 10", (interaction.guild.id,)).fetchall()
+                leaderboad = cur.execute("SELECT username, total_xp, guild_id FROM users WHERE guild_id=? ORDER BY total_xp DESC LIMIT 10", (interaction.guild.id,)).fetchall()
             if sort == "Total Messages":
-                leaderboad = cur.execute(f"SELECT username, total_messages, guild_id FROM users WHERE guild_id=? ORDER BY total_messages DESC LIMIT 10", (interaction.guild.id,)).fetchall()
+                leaderboad = cur.execute("SELECT username, total_messages, guild_id FROM users WHERE guild_id=? ORDER BY total_messages DESC LIMIT 10", (interaction.guild.id,)).fetchall()
         else:
             if sort == "Level":
-                leaderboad = cur.execute(f"SELECT username, level, guild_id FROM users ORDER BY level DESC LIMIT 10").fetchall()
+                leaderboad = cur.execute("SELECT username, level, guild_id FROM users ORDER BY level DESC LIMIT 10").fetchall()
             if sort == "Total XP":
-                leaderboad = cur.execute(f"SELECT username, total_xp, guild_id FROM users ORDER BY total_xp DESC LIMIT 10").fetchall()
+                leaderboad = cur.execute("SELECT username, total_xp, guild_id FROM users ORDER BY total_xp DESC LIMIT 10").fetchall()
             if sort == "Total Messages":
-                leaderboad = cur.execute(f"SELECT username, total_messages, guild_id FROM users ORDER BY total_messages DESC LIMIT 10").fetchall()
+                leaderboad = cur.execute("SELECT username, total_messages, guild_id FROM users ORDER BY total_messages DESC LIMIT 10").fetchall()
         
 
     except Exception as e:
@@ -587,7 +586,7 @@ async def fact(interaction: discord.Interaction, sort: str, global_lb: bool = Fa
     
 # Economy
 
-@bot.group(invoke_without_command=True)
+@bot.group(invoke_without_command=True, description="Manage your virtual economy - balance, daily rewards, transfers and more!")
 async def eco(ctx):
     if not ctx.guild:
         return await ctx.reply("this only works in servers")
@@ -672,8 +671,8 @@ async def help(ctx, command: str | None = None):
 
     await ctx.reply(help_data[command])
 
-@eco.command(aliases=["bal", "b"])
-async def balance(ctx, member: discord.Member = None):
+@eco.command(aliases=["bal", "b"], description="Check your or another user's wallet and bank balance")
+async def balance(ctx, member: discord.Member | None = None):
     if not ctx.guild:
         return await ctx.reply("this only works in servers")
 
@@ -688,34 +687,7 @@ async def balance(ctx, member: discord.Member = None):
     conn.commit()
     conn.close()
 
-@eco.command()
-async def daily(ctx):
-    if not ctx.guild:
-        return await ctx.reply("this only works in servers")
-
-    conn = get_db()
-    cur = conn.cursor()
-
-    user = get_user(cur, ctx.author.id)
-    settings = get_guild_settings(cur, ctx.guild.id)
-
-    now = int(time.time())
-    cooldown = 86400
-
-    if now - user["last_daily"] < cooldown:
-        remaining = cooldown - (now - user["last_daily"])
-        return await ctx.reply(f"come back in {format_seconds(remaining)} :3")
-
-    reward = random.randint(500, 1000)
-
-    cur.execute("UPDATE economy SET wallet = wallet + ?, last_daily = ? WHERE user_id = ?", (reward, now, ctx.author.id))
-
-    conn.commit()
-    conn.close()
-
-    await ctx.reply(f"🎁 you got +{reward:,} {settings['coin_emoji']} :D")
-
-@eco.command(aliases=["dep", "d"])
+@eco.command(aliases=["dep", "d"], description="Deposit money from your wallet to the bank")
 async def deposit(ctx, amount: str):
     if not ctx.guild:
         return await ctx.reply("this only works in servers")
@@ -747,7 +719,7 @@ async def deposit(ctx, amount: str):
 
     await ctx.reply(f"⬆️ deposited +{amount:,} {settings['coin_emoji']} into your bank")
 
-@eco.command(aliases=["with", "w"])
+@eco.command(aliases=["with", "w"], description="Withdraw money from your bank to your wallet")
 async def withdraw(ctx, amount: str):
     if not ctx.guild:
         return await ctx.reply("this only works in servers")
@@ -782,7 +754,7 @@ async def withdraw(ctx, amount: str):
 
     await ctx.reply(f"⬇️ withdrew -{amount:,} {settings['coin_emoji']} from your bank")
 
-@eco.command()
+@eco.command(description="Transfer money from your wallet to another user")
 async def transfer(ctx, member: discord.Member, amount: int):
     if not ctx.guild:
         return await ctx.reply("this only works in servers")
@@ -794,7 +766,6 @@ async def transfer(ctx, member: discord.Member, amount: int):
     cur = conn.cursor()
 
     user = get_user(cur, ctx.author.id)
-    target = get_user(cur, member.id)
     settings = get_guild_settings(cur, ctx.guild.id)
 
     if amount <= 0 or amount > user["wallet"]:
@@ -814,7 +785,7 @@ async def transfer(ctx, member: discord.Member, amount: int):
 
 # Economy settings
 
-@eco.group(invoke_without_command=True)
+@eco.group(invoke_without_command=True, description="Manage server economy settings (admin only)")
 async def settings(ctx):
     if not ctx.guild:
         return await ctx.reply("this only works in servers")
@@ -826,7 +797,7 @@ async def settings(ctx):
         "`%eco settings emoji <emoji>`"
     )
 
-@settings.command()
+@settings.command(description="Set the coin emoji for the server")
 async def emoji(ctx, emoji: str):
     if not ctx.guild:
         return await ctx.reply("this only works in servers")
@@ -847,9 +818,38 @@ async def emoji(ctx, emoji: str):
 
     await ctx.reply(f"coin emoji set to {emoji}")
 
+# Economy Money Makers
+
+@eco.command(description="Claim your daily reward of 500-1000 coins")
+async def daily(ctx):
+    if not ctx.guild:
+        return await ctx.reply("this only works in servers")
+
+    conn = get_db()
+    cur = conn.cursor()
+
+    user = get_user(cur, ctx.author.id)
+    settings = get_guild_settings(cur, ctx.guild.id)
+
+    now = int(time.time())
+    cooldown = 86400
+
+    if now - user["last_daily"] < cooldown:
+        remaining = cooldown - (now - user["last_daily"])
+        return await ctx.reply(f"come back in {format_seconds(remaining)} :3")
+
+    reward = random.randint(500, 1000)
+
+    cur.execute("UPDATE economy SET wallet = wallet + ?, last_daily = ? WHERE user_id = ?", (reward, now, ctx.author.id))
+
+    conn.commit()
+    conn.close()
+
+    await ctx.reply(f"🎁 you got +{reward:,} {settings['coin_emoji']} :D")
+
 # Economy admin
 
-@eco.group(invoke_without_command=True)
+@eco.group(invoke_without_command=True, description="Admin commands for managing the economy (bot owner only)")
 async def admin(ctx):
     if not ctx.guild:
         return await ctx.reply("this only works in servers")
@@ -865,7 +865,7 @@ async def admin(ctx):
         "`%eco admin reseteco <user>`"
     )
 
-@admin.command()
+@admin.command(description="Add money to a user's wallet")
 async def addmoney(ctx, member: discord.Member, amount: int):
     if not ctx.guild:
         return await ctx.reply("this only works in servers")
@@ -889,7 +889,7 @@ async def addmoney(ctx, member: discord.Member, amount: int):
 
     await ctx.reply(f"➕ added +{amount:,} {settings['coin_emoji']} to {member.display_name}")
 
-@admin.command()
+@admin.command(description="Remove money from a user's wallet")
 async def removemoney(ctx, member: discord.Member, amount: int):
     if not ctx.guild:
         return await ctx.reply("this only works in servers")
@@ -911,7 +911,7 @@ async def removemoney(ctx, member: discord.Member, amount: int):
 
     await ctx.reply(f"➖ removed -{amount:,} {settings['coin_emoji']} from {member.display_name}")
 
-@admin.command()
+@admin.command(description="Set a user's wallet to a specific amount")
 async def setmoney(ctx, member: discord.Member, amount: int):
     if not ctx.guild:
         return await ctx.reply("this only works in servers")
@@ -932,7 +932,7 @@ async def setmoney(ctx, member: discord.Member, amount: int):
 
     await ctx.reply(f"🛠️ set {member.display_name}'s wallet to {amount:,} {settings['coin_emoji']}")
 
-@admin.command()
+@admin.command(description="Reset all economy data for a specific user")
 async def reseteco(ctx, member: discord.Member):
     if not ctx.guild:
         return await ctx.reply("this only works in servers")
@@ -949,6 +949,27 @@ async def reseteco(ctx, member: discord.Member):
     conn.close()
 
     await ctx.reply(f"🧨 reset economy for {member.display_name}")
+
+@admin.command(description="Reset all economy data")
+async def resetall(ctx, confirm: str | None = None):
+    if not ctx.guild:
+        return await ctx.reply("this only works in servers")
+    
+    if ctx.author.id != allowed_user:
+        return await ctx.reply("no permission :3")
+    
+    if confirm != "YES" or not confirm:
+        return await ctx.reply("please type `%eco admin resetall YES` to confirm")
+
+    conn = get_db()
+    cur = conn.cursor()
+
+    cur.execute("DELETE FROM economy")
+
+    conn.commit()
+    conn.close()
+
+    await ctx.reply("🧨 reset all economy data")
 
 # Message events
 
@@ -1016,10 +1037,11 @@ async def on_message(message):
             return
         try:
             async with message.channel.typing():
-                reply = await asyncio.to_thread(ask_llm, msg, message.author.display_name)
+                reply, info = await asyncio.to_thread(ask_llm, msg, message.author.display_name)
         except Exception as e:
-            reply = f"Error occurred while fetching LLM response.\n> {e}"
-        await message.reply(reply)
+            reply = "Error occurred while fetching LLM response. Please try again later."
+            info = e
+        await message.reply(f"{reply}\n> {info}")
         print(f"{date()} INFO  LLM response to {message.author} (ID: {message.author.id}): {reply}")
         llm_active = False
 

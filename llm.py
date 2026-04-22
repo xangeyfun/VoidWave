@@ -1,9 +1,11 @@
 from datetime import datetime
 from zoneinfo import ZoneInfo
 import requests
+import time
 
 def ask_llm(prompt, username):
-    max_tokens = 100
+    start = time.time()
+    max_tokens = 32
 
     user_message = prompt.replace("<|", "").replace("|>", "")
 
@@ -36,10 +38,21 @@ Mention {username} only if natural.
     )
     try:
         reply = r.json()["content"].strip()
+        data = r.json()
     except Exception as e:
         print("Something went wrong...")
         reply = f"Something went wrong...\n> {e}\n> Response content: {r.text}"
 
     reply = reply.strip()
+    tokens = data.get('tokens_predicted', 0)
+    gen_ms = data.get('generation_time_ms', 0)
 
-    return reply  
+    if gen_ms > 0:
+        tps = tokens / (gen_ms / 1000)
+    else:
+        tps = 0
+
+    total_time = time.time() - start
+
+    info = f"(Tokens: {tokens}, Time: {total_time:.2f}s, TPS: {tps:.2f})"
+    return reply, info
