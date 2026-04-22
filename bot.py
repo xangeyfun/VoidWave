@@ -37,6 +37,7 @@ LEVEL_ROLES = {
     5: 1206262995223584859, # photo perms
     10: 1203672754843422761 # very cool guy role
 }
+
 with open("banned_ids.json", "r") as f:
     banned_ids = json.load(f)
 
@@ -599,6 +600,8 @@ async def eco(ctx):
         "`%eco deposit <amount>` - put money in bank",
         "`%eco withdraw <amount>` - take money out",
         "`%eco transfer <user> <amount>` - send money",
+        "\n**Command Help:**",
+        "`%eco help <command>` - view command help page"
     ]
 
     if ctx.author.guild_permissions.administrator or ctx.author.id == allowed_user:
@@ -609,6 +612,65 @@ async def eco(ctx):
         msg.append("`%eco admin` - show admin menu")
 
     await ctx.reply("\n".join(msg))
+
+@eco.group(invoke_without_command=True)
+async def help(ctx, command: str | None = None):
+    if not ctx.guild:
+        return await ctx.reply("this only works in servers")
+
+    help_data = {
+        "balance": (
+            "**`%eco balance [user]`**\n"
+            "check your or someone else's balance\n\n"
+            "**args:**\n"
+            "`[user]` optional user\n\n"
+            "**aliases:** `%eco bal`, `%eco b`"
+        ),
+
+        "daily": (
+            "**`%eco daily`**\n"
+            "claim your daily coins reward 🎁"
+        ),
+
+        "deposit": (
+            "**`%eco deposit <amount>`**\n"
+            "move money from wallet → bank\n\n"
+            "**args:**\n"
+            "`<amount>` number or `all`\n\n"
+            "**aliases:** `%eco dep`, `%eco d`"
+        ),
+
+        "withdraw": (
+            "**`%eco withdraw <amount>`**\n"
+            "move money from bank → wallet\n\n"
+            "**args:**\n"
+            "`<amount>` number or `all`\n\n"
+            "**aliases:** `%eco with`, `%eco w`"
+        ),
+
+        "transfer": (
+            "**`%eco transfer <user> <amount>`**\n"
+            "send money to another player\n\n"
+            "**args:**\n"
+            "`<user>` target user\n"
+            "`<amount>` amount to send"
+        ),
+    }
+
+    if not command:
+        return await ctx.reply(
+            "**💰 Economy Help**\n"
+            "use `%eco help <command>`\n\n"
+            "**commands:**\n"
+            "`balance`, `daily`, `deposit`, `withdraw`, `transfer`"
+        )
+
+    command = command.lower()
+
+    if command not in help_data:
+        return await ctx.reply("unknown command")
+
+    await ctx.reply(help_data[command])
 
 @eco.command(aliases=["bal", "b"])
 async def balance(ctx, member: discord.Member = None):

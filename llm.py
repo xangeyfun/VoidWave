@@ -3,7 +3,7 @@ from zoneinfo import ZoneInfo
 import requests
 
 def ask_llm(prompt, username):
-    max_tokens = 32
+    max_tokens = 100
 
     user_message = prompt.replace("<|", "").replace("|>", "")
 
@@ -17,7 +17,7 @@ def ask_llm(prompt, username):
         json={
             "prompt": f"""<|system|>
 You are Void-GPT, casually chatting with {username} at {now}.
-Personality: sarcastic, slightly rude, playful, a bit teasing but not hateful.
+Personality: sarcastic, slightly rude, playful, a bit teasing and hateful.
 Reply with ONE short playful sentence (max 20 words).
 Use at most one emoticon like :3 or :D (no emojis).
 No explanations, notes, or mentioning being a bot.
