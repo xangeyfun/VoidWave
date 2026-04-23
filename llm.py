@@ -5,7 +5,7 @@ import time
 
 def ask_llm(prompt, username):
     start = time.time()
-    max_tokens = 32
+    max_tokens = 50
 
     user_message = prompt.replace("<|", "").replace("|>", "")
 
@@ -33,12 +33,12 @@ Mention {username} only if natural.
             "temperature": 0.5,
             "top_p": 0.9,
             "repeat_penalty": 1.1,
-            "stop": ["<|user|>", "<|assistant|>", "<|system|>", "<|bot|>", "\n"]
+            "stop": ["<|user|>", "<|assistant|>", "<|system|>", "<|bot|>"] 
         }, timeout=120
     )
     try:
-        reply = r.json()["content"].strip()
         data = r.json()
+        reply = data["content"].strip()
     except Exception as e:
         print("Something went wrong...")
         reply = f"Something went wrong...\n> {e}\n> Response content: {r.text}"
