@@ -33,7 +33,7 @@ Mention {username} only if natural.
             "temperature": 0.5,
             "top_p": 0.9,
             "repeat_penalty": 1.1,
-            "stop": ["<|user|>", "<|assistant|>", "<|system|>", "<|bot|>"] 
+            "stop": ["<|user|>", "<|assistant|>", "<|system|>", "<|bot|>", "\n"] 
         }, timeout=120
     )
     try:
