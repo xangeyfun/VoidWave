@@ -1077,6 +1077,7 @@ async def on_message(message):
             return
         last_llm[message.author.id] = time.time()
         msg = message.content.replace("<@1442229230384709752>", "").strip()
+        msg = msg.replace("--stats", "").strip()
         if not msg:
             await message.reply("Please provide a message for the LLM to respond to.")
             llm_active = False
@@ -1095,9 +1096,13 @@ async def on_message(message):
         except Exception as e:
             reply = "Error occurred while fetching LLM response. Please try again later."
             info = e
+        if reply.strip() == "":
+            reply = "Error occurred while fetching LLM response. Please try again."
+        llm_active = False
+        if message.content.endswith("--stats"):
+            reply += f"\n> {info}"
         await message.reply(reply)
         print(f"{date()} INFO  LLM response to {message.author} (ID: {message.author.id}): {reply} ({info})")
-        llm_active = False
 
     guild_id = message.guild.id
     user_id = message.author.id
