@@ -21,7 +21,7 @@ def ask_llm(prompt, username, reply_info = None):
         reply_content = reply_info.get("content", "").replace("<|", "").replace("|>", "")
         context_block = f"{username} is replying to this message:\n{reply_author}: {reply_content}"
 
-    now = datetime.now(ZoneInfo("Europe/Amsterdam")).strftime("It is %A, %B %d, %Y, %H:%M in Amsterdam (%Z)")
+    now = datetime.now(ZoneInfo("Europe/Amsterdam")).strftime("It is %A, %B %d, %Y, %I:%M %p")
 
     r = requests.post(
         "http://localhost:8080/completion",
@@ -58,13 +58,13 @@ Rule:
 - Never write "{username}:" or "VoidWave:".
 - Do not continue dialogue threads.
 - Respond as a single reply only.
-- Never place emoticons (:3, :D, 😏) on a new line. They must always be part of the same sentence.
+- Never place emoticons on a new line. They must always be part of the same sentence.
+- Use the users username ({username}) in your response.
 
 Website links:
 - https://voidwave.xangey.dev/
 - https://voidwave.xangey.dev/terms
 - https://voidwave.xangey.dev/privacy
-- https://voidwave.xangey.dev/leaderboard
 - https://github.com/xangeyfun/discord-bot
 
 {now}

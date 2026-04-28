@@ -82,6 +82,20 @@ def format_seconds(seconds):
 
     return " ".join(parts)
 
+async def get_llm_response(msg, display_name, reply_info):
+    for attempt in range(5):
+        reply, info = await asyncio.to_thread(ask_llm, msg, display_name, reply_info)
+
+        if reply and reply.strip() and isinstance(reply, str):
+            return reply, info + f", Attemps: {attempt + 1}" 
+
+        print(f"{date()} WARN  LLM empty response, retrying ({attempt + 1}/5)")
+        await asyncio.sleep(0.5)
+
+    print(f"{date()} ERROR LLM empty response after 5 tries")
+    return "Error occurred while fetching LLM response. Please try again.\n> Empty response after 5 tries"
+
+
 # Bot
 
 print(f"{date()} INFO  Starting bot...\n")
@@ -1092,7 +1106,7 @@ async def on_message(message):
                         "author": replied_msg.author.display_name,
                         "content": replied_msg.content
                     }
-                reply, info = await asyncio.to_thread(ask_llm, msg, message.author.display_name, reply_info)
+                reply, info = await get_llm_response(msg, message.author.display_name, reply_info)
         except Exception as e:
             reply = f"Error occurred while fetching LLM response. Please try again later.\n> {e}"
             info = e
