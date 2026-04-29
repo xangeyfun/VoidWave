@@ -10,6 +10,7 @@ Voidwave is a Discord bot that tracks user activity and XP. Simple, fast, and do
 
 - **XP & Leveling** - Users earn XP by chatting, level up over time
 - **Leaderboards** - Server and global rankings
+- **LLM Chat** - Talk to the bot (powered by Llama 3.2), just mention it or reply
 - **Slash Commands** - Modern Discord UX
 - **Web Stats** - Share your profile link: `voidwave.xangey.dev/stats/guild_id/user_id`
 - **Role Rewards** - Auto-role at certain levels (configurable)
@@ -56,6 +57,7 @@ Type `/help` when the bot's online to see all commands. Here's the basics:
 - `/ping` - Check latency
 - `/level` - Your stats
 - `/leaderboard` - Top users
+- `/ai` - Chat with the bot (AI)
 - `/calc` - Math calculator
 - `/flip` - Coin flip
 - `/quote` - Get a quote
