@@ -1127,10 +1127,10 @@ async def on_message(message):
                 if message.reference and message.reference.message_id:
                     replied_msg = await message.channel.fetch_message(message.reference.message_id)
                     reply_info = {
-                        "author": replied_msg.author.display_name,
+                        "author": replied_msg.author.name,
                         "content": replied_msg.content
                     }
-                reply, info = await get_llm_response(msg, message.author.display_name, message.author.id, reply_info)
+                reply, info = await get_llm_response(msg, message.author.name, message.author.id, reply_info)
         except Exception as e:
             reply = f"Error occurred while fetching LLM response. Please try again later.\n> {e}"
             info = e
