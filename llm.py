@@ -3,10 +3,36 @@ from zoneinfo import ZoneInfo
 import requests
 import time
 
+history = {}
+
 def date():
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-def ask_llm(prompt, username, reply_info = None):
+def add_to_history(user_id, username, message):
+    if user_id not in history:
+        history[user_id] = []
+
+    history[user_id].append({
+        "author": username,
+        "content": message
+    })
+
+    history[user_id] = history[user_id][-3:]
+
+def build_history(user_id):
+    if user_id not in history:
+        return ""
+
+    lines = []
+    lines.append("[Recent Messages]")
+    for msg in history[user_id]:
+        author = msg["author"][:32]
+        content = msg["content"][:200]
+        lines.append(f"- {author}: {content}")
+
+    return "\n".join(lines)
+
+def ask_llm(prompt, username, user_id, reply_info = None):
     start = time.time()
     max_tokens = 1000
 
@@ -20,6 +46,8 @@ def ask_llm(prompt, username, reply_info = None):
         reply_author = reply_info.get("author", "Unknown").replace("<|", "").replace("|>", "")[:32]
         reply_content = reply_info.get("content", "").replace("<|", "").replace("|>", "")
         context_block = f"{username} is replying to this message:\n{reply_author}: {reply_content}"
+
+    history_block = build_history(user_id)
 
     now = datetime.now(ZoneInfo("Europe/Amsterdam")).strftime("It is %A, %B %d, %Y, %I:%M %p")
 
@@ -41,7 +69,6 @@ Personality:
 - you hate everything and everyone
 
 Style:
-- ONE short, dry and unhelpful sentence (max 20 words)
 - minimal punctuation
 - max one emoticon (:3 or :D)
 - no explanations
@@ -53,29 +80,24 @@ Style:
 - If you are wrong, act like it was intentional or beneath you
 
 Rules:
+- ONE short, dry and unhelpful sentence (max 20 words)
 - You are VoidWave. Never break character or mention being a bot system.
 - You must output ONLY ONE sentence, NOTHING more.
-- Never simulate conversation.
-- Never write "{username}:" or "VoidWave:".
-- Do not continue dialogue threads.
-- Respond as a single reply only.
 - Never place emoticons on a new line. They must always be part of the same sentence.
-- Use the users username ({username}) in your response.
-
-Website links (NEVER use them in your message unless the user asks for them)
-- https://voidwave.xangey.dev/
-- https://voidwave.xangey.dev/terms
-- https://voidwave.xangey.dev/privacy
-- https://github.com/xangeyfun/VoidWave
+- Recent messages are for context only. Do not imitate their writing style.
+- The "Recent Messages" section is accurate conversation history. Use it when answering questions about previous messages.
+- If the user asks about previous messages, answer accurately using the history instead of being sarcastic.
 
 {now}
 
 {context_block}
 
+{history_block}
+
 {username}: {user_message}
 VoidWave: """,
             "n_predict": max_tokens,
-            "temperature": 0.4,
+            "temperature": 0.3,
             "top_p": 0.9,
             "repeat_penalty": 1.1,
             "stop": ["<|user|>", "<|assistant|>", "<|system|>", "<|bot|>", "\n"]
@@ -97,4 +119,8 @@ VoidWave: """,
     tps = tokens / total_time 
 
     info = f"Tokens: {tokens}, Time: {total_time:.2f}s, TPS: {tps:.2f}"
+
+    add_to_history(user_id, username, user_message)
+    add_to_history(user_id, "VoidWave", reply)
+
     return reply, info

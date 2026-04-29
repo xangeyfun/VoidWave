@@ -82,9 +82,9 @@ def format_seconds(seconds):
 
     return " ".join(parts)
 
-async def get_llm_response(msg, display_name, reply_info = None):
+async def get_llm_response(msg, display_name, user_id, reply_info = None):
     for attempt in range(5):
-        reply, info = await asyncio.to_thread(ask_llm, msg, display_name, reply_info)
+        reply, info = await asyncio.to_thread(ask_llm, msg, display_name, user_id, reply_info)
 
         if reply and reply.strip() and isinstance(reply, str):
             return reply, info + f", Attemps: {attempt + 1}" 
@@ -654,7 +654,7 @@ async def ai(interaction: Interaction, prompt: str, stats: bool = False, hidden:
 
     llm_active = True
     last_llm[interaction.user.id] = time.time()
-    response, info = await get_llm_response(prompt, interaction.user.display_name) 
+    response, info = await get_llm_response(prompt, interaction.user.display_name, interaction.user.id) 
     llm_active = False
 
     if stats:
@@ -1130,7 +1130,7 @@ async def on_message(message):
                         "author": replied_msg.author.display_name,
                         "content": replied_msg.content
                     }
-                reply, info = await get_llm_response(msg, message.author.display_name, reply_info)
+                reply, info = await get_llm_response(msg, message.author.display_name, message.author.id, reply_info)
         except Exception as e:
             reply = f"Error occurred while fetching LLM response. Please try again later.\n> {e}"
             info = e
