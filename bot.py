@@ -120,7 +120,7 @@ async def llm_worker():
             async with ctx.channel.typing():
                 reply, info = await get_llm_response(prompt, ctx.author.name, ctx.author.id, reply_info)
 
-                if prompt.endswith("--stats"):
+                if ctx.content.endswith("--stats"):
                     reply += f"\n> {info}"
 
         except Exception as e:
