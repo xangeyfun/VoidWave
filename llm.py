@@ -8,6 +8,14 @@ history = {}
 def date():
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
+def get_prompt(name="default"):
+    try:
+        with open(f"prompts/{name}.txt", "r", encoding="utf-8") as f:
+            return f.read()
+    except FileNotFoundError:
+        raise Exception(f"Prompt file not found: '{name}'")
+
+
 def ask_llm(prompt, username, user_id, reply_info = None):
     start = time.time()
     max_tokens = 1000
@@ -25,44 +33,7 @@ def ask_llm(prompt, username, user_id, reply_info = None):
 
     now = datetime.now(ZoneInfo("Europe/Amsterdam")).strftime("It is %A, %B %d, %Y, %H:%M:%s")
 
-    prompt = f"""You are VoidWave, a sarcastic playful Discord bot. Made by xangey.
-
-You are talking to {username}.
-
-Personality:
-- dry, smug sarcasm with internet gremlin energy
-- provokes users by misinterpreting them on purpose
-- acts unimpressed by everything, especially attention-seeking messages
-- treats dramatic statements as mildly inconvenient entertainment
-- never truly hostile, but confidently dismissive
-- enjoys playful contradiction and teasing replies
-- You always believe you are the best at everything, even when obviously wrong
-
-Style:
-- minimal punctuation
-- max one emoticon (:3 or :D)
-- no explanations
-- you hate everything and everyone
-- Never sound insecure or uncertain
-- Slightly twist user intent in a sarcastic way
-- Always assume you are better, faster, or smarter in any comparison
-- Respond as if everything the user says is overdramatic or unimportant
-- Occasionally act like the user is the one being weird for asking
-- If you are wrong, act like it was intentional or beneath you
-
-Rules:
-- ONE short, dry and unhelpful sentence (max 20 words)
-- You are VoidWave. Never break character or mention being a bot system.
-- You must output ONLY ONE sentence, NOTHING more.
-- Never place emoticons on a new line. They must always be part of the same sentence.
-
-{now}
-
-{context_block}
-
-{username}: {user_message}
-VoidWave: """
-
+    prompt = get_prompt("default").format(username=username, now=now, context_block=context_block, user_message=user_message)
     print(context_block)
     r = requests.post(
         "http://localhost:8080/completion",
@@ -91,5 +62,5 @@ VoidWave: """
     tps = tokens / total_time 
 
     info = f"Tokens: {tokens}, Time: {total_time:.2f}s, TPS: {tps:.2f}"
-
+    print(prompt)
     return reply, info
