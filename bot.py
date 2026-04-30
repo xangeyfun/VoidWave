@@ -28,7 +28,8 @@ guild = discord.Object(id=int(os.getenv("GUILD_ID"))) # type: ignore
 COOLDOWN = 30
 LLM_COOLDOWN = 15
 last_llm = {}
-llm_active = False
+llm_queue = asyncio.Queue(maxsize=10)
+llm_queue_size = []
 last_xp = {}
 LEVEL_ROLES = {
     1: 1203672643413221397, # cool guy role
@@ -93,8 +94,44 @@ async def get_llm_response(msg, display_name, user_id, reply_info = None):
         await asyncio.sleep(0.5)
 
     print(f"{date()} ERROR LLM empty response after 5 tries")
-    return "Error occurred while fetching LLM response. Please try again.\n> Empty response after 5 tries"
+    return "Error occurred while fetching LLM response. Please try again.", "Empty response after 5 tries"
 
+# Classes
+
+class LLMRequest:
+    def __init__(self, prompt, ctx, reply_info = None):
+        self.prompt = prompt
+        self.reply_info = reply_info
+        self.ctx = ctx
+
+# Workers
+
+async def llm_worker():
+    while True:
+        req = await llm_queue.get()
+        prompt = req.prompt
+        reply_info = req.reply_info
+        ctx = req.ctx
+
+        reply = ""
+        info = ""
+
+        try:
+            async with ctx.channel.typing():
+                reply, info = await get_llm_response(prompt, ctx.author.name, ctx.author.id, reply_info)
+
+                if prompt.endswith("--stats"):
+                    reply += f"\n> {info}"
+
+        except Exception as e:
+            reply = f"Error occurred while fetching LLM response. Please try again later.\n> {e}"
+
+        finally:
+            await ctx.reply(reply)
+            print(f"{date()} INFO  LLM response to {ctx.author} (ID: {ctx.author.id}): {reply} ({info})")
+            await asyncio.sleep(1)
+            llm_queue_size.pop(0)
+            llm_queue.task_done()
 
 # Bot
 
@@ -127,6 +164,7 @@ async def on_ready():
         print(f"{date()} INFO  {guild.name:<30} | {guild.id:<20} | {str(guild.owner):<20} [{guild.owner_id:<20}] | {guild.member_count:<5} members")
     print(f"{date()} INFO ----------------------\n")
     qotd.start()
+    bot.loop.create_task(llm_worker())
 
 @bot.event
 async def on_interaction(interaction: discord.Interaction):
@@ -638,30 +676,6 @@ async def fact(interaction: discord.Interaction, sort: str, global_lb: bool = Fa
     conn.close()
     await interaction.followup.send(embed=embed, ephemeral=hidden)
 
-@discord.app_commands.allowed_installs(guilds=True, users=True)
-@discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
-@bot.tree.command(name="ai", description="Chat with the bot using AI (powered by Llama 3.2)") #, guild=guild)
-@app_commands.describe(prompt="What do you want to say to the bot?", stats="Show LLM statistics", hidden="Hide the command from others")
-async def ai(interaction: Interaction, prompt: str, stats: bool = False, hidden: bool = False):
-    global llm_active, last_llm
-    await interaction.response.defer(ephemeral=hidden)
-
-    if llm_active:
-        return await interaction.followup.send("LLM is currently busy. Please wait a moment and try again.")
-
-    if interaction.user.id in last_llm and time.time() - last_llm[interaction.user.id] < LLM_COOLDOWN and interaction.user.id != 996771607630585856:
-        return await interaction.followup.send(f"Please wait before using the LLM again. Cooldown: `{LLM_COOLDOWN - (time.time() - last_llm[interaction.user.id]):.1f} seconds left.`")
-
-    llm_active = True
-    last_llm[interaction.user.id] = time.time()
-    response, info = await get_llm_response(prompt, interaction.user.display_name, interaction.user.id) 
-    llm_active = False
-
-    if stats:
-        response += f"\n> {info}"
-    
-    await interaction.followup.send(f"{response}", ephemeral=hidden)
-    
 # Economy
 
 @bot.group(invoke_without_command=True, description="Manage your virtual economy - balance, daily rewards, transfers and more!")
@@ -1093,9 +1107,6 @@ async def on_message(message):
         await message.author.send(f"<@{message.author.id}> You have been banned from using the sticker for repeatedly spamming it. If you think this is a mistake, please DM the admins")
         print(f"{date()} INFO  Deleted message from banned user {message.author} (ID: {message.author.id}) for using the sticker.")
 
-    global llm_active
-    global llm_history
-
     message_reference = False
 
     if message.reference and message.reference.message_id:
@@ -1103,44 +1114,36 @@ async def on_message(message):
         message_reference = ref_msg.author.id == 1442229230384709752
 
     if message.content.startswith("<@1442229230384709752>") or message_reference or message.channel.id == 1494361038420709466: 
-        if llm_active:
-            await message.reply("LLM is currently busy. Please wait a moment and try again.")
-            await bot.process_commands(message)
-            return
-        llm_active = True
         if message.author.id in last_llm and time.time() - last_llm[message.author.id] < LLM_COOLDOWN and message.author.id != 996771607630585856:
             await message.reply(f"Please wait before using the LLM again. Cooldown: `{LLM_COOLDOWN - (time.time() - last_llm[message.author.id]):.1f} seconds left.`")
-            llm_active = False
             await bot.process_commands(message)
             return
-        last_llm[message.author.id] = time.time()
+
         msg = message.content.replace("<@1442229230384709752>", "").strip()
         msg = msg.replace("--stats", "").strip()
         if not msg:
             await message.reply("Please provide a message for the LLM to respond to.")
-            llm_active = False
             await bot.process_commands(message)
             return
-        try:
-            async with message.channel.typing():
-                reply_info = None
-                if message.reference and message.reference.message_id:
-                    replied_msg = await message.channel.fetch_message(message.reference.message_id)
-                    reply_info = {
-                        "author": replied_msg.author.name,
-                        "content": replied_msg.content
-                    }
-                reply, info = await get_llm_response(msg, message.author.name, message.author.id, reply_info)
-        except Exception as e:
-            reply = f"Error occurred while fetching LLM response. Please try again later.\n> {e}"
-            info = e
-        if reply.strip() == "":
-            reply = "Error occurred while fetching LLM response. Please try again.\n> Empty response"
-        llm_active = False
-        if message.content.endswith("--stats"):
-            reply += f"\n> {info}"
-        await message.reply(reply)
-        print(f"{date()} INFO  LLM response to {message.author} (ID: {message.author.id}): {reply} ({info})")
+
+        reply_info = None
+        if message.reference and message.reference.message_id:
+            replied_msg = await message.channel.fetch_message(message.reference.message_id)
+            reply_info = {
+                "author": replied_msg.author.name,
+                "content": replied_msg.content
+            }
+
+        req = LLMRequest(msg, message, reply_info)
+
+        await llm_queue.put(req)
+        llm_queue_size.append(message.author.id)
+
+        last_llm[message.author.id] = time.time()
+
+        position = len(llm_queue_size) - 1
+        if position > 0:
+            await message.reply(f"You are queued! Position in queue: **{position}**", delete_after=3)
 
     guild_id = message.guild.id
     user_id = message.author.id
