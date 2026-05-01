@@ -212,18 +212,15 @@ async def help_command(interaction: discord.Interaction):
         "> **`/calc <expression>`** - Simple calculator.\n"
         "> **`/flip`** - Flip a coin.\n"
         "> **`/github`** - Find the code on GitHub.\n"
-        "> **`/rps <str>`** - Play Rock Paper Scissors.\n"
         "> **`/random <int> <int>`** - Generate a random number between a and b.\n"
-        "> **`/userinfo <str>`** - Get info about a user.\n"
-        "> **`/quote <str>`** - Get a quote (Today or Random).\n"
-        "> **`/meme [str]`** - Get a random meme.\n"
-        "> **`/duck`** - Get a random duck picture.\n"
-        "> **`/fox`** - Get a random fox picture.\n"
+        "> **`/userinfo <user>`** - Get info about a user.\n"
+        "> **`/quote <choice>`** - Get a quote (Today or Random).\n"
+        "> **`/animal <animal>`** - Get a random animal picture (dog, cat, duck, fox).\n"
         "> **`/uptime`** - Check the bot's uptime.\n"
-        "> **`/fact <str>`** - Get a daily fact.\n"
-        "> **`/dog`** - Get a random dog picture.\n"
+        "> **`/fact <choice>`** - Get a daily fact (Today or Random).\n"
         "> **`/level [user]`** - Check your server level.\n"
-        "> **`/leaderboard <str> [bool]`** - Check the server level leaderboard.\n\n"
+        "> **`/leaderboard <sort> [global_lb]`** - Check the server level leaderboard.\n"
+        "> **`/profile [user]`** - Check your profile.\n\n"
         "Some commands have an option to hide the response from others.\n"
         "Use it if you don't want to spam channels or just want some privacy :wink: \n\n"
     )
@@ -326,33 +323,6 @@ async def github(interaction: discord.Interaction):
 
 @discord.app_commands.allowed_installs(guilds=True, users=True)
 @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
-@bot.tree.command(name="rps", description="Rock Paper Scissors") #, guild=guild)
-@app_commands.describe(hand="Rock / Paper / Scissors", hidden="Hide the command from others")
-@app_commands.choices(hand=[
-    app_commands.Choice(name="Rock", value="Rock"),
-    app_commands.Choice(name="Paper", value="Paper"),
-    app_commands.Choice(name="Scissors", value="Scissors")
-])
-async def rps(interaction: Interaction, hand: str, hidden: bool = False):
-    hand = hand.lower()
-    choices = ["rock", "paper", "scissors"]
-
-    if hand not in choices:
-        await interaction.response.send_message(f"> Invalid input: {hand}", ephemeral=True)
-        return
-
-    bot_choice = random.choice(choices)
-
-    if bot_choice == hand:
-        result = "Draw!"
-    elif (hand == "rock" and bot_choice == "scissors") or (hand == "paper" and bot_choice == "rock") or (hand == "scissors" and bot_choice == "paper"):
-        result = "Human won!"
-    else:
-        result = "Bot won!"
-    await interaction.response.send_message(f"> :robot: {bot_choice.capitalize()}  -  :bust_in_silhouette: {hand.capitalize()}\n> {result}", ephemeral=hidden)
-
-@discord.app_commands.allowed_installs(guilds=True, users=True)
-@discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
 @bot.tree.command(name="random", description="Random number generator") #, guild=guild)
 @app_commands.describe(a="Lowest number", b="Highest number", hidden="Hide the command from others")
 async def random_number(interaction: Interaction, a: int, b: int, hidden: bool = False):
@@ -415,35 +385,6 @@ async def quote(interaction: discord.Interaction, choice: str, hidden: bool = Fa
         return
     data = r.json()
     await interaction.followup.send(f"> \"{data[0]['q']}\" - {data[0]['a']}", ephemeral=hidden)
-
-@discord.app_commands.allowed_installs(guilds=True, users=True)
-@discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
-@bot.tree.command(name="meme", description="Get a random meme") #, guild=guild)
-@app_commands.describe(subreddit="Subreddit to get meme from (optional)", hidden="Hide the command from others")
-async def meme(interaction: discord.Interaction, subreddit: str | None = None, hidden: bool = False):
-    await interaction.response.defer(ephemeral=hidden)
-    url = f"https://meme-api.com/gimme/{subreddit}" if subreddit else "https://meme-api.com/gimme"
-    try:
-        r = requests.get(url)
-        print(f"{date()} INFO  Meme API response status: {r.status_code}")
-    except Exception as e:
-        embed = discord.Embed(title="Error", description="Could not fetch meme. Please try again later.", color=discord.Color.red())
-        embed.add_field(name="Details", value=str(e))
-        embed.set_footer(text=f"{datetime.datetime.now()}")
-        await interaction.followup.send(embed=embed, ephemeral=True)
-        return
-    if r.status_code != 200:
-        embed = discord.Embed(title="Error", description="Could not fetch meme. Please try again later.", color=discord.Color.red())
-        embed.add_field(name="Details", value=f"Status code: {r.status_code}")
-        embed.set_footer(text=f"{datetime.datetime.now()}")
-        await interaction.followup.send(embed=embed, ephemeral=True)
-        return
-
-    data = r.json()
-    embed = discord.Embed(title=data['title'], url=data['postLink'], color=discord.Color.green())
-    embed.set_image(url=data['url'])
-    embed.set_footer(text=f"{datetime.datetime.now()} - From r/{data['subreddit']}")
-    await interaction.followup.send(embed=embed, ephemeral=hidden)
 
 @discord.app_commands.allowed_installs(guilds=True, users=True)
 @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
