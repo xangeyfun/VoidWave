@@ -237,6 +237,66 @@ async def ping(interaction: discord.Interaction):
 
 @discord.app_commands.allowed_installs(guilds=True, users=True)
 @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
+@bot.tree.command(name="animal", description="Get a random animal picture") #, guild=guild)
+@app_commands.describe(animal="The type of animal", hidden="Hide the command from others")
+@app_commands.choices(animal=[
+    app_commands.Choice(name="Dog", value="dog"),
+    app_commands.Choice(name="Cat", value="cat"),
+    app_commands.Choice(name="Duck", value="duck"),
+    app_commands.Choice(name="Fox", value="fox")
+])
+async def animal(interaction: discord.Interaction, animal: str, hidden: bool = False):
+    await interaction.response.defer(ephemeral=hidden)
+    if animal == "dog":
+        url = "https://random.dog/woof.json"
+        r = requests.get(url)
+        if r.status_code != 200:
+            await interaction.followup.send("> Could not fetch dog picture. Please try again later.", ephemeral=hidden)
+            return
+        data = r.json()
+        embed = discord.Embed(title="🐶 Woof!", color=discord.Color.orange())
+        embed.set_image(url=data["url"])
+        embed.set_footer(text=f"{datetime.datetime.now()}")
+        return await interaction.followup.send(embed=embed, ephemeral=hidden)
+
+    if animal == "cat":
+        url = "https://cataas.com/cat?json=True"
+        r = requests.get(url)
+        if r.status_code != 200:
+            await interaction.followup.send("> Could not fetch cat picture. Please try again later.", ephemeral=hidden)
+            return
+        data = r.json()
+        embed = discord.Embed(title="🐱 Meow!", color=discord.Color.orange())
+        embed.set_image(url=data["url"])
+        embed.set_footer(text=f"{datetime.datetime.now()}")
+        return await interaction.followup.send(embed=embed, ephemeral=hidden)
+
+    if animal == "duck":
+        url = "https://random-d.uk/api/v2/quack"
+        r = requests.get(url)
+        if r.status_code != 200:
+            await interaction.followup.send("> Could not fetch duck picture. Please try again later.", ephemeral=hidden)
+            return
+        data = r.json()
+        embed = discord.Embed(title="🦆 Quack!", color=discord.Color.orange())
+        embed.set_image(url=data["url"])
+        embed.set_footer(text=f"{datetime.datetime.now()}")
+        return await interaction.followup.send(embed=embed, ephemeral=hidden)
+    
+    if animal == "fox":
+        url = "https://randomfox.ca/floof/"
+        r = requests.get(url)
+        if r.status_code != 200:
+            await interaction.followup.send("> Could not fetch fox picture. Please try again later.", ephemeral=hidden)
+            return
+        data = r.json()
+        embed = discord.Embed(title="🦊 What does the fox say?", color=discord.Color.orange())
+        embed.set_image(url=data["image"])
+        embed.set_footer(text=f"{datetime.datetime.now()}")
+        return await interaction.followup.send(embed=embed, ephemeral=hidden)
+
+@discord.app_commands.allowed_installs(guilds=True, users=True)
+@discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
 @bot.tree.command(name="calc", description="Simple calculator") #, guild=guild)
 @app_commands.describe(expression="an expression like 5*2+3", hidden="Hide the command from others")
 async def calc(interaction: Interaction, expression: str, hidden: bool = False):
@@ -372,46 +432,6 @@ async def meme(interaction: discord.Interaction, subreddit: str | None = None, h
 
 @discord.app_commands.allowed_installs(guilds=True, users=True)
 @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
-@bot.tree.command(name="duck", description="Get a random duck picture") #, guild=guild)
-@app_commands.describe(hidden="Hide the command from others")
-async def duck(interaction: discord.Interaction, hidden: bool = False):
-    await interaction.response.defer(ephemeral=hidden)
-    try:
-        r = requests.get("https://random-d.uk/api/v2/random")
-        print(f"{date()} INFO  Duck API response status: {r.status_code}")
-    except Exception as e:
-        embed = discord.Embed(title="Error", description="Could not fetch duck image. Please try again later.", color=discord.Color.red())
-        embed.add_field(name="Details", value=str(e))
-        embed.set_footer(text=f"{datetime.datetime.now()}")
-        await interaction.followup.send(embed=embed, ephemeral=True)
-        return
-    data = r.json()
-    embed = discord.Embed(title="Random Duck", color=discord.Color.blue())
-    embed.set_image(url=data['url'])
-    await interaction.followup.send(embed=embed, ephemeral=hidden)
-
-@discord.app_commands.allowed_installs(guilds=True, users=True)
-@discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
-@bot.tree.command(name="fox", description="Get a random fox picture") #, guild=guild)
-@app_commands.describe(hidden="Hide the command from others")
-async def fox(interaction: discord.Interaction, hidden: bool = False):
-    await interaction.response.defer(ephemeral=hidden)
-    try:
-        r = requests.get("https://randomfox.ca/floof/")
-        print(f"{date()} INFO  Fox API response status: {r.status_code}")
-    except Exception as e:
-        embed = discord.Embed(title="Error", description="Could not fetch fox image. Please try again later.", color=discord.Color.red())
-        embed.add_field(name="Details", value=str(e))
-        embed.set_footer(text=f"{datetime.datetime.now()}")
-        await interaction.followup.send(embed=embed, ephemeral=True)
-        return
-    data = r.json()
-    embed = discord.Embed(title="Random Fox", color=discord.Color.orange())
-    embed.set_image(url=data['image'])
-    await interaction.followup.send(embed=embed, ephemeral=hidden)
-
-@discord.app_commands.allowed_installs(guilds=True, users=True)
-@discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
 @bot.tree.command(name="uptime", description="Check the bot's uptime.") #, guild=guild)
 async def uptime(interaction: discord.Interaction):
     current_time = time.time()
@@ -505,29 +525,6 @@ async def get_fact(interaction: discord.Interaction, choice: str, hidden: bool =
         return
     data = r.json()
     await interaction.followup.send(f"{data['text']}", ephemeral=hidden)
-
-@discord.app_commands.allowed_installs(guilds=True, users=True)
-@discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
-@bot.tree.command(name="dog", description="Get a random dog picture") #, guild=guild)
-@app_commands.describe(hidden="Hide the command from others")
-async def dog(interaction: discord.Interaction, hidden: bool = False):
-    await interaction.response.defer(ephemeral=hidden)
-    try:
-        r = requests.get("https://random.dog/woof.json")
-        print(f"{date()} INFO  Dog API response status: {r.status_code}")
-    except Exception as e:
-        embed = discord.Embed(title="Error", description="Could not fetch dog image. Please try again later.", color=discord.Color.red())
-        embed.add_field(name="Details", value=str(e))
-        embed.set_footer(text=f"{datetime.datetime.now()}")
-        await interaction.followup.send(embed=embed, ephemeral=True)
-        return
-    data = r.json()
-    embed = discord.Embed(title="Random Dog", color=discord.Color.green())
-    embed.set_image(url=data['url'])
-    if hidden:
-        await interaction.followup.send(embed=embed, ephemeral=True)
-    else:
-        await interaction.followup.send(embed=embed)
 
 @bot.tree.command(name="shutdown", description="Shut down the bot (owner only).") #, guild=guild)
 async def shutdown(interaction: discord.Interaction):
