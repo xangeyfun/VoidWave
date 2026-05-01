@@ -1,12 +1,29 @@
+import time
 from datetime import datetime
 from zoneinfo import ZoneInfo
-import requests
-import time
 
-history = {}
+import requests
+
+avg_response_times = []
+avg_tps = []
+total_tokens = 0
+
 
 def date():
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+
+def llm_stats():
+    global total_tokens
+
+    avgresponse = (
+        sum(avg_response_times) / len(avg_response_times) if avg_response_times else 0
+    )
+
+    avgtps = sum(avg_tps) / len(avg_tps) if avg_tps else 0
+
+    return total_tokens, avgtps, avgresponse
+
 
 def get_prompt(name="default"):
     try:
@@ -16,7 +33,9 @@ def get_prompt(name="default"):
         raise Exception(f"Prompt file not found: '{name}'")
 
 
-def ask_llm(prompt, username, user_id, reply_info = None):
+def ask_llm(prompt, username, user_id, reply_info=None):
+    global total_tokens
+
     start = time.time()
     max_tokens = 1000
 
@@ -27,13 +46,26 @@ def ask_llm(prompt, username, user_id, reply_info = None):
 
     context_block = ""
     if reply_info and reply_info.get("content"):
-        reply_author = reply_info.get("author", "Unknown").replace("<|", "").replace("|>", "")[:32]
-        reply_content = reply_info.get("content", "").replace("<|", "").replace("|>", "")
-        context_block = f"{username} is replying to a message:\n{reply_author}: {reply_content}"
+        reply_author = (
+            reply_info.get("author", "Unknown").replace("<|", "").replace("|>", "")[:32]
+        )
+        reply_content = (
+            reply_info.get("content", "").replace("<|", "").replace("|>", "")
+        )
+        context_block = (
+            f"{username} is replying to a message:\n{reply_author}: {reply_content}"
+        )
 
-    now = datetime.now(ZoneInfo("Europe/Amsterdam")).strftime("It is %A, %B %d, %Y, %H:%M:%s")
+    now = datetime.now(ZoneInfo("Europe/Amsterdam")).strftime(
+        "It is %A, %B %d, %Y, %H:%M:%s"
+    )
 
-    prompt = get_prompt("default").format(username=username, now=now, context_block=context_block, user_message=user_message)
+    prompt = get_prompt("default").format(
+        username=username,
+        now=now,
+        context_block=context_block,
+        user_message=user_message,
+    )
     r = requests.post(
         "http://localhost:8080/completion",
         json={
@@ -42,8 +74,9 @@ def ask_llm(prompt, username, user_id, reply_info = None):
             "temperature": 0.3,
             "top_p": 0.9,
             "repeat_penalty": 1.1,
-            "stop": ["<|user|>", "<|assistant|>", "<|system|>", "<|bot|>", "\n"]
-        }, timeout=120
+            "stop": ["<|user|>", "<|assistant|>", "<|system|>", "<|bot|>", "\n"],
+        },
+        timeout=120,
     )
     try:
         data = r.json()
@@ -55,11 +88,15 @@ def ask_llm(prompt, username, user_id, reply_info = None):
 
     print(f"{date()} INFO  LLM raw response: '{reply}'")
     reply = reply.strip()
-    tokens = data.get('tokens_predicted', 0)
+    tokens = data.get("tokens_predicted", 0)
     total_time = time.time() - start
 
-    tps = tokens / total_time 
+    tps = tokens / total_time
 
     info = f"Tokens: {tokens}, Time: {total_time:.2f}s, TPS: {tps:.2f}"
+
+    avg_response_times.append(total_time)
+    avg_tps.append(tps)
+    total_tokens += tokens
 
     return reply, info

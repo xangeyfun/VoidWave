@@ -1,14 +1,16 @@
 from discord import app_commands, Interaction
 from discord.ext import commands, tasks
 from simpleeval import simple_eval
+from llm import ask_llm, llm_stats
 from dotenv import load_dotenv
-from llm import ask_llm
+import subprocess
 import datetime
 import requests
 import discord
 import sqlite3
 import asyncio
 import random
+import psutil
 import time
 import json
 import os
@@ -231,32 +233,29 @@ async def help_command(interaction: discord.Interaction):
 @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
 @bot.tree.command(name="ping", description="Test the bot's latency.") #, guild=guild)
 async def ping(interaction: discord.Interaction):
-    await interaction.response.send_message(f"> Pong! {round(bot.latency * 1000)}ms :ping_pong:", ephemeral=True)
+    await interaction.response.send_message(f"Pong! {round(bot.latency * 1000)}ms :ping_pong:", ephemeral=True)
 
 @discord.app_commands.allowed_installs(guilds=True, users=True)
 @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
 @bot.tree.command(name="calc", description="Simple calculator") #, guild=guild)
-@app_commands.describe(expression="an expression like 5*2+3")
-async def calc(interaction: Interaction, expression: str):
+@app_commands.describe(expression="an expression like 5*2+3", hidden="Hide the command from others")
+async def calc(interaction: Interaction, expression: str, hidden: bool = False):
     allowed = "0123456789+-*/(). "
     if any(c not in allowed for c in expression):
-        await interaction.response.send_message("> invalid expression", ephemeral=True)
+        await interaction.response.send_message("> invalid expression", ephemeral=hidden)
         return
     try:
         result = simple_eval(expression)
-        await interaction.response.send_message(f"> `{expression}` = {result}", ephemeral=True)
+        await interaction.response.send_message(f"`{expression}` = {result}", ephemeral=hidden)
     except Exception as e:
-        await interaction.response.send_message(f"> Error evaluating expression: {e}", ephemeral=True)
+        await interaction.response.send_message(f"> Error evaluating expression: {e}", ephemeral=hidden)
 
 @discord.app_commands.allowed_installs(guilds=True, users=True)
 @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
 @bot.tree.command(name="flip", description="Flip a coin.") #, guild=guild)
 @app_commands.describe(hidden="Hide the command from others")
 async def flip(interaction: Interaction, hidden: bool = False):
-    if hidden:
-        await interaction.response.send_message("> " + random.choice(["Heads!", "Tails!"]), ephemeral=True)
-    else:
-        await interaction.response.send_message("> " + random.choice(["Heads!", "Tails!"]))
+    await interaction.response.send_message(random.choice(["Heads!", "Tails!"]), ephemeral=hidden)
 
 @discord.app_commands.allowed_installs(guilds=True, users=True)
 @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
@@ -289,10 +288,7 @@ async def rps(interaction: Interaction, hand: str, hidden: bool = False):
         result = "Human won!"
     else:
         result = "Bot won!"
-    if hidden:
-        await interaction.response.send_message(f"> :robot: {bot_choice.capitalize()}  -  :bust_in_silhouette: {hand.capitalize()}\n> {result}", ephemeral=True)
-    else:
-        await interaction.response.send_message(f"> :robot: {bot_choice.capitalize()}  -  :bust_in_silhouette: {hand.capitalize()}\n> {result}")
+    await interaction.response.send_message(f"> :robot: {bot_choice.capitalize()}  -  :bust_in_silhouette: {hand.capitalize()}\n> {result}", ephemeral=hidden)
 
 @discord.app_commands.allowed_installs(guilds=True, users=True)
 @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
@@ -303,31 +299,25 @@ async def random_number(interaction: Interaction, a: int, b: int, hidden: bool =
         await interaction.response.send_message("> First number must be less than the second", ephemeral=True)
         return
     result = random.randint(a, b)
-    if hidden:
-        await interaction.response.send_message(f"> Result: {result}", ephemeral=True)
-    else:
-        await interaction.response.send_message(f"> Result: {result}")
+    await interaction.response.send_message(f"Result: {result}", ephemeral=hidden)
 
-@discord.app_commands.allowed_installs(guilds=True, users=False)
-@discord.app_commands.allowed_contexts(guilds=True, dms=False, private_channels=False)
+@discord.app_commands.allowed_installs(guilds=True, users=True)
+@discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
 @bot.tree.command(name="userinfo", description="Get info about a user") #, guild=guild)
 @app_commands.describe(user="The user you want info about", hidden="Hide the command from others")
-async def userinfo(interaction: discord.Interaction, user: discord.Member, hidden: bool = False):
-    if not interaction.guild:
-        await interaction.response.send_message("This command only works in servers.", ephemeral=True)
-        return
-    roles = [role.name for role in user.roles if role.name != "@everyone"]
+async def userinfo(interaction: discord.Interaction, user: discord.User, hidden: bool = False):
+    user = user or bot.get_user(user.id)
+
+    roles = [role.name for role in user.roles if role.name != "@everyone"] if interaction.guild else []
     embed = discord.Embed(title=f"{user.name}", color=discord.Color.blue())
     embed.add_field(name="ID", value=user.id)
     embed.add_field(name="Account created", value=user.created_at.strftime("%Y-%m-%d") if user.created_at else "Unknown")
-    embed.add_field(name="Joined server", value=user.joined_at.strftime("%Y-%m-%d") if user.joined_at else "Unknown")
-    embed.add_field(name="Roles", value=", ".join(roles) or "None")
+    embed.add_field(name="Joined server", value=user.joined_at.strftime("%Y-%m-%d") if user.joined_at else "Unknown") if interaction.guild else None
+    embed.add_field(name="Roles", value=", ".join(roles) or "None") if interaction.guild else None
     embed.set_thumbnail(url=user.avatar.url if user.avatar else user.default_avatar.url)
     embed.set_footer(text=f"Requested by {interaction.user.name} • {datetime.datetime.now()}")
-    if hidden:
-        await interaction.response.send_message(embed=embed, ephemeral=True)
-    else:
-        await interaction.response.send_message(embed=embed)
+
+    await interaction.response.send_message(embed=embed, ephemeral=hidden)
 
 @discord.app_commands.allowed_installs(guilds=True, users=True)
 @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
@@ -349,10 +339,7 @@ async def quote(interaction: discord.Interaction, choice: str, hidden: bool = Fa
         await interaction.followup.send(f"> Could not fetch quote. Please try again later.\nDetails: {e}", ephemeral=True)
         return
     data = r.json()
-    if hidden:
-        await interaction.followup.send(f"> \"{data[0]['q']}\" - {data[0]['a']}", ephemeral=True)
-    else:
-        await interaction.followup.send(f"> \"{data[0]['q']}\" - {data[0]['a']}")
+    await interaction.followup.send(f"> \"{data[0]['q']}\" - {data[0]['a']}", ephemeral=hidden)
 
 @discord.app_commands.allowed_installs(guilds=True, users=True)
 @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
@@ -376,14 +363,12 @@ async def meme(interaction: discord.Interaction, subreddit: str | None = None, h
         embed.set_footer(text=f"{datetime.datetime.now()}")
         await interaction.followup.send(embed=embed, ephemeral=True)
         return
+
     data = r.json()
     embed = discord.Embed(title=data['title'], url=data['postLink'], color=discord.Color.green())
     embed.set_image(url=data['url'])
     embed.set_footer(text=f"{datetime.datetime.now()} - From r/{data['subreddit']}")
-    if hidden:
-        await interaction.followup.send(embed=embed, ephemeral=True)
-    else:
-        await interaction.followup.send(embed=embed)
+    await interaction.followup.send(embed=embed, ephemeral=hidden)
 
 @discord.app_commands.allowed_installs(guilds=True, users=True)
 @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
@@ -403,10 +388,7 @@ async def duck(interaction: discord.Interaction, hidden: bool = False):
     data = r.json()
     embed = discord.Embed(title="Random Duck", color=discord.Color.blue())
     embed.set_image(url=data['url'])
-    if hidden:
-        await interaction.followup.send(embed=embed, ephemeral=True)
-    else:
-        await interaction.followup.send(embed=embed)
+    await interaction.followup.send(embed=embed, ephemeral=hidden)
 
 @discord.app_commands.allowed_installs(guilds=True, users=True)
 @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
@@ -426,10 +408,7 @@ async def fox(interaction: discord.Interaction, hidden: bool = False):
     data = r.json()
     embed = discord.Embed(title="Random Fox", color=discord.Color.orange())
     embed.set_image(url=data['image'])
-    if hidden:
-        await interaction.followup.send(embed=embed, ephemeral=True)
-    else:
-        await interaction.followup.send(embed=embed)
+    await interaction.followup.send(embed=embed, ephemeral=hidden)
 
 @discord.app_commands.allowed_installs(guilds=True, users=True)
 @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
@@ -441,6 +420,69 @@ async def uptime(interaction: discord.Interaction):
     minutes, seconds = divmod(remainder, 60)
     uptime_str = f"{hours}h {minutes}m {seconds}s"
     await interaction.response.send_message(f"⏱️ **Bot Uptime**\n> {uptime_str}\n\n🔗 Status Page: <https://status.xangey.dev/>", ephemeral=True)
+
+@discord.app_commands.allowed_installs(guilds=True, users=True)
+@discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
+@bot.tree.command(name="debug", description="Get bot's debug info (owner only)")
+async def debug(interaction: discord.Interaction):
+    if interaction.user.id != allowed_user:
+        return await interaction.response.send_message("> You do not have permission to use this command.", ephemeral=True)
+
+    queue_size = llm_queue.qsize()
+    total_tokens, avg_tps, avg_response_time = llm_stats()
+
+    cpu_usage = psutil.cpu_percent(interval=0.5)
+    memory_usage = psutil.virtual_memory().percent
+    disk_usage = psutil.disk_usage('/').percent
+    system_uptime = int(time.time() - psutil.boot_time())
+    h, r = divmod(system_uptime, 3600)
+    m, s = divmod(r, 60)
+
+    try:
+        git_commit = subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD']).decode().strip()
+        git_branch = subprocess.check_output(['git', 'rev-parse', '--abbrev-ref', 'HEAD']).decode().strip()
+    except Exception:
+        git_commit = "unknown"
+        git_branch = "unknown"
+
+    embed = discord.Embed(title="🛠️ Bot Debug Info", color=discord.Color.blurple())
+
+    embed.add_field(
+        name="⏱️ Server Uptime",
+        value=f"{h}h {m}m {s}s",
+        inline=False
+    )
+
+    embed.add_field(
+        name="🧠 LLM",
+        value=(
+            f"Queue: {queue_size}\n"
+            f"Total Tokens: {total_tokens}\n"
+            f"Avg TPS: {avg_tps:.2f}\n"
+            f"Avg Response: {avg_response_time:.2f}s"
+        ),
+        inline=False
+    )
+
+    embed.add_field(
+        name="💻 System",
+        value=(
+            f"CPU: {cpu_usage}%\n"
+            f"RAM: {memory_usage}%\n"
+            f"Disk: {disk_usage}%"
+        ),
+        inline=False
+    )
+
+    embed.add_field(
+        name="🌿 Git",
+        value=f"{git_branch} @ `{git_commit}`",
+        inline=False
+    )
+
+    embed.set_footer(text="debug command • owner only")
+    
+    await interaction.response.send_message(embed=embed, ephemeral=True)   
 
 @discord.app_commands.allowed_installs(guilds=True, users=True)
 @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
@@ -462,10 +504,7 @@ async def get_fact(interaction: discord.Interaction, choice: str, hidden: bool =
         await interaction.followup.send(f"> Could not fetch fact. Please try again later.\nDetails: {e}", ephemeral=True)
         return
     data = r.json()
-    if hidden:
-        await interaction.followup.send(f"> {data['text']}", ephemeral=True)
-    else:
-        await interaction.followup.send(f"> {data['text']}")
+    await interaction.followup.send(f"{data['text']}", ephemeral=hidden)
 
 @discord.app_commands.allowed_installs(guilds=True, users=True)
 @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
