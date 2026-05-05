@@ -1052,6 +1052,8 @@ async def on_message(message):
             level_roles = (cur.execute("SELECT level, role_id FROM level_roles WHERE guild_id = ?", (guild_id,)).fetchall())
             level_roles = dict(level_roles) if level_roles else None
             if not level_roles:
+                cur.execute("UPDATE users SET level=?, progress=?, out_of=? WHERE guild_id=? AND user_id=?", (level, progress, out_of, guild_id, user_id))
+                conn.commit()
                 return
             for req_level, role_id in level_roles.items():
                 if level >= req_level:
@@ -1074,6 +1076,8 @@ async def on_message(message):
         return
 
     finally:
+        cur.execute("UPDATE users SET level=?, progress=?, out_of=? WHERE guild_id=? AND user_id=?", (level, progress, out_of, guild_id, user_id))
+        conn.commit()
         conn.close()
         await bot.process_commands(message)
 
