@@ -1076,8 +1076,6 @@ async def on_message(message):
         return
 
     finally:
-        cur.execute("UPDATE users SET level=?, progress=?, out_of=? WHERE guild_id=? AND user_id=?", (level, progress, out_of, guild_id, user_id))
-        conn.commit()
         conn.close()
         await bot.process_commands(message)
 
