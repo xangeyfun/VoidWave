@@ -36,5 +36,5 @@ Rules:
 recent history:
 {history_block}
 
-[{username}]: {user_message}
-[VoidWave]: 
+{username}: {user_message}
+VoidWave: 

@@ -53,7 +53,7 @@ def format_history(user_id):
     lines = []
 
     for msg in history:
-        lines.append(f"[{msg['speaker']}]: {msg['message']}")
+        lines.append(f"{msg['speaker']}: {msg['message']}")
 
     return "\n".join(lines)
 
