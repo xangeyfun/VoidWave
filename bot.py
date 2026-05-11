@@ -577,16 +577,40 @@ async def level(interaction: discord.Interaction, hidden: bool = False, user: di
         f"[{bar}]"
     )
 
+    # embed.add_field(
+    #     name="",
+    #     value=(
+    #         f"**Total XP:** `{data['total_xp']:,}`\n\n"
+    #         f"**Messages (XP):** `{data['total_messages_xp']:,}`\n"
+    #         f"**Total Messages:** `{data['total_messages']:,}`\n\n"
+    #         f"**Voice (XP):** `{format_minutes(data['vc_xp_minutes'])}`\n"
+    #         f"**Total Voice Time:** `{format_minutes(data['vc_minutes'])}`\n\n"
+    #         f"**View online:** [Dashboard](https://voidwave.xangey.dev/stats/{interaction.guild.id}/{user.id})" # type: ignore
+    #     ),
+    #     inline=False
+    # )
+
     embed.add_field(
-        name="",
+        name="💬 Message Stats",
         value=(
-            f"**Total XP:** `{data['total_xp']:,}`\n\n"
             f"**Messages (XP):** `{data['total_messages_xp']:,}`\n"
-            f"**Total Messages:** `{data['total_messages']:,}`\n\n"
-            f"**Voice (XP):** `{format_minutes(data['vc_xp_minutes'])}`\n"
-            f"**Total Voice Time:** `{format_minutes(data['vc_minutes'])}`\n\n"
-            f"**View online:** [Dashboard](https://voidwave.xangey.dev/stats/{interaction.guild.id}/{user.id})" # type: ignore
+            f"**Total Messages:** `{data['total_messages']:,}`"
         ),
+        inline=True
+    )
+
+    embed.add_field(
+        name="🎤 Voice Stats",
+        value=(
+            f"**Voice (XP):** `{format_minutes(data['vc_xp_minutes'])}`\n"
+            f"**Total Voice:** `{format_minutes(data['vc_minutes'])}`"
+        ),
+        inline=True
+    )
+
+    embed.add_field(
+        name="🔗 Website",
+        value=f"**View online:** [Dashboard](https://voidwave.xangey.dev/stats/{interaction.guild.id}/{user.id})", # type: ignore
         inline=False
     )
 
