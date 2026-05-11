@@ -781,7 +781,7 @@ async def ai(interaction: discord.Interaction, message: str, stats: bool = False
         await interaction.followup.send(f"Please wait before using the LLM again. Cooldown: `{LLM_COOLDOWN - (time.time() - last_llm[interaction.user.id]):.1f} seconds left.`", ephemeral=True)
         return
 
-    if llm_queue.qsize() > 1:
+    if llm_queue.qsize() > 0:
         await interaction.followup.send(f"The LLM is currently busy. Please try again later. Current queue size: `{llm_queue.qsize()}`", ephemeral=True)
         return
     
@@ -1085,8 +1085,8 @@ async def vc_xp_loop():
         for channel in guild.voice_channels:
             members = [m for m in channel.members if not m.bot]
 
-            # if len(members) < 2:
-            #     continue
+            if len(members) < 2:
+                continue
 
             for member in members:
                 user = cur.execute("SELECT * FROM users WHERE guild_id=? AND user_id=?", (guild.id, member.id)).fetchone()
@@ -1116,7 +1116,7 @@ async def vc_xp_loop():
                 if member.voice.self_deaf:
                     continue
                 try:
-                    xp = random.randint(15, 20)
+                    xp = random.randint(5, 20)
                     last_vc[member.id] = time.time()
                     cur.execute("""
                     UPDATE users
