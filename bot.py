@@ -646,7 +646,7 @@ async def fact(interaction: discord.Interaction, sort: str, global_lb: bool = Fa
             if sort == "Total Messages":
                 leaderboad = cur.execute("SELECT username, total_messages, guild_id FROM users WHERE guild_id=? ORDER BY total_messages DESC LIMIT 10", (interaction.guild.id,)).fetchall()
             if sort == "Total Voice":
-                leaderboad = cur.execute("SELECT username, total_vc, guild_id FROM users WHERE guild_id=? ORDER BY total_vc DESC LIMIT 10", (interaction.guild.id,)).fetchall()
+                leaderboad = cur.execute("SELECT username, vc_minutes, guild_id FROM users WHERE guild_id=? ORDER BY vc_minutes DESC LIMIT 10", (interaction.guild.id,)).fetchall()
         else:
             if sort == "Level":
                 leaderboad = cur.execute("SELECT username, level, guild_id FROM users ORDER BY level DESC LIMIT 10").fetchall()
@@ -655,7 +655,7 @@ async def fact(interaction: discord.Interaction, sort: str, global_lb: bool = Fa
             if sort == "Total Messages":
                 leaderboad = cur.execute("SELECT username, total_messages, guild_id FROM users ORDER BY total_messages DESC LIMIT 10").fetchall()
             if sort == "Total Voice":
-                leaderboad = cur.execute("SELECT username, total_vc, guild_id FROM users ORDER BY total_vc DESC LIMIT 10").fetchall()
+                leaderboad = cur.execute("SELECT username, vc_minutes, guild_id FROM users ORDER BY vc_minutes DESC LIMIT 10").fetchall()
 
     except Exception as e:
         await interaction.followup.send(f"Something went wrong... Please DM <@996771607630585856> about this\n> {e}", ephemeral=hidden, allowed_mentions=discord.AllowedMentions(users=False))
