@@ -1197,11 +1197,10 @@ async def qotd():
         print(f"{date()} ERROR  QOTD channel not found!")
         return
 
-    print(f"{date()} INFO  Fetching QOTD...")
-    r = requests.get("https://zenquotes.io/api/random").json()
+    with open("questions.json", "r") as f:
+        questions = json.load(f)
 
-    quote = r[0]['q']
-    author = r[0]['a']
+    question = random.choice(questions)
 
     # cleanup old QOTD
     if last_qotd_thread_id:
@@ -1222,14 +1221,13 @@ async def qotd():
     embed = discord.Embed(
         title="🧠 Question of the Day",
         description=(
-            f"**{quote}**\n\n"
-            "*Do you agree with this? Why or why not?*"
+            f"**{question}**\n\n"
+            "> reply in the thread below 👀"
         ),
         color=0x5865F2,
         timestamp=datetime.datetime.now(datetime.timezone.utc)
     )
-    embed.add_field(name="✍️ Quote Author", value=f"`{author}`", inline=True)
-    embed.set_footer(text="New question every day • Powered by ZenQuotes")
+    embed.set_footer(text="New question every day • Powered by VoidWave")
 
     # send message & ping role
     msg = await channel.send(embed=embed) # type: ignore
@@ -1239,23 +1237,13 @@ async def qotd():
         name=f"💬 QOTD • {datetime.datetime.now().strftime('%b %d')}",
         auto_archive_duration=1440
     )
-    await thread.send(f"""
-# 💬 QOTD Discussion
 
-Hey <@&1491188025898832125>! :3
-
-What do you think about today’s question?  
-There’s no right or wrong answer, just share your thoughts, opinions, or experiences 👀
-
-Feel free to:
-* agree or disagree  
-* explain your reasoning  
-* respond to others and start a discussion  
-
-🕒 **Posted:** <t:{int(datetime.datetime.now().timestamp())}:F> (<t:{int(datetime.datetime.now().timestamp())}:R>)
-
-Have fun and keep it respectful! ✨
-    """)
+    await thread.send(
+        f"Hey <@&1491188025898832125>! ✨\n\n"
+        f"Today's question:\n"
+        f"> **{question}**\n\n"
+        f"Reply with your thoughts, stories, or hot takes :3"
+    )
 
     # save last QOTD IDs
     with open("qotd.json", "w") as f:
