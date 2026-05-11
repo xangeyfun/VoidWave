@@ -577,19 +577,6 @@ async def level(interaction: discord.Interaction, hidden: bool = False, user: di
         f"[{bar}]"
     )
 
-    # embed.add_field(
-    #     name="",
-    #     value=(
-    #         f"**Total XP:** `{data['total_xp']:,}`\n\n"
-    #         f"**Messages (XP):** `{data['total_messages_xp']:,}`\n"
-    #         f"**Total Messages:** `{data['total_messages']:,}`\n\n"
-    #         f"**Voice (XP):** `{format_minutes(data['vc_xp_minutes'])}`\n"
-    #         f"**Total Voice Time:** `{format_minutes(data['vc_minutes'])}`\n\n"
-    #         f"**View online:** [Dashboard](https://voidwave.xangey.dev/stats/{interaction.guild.id}/{user.id})" # type: ignore
-    #     ),
-    #     inline=False
-    # )
-
     embed.add_field(
         name="💬 Message Stats",
         value=(
@@ -637,7 +624,8 @@ async def level(interaction: discord.Interaction, hidden: bool = False, user: di
     sort=[
         app_commands.Choice(name="Level", value="Level"),
         app_commands.Choice(name="Total XP", value="Total XP"),
-        app_commands.Choice(name="Total Messages", value="Total Messages")
+        app_commands.Choice(name="Total Messages", value="Total Messages"),
+        app_commands.Choice(name="Total Voice", value="Total Voice")
     ]
 )
 async def fact(interaction: discord.Interaction, sort: str, global_lb: bool = False, hidden: bool = False):
@@ -657,6 +645,8 @@ async def fact(interaction: discord.Interaction, sort: str, global_lb: bool = Fa
                 leaderboad = cur.execute("SELECT username, total_xp, guild_id FROM users WHERE guild_id=? ORDER BY total_xp DESC LIMIT 10", (interaction.guild.id,)).fetchall()
             if sort == "Total Messages":
                 leaderboad = cur.execute("SELECT username, total_messages, guild_id FROM users WHERE guild_id=? ORDER BY total_messages DESC LIMIT 10", (interaction.guild.id,)).fetchall()
+            if sort == "Total Voice":
+                leaderboad = cur.execute("SELECT username, total_vc, guild_id FROM users WHERE guild_id=? ORDER BY total_vc DESC LIMIT 10", (interaction.guild.id,)).fetchall()
         else:
             if sort == "Level":
                 leaderboad = cur.execute("SELECT username, level, guild_id FROM users ORDER BY level DESC LIMIT 10").fetchall()
@@ -664,7 +654,8 @@ async def fact(interaction: discord.Interaction, sort: str, global_lb: bool = Fa
                 leaderboad = cur.execute("SELECT username, total_xp, guild_id FROM users ORDER BY total_xp DESC LIMIT 10").fetchall()
             if sort == "Total Messages":
                 leaderboad = cur.execute("SELECT username, total_messages, guild_id FROM users ORDER BY total_messages DESC LIMIT 10").fetchall()
-        
+            if sort == "Total Voice":
+                leaderboad = cur.execute("SELECT username, total_vc, guild_id FROM users ORDER BY total_vc DESC LIMIT 10").fetchall()
 
     except Exception as e:
         await interaction.followup.send(f"Something went wrong... Please DM <@996771607630585856> about this\n> {e}", ephemeral=hidden, allowed_mentions=discord.AllowedMentions(users=False))
@@ -679,7 +670,7 @@ async def fact(interaction: discord.Interaction, sort: str, global_lb: bool = Fa
     lines = []
 
     for i, row in enumerate(leaderboad):
-        username, level, guild_id = row[0], row[1], row[2]
+        username, level = row[0], row[1]
 
         if i == 0:
             rank = "🥇"
@@ -690,13 +681,7 @@ async def fact(interaction: discord.Interaction, sort: str, global_lb: bool = Fa
         else:
             rank = f"`#{i+1}`"
 
-        server_name = ""
-        if global_lb:
-            server = bot.get_guild(guild_id)
-            server_name = f" • *{server.name}*" if server else " • *Unknown Server*"
-
-        # build line
-        line = f"{rank} **{username}** | `{level}`{server_name}"
+        line = f"{rank} **{username}** | `{level}`"
         lines.append(line)
 
     embed.description = "\n".join(lines) + "\n\n**View online:** [Leaderboard](https://voidwave.xangey.dev/leaderboard)" if lines else "no data yet :("
