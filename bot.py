@@ -794,7 +794,7 @@ async def ai(interaction: discord.Interaction, message: str, stats: bool = False
 
 # Admin config commands
 
-config = discord.app_commands.Group(name="config", description="Admin commands for configuring the bot") #, guild=guild)
+config = discord.app_commands.Group(name="config", description="Admin commands for configuring the bot", allowed_installs=discord.app_commands.AppInstallationType(guild=True, user=False), allowed_contexts=discord.app_commands.AppCommandContext(guild=True, dm_channel=False, private_channel=False))
 level = discord.app_commands.Group(name="level", description="Configure level system settings", parent=config) #, guild=guild)
 bot.tree.add_command(config)
 
@@ -1171,14 +1171,12 @@ async def vc_xp_loop():
                     print(f"{date()} ERROR  Failed to update VC XP for {member} in {guild}: {e}")
                     await member.send(f"Something went wrong while updating your voice channel XP. Please DM <@996771607630585856> about this.\n> {e}")
 
-        print(f"{date()} INFO  Updated VC XP for {len(members)} members in {guild.name}")
     conn.close()
 
 @tasks.loop(minutes=1)
 async def qotd():
     now = datetime.datetime.now()
     if now.hour != 16 or now.minute != 0:
-        print(f"{date()} INFO  Not time for QOTD yet. Current time: {now.hour}:{now.minute:02d}/16:00 - sleeping...")
         return
 
     # make sure the file exists
@@ -1264,7 +1262,6 @@ async def update_stats():
 
     conn.commit()
     conn.close()
-    print(f"{date()} INFO  Updated bot stats: {total_guilds} guilds, {total_members} members")
 
 # Error handling
 
