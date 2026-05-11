@@ -1,6 +1,5 @@
 from discord import app_commands, Interaction
 from discord.ext import commands, tasks
-from httpx import get
 from simpleeval import simple_eval
 from llm import ask_llm, llm_stats
 from dotenv import load_dotenv
@@ -29,43 +28,27 @@ bot = commands.Bot(command_prefix="%", intents=intents, status=discord.Status.on
 TOKEN = os.getenv("TOKEN")
 allowed_user = int(os.getenv("ALLOWED_USER_ID") or 0)
 guild = discord.Object(id=int(os.getenv("GUILD_ID"))) # type: ignore
-COOLDOWN = 30
+XP_COOLDOWN = 30
+VC_COOLDOWN = 300
 LLM_COOLDOWN = 15
 last_llm = {}
 llm_queue = asyncio.Queue(maxsize=10)
 llm_queue_size = []
 last_xp = {}
+last_vc = {}
 
 with open("banned_ids.json", "r") as f:
     banned_ids = json.load(f)
 
 # Helpers
 
-def date():
-    return datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
 def get_db():
     conn = sqlite3.connect("database.db")
     conn.row_factory = sqlite3.Row
     return conn
 
-def get_user(cur, user_id):
-    user = cur.execute("SELECT * FROM economy WHERE user_id = ?", (user_id,)).fetchone()
-
-    if user is None:
-        cur.execute("INSERT INTO economy (user_id) VALUES (?)", (user_id,))
-        return {"user_id": user_id, "wallet": 0, "bank": 0, "last_daily": 0}
-
-    return user
-
-def get_guild_settings(cur, guild_id):
-    row = cur.execute("SELECT * FROM guild_settings WHERE guild_id = ?", (guild_id,)).fetchone()
-
-    if row is None:
-        cur.execute("INSERT INTO guild_settings (guild_id, coin_emoji) VALUES (?, ?)", (guild_id, "💰"))
-        return {"guild_id": guild_id, "coin_emoji": "💰", "currency_name": "coins"}
-
-    return row
+def date():
+    return datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
 def format_seconds(seconds):
     hours, remainder = divmod(seconds, 3600)
@@ -78,6 +61,20 @@ def format_seconds(seconds):
         parts.append(f"{minutes}m")
     if seconds or not parts:
         parts.append(f"{seconds}s")
+
+    return " ".join(parts)
+
+def format_minutes(minutes):
+    hours, minutes = divmod(minutes, 60)
+    days, hours = divmod(hours, 24)
+
+    parts = []
+    if days:
+        parts.append(f"{days}d")
+    if hours:
+        parts.append(f"{hours}h")
+    if minutes or not parts:
+        parts.append(f"{minutes}m")
 
     return " ".join(parts)
 
@@ -207,6 +204,7 @@ async def on_ready():
     print(f"{date()} INFO ----------------------\n")
     qotd.start()
     update_stats.start()
+    vc_xp_loop.start()
     bot.loop.create_task(llm_worker())
 
 @bot.event
@@ -544,35 +542,19 @@ async def level(interaction: discord.Interaction, hidden: bool = False, user: di
         conn = get_db()
         cur = conn.cursor()
 
-        data = cur.execute(
-            "SELECT * FROM users WHERE guild_id=? AND user_id=?",
-            (interaction.guild.id, user.id) # type: ignore
-        ).fetchone()
+        data = cur.execute("SELECT * FROM users WHERE guild_id=? AND user_id=?", (interaction.guild.id, user.id)).fetchone() # type: ignore
 
         if not data:
-            await interaction.followup.send(
-                f"{user.display_name}'s data file was not found! Try sending a message to create one.", # type: ignore
-                ephemeral=hidden
-            )
+            await interaction.followup.send(f"{user.display_name}'s data file was not found! Try sending a message to create one.", ephemeral=hidden)
             conn.close()
             return
 
-        rank = cur.execute(
-            "SELECT COUNT(*) + 1 FROM users WHERE guild_id=? AND total_xp > ?",
-            (interaction.guild.id, data["total_xp"])
-        ).fetchone()[0]
+        rank = cur.execute("SELECT COUNT(*) + 1 FROM users WHERE guild_id=? AND total_xp > ?", (interaction.guild.id, data["total_xp"])).fetchone()[0]
 
-        global_rank = cur.execute(
-            "SELECT COUNT(*) + 1 FROM users WHERE total_xp > ?",
-            (data["total_xp"],)
-        ).fetchone()[0]
+        global_rank = cur.execute("SELECT COUNT(*) + 1 FROM users WHERE total_xp > ?", (data["total_xp"],)).fetchone()[0]
 
     except Exception as e:
-        await interaction.followup.send(
-            f"Something went wrong... Please DM <@996771607630585856> about this\n> {e}",
-            ephemeral=hidden,
-            allowed_mentions=discord.AllowedMentions(users=False)
-        )
+        await interaction.followup.send(f"Something went wrong... Please DM <@996771607630585856> about this\n> {e}", ephemeral=hidden, allowed_mentions=discord.AllowedMentions(users=False))
         conn.close()
         return
 
@@ -584,17 +566,13 @@ async def level(interaction: discord.Interaction, hidden: bool = False, user: di
     filled_blocks = round(percent / 100 * 10)
     bar = f"{'▰'*filled_blocks}{'▱'*(10-filled_blocks)}"
 
-    extra = ""
-    if percent >= 90:
-        extra = "\n🔥 almost leveling up!"
-
     embed = discord.Embed(
         title=f"{user.display_name}'s Level", # type: ignore
         color=discord.Color(0x7128fc)
     )
 
     embed.description = (
-        f"**Level {data['level']}** • `#{rank}`{global_rank}{extra}\n"
+        f"**Level {data['level']}** • `#{rank}`{global_rank}\n"
         f"`{progress:,} / {out_of:,} XP` • {percent:.1f}%\n"
         f"[{bar}]"
     )
@@ -602,9 +580,11 @@ async def level(interaction: discord.Interaction, hidden: bool = False, user: di
     embed.add_field(
         name="",
         value=(
-            f"**Total XP:** `{data['total_xp']:,}`\n"
+            f"**Total XP:** `{data['total_xp']:,}`\n\n"
             f"**Messages (XP):** `{data['total_messages_xp']:,}`\n"
             f"**Total Messages:** `{data['total_messages']:,}`\n\n"
+            f"**Voice (XP):** `{format_minutes(data['vc_xp_minutes'])}`\n"
+            f"**Total Voice Time:** `{format_minutes(data['vc_minutes'])}`\n\n"
             f"**View online:** [Dashboard](https://voidwave.xangey.dev/stats/{interaction.guild.id}/{user.id})" # type: ignore
         ),
         inline=False
@@ -717,12 +697,9 @@ async def profile(interaction: discord.Interaction, hidden: bool = False, user: 
         conn = get_db()
         cur = conn.cursor()
 
-        top_level = cur.execute("SELECT level FROM users WHERE user_id=? ORDER BY level DESC LIMIT 1", (user.id,)).fetchone()
-        top_xp = cur.execute("SELECT total_xp FROM users WHERE user_id=? ORDER BY total_xp DESC LIMIT 1", (user.id,)).fetchone()
-        top_messages = cur.execute("SELECT total_messages FROM users WHERE user_id=? ORDER BY total_messages DESC LIMIT 1", (user.id,)).fetchone()
-
         total_xp = cur.execute("SELECT SUM(total_xp) FROM users WHERE user_id=?", (user.id,)).fetchone()[0] or 0
         total_messages = cur.execute("SELECT SUM(total_messages) FROM users WHERE user_id=?", (user.id,)).fetchone()[0] or 0
+        total_vc_minutes = cur.execute("SELECT SUM(vc_minutes) FROM users WHERE user_id=?", (user.id,)).fetchone()[0] or 0
 
     except Exception as e:
         await interaction.followup.send(f"Something went wrong... Please DM <@996771607630585856> about this\n> {e}", ephemeral=hidden, allowed_mentions=discord.AllowedMentions(users=False))
@@ -733,46 +710,56 @@ async def profile(interaction: discord.Interaction, hidden: bool = False, user: 
             conn.close()
 
     embed = discord.Embed(
-        title=f"{user.name}'s Profile",
+        title=f"{user.display_name}'s Profile",
+        description=(
+            f"### 🌌 Global Profile\n"
+            f"> hey {user.mention} :3"
+        ),
         color=discord.Color(0x7128fc)
     )
 
-    highest_level = top_level[0] if top_level else 0
-    highest_xp = top_xp[0] if top_xp else 0
-    highest_messages = top_messages[0] if top_messages else 0
-
-    embed.description = (f"hey {user.mention} :3\nhere's your global profile card")
+    embed.add_field(
+        name="",
+        value=(
+            "Hey there! This is your global profile, showing your combined stats across all servers that use the bot. Keep chatting and hanging out in voice channels to level up and earn XP! :D\n"
+        ),
+        inline=False
+    )
 
     embed.add_field(
-        name="📈 Progress",
+        name="⭐ Leveling",
         value=(
-            f"**Highest Level:** `{highest_level}`\n"
-            f"**Highest XP (single server):** `{highest_xp:,}`\n"
             f"**Total XP:** `{total_xp:,}`"
         ),
-        inline=False
+        inline=True
     )
 
     embed.add_field(
-        name="💬 Activity",
+        name="💬 Messages",
         value=(
-            f"**Total Messages:** `{total_messages:,}`\n"
-            f"**Most Messages (single server):** `{highest_messages:,}`"
+            f"**Messages:** `{total_messages:,}`\n"
         ),
-        inline=False
+        inline=True
     )
 
     embed.add_field(
-        name="📅 Account Created",
-        value=f"<t:{int(user.created_at.timestamp())}:F>",
-        inline=False
+        name="🎤 Voice",
+        value=(
+            f"**Time:** `{format_minutes(total_vc_minutes)}`\n"
+        ),
+        inline=True
     )
 
     embed.set_thumbnail(url=user.display_avatar.url)
 
-    embed.set_footer(text=f"user id: {user.id}")
+    embed.set_footer(
+        text=f"user id: {user.id}",
+        icon_url=user.display_avatar.url
+    )
 
-    return await interaction.followup.send(embed=embed, ephemeral=hidden, allowed_mentions=discord.AllowedMentions(users=False))
+    embed.timestamp = discord.utils.utcnow()
+
+    await interaction.followup.send(embed=embed, ephemeral=hidden, allowed_mentions=discord.AllowedMentions(users=False))
 
 @discord.app_commands.allowed_installs(guilds=True, users=True)
 @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
@@ -985,13 +972,15 @@ async def on_message(message):
                     guild_id, user_id, display_name, username,
                     level, progress, out_of,
                     last_message, total_messages, total_messages_xp, total_xp,
+                    vc_minutes, vc_xp_minutes,
                     avatar_hash
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 guild_id, user_id, message.author.display_name, message.author.name,
                 0, 0, 100,
                 "", 0, 0, 0,
+                0, 0,
                 message.author.avatar.key if message.author.avatar else None
             ))
 
@@ -1006,7 +995,7 @@ async def on_message(message):
             return
         
         if user_id in last_xp:
-            if now - last_xp[user_id] < COOLDOWN:
+            if now - last_xp[user_id] < XP_COOLDOWN:
                 cur.execute("UPDATE users SET total_messages = total_messages + 1, last_message=?, display_name=?, username=?, avatar_hash=? WHERE guild_id=? AND user_id=?", (str(datetime.datetime.now()), message.author.display_name, message.author.name, message.author.avatar.key if message.author.avatar else None, guild_id, user_id))
                 conn.commit()
                 conn.close()
@@ -1078,6 +1067,103 @@ async def on_message(message):
     finally:
         conn.close()
         await bot.process_commands(message)
+
+@tasks.loop(minutes=1)
+async def vc_xp_loop():
+    conn = get_db()
+    cur = conn.cursor()
+    for guild in bot.guilds:
+        for channel in guild.voice_channels:
+            members = [m for m in channel.members if not m.bot]
+
+            # if len(members) < 2:
+            #     continue
+
+            for member in members:
+                user = cur.execute("SELECT * FROM users WHERE guild_id=? AND user_id=?", (guild.id, member.id)).fetchone()
+                if not user:
+                    cur.execute("""
+                        INSERT INTO users (
+                            guild_id, user_id, display_name, username,
+                            level, progress, out_of,
+                            last_message, total_messages, total_messages_xp, total_xp,
+                            vc_minutes, vc_xp_minutes,
+                            avatar_hash
+                        )
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """, (
+                        guild.id, member.id, member.display_name, member.name,
+                        0, 0, 100,
+                        "", 0, 0, 0,
+                        0, 0,
+                        member.avatar.key if member.avatar else None
+                    ))
+                    conn.commit()
+                
+                if member.id in last_vc and time.time() - last_vc[member.id] < VC_COOLDOWN:
+                    cur.execute("UPDATE users SET vc_minutes = vc_minutes + 1, display_name=?, username=?, avatar_hash=? WHERE guild_id=? AND user_id=?", (member.display_name, member.name, member.avatar.key if member.avatar else None, guild.id, member.id))
+                    conn.commit()
+                    continue
+                if member.voice.self_deaf:
+                    continue
+                try:
+                    xp = random.randint(15, 20)
+                    last_vc[member.id] = time.time()
+                    cur.execute("""
+                    UPDATE users
+                    SET vc_minutes = vc_minutes + 1,
+                        vc_xp_minutes = vc_xp_minutes + ?,
+                        progress = progress + ?,
+                        total_xp = total_xp + ?,
+                        avatar_hash = ?,
+                        username = ?,
+                        display_name = ?
+                    WHERE guild_id=? AND user_id=?
+                    """, (1, xp, xp, member.avatar.key if member.avatar else None, member.name, member.display_name, guild.id, member.id))
+                    conn.commit()
+                    user = cur.execute("SELECT * FROM users WHERE guild_id=? AND user_id=?", (guild.id, member.id)).fetchone()
+                    progress = user["progress"]
+                    out_of = user["out_of"]
+                    level = user["level"]
+                    if progress >= out_of:
+                        progress -= out_of
+                        level += 1
+                        out_of = int(100 + level * 20)
+                        
+                        level_channel = (cur.execute("SELECT level_channel_id, level_channel_enabled FROM guild_settings WHERE guild_id = ?", (guild.id,)).fetchone())
+                        level_channel = dict(level_channel) if level_channel else None
+
+                        channel = bot.get_channel(level_channel["level_channel_id"]) if level_channel and level_channel["level_channel_id"] and level_channel["level_channel_enabled"] else None
+
+                        if channel and isinstance(channel, discord.TextChannel) and level_channel["level_channel_enabled"]:
+                            emojis = ['⭐', '🔥', '🌟', '💎', '⚡', '🛡️', '🏹', '🎯', '👑', '🌈']
+                            index = min((level - 1) // 10, len(emojis) - 1)
+                            emoji = emojis[index]
+                            count = min((level - 1) % 10 + 1, 10)
+                            await channel.send(f"🎊 {member.mention} reached **Level {level}**! {emoji*count}")
+
+                        level_roles = (cur.execute("SELECT level, role_id FROM level_roles WHERE guild_id = ?", (guild.id,)).fetchall())
+                        level_roles = dict(level_roles) if level_roles else None
+                        if not level_roles:
+                            cur.execute("UPDATE users SET level=?, progress=?, out_of=? WHERE guild_id=? AND user_id=?", (level, progress, out_of, guild.id, member.id))
+                            conn.commit()
+                            continue
+                        for req_level, role_id in level_roles.items():
+                            if level >= req_level:
+                                role = guild.get_role(role_id)
+
+                                if role and role not in member.roles:
+                                    await member.add_roles(role)
+
+                                    if channel and isinstance(channel, discord.TextChannel):
+                                        await channel.send(f"🎖️ Congrats {member.mention}! You've earned the **`{role.name}`** role!")
+                    conn.commit()
+                except Exception as e:
+                    print(f"{date()} ERROR  Failed to update VC XP for {member} in {guild}: {e}")
+                    await member.send(f"Something went wrong while updating your voice channel XP. Please DM <@996771607630585856> about this.\n> {e}")
+
+        print(f"{date()} INFO  Updated VC XP for {len(members)} members in {guild.name}")
+    conn.close()
 
 @tasks.loop(minutes=1)
 async def qotd():
@@ -1208,6 +1294,8 @@ if __name__ == "__main__":
         total_messages INTEGER,
         total_messages_xp INTEGER,
         total_xp INTEGER,
+        vc_minutes INTEGER,
+        vc_xp_minutes INTEGER,
         avatar_hash TEXT,
         PRIMARY KEY (guild_id, user_id)
     )
