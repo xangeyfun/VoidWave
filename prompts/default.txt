@@ -33,8 +33,5 @@ Rules:
 
 {context_block}
 
-recent history:
-{history_block}
-
 {username}: {user_message}
 VoidWave: 

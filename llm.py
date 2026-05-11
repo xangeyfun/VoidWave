@@ -1,4 +1,3 @@
-from collections import defaultdict, deque
 from datetime import datetime
 from zoneinfo import ZoneInfo
 import requests
@@ -7,8 +6,6 @@ import time
 avg_response_times = []
 avg_tps = []
 total_tokens = 0
-chat_histories = defaultdict(lambda: deque(maxlen=10))
-
 
 def date():
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -34,29 +31,6 @@ def get_prompt(name="default"):
 def sanitize(text):
     return (text.replace("<|", "").replace("|>", "").strip())
 
-
-def add_to_history(user_id, speaker, message):
-    chat_histories[user_id].append(
-        {
-            "speaker": speaker,
-            "message": sanitize(message)
-        }
-    )
-
-
-def format_history(user_id):
-    history = chat_histories[user_id]
-
-    if not history:
-        return "none"
-
-    lines = []
-
-    for msg in history:
-        lines.append(f"{msg['speaker']}: {msg['message']}")
-
-    return "\n".join(lines)
-
 def ask_llm(prompt, username, user_id, reply_info=None):
     global total_tokens
 
@@ -64,7 +38,6 @@ def ask_llm(prompt, username, user_id, reply_info=None):
     max_tokens = 1000
 
     user_message = prompt.replace("<|", "").replace("|>", "")
-    add_to_history(user_id, username, user_message)
 
     username = username.replace("@", "").replace("<|", "").replace("|>", "")
     username = username[:32]
@@ -77,13 +50,10 @@ def ask_llm(prompt, username, user_id, reply_info=None):
 
     now = datetime.now(ZoneInfo("Europe/Amsterdam")).strftime("It is %A, %B %d, %Y, %H:%M:%s")
 
-    history_block = format_history(user_id)
-
-    prompt = get_prompt("friendly").format(
+    prompt = get_prompt("default").format(
         username=username,
         now=now,
         context_block=context_block,
-        history_block=history_block,
         user_message=user_message,
     )
 
@@ -109,7 +79,8 @@ def ask_llm(prompt, username, user_id, reply_info=None):
 
     print(f"{date()} INFO  LLM raw response: '{reply}'")
     reply = reply.strip()
-    add_to_history(user_id, "VoidWave", reply)
+    if reply.startswith(f"{username}:"):
+        reply = reply.split(":", 1)[1].strip()
     tokens = data.get("tokens_predicted", 0)
     total_time = time.time() - start
 
