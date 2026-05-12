@@ -1085,8 +1085,6 @@ async def vc_xp_loop():
         for channel in guild.voice_channels:
             members = [m for m in channel.members if not m.bot]
 
-            if len(members) < 2:
-                continue
 
             for member in members:
                 user = cur.execute("SELECT * FROM users WHERE guild_id=? AND user_id=?", (guild.id, member.id)).fetchone()
@@ -1109,12 +1107,21 @@ async def vc_xp_loop():
                     ))
                     conn.commit()
                 
+                if len(members) < 2:
+                    cur.execute("UPDATE users SET vc_minutes = vc_minutes + 1, display_name=?, username=?, avatar_hash=? WHERE guild_id=? AND user_id=?", (member.display_name, member.name, member.avatar.key if member.avatar else None, guild.id, member.id))
+                    conn.commit()
+                    continue
+
                 if member.id in last_vc and time.time() - last_vc[member.id] < VC_COOLDOWN:
                     cur.execute("UPDATE users SET vc_minutes = vc_minutes + 1, display_name=?, username=?, avatar_hash=? WHERE guild_id=? AND user_id=?", (member.display_name, member.name, member.avatar.key if member.avatar else None, guild.id, member.id))
                     conn.commit()
                     continue
+
                 if member.voice.self_deaf:
+                    cur.execute("UPDATE users SET vc_minutes = vc_minutes + 1, display_name=?, username=?, avatar_hash=? WHERE guild_id=? AND user_id=?", (member.display_name, member.name, member.avatar.key if member.avatar else None, guild.id, member.id))
+                    conn.commit()
                     continue
+                
                 try:
                     xp = random.randint(5, 20)
                     last_vc[member.id] = time.time()
