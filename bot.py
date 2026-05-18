@@ -166,7 +166,10 @@ async def llm_worker():
             reply = f"Error occurred while fetching LLM response. Please try again later.\n> {e}"
 
         finally:
-            await ctx.reply(reply)
+            try:
+                await ctx.reply(reply)
+            except discord.errors.HTTPException:
+                pass
             print(f"{date()} INFO  LLM response to {ctx.author} (ID: {ctx.author.id}): {reply} ({info})")
             await asyncio.sleep(1)
             llm_queue_size.pop(0)

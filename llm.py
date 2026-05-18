@@ -48,7 +48,7 @@ def ask_llm(prompt, username, user_id, reply_info=None):
         reply_content = (reply_info.get("content", "").replace("<|", "").replace("|>", ""))
         context_block = (f"IMPORTANT REPLY CONTEXT:\nThe user's current message is directly replying to THIS message:\n{reply_author}: {reply_content}\nIf asked what message they are replying to, answer using this exact message.")
 
-    now = datetime.now(ZoneInfo("Europe/Amsterdam")).strftime("It is %A, %B %d, %Y, %H:%M:%S")
+    now = datetime.now(ZoneInfo("Europe/Amsterdam")).strftime("It is %A, %B %d, %Y, %H:%M:%S %Z (UTC%z)")
 
     prompt = get_prompt("default").format(
         username=username,
