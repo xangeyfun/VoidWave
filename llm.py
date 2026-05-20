@@ -6,6 +6,7 @@ import time
 avg_response_times = []
 avg_tps = []
 total_tokens = 0
+MODEL = "llama3.2:3b"
 
 def date():
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -58,20 +59,24 @@ def ask_llm(prompt, username, user_id, reply_info=None):
     )
 
     r = requests.post(
-        "http://localhost:8080/completion",
+        "http://localhost:11434/api/generate",
         json={
+            "model": MODEL,
             "prompt": prompt,
-            "n_predict": max_tokens,
-            "temperature": 0.3,
-            "top_p": 0.9,
-            "repeat_penalty": 1.1,
-            "stop": ["<|user|>", "<|assistant|>", "<|system|>", "<|bot|>", "\n"],
+            "stream": False,
+            "options": {
+                "temperature": 0.7,
+                "top_p": 0.9,
+                "repeat_penalty": 1.1,
+                "num_predict": max_tokens,
+                "stop": ["<|user|>", "<|assistant|>", "<|system|>", "<|bot|>", "\n"]
+            },
         },
         timeout=120,
     )
     try:
         data = r.json()
-        reply = data["content"]
+        reply = data.get("response", "")
     except Exception as e:
         print("Something went wrong...")
         reply = f"Something went wrong...\n> {e}\n> Response content: {r.text}"
@@ -81,7 +86,7 @@ def ask_llm(prompt, username, user_id, reply_info=None):
     reply = reply.strip()
     if reply.startswith(f"{username}:"):
         reply = reply.split(":", 1)[1].strip()
-    tokens = data.get("tokens_predicted", 0)
+    tokens = data.get("eval_count", 0)
     total_time = time.time() - start
 
     tps = tokens / total_time
