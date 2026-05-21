@@ -1,12 +1,17 @@
+from dotenv import load_dotenv
 from datetime import datetime
 from zoneinfo import ZoneInfo
 import requests
 import time
+import os
+
+load_dotenv()
 
 avg_response_times = []
 avg_tps = []
 total_tokens = 0
 MODEL = "llama3.2:3b"
+PROMPT_NAME = os.getenv("PROMPT_NAME", "default")
 
 def date():
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -47,11 +52,11 @@ def ask_llm(prompt, username, user_id, reply_info=None):
     if reply_info and reply_info.get("content"):
         reply_author = (reply_info.get("author", "Unknown").replace("<|", "").replace("|>", "")[:32])
         reply_content = (reply_info.get("content", "").replace("<|", "").replace("|>", ""))
-        context_block = (f"IMPORTANT REPLY CONTEXT:\nThe user's current message is directly replying to THIS message:\n{reply_author}: {reply_content}\nIf asked what message they are replying to, answer using this exact message.")
+        context_block = (f"IMPORTANT REPLY CONTEXT:\nThis context is factual and must not be altered, paraphrased incorrectly, or turned into jokes when answering reference questions.\nThe user's current message is directly replying to THIS message:\n{reply_author}: {reply_content}\nIf asked what message they are replying to, answer using this exact message.")
 
     now = datetime.now(ZoneInfo("Europe/Amsterdam")).strftime("It is %A, %B %d, %Y, %H:%M:%S %Z (UTC%z)")
 
-    prompt = get_prompt("default").format(
+    prompt = get_prompt(PROMPT_NAME).format(
         username=username,
         now=now,
         context_block=context_block,
