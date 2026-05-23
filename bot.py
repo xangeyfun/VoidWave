@@ -981,9 +981,14 @@ async def on_message(message):
     conn.close()
 
     if guild_settings and guild_settings["ai_chat_moderation"]:
-        response = await asyncio.to_thread(check_message, message.content)
+        text = message.content
+        for user in message.mentions:
+            text = text.replace(f"<@{user.id}>", user.name)
+            text = text.replace(f"<@!{user.id}>", user.name)
+        response = await asyncio.to_thread(check_message, text)
         if response and response[0].lower() == "unsafe":
-            await message.delete()
+            if response[1] != "S10":
+                await message.delete()
             category = CATEGORIES.get(response[1], "Unknown")
             log_channel = bot.get_channel(guild_settings["log_channel"]) if guild_settings["log_channel"] else None
             if log_channel and isinstance(log_channel, discord.TextChannel):
@@ -991,6 +996,7 @@ async def on_message(message):
                 embed.add_field(name="User", value=f"{message.author} (ID: {message.author.id})", inline=False)
                 embed.add_field(name="Content", value=message.content or "No content", inline=False)
                 embed.add_field(name="Category", value=category, inline=False)
+                embed.add_field(name="Deleted", value="True" if response[1] != "S10" else False)
                 if message.attachments:
                     embed.add_field(name="Attachment", value=message.attachments[0].url, inline=False)
                 if message.embeds:
@@ -1001,12 +1007,13 @@ async def on_message(message):
                 await log_channel.send(embed=embed)
 
             try:
-                await message.author.send(
-                        f"Hey! 👋\n\n"
-                        f"Your message in **{message.guild.name if message.guild else 'a server'}{' / ' + message.channel.name if message.guild else ''}** was removed by our automated moderation\n\n"
-                        f"**Reason:** {category} (`{response[1]}`)\n"
-                        f"If you think this was a mistake, please rephrase your message and try again."
-                    )
+                if response[1] != "S10":
+                    await message.author.send(
+                            f"Hey! 👋\n\n"
+                            f"Your message in **{message.guild.name if message.guild else 'a server'}{' / ' + message.channel.name if message.guild else ''}** was removed by our automated moderation\n\n"
+                            f"**Reason:** {category} (`{response[1]}`)\n"
+                            f"If you think this was a mistake, please rephrase your message and try again."
+                        )
             except discord.Forbidden:
                 pass
 
