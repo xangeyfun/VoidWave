@@ -981,11 +981,11 @@ async def on_message(message):
     conn.close()
 
     if guild_settings and guild_settings["ai_chat_moderation"]:
-        response = check_message(message.content)
+        response = await asyncio.to_thread(check_message, message.content)
         if response and response[0].lower() == "unsafe":
             await message.delete()
             category = CATEGORIES.get(response[1], "Unknown")
-            log_channel = bot.get_channel(guild_settings["log_channel"])
+            log_channel = bot.get_channel(guild_settings["log_channel"]) if guild_settings["log_channel"] else None
             if log_channel and isinstance(log_channel, discord.TextChannel):
                 embed = discord.Embed(title="⚠️ Unsafe Message Detected", color=discord.Color.red())
                 embed.add_field(name="User", value=f"{message.author} (ID: {message.author.id})", inline=False)
