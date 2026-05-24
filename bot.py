@@ -985,10 +985,27 @@ async def on_message(message):
         for user in message.mentions:
             text = text.replace(f"<@{user.id}>", user.name)
             text = text.replace(f"<@!{user.id}>", user.name)
-        response = await asyncio.to_thread(check_message, text)
+
+        for role in message.role_mentions:
+            text = text.replace(f"<@&{role.id}>", role.name)
+
+        for channel in message.channel_mentions:
+            text = text.replace(f"<#{channel.id}>", channel.name)
+
+        for emoji in message.guild.emojis:
+            text = text.replace(str(emoji), emoji.name)
+
+        try:
+            response = await asyncio.to_thread(check_message, text)
+        except requests.exceptions.Timeout:
+            print(f"{date()} ERROR  Content moderation API timed out for message ID {message.id} in guild {message.guild.id}")
+            response = ["error", "S0"]
         if response and response[0].lower() == "unsafe":
             if response[1] != "S10":
-                await message.delete()
+                try:
+                    await message.delete()
+                except discord.NotFound:
+                    print(f"{date()} WARNING  Message ID {message.id} not found for deletion in guild {message.guild.id}")
             category = CATEGORIES.get(response[1], "Unknown")
             log_channel = bot.get_channel(guild_settings["log_channel"]) if guild_settings["log_channel"] else None
             if log_channel and isinstance(log_channel, discord.TextChannel):
