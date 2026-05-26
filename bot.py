@@ -150,29 +150,6 @@ def extract_options(options):
 
     return out
 
-def check_message(message):
-    r = requests.post(
-        "http://localhost:11434/api/chat",
-        json={
-            "model": "llama-guard3:1b",
-            "messages": [
-                {
-                    "role": "user",
-                    "content": message
-                }
-            ],
-            "stream": False,
-            "keep_alive": "1h"
-        },
-        timeout=5
-    )
-
-    if r.status_code != 200:
-        print(f"{date()} ERROR  Moderation API error: {r.status_code} {r.text}")
-        return None
-    return r.json()["message"]["content"].split("\n")
-
-
 # Classes
 
 class LLMRequest:
@@ -837,7 +814,6 @@ async def ai(interaction: discord.Interaction, message: str, stats: bool = False
 
 config = discord.app_commands.Group(name="config", description="Admin commands for configuring the bot", allowed_installs=discord.app_commands.AppInstallationType(guild=True, user=False), allowed_contexts=discord.app_commands.AppCommandContext(guild=True, dm_channel=False, private_channel=False))
 level = discord.app_commands.Group(name="level", description="Configure level system settings", parent=config) #, guild=guild)
-chat_mod = discord.app_commands.Group(name="chat_mod", description="Configure ai chat moderation settings", parent=config) #, guild=guild)
 bot.tree.add_command(config)
 
 @discord.app_commands.allowed_installs(guilds=True, users=False)
@@ -943,25 +919,6 @@ async def remove_level_role(interaction: discord.Interaction, level: int):
 
     await interaction.response.send_message(f"Level role for level {level} has been removed", ephemeral=True)
 
-@discord.app_commands.allowed_installs(guilds=True, users=False)
-@discord.app_commands.allowed_contexts(guilds=True, dms=False, private_channels=False)
-@discord.app_commands.checks.has_permissions(administrator=True)
-@chat_mod.command(name="log_channel", description="Set the log channel for AI chat moderation") #, guild=guild)
-@app_commands.describe(channel="The channel to send AI chat moderation logs to")
-async def set_chat_mod_log_channel(interaction: discord.Interaction, channel: discord.TextChannel, enabled: bool | None = None):
-    try:
-        conn = get_db()
-        cur = conn.cursor()
-        cur.execute("INSERT INTO guild_settings (guild_id, log_channel, ai_chat_moderation) VALUES (?, ?, ?) ON CONFLICT(guild_id) DO UPDATE SET log_channel = excluded.log_channel, ai_chat_moderation = excluded.ai_chat_moderation", (interaction.guild.id, channel.id, int(bool(enabled)) if enabled else 0)) # type: ignore
-        conn.commit()
-    except Exception as e:
-        await interaction.response.send_message(f"Failed to set log channel. Please try again later.\n> {e}", ephemeral=True)
-        print(f"{date()} ERROR  Failed to set log channel: {e}")
-    finally:
-        conn.close()
-
-    await interaction.response.send_message(f"AI chat moderation log channel set to {channel.mention} and moderation is {'enabled' if enabled else 'disabled'}", ephemeral=True)
-
 # Message events
 
 @bot.event
@@ -974,67 +931,6 @@ async def on_message(message):
     if isinstance(message.channel, discord.DMChannel):
         await message.channel.send("Hello! I'm a bot. 🤖\n> Please use slash commands (/) to interact with me!")
         return
-
-    conn = get_db()
-    cur = conn.cursor()
-    guild_settings = cur.execute("SELECT * FROM guild_settings WHERE guild_id = ?", (message.guild.id,)).fetchone() if message.guild else None
-    conn.close()
-
-    if guild_settings and guild_settings["ai_chat_moderation"]:
-        text = message.content
-        for user in message.mentions:
-            text = text.replace(f"<@{user.id}>", user.name)
-            text = text.replace(f"<@!{user.id}>", user.name)
-
-        for role in message.role_mentions:
-            text = text.replace(f"<@&{role.id}>", role.name)
-
-        for channel in message.channel_mentions:
-            text = text.replace(f"<#{channel.id}>", channel.name)
-
-        for emoji in message.guild.emojis:
-            text = text.replace(str(emoji), emoji.name)
-
-        try:
-            response = await asyncio.to_thread(check_message, text)
-        except requests.exceptions.Timeout:
-            print(f"{date()} ERROR  Content moderation API timed out for message ID {message.id} in guild {message.guild.id}")
-            response = ["error", "S0"]
-        if response and response[0].lower() == "unsafe":
-            if response[1] != "S10":
-                try:
-                    await message.delete()
-                except discord.NotFound:
-                    print(f"{date()} WARNING  Message ID {message.id} not found for deletion in guild {message.guild.id}")
-            category = CATEGORIES.get(response[1], "Unknown")
-            log_channel = bot.get_channel(guild_settings["log_channel"]) if guild_settings["log_channel"] else None
-            if log_channel and isinstance(log_channel, discord.TextChannel):
-                embed = discord.Embed(title="⚠️ Unsafe Message Detected", color=discord.Color.red())
-                embed.add_field(name="User", value=f"{message.author} (ID: {message.author.id})", inline=False)
-                embed.add_field(name="Content", value=message.content or "No content", inline=False)
-                embed.add_field(name="Category", value=category, inline=False)
-                embed.add_field(name="Deleted", value="True" if response[1] != "S10" else False)
-                if message.attachments:
-                    embed.add_field(name="Attachment", value=message.attachments[0].url, inline=False)
-                if message.embeds:
-                    embed.add_field(name="Embed", value=message.embeds[0].url, inline=False)
-                if message.stickers:
-                    embed.add_field(name="Sticker", value=message.stickers[0].url, inline=False)
-                embed.set_footer(text=f"{message.guild.name}{(' / ' + message.channel.name) if message.guild else ''} • {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", icon_url=message.guild.icon.url if message.guild and message.guild.icon else None)
-                await log_channel.send(embed=embed)
-
-            try:
-                if response[1] != "S10":
-                    await message.author.send(
-                            f"Hey! 👋\n\n"
-                            f"Your message in **{message.guild.name if message.guild else 'a server'}{' / ' + message.channel.name if message.guild else ''}** was removed by our automated moderation\n\n"
-                            f"**Reason:** {category} (`{response[1]}`)\n"
-                            f"If you think this was a mistake, please rephrase your message and try again."
-                        )
-            except discord.Forbidden:
-                pass
-
-            return
 
     # duck reaction
     if message.content.lower() in ["duck", "quack"]:
@@ -1451,8 +1347,6 @@ if __name__ == "__main__":
         guild_id INTEGER PRIMARY KEY,
         level_channel_id INTEGER,
         level_channel_enabled BOOLEAN DEFAULT 1,
-        ai_chat_moderation BOOLEAN DEFAULT 0,
-        log_channel INTEGER
     )
     """)
     conn.commit()
