@@ -1346,7 +1346,7 @@ if __name__ == "__main__":
     CREATE TABLE IF NOT EXISTS guild_settings (
         guild_id INTEGER PRIMARY KEY,
         level_channel_id INTEGER,
-        level_channel_enabled BOOLEAN DEFAULT 1,
+        level_channel_enabled BOOLEAN DEFAULT 1
     )
     """)
     conn.commit()
