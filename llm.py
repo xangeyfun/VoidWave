@@ -10,7 +10,7 @@ load_dotenv()
 avg_response_times = []
 avg_tps = []
 total_tokens = 0
-MODEL = "llama3.2:3b"
+MODEL = os.getenv("MODEL", "llama3.2:3b")
 PROMPT_NAME = os.getenv("PROMPT_NAME", "default")
 
 def date():

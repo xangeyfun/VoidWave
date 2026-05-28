@@ -36,6 +36,8 @@ APPLICATION_ID=your_bot_user_id
 GUILD_ID=your_server_id
 ALLOWED_USER_ID=your_user_id
 SECRET_KEY=random_string
+PROMPT_NAME=default
+MODEL=llama3.2:3b
 ```
 
 4. Run the bot:
@@ -50,35 +52,12 @@ python3 app.py
 
 The bot and web server run independently. The web server reads from the same database.
 
-## Commands
-
-Type `/help` when the bot's online to see all commands. Here's the basics:
-
-- `/help` - Show bot help
-- `/ping` - Check latency
-- `/animal` - Get a random animal picture
-- `/calc` - Math calculator
-- `/flip` - Coin flip
-- `/github` - Show the bot GitHub link
-- `/random` - Random number generator
-- `/userinfo` - Get info about a user
-- `/quote` - Get a quote
-- `/uptime` - Check bot uptime
-- `/fact` - Get a daily fact
-- `/level` - Your server level and XP
-- `/leaderboard` - Top users leaderboard
-- `/profile` - View your profile
-
 ## Tech
 
 - Python + discord.py (bot)
 - Flask (web)
 - SQLite (database)
 - Vanilla CSS + Jinja templates
-
-## License
-
-MIT - do whatever, just don't be a jerk.
 
 ## Contact
 
