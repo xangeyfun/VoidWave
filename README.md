@@ -15,7 +15,6 @@
 
 </div>
 
-
 ## ✨ Features
 
 * XP & leveling system
@@ -66,11 +65,6 @@ i originally made voidwave because i wanted to learn more python + discord bots,
 but eventually i got tired of most leveling bots feeling bloated or ugly.
 
 so i made my own.
-
----
-
-> [!TIP]
-> Running this on a VPS or Linux server is highly recommended.
 
 ---
 
