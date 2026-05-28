@@ -52,8 +52,13 @@ CATEGORIES = {
     "S13": "Elections"
 }
 
-with open("banned_ids.json", "r") as f:
-    banned_ids = json.load(f)
+if os.path.exists("banned_ids.json"):
+    with open("banned_ids.json", "r") as f:
+        banned_ids = json.load(f)
+else:
+    with open("banned_ids.json", "w") as f:
+        json.dump([], f)
+    banned_ids = []
 
 # Helpers
 
@@ -699,7 +704,7 @@ async def fact(interaction: discord.Interaction, sort: str, global_lb: bool = Fa
         else:
             rank = f"`#{i+1}`"
 
-        line = f"{rank} **{username}** | `{level}`"
+        line = f"{rank} **{username}** | `{format_minutes(level) if sort == 'Total Voice' else level:,}`"
         lines.append(line)
 
     embed.description = "\n".join(lines) + "\n\n**View online:** [Leaderboard](https://voidwave.xangey.dev/leaderboard)" if lines else "no data yet :("
