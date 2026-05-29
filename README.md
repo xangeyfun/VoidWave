@@ -11,8 +11,6 @@
 ![SQLite](https://img.shields.io/badge/database-sqlite-lightgrey)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
-*started as a learning project, accidentally became a real bot*
-
 </div>
 
 ## ✨ Features
@@ -39,8 +37,6 @@ Users can share a public profile page:
 ```txt id="q2x7nh"
 voidwave.xangey.dev/stats/guild_id/user_id
 ```
-
-Clean, simple, and works surprisingly well on mobile too
 
 ---
 
