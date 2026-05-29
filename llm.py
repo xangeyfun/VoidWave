@@ -41,7 +41,7 @@ def ask_llm(prompt, username, user_id, reply_info=None):
     global total_tokens
 
     start = time.time()
-    max_tokens = 200
+    max_tokens = 400
 
     user_message = prompt.replace("<|", "").replace("|>", "")
 
@@ -70,9 +70,9 @@ def ask_llm(prompt, username, user_id, reply_info=None):
             "prompt": prompt,
             "stream": False,
             "options": {
-                "temperature": 0.7,
+                "temperature": 0.6,
                 "top_p": 0.9,
-                "repeat_penalty": 1.1,
+                "repeat_penalty": 1.2,
                 "num_predict": max_tokens,
                 "stop": ["<|user|>", "<|assistant|>", "<|system|>", "<|bot|>"] 
             },
