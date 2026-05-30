@@ -67,14 +67,5 @@ so i made my own.
 ## 🔗 Links
 
 * Discord Server → https://discord.gg/tyQksBReAS
-* GitHub → https://github.com/xangeyfun/discord-bot
-
----
-
-<div align="center">
-
-### 🌌 VoidWave
-
-by **xangey**
-
-</div>
+* GitHub → https://github.com/xangeyfun/VoidWave
+* Website → https://voidwave.xangey.dev/
