@@ -717,7 +717,7 @@ async def leaderboard(interaction: discord.Interaction, sort: str, global_lb: bo
     conn.close()
     await interaction.followup.send(embed=embed, ephemeral=hidden)
 
-@discord.app_commands.allowed_installs(guilds=True, users=False)
+@discord.app_commands.allowed_installs(guilds=True, users=True)
 @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
 @bot.tree.command(name="profile", description="Check your profile") #, guild=guild)
 @app_commands.describe(hidden="Hide the command from others", user='Select a user to view their profile')
