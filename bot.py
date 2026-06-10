@@ -1034,23 +1034,54 @@ async def view_config(interaction: discord.Interaction):
 
     await interaction.response.send_message(embed=embed, ephemeral=True)
 
+# Levelup channel config
+
 @discord.app_commands.allowed_installs(guilds=True, users=False)
 @discord.app_commands.allowed_contexts(guilds=True, dms=False, private_channels=False)
 @discord.app_commands.checks.has_permissions(administrator=True)
 @level.command(name="set_channel", description="Set the channel for level up messages") #, guild=guild)
-@app_commands.describe(channel="The channel to send level up messages in", enabled="Whether to enable level up messages")
-async def set_level_channel(interaction: discord.Interaction, channel: discord.TextChannel, enabled: bool | None = None):
+@app_commands.describe(channel="The channel to send level up messages in")
+async def set_level_channel(interaction: discord.Interaction, channel: discord.TextChannel):
     try:
         conn = get_db()
         cur = conn.cursor()
-        cur.execute("INSERT INTO guild_settings (guild_id, level_channel_id, level_channel_enabled) VALUES (?, ?, ?) ON CONFLICT(guild_id) DO UPDATE SET level_channel_id = excluded.level_channel_id, level_channel_enabled = excluded.level_channel_enabled", (interaction.guild.id, channel.id, int(enabled))) # type: ignore
+        cur.execute("INSERT INTO guild_settings (guild_id, level_channel_id) VALUES (?, ?) ON CONFLICT(guild_id) DO UPDATE SET level_channel_id = excluded.level_channel_id", (interaction.guild.id, channel.id)) # type: ignore
         conn.commit()
     except Exception as e:
         print(f"{date()} ERROR  Failed to set level channel: {e}")
     finally:
         conn.close()
 
-    await interaction.response.send_message(f"Level up channel set to {channel.mention} and {'enabled' if enabled else 'disabled'}", ephemeral=True)
+    await interaction.response.send_message(f"Level up channel set to {channel.mention}", ephemeral=True)
+
+@discord.app_commands.allowed_installs(guilds=True, users=False)
+@discord.app_commands.allowed_contexts(guilds=True, dms=False, private_channels=False)
+@discord.app_commands.checks.has_permissions(administrator=True)
+@level.command(name="toggle_channel", description="Enable or disable level up messages") #, guild=guild)
+@app_commands.describe(enabled="Whether to enable level up messages")
+async def toggle_level_channel(interaction: discord.Interaction, enabled: bool):
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        channel = cur.execute("SELECT level_channel_id FROM guild_settings WHERE guild_id = ?", (interaction.guild.id,)).fetchone() # type: ignore
+        channel = bot.get_channel(channel[0]) if channel and channel[0] else None
+        if not channel:
+            await interaction.response.send_message("Please set a level up channel first using `/config level set_channel`", ephemeral=True)
+            return
+
+        cur.execute("INSERT INTO guild_settings (guild_id, level_channel_enabled) VALUES (?, ?) ON CONFLICT(guild_id) DO UPDATE SET level_channel_enabled = excluded.level_channel_enabled", (interaction.guild.id, int(enabled))) # type: ignore
+        conn.commit()
+
+    except Exception as e:
+        print(f"{date()} ERROR  Failed to toggle level channel: {e}")
+        await interaction.response.send_message(f"Failed to update level up message setting. Please try again later.\n> {e}", ephemeral=True)
+        return
+    finally:
+        conn.close()
+
+    await interaction.response.send_message(f"Level up messages have been **{'enabled' if enabled else 'disabled'}**", ephemeral=True)
+
+# Levelup roles config
 
 @discord.app_commands.allowed_installs(guilds=True, users=False)
 @discord.app_commands.allowed_contexts(guilds=True, dms=False, private_channels=False)
@@ -1088,6 +1119,8 @@ async def remove_level_role(interaction: discord.Interaction, level: int):
         conn.close()
 
     await interaction.response.send_message(f"Level role for level {level} has been removed", ephemeral=True)
+
+# QOTD config
 
 @discord.app_commands.allowed_installs(guilds=True, users=False)
 @discord.app_commands.allowed_contexts(guilds=True, dms=False, private_channels=False)
