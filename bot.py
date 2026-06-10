@@ -3,6 +3,7 @@ from discord.ext import commands, tasks
 from simpleeval import simple_eval
 from llm import ask_llm, llm_stats
 from dotenv import load_dotenv
+from zoneinfo import ZoneInfo
 import subprocess
 import traceback
 import datetime
@@ -394,7 +395,7 @@ async def on_ready():
     for guild in bot.guilds:
         print(f"{date()} INFO  {guild.name:<30} | {guild.id:<20} | {str(guild.owner):<20} [{guild.owner_id:<20}] | {guild.member_count:<5} members")
     print(f"{date()} INFO ----------------------\n")
-    qotd.start()
+    qotd_loop.start()
     update_stats.start()
     vc_xp_loop.start()
     bot.loop.create_task(llm_worker())
@@ -988,7 +989,7 @@ async def ai(interaction: discord.Interaction, message: str, stats: bool = False
 
 config = discord.app_commands.Group(name="config", description="Admin commands for configuring the bot", allowed_installs=discord.app_commands.AppInstallationType(guild=True, user=False), allowed_contexts=discord.app_commands.AppCommandContext(guild=True, dm_channel=False, private_channel=False))
 level = discord.app_commands.Group(name="level", description="Configure level system settings", parent=config) #, guild=guild)
-qotd = discord.app_commands.Group(name="qotd", description="Configure quote of the day settings", parent=config) #, guild=guild)
+qotd = discord.app_commands.Group(name="qotd", description="Configure QOTD settings", parent=config) #, guild=guild)
 bot.tree.add_command(config)
 
 @discord.app_commands.allowed_installs(guilds=True, users=False)
@@ -1001,6 +1002,7 @@ async def view_config(interaction: discord.Interaction):
         cur = conn.cursor()
         level_channel = cur.execute("SELECT level_channel_id, level_channel_enabled FROM guild_settings WHERE guild_id = ?", (interaction.guild.id,)).fetchone() # type: ignore
         level_roles = cur.execute("SELECT level, role_id FROM level_roles WHERE guild_id = ?", (interaction.guild.id,)).fetchall() # type: ignore
+        qotd_channel = cur.execute("SELECT qotd_channel, qotd_enabled FROM guild_settings WHERE guild_id = ?", (interaction.guild.id,)).fetchone() # type: ignore
     except Exception as e:
         print(f"{date()} ERROR  Failed to fetch config: {e}")
         await interaction.response.send_message(f"Failed to fetch config. Please try again later.\n> {e}", ephemeral=True)
@@ -1016,6 +1018,13 @@ async def view_config(interaction: discord.Interaction):
         embed.add_field(name="Level Up Channel", value=f"{channel_name} ({'Enabled' if level_channel[1] else 'Disabled'})", inline=False)
     else:
         embed.add_field(name="Level Up Channel", value="Not set", inline=False)
+
+    if qotd_channel:
+        channel = interaction.guild.get_channel(qotd_channel[0])
+        channel_name = channel.mention if channel else "`Deleted Channel`"
+        embed.add_field(name="QOTD Channel", value=f"{channel_name} ({'Enabled' if qotd_channel[1] else 'Disabled'})", inline=False)
+    else:
+        embed.add_field(name="QOTD Channel", value="Not set", inline=False)
 
     if level_roles:
         roles_str = "\n".join([f"Level {row[0]}: <@&{row[1]}>" for row in level_roles])
@@ -1079,6 +1088,48 @@ async def remove_level_role(interaction: discord.Interaction, level: int):
         conn.close()
 
     await interaction.response.send_message(f"Level role for level {level} has been removed", ephemeral=True)
+
+@discord.app_commands.allowed_installs(guilds=True, users=False)
+@discord.app_commands.allowed_contexts(guilds=True, dms=False, private_channels=False)
+@discord.app_commands.checks.has_permissions(administrator=True)
+@qotd.command(name="set_channel", description="Set the channel for QOTD") #, guild=guild)
+@app_commands.describe(channel="The channel to send the QOTD in")
+async def set_qotd_channel(interaction: discord.Interaction, channel: discord.TextChannel):
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute("INSERT INTO guild_settings (guild_id, qotd_channel) VALUES (?, ?) ON CONFLICT(guild_id) DO UPDATE SET qotd_channel = excluded.qotd_channel", (interaction.guild.id, channel.id)) # type: ignore
+        conn.commit()
+
+    except Exception as e:
+        print(f"{date()} ERROR  Failed to set QOTD channel: {e}")
+        await interaction.response.send_message(f"Failed to set QOTD channel. Please try again later.\n> {e}", ephemeral=True)
+        return
+    finally:
+        conn.close()
+
+    await interaction.response.send_message(f"QOTD channel set to {channel.mention}", ephemeral=True)
+
+@discord.app_commands.allowed_installs(guilds=True, users=False)
+@discord.app_commands.allowed_contexts(guilds=True, dms=False, private_channels=False)
+@discord.app_commands.checks.has_permissions(administrator=True)
+@qotd.command(name="enable", description="Enable or disable the QOTD") #, guild=guild)
+@app_commands.describe(enabled="Whether to enable the QOTD")
+async def enable_qotd(interaction: discord.Interaction, enabled: bool):
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute("INSERT INTO guild_settings (guild_id, qotd_enabled) VALUES (?, ?) ON CONFLICT(guild_id) DO UPDATE SET qotd_enabled = excluded.qotd_enabled", (interaction.guild.id, int(enabled))) # type: ignore
+        conn.commit()
+
+    except Exception as e:
+        print(f"{date()} ERROR  Failed to set QOTD enabled: {e}")
+        await interaction.response.send_message(f"Failed to update QOTD setting. Please try again later.\n> {e}", ephemeral=True)
+        return
+    finally:
+        conn.close()
+
+    await interaction.response.send_message(f"QOTD has been {'enabled' if enabled else 'disabled'}", ephemeral=True)
 
 # Message events
 
@@ -1283,6 +1334,7 @@ async def qotd_loop():
 
     for guild in guilds:
         await send_qotd(guild["guild_id"], guild["qotd_channel"])
+        print(f"{date()} INFO  Sent QOTD for guild {guild['guild_id']} in channel {guild['qotd_channel']}")
 
 @tasks.loop(minutes=1)
 async def update_stats():
@@ -1346,7 +1398,7 @@ if __name__ == "__main__":
         qotd_enabled BOOLEAN DEFAULT 0,
         qotd_channel INTEGER,
         last_qotd_id INTEGER,
-        last_qotd_thread_id INTEGER,
+        last_qotd_thread_id INTEGER
     )
     """)
     conn.commit()
