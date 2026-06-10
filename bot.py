@@ -155,7 +155,7 @@ def extract_options(options):
 
     return out
 
-async def add_xp(message):
+async def add_message_xp(message):
     guild_id = message.guild.id
     user_id = message.author.id
 
@@ -1034,28 +1034,12 @@ async def on_message(message):
     print(f"{date()} MESSAGE  from {message.author} in {message.guild.name if message.guild else 'DM'}{'/' + message.channel.name if message.guild else ''}: {message.content} [{message.attachments[0].url if message.attachments else ''}] [{message.embeds[0].url if message.embeds else ''}] [{message.stickers[0].url if message.stickers else ''}]")
 
     if isinstance(message.channel, discord.DMChannel):
-        await message.channel.send("Hello! I'm a bot. 🤖\n> Please use slash commands (/) to interact with me!")
+        await message.channel.send(
+            "## 👋 Hi! I'm **VoidWave**!\n\n"
+            "Most of my features are available through slash commands (`/`).\n"
+            "Some commands also work in DMs, so try typing `/` to see what's available! 🤖"
+        )
         return
-
-    # duck reaction
-    if message.content.lower() in ["duck", "quack"]:
-        await message.add_reaction("🦆")
-        await message.channel.send("Quack! 🦆")
-
-    if message.content.lower() in ["cat", "meow"]:
-        await message.add_reaction("😼")
-        await message.channel.send("Meow! 😼")
-
-    if message.content.lower() in ["dog", "woof"]:
-        await message.add_reaction("🐶")
-        await message.channel.send("Woof! 🐶")
-
-    if message.content.lower() == "defenestration":
-        await message.add_reaction("⁉")
-        await message.channel.send("Secret Word!!")
-
-    if any(word in message.content.lower() for word in [":3"]) and message.guild.id not in [1448685763960115202, 1203657476306894868]:
-        await message.add_reaction(bot.get_emoji(1488541008261288088) or "😺")
 
     if "https://cdn.discordapp.com/stickers/1488531621996134430.png" in [sticker.url for sticker in message.stickers] and message.author.id not in banned_ids:
         await message.add_reaction("❓")
@@ -1110,7 +1094,7 @@ async def on_message(message):
             await message.reply(f"You are queued! Position in queue: **{position}**", delete_after=3)
 
     try:
-        await add_xp(message)
+        await add_message_xp(message)
 
     except Exception as e:
         e = str(e)
@@ -1122,7 +1106,6 @@ async def on_message(message):
     finally:
         conn.close()
         await bot.process_commands(message)
-
 
 @tasks.loop(minutes=1)
 async def vc_xp_loop():
