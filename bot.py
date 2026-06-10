@@ -983,6 +983,9 @@ async def on_message(message):
         for mention in message.mentions:
             msg = msg.replace(f"<@{mention.id}>", mention.name)
 
+        for channel in message.channel_mentions:
+            msg = msg.replace(f"<#{channel.id}>", channel.name)
+
         if not msg:
             await message.reply("Please provide a message for the LLM to respond to.")
             return
