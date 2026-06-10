@@ -987,6 +987,7 @@ async def ai(interaction: discord.Interaction, message: str, stats: bool = False
 # Admin config commands
 
 config = discord.app_commands.Group(name="config", description="Admin commands for configuring the bot", allowed_installs=discord.app_commands.AppInstallationType(guild=True, user=False), allowed_contexts=discord.app_commands.AppCommandContext(guild=True, dm_channel=False, private_channel=False))
+level = discord.app_commands.Group(name="level", description="Configure level system settings", parent=config) #, guild=guild)
 qotd = discord.app_commands.Group(name="qotd", description="Configure quote of the day settings", parent=config) #, guild=guild)
 bot.tree.add_command(config)
 
@@ -1000,8 +1001,6 @@ async def view_config(interaction: discord.Interaction):
         cur = conn.cursor()
         level_channel = cur.execute("SELECT level_channel_id, level_channel_enabled FROM guild_settings WHERE guild_id = ?", (interaction.guild.id,)).fetchone() # type: ignore
         level_roles = cur.execute("SELECT level, role_id FROM level_roles WHERE guild_id = ?", (interaction.guild.id,)).fetchall() # type: ignore
-        log_channel = cur.execute("SELECT log_channel FROM guild_settings WHERE guild_id = ?", (interaction.guild.id,)).fetchone() # type: ignore
-        ai_chat_moderation = cur.execute("SELECT ai_chat_moderation FROM guild_settings WHERE guild_id = ?", (interaction.guild.id,)).fetchone() # type: ignore
     except Exception as e:
         print(f"{date()} ERROR  Failed to fetch config: {e}")
         await interaction.response.send_message(f"Failed to fetch config. Please try again later.\n> {e}", ephemeral=True)
@@ -1023,18 +1022,6 @@ async def view_config(interaction: discord.Interaction):
         embed.add_field(name="Level Roles", value=roles_str, inline=False)
     else:
         embed.add_field(name="Level Roles", value="No level roles set", inline=False)
-
-    if log_channel:
-        channel = interaction.guild.get_channel(log_channel[0])
-        channel_name = channel.mention if channel else "`Deleted Channel`"
-        embed.add_field(name="Log Channel", value=channel_name, inline=False)
-    else:
-        embed.add_field(name="Log Channel", value="Not set", inline=False)
-
-    if ai_chat_moderation:
-        embed.add_field(name="AI Chat Moderation", value="Enabled" if ai_chat_moderation[0] else "Disabled", inline=False)
-    else:
-        embed.add_field(name="AI Chat Moderation", value="Not configured", inline=False)
 
     await interaction.response.send_message(embed=embed, ephemeral=True)
 
