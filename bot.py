@@ -256,7 +256,7 @@ async def add_message_xp(message):
     cur.execute("UPDATE users SET level=?, progress=?, out_of=? WHERE guild_id=? AND user_id=?", (level, progress, out_of, guild_id, user_id))
     conn.commit()
 
-async def send_qotd(channel_id, guild_id):
+async def send_qotd(channel_id, role_id, guild_id):
     channel = bot.get_channel(channel_id)
 
     if not channel or not isinstance(channel, discord.TextChannel):
@@ -307,8 +307,11 @@ async def send_qotd(channel_id, guild_id):
 
     thread = await msg.create_thread(name=f"💬 QOTD • {datetime.datetime.now().strftime('%b %d')}", auto_archive_duration=1440) 
 
+    role = channel.guild.get_role(role_id)
+    role = role.mention if role else "everyone"
+
     await thread.send(
-        f"Hey <@&1491188025898832125>! ✨\n\n"
+        f"Hey {role}! ✨\n\n"
         f"Today's question:\n"
         f"> **{question}**\n\n"
         f"Reply with your thoughts, stories, or hot takes :3"
@@ -1157,6 +1160,12 @@ async def enable_qotd(interaction: discord.Interaction, enabled: bool):
         if not channel:
             await interaction.response.send_message("Please set a QOTD channel first using `/config qotd set_channel`", ephemeral=True)
             return
+        
+        role = cur.execute("SELECT qotd_role_id FROM guild_settings WHERE guild_id = ?", (interaction.guild.id,)).fetchone() # type: ignore
+        role = interaction.guild.get_role(role[0]) if role and role[0] else None
+        if not role:
+            await interaction.response.send_message("Please set a QOTD role first using `/config qotd set_role`", ephemeral=True)
+            return
 
         cur.execute("INSERT INTO guild_settings (guild_id, qotd_enabled) VALUES (?, ?) ON CONFLICT(guild_id) DO UPDATE SET qotd_enabled = excluded.qotd_enabled", (interaction.guild.id, int(enabled))) # type: ignore
         conn.commit()
@@ -1169,6 +1178,27 @@ async def enable_qotd(interaction: discord.Interaction, enabled: bool):
         conn.close()
 
     await interaction.response.send_message(f"QOTD has been {'enabled' if enabled else 'disabled'}", ephemeral=True)
+
+@discord.app_commands.allowed_installs(guilds=True, users=False)
+@discord.app_commands.allowed_contexts(guilds=True, dms=False, private_channels=False)
+@discord.app_commands.checks.has_permissions(administrator=True)
+@qotd.command(name="set_role", description="Set a role to be pinged with the QOTD") #, guild=guild)
+@app_commands.describe(role="The role to ping with the QOTD")
+async def set_qotd_role(interaction: discord.Interaction, role: discord.Role):
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute("INSERT INTO guild_settings (guild_id, qotd_role_id) VALUES (?, ?) ON CONFLICT(guild_id) DO UPDATE SET qotd_role_id = excluded.qotd_role_id", (interaction.guild.id, role.id)) # type: ignore
+        conn.commit()
+
+    except Exception as e:
+        print(f"{date()} ERROR  Failed to set QOTD role: {e}")
+        await interaction.response.send_message(f"Failed to set QOTD role. Please try again later.\n> {e}", ephemeral=True)
+        return
+    finally:
+        conn.close()
+
+    await interaction.response.send_message(f"QOTD role set to {role.mention}", ephemeral=True)
 
 # Message events
 
@@ -1366,13 +1396,13 @@ async def qotd_loop():
     cur = conn.cursor()
 
     try:
-        guilds = cur.execute("SELECT guild_id, qotd_channel FROM guild_settings WHERE qotd_enabled = 1").fetchall()
+        guilds = cur.execute("SELECT guild_id, qotd_channel, qotd_role_id FROM guild_settings WHERE qotd_enabled = 1").fetchall()
     except Exception as e:
         print(f"{date()} ERROR  Failed to fetch QOTD guilds: {e}")
         return
 
     for guild in guilds:
-        await send_qotd(guild["qotd_channel"], guild["guild_id"])
+        await send_qotd(guild["qotd_channel"], guild["qotd_role_id"], guild["guild_id"])
         print(f"{date()} INFO  Sent QOTD for guild {guild['guild_id']} in channel {guild['qotd_channel']}")
 
 @tasks.loop(minutes=1)
@@ -1436,6 +1466,7 @@ if __name__ == "__main__":
         level_channel_enabled BOOLEAN DEFAULT 1,
         qotd_enabled BOOLEAN DEFAULT 0,
         qotd_channel INTEGER,
+        qotd_role_id INTEGER,
         last_qotd_id INTEGER,
         last_qotd_thread_id INTEGER
     )
