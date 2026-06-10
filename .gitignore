@@ -3,6 +3,7 @@ data/
 qotd.json
 database.db
 banned_ids.json
+.venv
 __pycache__/
 *.pyc
 *.pyo
