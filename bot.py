@@ -1333,7 +1333,7 @@ async def qotd_loop():
         return
 
     for guild in guilds:
-        await send_qotd(guild["guild_id"], guild["qotd_channel"])
+        await send_qotd(guild["qotd_channel"], guild["guild_id"])
         print(f"{date()} INFO  Sent QOTD for guild {guild['guild_id']} in channel {guild['qotd_channel']}")
 
 @tasks.loop(minutes=1)
