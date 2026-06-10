@@ -1119,6 +1119,12 @@ async def enable_qotd(interaction: discord.Interaction, enabled: bool):
     try:
         conn = get_db()
         cur = conn.cursor()
+        channel = cur.execute("SELECT qotd_channel FROM guild_settings WHERE guild_id = ?", (interaction.guild.id,)).fetchone() # type: ignore
+        channel = bot.get_channel(channel[0]) if channel and channel[0] else None
+        if not channel:
+            await interaction.response.send_message("Please set a QOTD channel first using `/config qotd set_channel`", ephemeral=True)
+            return
+
         cur.execute("INSERT INTO guild_settings (guild_id, qotd_enabled) VALUES (?, ?) ON CONFLICT(guild_id) DO UPDATE SET qotd_enabled = excluded.qotd_enabled", (interaction.guild.id, int(enabled))) # type: ignore
         conn.commit()
 
