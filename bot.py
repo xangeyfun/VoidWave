@@ -155,6 +155,106 @@ def extract_options(options):
 
     return out
 
+async def add_xp(message):
+    guild_id = message.guild.id
+    user_id = message.author.id
+
+    conn = get_db()
+    cur = conn.cursor()
+
+    user = cur.execute("SELECT * FROM users WHERE guild_id=? AND user_id=?", (guild_id, user_id)).fetchone()
+
+    if not user:
+        cur.execute("""
+            INSERT INTO users (
+                guild_id, user_id, display_name, username,
+                level, progress, out_of,
+                last_message, total_messages, total_messages_xp, total_xp,
+                vc_minutes, vc_xp_minutes,
+                avatar_hash
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            guild_id, user_id, message.author.display_name, message.author.name,
+            0, 0, 100,
+            "", 0, 0, 0,
+            0, 0,
+            message.author.avatar.key if message.author.avatar else None
+        ))
+
+        conn.commit()
+
+    now = time.time()
+
+    if len(message.content) < 5:
+        cur.execute("UPDATE users SET total_messages = total_messages + 1, last_message=?, display_name=?, username=?, avatar_hash=? WHERE guild_id=? AND user_id=?", (str(datetime.datetime.now()), message.author.display_name, message.author.name, message.author.avatar.key if message.author.avatar else None, guild_id, user_id))
+        conn.commit()
+        conn.close()
+        return
+    
+    if user_id in last_xp:
+        if now - last_xp[user_id] < XP_COOLDOWN:
+            cur.execute("UPDATE users SET total_messages = total_messages + 1, last_message=?, display_name=?, username=?, avatar_hash=? WHERE guild_id=? AND user_id=?", (str(datetime.datetime.now()), message.author.display_name, message.author.name, message.author.avatar.key if message.author.avatar else None, guild_id, user_id))
+            conn.commit()
+            conn.close()
+            return
+        
+    xp = random.randint(1, 15)
+    last_xp[user_id] = now
+
+    cur.execute("""
+    UPDATE users
+    SET progress = progress + ?,
+        total_xp = total_xp + ?,
+        last_message = ?,
+        total_messages_xp = total_messages_xp + 1,
+        total_messages = total_messages + 1,
+        avatar_hash = ?,
+        username = ?,
+        display_name = ?
+    WHERE guild_id=? AND user_id=?
+    """, (xp, xp, str(datetime.datetime.now()), message.author.avatar.key if message.author.avatar else None, message.author.name, message.author.display_name, guild_id, user_id))
+    conn.commit()
+    user = cur.execute("SELECT * FROM users WHERE guild_id=? AND user_id=?", (guild_id, user_id)).fetchone()
+    progress = user["progress"]
+    out_of = user["out_of"]
+    level = user["level"]
+
+    if progress >= out_of:
+        progress -= out_of
+        level += 1
+        out_of = int(100 + level * 20)
+        level_channel = (cur.execute("SELECT level_channel_id, level_channel_enabled FROM guild_settings WHERE guild_id = ?", (guild_id,)).fetchone())
+        level_channel = dict(level_channel) if level_channel else None
+
+        channel = bot.get_channel(level_channel["level_channel_id"]) if level_channel and level_channel["level_channel_id"] and level_channel["level_channel_enabled"] else None
+
+        if channel and isinstance(channel, discord.TextChannel) and level_channel and level_channel["level_channel_enabled"]:
+            emojis = ['⭐', '🔥', '🌟', '💎', '⚡', '🛡️', '🏹', '🎯', '👑', '🌈']
+            index = min((level - 1) // 10, len(emojis) - 1)
+            emoji = emojis[index]
+            count = min((level - 1) % 10 + 1, 10)
+            await channel.send(f"🎊 {message.author.mention} reached **Level {level}**! {emoji*count}")
+
+        level_roles = (cur.execute("SELECT level, role_id FROM level_roles WHERE guild_id = ?", (guild_id,)).fetchall())
+        level_roles = dict(level_roles) if level_roles else None
+        if not level_roles:
+            cur.execute("UPDATE users SET level=?, progress=?, out_of=? WHERE guild_id=? AND user_id=?", (level, progress, out_of, guild_id, user_id))
+            conn.commit()
+            return
+        for req_level, role_id in level_roles.items():
+            if level >= req_level:
+                role = message.guild.get_role(role_id)
+
+                if role and role not in message.author.roles:
+                    await message.author.add_roles(role)
+
+                    if channel and isinstance(channel, discord.TextChannel):
+                        await channel.send(f"🎖️ Congrats {message.author.mention}! You've earned the **`{role.name}`** role!")
+
+    cur.execute("UPDATE users SET level=?, progress=?, out_of=? WHERE guild_id=? AND user_id=?", (level, progress, out_of, guild_id, user_id))
+    conn.commit()
+
 # Classes
 
 class LLMRequest:
@@ -1009,106 +1109,9 @@ async def on_message(message):
         if position > 0:
             await message.reply(f"You are queued! Position in queue: **{position}**", delete_after=3)
 
-    guild_id = message.guild.id
-    user_id = message.author.id
-
-    conn = get_db()
-    cur = conn.cursor()
-
     try:
-        user = cur.execute("SELECT * FROM users WHERE guild_id=? AND user_id=?", (guild_id, user_id)).fetchone()
+        await add_xp(message)
 
-        if not user:
-            cur.execute("""
-                INSERT INTO users (
-                    guild_id, user_id, display_name, username,
-                    level, progress, out_of,
-                    last_message, total_messages, total_messages_xp, total_xp,
-                    vc_minutes, vc_xp_minutes,
-                    avatar_hash
-                )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                guild_id, user_id, message.author.display_name, message.author.name,
-                0, 0, 100,
-                "", 0, 0, 0,
-                0, 0,
-                message.author.avatar.key if message.author.avatar else None
-            ))
-
-            conn.commit()
-
-        now = time.time()
-
-        if len(message.content) < 5:
-            cur.execute("UPDATE users SET total_messages = total_messages + 1, last_message=?, display_name=?, username=?, avatar_hash=? WHERE guild_id=? AND user_id=?", (str(datetime.datetime.now()), message.author.display_name, message.author.name, message.author.avatar.key if message.author.avatar else None, guild_id, user_id))
-            conn.commit()
-            conn.close()
-            return
-        
-        if user_id in last_xp:
-            if now - last_xp[user_id] < XP_COOLDOWN:
-                cur.execute("UPDATE users SET total_messages = total_messages + 1, last_message=?, display_name=?, username=?, avatar_hash=? WHERE guild_id=? AND user_id=?", (str(datetime.datetime.now()), message.author.display_name, message.author.name, message.author.avatar.key if message.author.avatar else None, guild_id, user_id))
-                conn.commit()
-                conn.close()
-                return
-            
-        xp = random.randint(1, 15)
-        last_xp[user_id] = now
-
-        cur.execute("""
-        UPDATE users
-        SET progress = progress + ?,
-            total_xp = total_xp + ?,
-            last_message = ?,
-            total_messages_xp = total_messages_xp + 1,
-            total_messages = total_messages + 1,
-            avatar_hash = ?,
-            username = ?,
-            display_name = ?
-        WHERE guild_id=? AND user_id=?
-        """, (xp, xp, str(datetime.datetime.now()), message.author.avatar.key if message.author.avatar else None, message.author.name, message.author.display_name, guild_id, user_id))
-        conn.commit()
-        user = cur.execute("SELECT * FROM users WHERE guild_id=? AND user_id=?", (guild_id, user_id)).fetchone()
-        progress = user["progress"]
-        out_of = user["out_of"]
-        level = user["level"]
-
-        if progress >= out_of:
-            progress -= out_of
-            level += 1
-            out_of = int(100 + level * 20)
-            level_channel = (cur.execute("SELECT level_channel_id, level_channel_enabled FROM guild_settings WHERE guild_id = ?", (guild_id,)).fetchone())
-            level_channel = dict(level_channel) if level_channel else None
-
-            channel = bot.get_channel(level_channel["level_channel_id"]) if level_channel and level_channel["level_channel_id"] and level_channel["level_channel_enabled"] else None
-
-            if channel and isinstance(channel, discord.TextChannel) and level_channel["level_channel_enabled"]:
-                emojis = ['⭐', '🔥', '🌟', '💎', '⚡', '🛡️', '🏹', '🎯', '👑', '🌈']
-                index = min((level - 1) // 10, len(emojis) - 1)
-                emoji = emojis[index]
-                count = min((level - 1) % 10 + 1, 10)
-                await channel.send(f"🎊 {message.author.mention} reached **Level {level}**! {emoji*count}")
-
-            level_roles = (cur.execute("SELECT level, role_id FROM level_roles WHERE guild_id = ?", (guild_id,)).fetchall())
-            level_roles = dict(level_roles) if level_roles else None
-            if not level_roles:
-                cur.execute("UPDATE users SET level=?, progress=?, out_of=? WHERE guild_id=? AND user_id=?", (level, progress, out_of, guild_id, user_id))
-                conn.commit()
-                return
-            for req_level, role_id in level_roles.items():
-                if level >= req_level:
-                    role = message.guild.get_role(role_id)
-
-                    if role and role not in message.author.roles:
-                        await message.author.add_roles(role)
-
-                        if channel and isinstance(channel, discord.TextChannel):
-                            await channel.send(f"🎖️ Congrats {message.author.mention}! You've earned the **`{role.name}`** role!")
-
-        cur.execute("UPDATE users SET level=?, progress=?, out_of=? WHERE guild_id=? AND user_id=?", (level, progress, out_of, guild_id, user_id))
-        conn.commit()
-    
     except Exception as e:
         e = str(e)
         trace = traceback.format_exc()
@@ -1119,6 +1122,7 @@ async def on_message(message):
     finally:
         conn.close()
         await bot.process_commands(message)
+
 
 @tasks.loop(minutes=1)
 async def vc_xp_loop():
