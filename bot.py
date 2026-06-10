@@ -255,6 +255,75 @@ async def add_message_xp(message):
     cur.execute("UPDATE users SET level=?, progress=?, out_of=? WHERE guild_id=? AND user_id=?", (level, progress, out_of, guild_id, user_id))
     conn.commit()
 
+async def send_qotd(channel_id, guild_id):
+    channel = bot.get_channel(channel_id)
+
+    if not channel or not isinstance(channel, discord.TextChannel):
+        print(f"{date()} ERROR  QOTD channel with ID {channel_id} not found or is not a text channel.")
+        return
+    
+    conn = get_db()
+    cur = conn.cursor()
+
+    try:
+        guild_settings = cur.execute("SELECT last_qotd_id, last_qotd_thread_id FROM guild_settings WHERE guild_id = ?", (guild_id,)).fetchone()
+
+        if guild_settings and guild_settings["last_qotd_id"] and guild_settings["last_qotd_thread_id"]:
+            try:
+                thread = channel.get_thread(guild_settings["last_qotd_thread_id"])
+                if thread:
+                    await thread.delete() # type: ignore
+            except Exception as e:
+                print(f"{date()} ERROR  Failed to delete old QOTD thread: {e}")
+
+            try:
+                old_msg = await channel.fetch_message(guild_settings["last_qotd_id"])
+                await old_msg.delete() 
+
+            except Exception as e:
+                print(f"{date()} ERROR  Failed to delete old QOTD message: {e}")
+
+    except Exception as e:
+        print(f"{date()} ERROR  Failed to clean up old QOTD: {e}")
+
+    with open("questions.json", "r") as f:
+        questions = json.load(f)
+
+    question = random.choice(questions)
+    
+    embed = discord.Embed(
+        title="🧠 Question of the Day",
+        description=(
+            f"**{question}**\n\n"
+            "> reply in the thread below 👀"
+        ),
+        color=0x5865F2,
+        timestamp=datetime.datetime.now(datetime.timezone.utc)
+    )
+    embed.set_footer(text="New question every day • Powered by VoidWave")
+
+    msg = await channel.send(embed=embed)
+
+    thread = await msg.create_thread(name=f"💬 QOTD • {datetime.datetime.now().strftime('%b %d')}", auto_archive_duration=1440) 
+
+    await thread.send(
+        f"Hey <@&1491188025898832125>! ✨\n\n"
+        f"Today's question:\n"
+        f"> **{question}**\n\n"
+        f"Reply with your thoughts, stories, or hot takes :3"
+    )
+
+    try:
+        cur.execute("UPDATE guild_settings SET last_qotd_id=?, last_qotd_thread_id=? WHERE guild_id=?", (msg.id, thread.id, guild_id))
+        conn.commit()
+
+    except Exception as e:
+        print(f"{date()} ERROR  Failed to save QOTD info to database: {e}")
+
+    finally:
+        conn.close()
+
+
 # Classes
 
 class LLMRequest:
@@ -918,7 +987,7 @@ async def ai(interaction: discord.Interaction, message: str, stats: bool = False
 # Admin config commands
 
 config = discord.app_commands.Group(name="config", description="Admin commands for configuring the bot", allowed_installs=discord.app_commands.AppInstallationType(guild=True, user=False), allowed_contexts=discord.app_commands.AppCommandContext(guild=True, dm_channel=False, private_channel=False))
-level = discord.app_commands.Group(name="level", description="Configure level system settings", parent=config) #, guild=guild)
+qotd = discord.app_commands.Group(name="qotd", description="Configure quote of the day settings", parent=config) #, guild=guild)
 bot.tree.add_command(config)
 
 @discord.app_commands.allowed_installs(guilds=True, users=False)
@@ -1211,81 +1280,22 @@ async def vc_xp_loop():
     conn.close()
 
 @tasks.loop(minutes=1)
-async def qotd():
+async def qotd_loop():
     now = datetime.datetime.now()
     if now.hour != 16 or now.minute != 0:
         return
 
-    # make sure the file exists
-    if not os.path.exists("qotd.json"):
-        with open("qotd.json", "w") as f:
-            json.dump({}, f)
+    conn = get_db()
+    cur = conn.cursor()
 
-    # load last QOTD IDs
-    with open("qotd.json", "r") as f:
-        data = json.load(f)
-        last_qotd_id = data.get("last_qotd")
-        last_qotd_thread_id = data.get("last_qotd_thread")
-
-    channel = bot.get_channel(1488186829562970334)
-    if not channel:
-        print(f"{date()} ERROR  QOTD channel not found!")
+    try:
+        guilds = cur.execute("SELECT guild_id, qotd_channel FROM guild_settings WHERE qotd_enabled = 1").fetchall()
+    except Exception as e:
+        print(f"{date()} ERROR  Failed to fetch QOTD guilds: {e}")
         return
 
-    with open("questions.json", "r") as f:
-        questions = json.load(f)
-
-    question = random.choice(questions)
-
-    # cleanup old QOTD
-    if last_qotd_thread_id:
-        try:
-            thread = await bot.fetch_channel(last_qotd_thread_id)
-            await thread.delete() # type: ignore
-        except Exception as e:
-            print(f"{date()} ERROR  Failed to delete old QOTD thread: {e}")
-
-    if last_qotd_id:
-        try:
-            old_msg = await channel.fetch_message(last_qotd_id) # type: ignore
-            await old_msg.delete()
-        except Exception as e:
-            print(f"{date()} ERROR  Failed to delete old QOTD message: {e}")
-
-    # create embed
-    embed = discord.Embed(
-        title="🧠 Question of the Day",
-        description=(
-            f"**{question}**\n\n"
-            "> reply in the thread below 👀"
-        ),
-        color=0x5865F2,
-        timestamp=datetime.datetime.now(datetime.timezone.utc)
-    )
-    embed.set_footer(text="New question every day • Powered by VoidWave")
-
-    # send message & ping role
-    msg = await channel.send(embed=embed) # type: ignore
-
-    # create thread
-    thread = await msg.create_thread(
-        name=f"💬 QOTD • {datetime.datetime.now().strftime('%b %d')}",
-        auto_archive_duration=1440
-    )
-
-    await thread.send(
-        f"Hey <@&1491188025898832125>! ✨\n\n"
-        f"Today's question:\n"
-        f"> **{question}**\n\n"
-        f"Reply with your thoughts, stories, or hot takes :3"
-    )
-
-    # save last QOTD IDs
-    with open("qotd.json", "w") as f:
-        json.dump({
-            "last_qotd": msg.id,
-            "last_qotd_thread": thread.id
-        }, f)
+    for guild in guilds:
+        await send_qotd(guild["guild_id"], guild["qotd_channel"])
 
 @tasks.loop(minutes=1)
 async def update_stats():
@@ -1345,7 +1355,11 @@ if __name__ == "__main__":
     CREATE TABLE IF NOT EXISTS guild_settings (
         guild_id INTEGER PRIMARY KEY,
         level_channel_id INTEGER,
-        level_channel_enabled BOOLEAN DEFAULT 1
+        level_channel_enabled BOOLEAN DEFAULT 1,
+        qotd_enabled BOOLEAN DEFAULT 0,
+        qotd_channel INTEGER,
+        last_qotd_id INTEGER,
+        last_qotd_thread_id INTEGER,
     )
     """)
     conn.commit()
