@@ -314,7 +314,7 @@ async def send_qotd(channel_id, role_id, guild_id):
         f"Hey {role}! ✨\n\n"
         f"Today's question:\n"
         f"> **{question}**\n\n"
-        f"Reply with your thoughts, stories, or hot takes :3"
+        f"What's your answer? Feel free to share your thoughts, stories, or hot takes!"
     )
 
     try:
@@ -918,7 +918,7 @@ async def profile(interaction: discord.Interaction, hidden: bool = False, user: 
         title=f"{user.display_name}'s Profile",
         description=(
             f"### 🌌 Global Profile\n"
-            f"> hey {user.mention} :3"
+            f"> hey {user.mention}!"
         ),
         color=discord.Color(0x7128fc)
     )
