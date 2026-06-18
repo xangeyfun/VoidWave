@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+
+{% block title %}Setup Guide{% endblock %}
+
+{% block meta_description %}How to set up Voidwave on your Discord server. Leveling, QOTD, AI chat, and more.{% endblock %}
+
+{% block content %}
+<section class="setup-page">
+    <h1>Setup Guide</h1>
+    <p>Getting Voidwave running on your server takes like 2 minutes. Here is how.</p>
+
+    <div class="setup-block">
+        <h2>1. Invite the Bot</h2>
+        <p>Click <strong>Add to Discord</strong> on the homepage, pick your server, and give it the permissions it asks for. That is it. The bot joins and starts working right away.</p>
+        <p>If you ever need to kick and readd it, just use the same link.</p>
+    </div>
+
+    <div class="setup-block">
+        <h2>2. Leveling System</h2>
+        <p>Leveling works out of the box. People earn XP by sending messages and hanging out in voice chat. XP gets calculated automatically and the bot tracks everything server wide.</p>
+        <p>You probably want to customize it a bit:</p>
+        <ul>
+            <li><strong>Set a level up channel</strong> - Use <code>/config level set_channel</code> to pick where level up messages show up. If you don't set one, nothing gets posted.</li>
+            <li><strong>Toggle level up messages</strong> - <code>/config level toggle_channel</code> turns level up announcements on or off.</li>
+            <li><strong>Auto roles</strong> - Use <code>/config level add_role</code> to give people a role when they hit a certain level. For example, give @Chatty at level 5. Use <code>/config level remove_role</code> to undo it.</li>
+            <li><strong>Check your setup</strong> - <code>/config view</code> shows everything currently configured.</li>
+        </ul>
+    </div>
+
+    <div class="setup-block">
+        <h2>3. Question of the Day</h2>
+        <p>QOTD posts a daily question at 4:00 PM to a channel you pick. It creates a thread so people can discuss without spamming the channel.</p>
+        <p>To set it up:</p>
+        <ul>
+            <li><strong>Pick a channel</strong> - <code>/config qotd set_channel #your-channel</code></li>
+            <li><strong>Pick a role to ping</strong> - <code>/config qotd set_role @role</code> so people know when a new question drops</li>
+            <li><strong>Turn it on</strong> - <code>/config qotd enable true</code></li>
+            <li><strong>Change your mind?</strong> - Run <code>/config qotd enable false</code> to disable it</li>
+        </ul>
+        <p>You need both a channel and a role set before you can enable QOTD.</p>
+    </div>
+
+    <div class="setup-block">
+        <h2>4. AI Chat</h2>
+        <p>Voidwave runs a local Llama 3.2 model for AI chat. You can talk to it in a few ways:</p>
+        <ul>
+            <li><strong>/ai</strong> - Send <code>/ai your message here</code> and get a response</li>
+            <li><strong>Mention the bot</strong> - Ping @Voidwave with your question and it will answer</li>
+            <li><strong>Reply to the bot</strong> - If the bot already said something, replying to its message continues the conversation</li>
+        </ul>
+        <p>There is a 15 second cooldown per person so one user can't spam the AI. The model runs locally on the server, so it might be a bit slow sometimes.</p>
+    </div>
+
+    <div class="setup-block">
+        <h2>5. Other Commands</h2>
+        <p>Here are some fun ones to try:</p>
+        <div class="command-grid">
+            <div class="command-item">
+                <code>/level</code>
+                <span>Check your level and XP in the server</span>
+            </div>
+            <div class="command-item">
+                <code>/profile</code>
+                <span>View your global profile across all servers</span>
+            </div>
+            <div class="command-item">
+                <code>/leaderboard</code>
+                <span>See who is at the top. Sort by level, XP, or messages</span>
+            </div>
+            <div class="command-item">
+                <code>/ping</code>
+                <span>Check if the bot is alive, shows latency</span>
+            </div>
+            <div class="command-item">
+                <code>/quote</code>
+                <span>Get a random quote or quote of the day</span>
+            </div>
+            <div class="command-item">
+                <code>/fact</code>
+                <span>Random useless fact to impress your friends</span>
+            </div>
+            <div class="command-item">
+                <code>/animal</code>
+                <span>Cute dog, cat, duck, or fox pictures</span>
+            </div>
+            <div class="command-item">
+                <code>/calc</code>
+                <span>Quick math, safe to use</span>
+            </div>
+            <div class="command-item">
+                <code>/flip</code>
+                <span>Coin flip, good for arguments</span>
+            </div>
+            <div class="command-item">
+                <code>/userinfo</code>
+                <span>Shows details about a user like account age and roles</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="setup-block">
+        <h2>Need Help?</h2>
+        <p>If something is not working or you have questions, join the <a href="https://discord.gg/tyQksBReAS" target="_blank">support server</a> or DM <a href="https://xangey.dev">xangey</a>.</p>
+    </div>
+</section>
+{% endblock %}

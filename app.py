@@ -96,6 +96,10 @@ def index():
     
     return render_template('index.html', bot_stats=bot_stats), 200
 
+@app.route('/setup')
+def setup():
+    return render_template('setup.html'), 200
+
 @app.route('/terms')
 def terms():
     return render_template('terms.html'), 200

@@ -22,6 +22,7 @@
 * Shareable web profiles
 * Auto role rewards
 * Random utilities & fun commands
+* Daily Question of the Day with threaded discussions
 * Lightweight SQLite setup
 
 > [!IMPORTANT]

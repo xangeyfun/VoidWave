@@ -2,14 +2,14 @@
 
 {% block title %}Home{% endblock %}
 
-{% block meta_description %}Modern Discord bot with leveling system, fun commands, and LLM chat. Clean, fast, slightly chaotic.{% endblock %}
+{% block meta_description %}Modern Discord bot with leveling system, fun commands, LLM chat, and daily Question of the Day. Clean, fast, slightly chaotic.{% endblock %}
 
 {% block og_tags %}
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Voidwave">
 <meta property="og:url" content="https://voidwave.xangey.dev/">
 <meta property="og:title" content="Voidwave - Discord Bot">
-<meta property="og:description" content="Leveling system, fun commands, and LLM chat (Llama 3.2) for Discord.">
+<meta property="og:description" content="Leveling system, fun commands, LLM chat, and daily Question of the Day for Discord.">
 <meta property="og:image" content="https://voidwave.xangey.dev/static/images/og.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
@@ -20,7 +20,7 @@
     <h1>Voidwave</h1>
     <p class="tagline">Modern Discord bot. Clean, fast, slightly chaotic.</p>
     {% if bot_stats %}
-        <p class="stats">{{ "{:,}".format(bot_stats.total_guilds) }} servers • {{ "{:,}".format(bot_stats.total_members) }} members</p>
+        <p class="stats">{{ "{:,}".format(bot_stats.total_guilds) }} servers &bull; {{ "{:,}".format(bot_stats.total_members) }} members</p>
     {% endif %}
 
     <div class="hero-buttons">
@@ -30,8 +30,8 @@
         <a href="/leaderboard" class="btn btn-secondary">
             <span>Leaderboard</span>
         </a>
-        <a href="https://github.com/xangeyfun/VoidWave" target="_blank" class="btn btn-secondary">
-            <span>GitHub</span>
+        <a href="/setup" class="btn btn-secondary">
+            <span>Setup Guide</span>
         </a>
     </div>
 
@@ -39,20 +39,34 @@
         <div class="feature-card">
             <div class="feature-icon">📊</div>
             <h3>Leveling</h3>
-            <p>Earn XP by chatting. Unlock roles and climb the leaderboard.</p>
+            <p>Earn XP by chatting and hanging out in voice. Unlock roles and climb the leaderboard.</p>
         </div>
 
         <div class="feature-card">
             <div class="feature-icon">🤖</div>
-            <h3>LLM Chat</h3>
-            <p>Chat with Llama 3.2 powered assistant directly in Discord.</p>
+            <h3>AI Chat</h3>
+            <p>Talk to a local Llama 3.2 model right in your server. No data sent anywhere.</p>
         </div>
 
         <div class="feature-card">
             <div class="feature-icon">🎮</div>
             <h3>Fun Commands</h3>
-            <p>Calculator, memes, quotes, games. Keep your server entertained.</p>
+            <p>Calculator, quotes, animal pics, coin flips, and other stuff to keep things interesting.</p>
         </div>
+
+        <div class="feature-card">
+            <div class="feature-icon">📅</div>
+            <h3>Question of the Day</h3>
+            <p>A daily discussion prompt posted automatically, with threads for your community to chat.</p>
+        </div>
+    </div>
+
+    <div class="cta-section">
+        <h2>Ready to set things up?</h2>
+        <p>Configure leveling roles, pick a QOTD channel, and more. Takes like 2 minutes.</p>
+        <a href="/setup" class="btn btn-primary">
+            <span>View Setup Guide</span>
+        </a>
     </div>
 </section>
 {% endblock %}
