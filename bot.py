@@ -1017,14 +1017,14 @@ async def view_config(interaction: discord.Interaction):
 
     if level_channel:
         channel = interaction.guild.get_channel(level_channel[0])
-        channel_name = channel.mention if channel else "`Deleted Channel`"
+        channel_name = channel.mention if channel else "`No Channel Set`"
         embed.add_field(name="Level Up Channel", value=f"{channel_name} ({'Enabled' if level_channel[1] else 'Disabled'})", inline=False)
     else:
         embed.add_field(name="Level Up Channel", value="Not set", inline=False)
 
     if qotd_channel:
         channel = interaction.guild.get_channel(qotd_channel[0])
-        channel_name = channel.mention if channel else "`Deleted Channel`"
+        channel_name = channel.mention if channel else "`No Channel Set`"
         embed.add_field(name="QOTD Channel", value=f"{channel_name} ({'Enabled' if qotd_channel[1] else 'Disabled'})", inline=False)
     else:
         embed.add_field(name="QOTD Channel", value="Not set", inline=False)
@@ -1463,7 +1463,7 @@ if __name__ == "__main__":
     CREATE TABLE IF NOT EXISTS guild_settings (
         guild_id INTEGER PRIMARY KEY,
         level_channel_id INTEGER,
-        level_channel_enabled BOOLEAN DEFAULT 1,
+        level_channel_enabled BOOLEAN DEFAULT 0,
         qotd_enabled BOOLEAN DEFAULT 0,
         qotd_channel INTEGER,
         qotd_role_id INTEGER,
