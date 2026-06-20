@@ -1037,6 +1037,50 @@ async def view_config(interaction: discord.Interaction):
 
     await interaction.response.send_message(embed=embed, ephemeral=True)
 
+@discord.app_commands.allowed_installs(guilds=True, users=False)
+@discord.app_commands.allowed_contexts(guilds=True, dms=False, private_channels=False)
+@discord.app_commands.checks.has_permissions(administrator=True)
+@config.command(name="help", description="Get help with configuration commands") #, guild=guild)
+async def config_help(interaction: discord.Interaction):
+    embed = discord.Embed(
+        title="⚙️ Configuration Help",
+        description=(
+            "Use these commands to configure level-up messages, level roles, and QOTD settings for your server. "
+            "Each section below shows the commands available for that area. "
+            "You can also find full setup documentation at https://voidwave.xangey.dev/setup"
+        ),
+        color=discord.Color(0x7128fc)
+    )
+
+    embed.add_field(
+        name="Level Up Channel",
+        value=(
+            "`/config level set_channel [channel]` - Set the channel for level up messages\n"
+            "`/config level toggle_channel [enabled]` - Enable or disable level up messages"
+        ),
+        inline=False
+    )
+
+    embed.add_field(
+        name="Level Roles",
+        value=(
+            "`/config level add_role [level] [role]` - Add a role to be given on level up\n"
+            "`/config level remove_role [level]` - Remove a level role"
+        ),
+        inline=False
+    )
+
+    embed.add_field(
+        name="QOTD Channel",
+        value=(
+            "`/config qotd set_channel [channel]` - Set the channel for QOTD messages\n"
+            "`/config qotd enable [enabled]` - Enable or disable QOTD messages"
+        ),
+        inline=False
+    )
+
+    await interaction.response.send_message(embed=embed, ephemeral=True)
+
 # Levelup channel config
 
 @discord.app_commands.allowed_installs(guilds=True, users=False)
