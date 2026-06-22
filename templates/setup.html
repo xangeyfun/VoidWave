@@ -7,48 +7,51 @@
 {% block content %}
 <section class="setup-page">
     <h1>Setup Guide</h1>
-    <p>Getting Voidwave running on your server takes like 2 minutes. Here is how.</p>
+    <p>Getting Voidwave running on your server takes like 2 minutes. Here's how.</p>
 
     <div class="setup-block">
         <h2>1. Invite the Bot</h2>
-        <p>Click <strong>Add to Discord</strong> on the homepage, pick your server, and give it the permissions it asks for. That is it. The bot joins and starts working right away.</p>
-        <p>If you ever need to kick and readd it, just use the same link.</p>
+        <p>Click <strong>Add to Discord</strong> on the homepage, pick your server, and give it the permissions it asks for. The bot needs permission to read messages, send messages, manage threads for QOTD, and assign roles for level rewards. Everything else is optional.</p>
+        <p>Once it joins, the leveling system starts tracking activity right away. No extra setup needed for the basics. If you ever need to kick and re-add it, just use the same invite link and all your server settings will still be there.</p>
     </div>
 
     <div class="setup-block">
         <h2>2. Leveling System</h2>
-        <p>Leveling works out of the box. People earn XP by sending messages and hanging out in voice chat. XP gets calculated automatically and the bot tracks everything server wide.</p>
+        <p>Leveling works out of the box. People earn XP by sending messages and hanging out in voice chat. For messages, XP is awarded once every 30 seconds per user with a random amount between 1 and 15 each time to keep things fair. Messages shorter than 5 characters don't earn XP to stop spam.</p>
+        <p>Voice chat works a bit differently. Every minute someone spends in a voice channel with at least one other person, they earn between 5 and 20 XP. Being alone in a channel or being deafened doesn't give XP. There is a 5 minute cooldown between VC XP drops.</p>
+        <p>Each level requires more XP than the last. The formula is <code>100 + (level * 20)</code>, so level 1 needs 120 XP, level 2 needs 140, and so on. It gets harder as you go up.</p>
         <p>You probably want to customize it a bit:</p>
         <ul>
-            <li><strong>Set a level up channel</strong> - Use <code>/config level set_channel</code> to pick where level up messages show up. If you don't set one, nothing gets posted.</li>
-            <li><strong>Toggle level up messages</strong> - <code>/config level toggle_channel</code> turns level up announcements on or off.</li>
-            <li><strong>Auto roles</strong> - Use <code>/config level add_role</code> to give people a role when they hit a certain level. For example, give @Chatty at level 5. Use <code>/config level remove_role</code> to undo it.</li>
-            <li><strong>Check your setup</strong> - <code>/config view</code> shows everything currently configured.</li>
+            <li><strong>Set a level up channel</strong> - <code>/config level set_channel</code> picks where level up announcements show up. If you don't set one, nothing gets posted and only the user sees their level up.</li>
+            <li><strong>Toggle level up messages</strong> - <code>/config level toggle_channel</code> turns those announcements on or off without losing your channel setting.</li>
+            <li><strong>Auto roles</strong> - <code>/config level add_role</code> gives people a role when they hit a certain level. For example, you could give a <code>@Chatty</code> role at level 5 and a <code>@Veteran</code> role at level 20. Use <code>/config level remove_role</code> to undo a level role.</li>
+            <li><strong>Check your setup</strong> - <code>/config view</code> shows everything currently configured: your level channel, QOTD channel, and all level roles.</li>
         </ul>
     </div>
 
     <div class="setup-block">
         <h2>3. Question of the Day</h2>
-        <p>QOTD posts a daily question at 4:00 PM to a channel you pick. It creates a thread so people can discuss without spamming the channel.</p>
+        <p>QOTD posts a daily question at 4:00 PM UTC to a channel you pick. It creates a thread so people can discuss without spamming the rest of the channel. The thread auto-archives after 24 hours, and the old question gets cleaned up when the new one posts the next day.</p>
+        <p>Questions come from a static list, so you don't have to worry about inappropriate user-submitted content showing up.</p>
         <p>To set it up:</p>
         <ul>
-            <li><strong>Pick a channel</strong> - <code>/config qotd set_channel #your-channel</code></li>
-            <li><strong>Pick a role to ping</strong> - <code>/config qotd set_role @role</code> so people know when a new question drops</li>
-            <li><strong>Turn it on</strong> - <code>/config qotd enable true</code></li>
-            <li><strong>Change your mind?</strong> - Run <code>/config qotd enable false</code> to disable it</li>
+            <li><strong>Pick a channel</strong> - <code>/config qotd set_channel #your-channel</code> selects where the question and thread go.</li>
+            <li><strong>Pick a role to ping</strong> - <code>/config qotd set_role @role</code> so people get notified when a new question drops. You can make a dedicated role for this or use <code>@everyone</code>.</li>
+            <li><strong>Turn it on</strong> - <code>/config qotd enable true</code> activates the daily loop. It won't work until both a channel and a role are set.</li>
+            <li><strong>Change your mind?</strong> - <code>/config qotd enable false</code> disables it. The channel and role settings are kept so you can re-enable later without redoing everything.</li>
         </ul>
-        <p>You need both a channel and a role set before you can enable QOTD.</p>
     </div>
 
     <div class="setup-block">
         <h2>4. AI Chat</h2>
-        <p>Voidwave runs a local Llama 3.2 model for AI chat. You can talk to it in a few ways:</p>
+        <p>Voidwave runs a local Llama 3.2 model for AI chat. Everything stays on the server, no third party sees your messages. You can talk to it in a few ways:</p>
         <ul>
-            <li><strong>/ai</strong> - Send <code>/ai your message here</code> and get a response</li>
-            <li><strong>Mention the bot</strong> - Ping @Voidwave with your question and it will answer</li>
-            <li><strong>Reply to the bot</strong> - If the bot already said something, replying to its message continues the conversation</li>
+            <li><strong>/ai command</strong> - Send <code>/ai your message here</code> and get a response. The command has a <code>stats</code> option you can toggle to see token count, response time, and retry info.</li>
+            <li><strong>Mention the bot</strong> - Ping @Voidwave with your question in any channel and it will answer. Append <code>--stats</code> to your message to see performance info.</li>
+            <li><strong>Reply to the bot</strong> - If the bot already said something, replying to its message continues the conversation. The bot sees what it said and your reply for context. Same <code>--stats</code> trick works here too.</li>
         </ul>
-        <p>There is a 15 second cooldown per person so one user can't spam the AI. The model runs locally on the server, so it might be a bit slow sometimes.</p>
+        <p>There is a 15 second cooldown per person so one user can't spam the AI. If the model is busy generating a response for someone else, newer requests get queued and processed in order. The queue can hold up to 10 requests at a time.</p>
+        <p>The model runs locally on the server using Ollama, so response times depend on your host hardware. If the model fails to generate a response, it retries up to 5 times before giving up.</p>
     </div>
 
     <div class="setup-block">
@@ -69,11 +72,15 @@
             </div>
             <div class="command-item">
                 <code>/ping</code>
-                <span>Check if the bot is alive, shows latency</span>
+                <span>Check if the bot is alive, shows latency in ms</span>
+            </div>
+            <div class="command-item">
+                <code>/uptime</code>
+                <span>How long the bot has been running</span>
             </div>
             <div class="command-item">
                 <code>/quote</code>
-                <span>Get a random quote or quote of the day</span>
+                <span>Get today's quote or a random one</span>
             </div>
             <div class="command-item">
                 <code>/fact</code>
@@ -85,22 +92,43 @@
             </div>
             <div class="command-item">
                 <code>/calc</code>
-                <span>Quick math, safe to use</span>
+                <span>Quick math, safe to use (no eval exploits)</span>
             </div>
             <div class="command-item">
                 <code>/flip</code>
-                <span>Coin flip, good for arguments</span>
+                <span>Coin flip, good for settling arguments</span>
+            </div>
+            <div class="command-item">
+                <code>/random</code>
+                <span>Pick a random number between two values</span>
             </div>
             <div class="command-item">
                 <code>/userinfo</code>
-                <span>Shows details about a user like account age and roles</span>
+                <span>Shows account age, join date, roles, and more</span>
             </div>
         </div>
     </div>
 
     <div class="setup-block">
+        <h2>6. Admin Configuration</h2>
+        <p>Server admins can configure the bot through slash commands. Here is a quick overview of everything available:</p>
+        <ul>
+            <li><strong><code>/config view</code></strong> - See all current settings for your server at a glance.</li>
+            <li><strong><code>/config help</code></strong> - Get a summary of all config commands and what they do.</li>
+            <li><strong><code>/config level set_channel</code></strong> - Pick where level up announcements go.</li>
+            <li><strong><code>/config level toggle_channel</code></strong> - Turn level up messages on or off.</li>
+            <li><strong><code>/config level add_role</code></strong> - Assign a role when someone hits a level.</li>
+            <li><strong><code>/config level remove_role</code></strong> - Remove a level role reward.</li>
+            <li><strong><code>/config qotd set_channel</code></strong> - Set the channel for daily questions.</li>
+            <li><strong><code>/config qotd set_role</code></strong> - Choose which role gets pinged for QOTD.</li>
+            <li><strong><code>/config qotd enable</code></strong> - Turn QOTD on or off.</li>
+        </ul>
+        <p>All config commands require administrator permissions in the server.</p>
+    </div>
+
+    <div class="setup-block">
         <h2>Need Help?</h2>
-        <p>If something is not working or you have questions, join the <a href="https://discord.gg/tyQksBReAS" target="_blank">support server</a> or DM <a href="https://xangey.dev">xangey</a>.</p>
+        <p>If something is not working or you have questions, join the <a href="https://discord.gg/tyQksBReAS" target="_blank">support server</a> or DM <a href="https://xangey.dev">xangey</a>. You can also check the website stats page to see bot-level info like total servers and members.</p>
     </div>
 </section>
 {% endblock %}

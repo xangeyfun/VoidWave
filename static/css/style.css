@@ -436,10 +436,44 @@ a:hover {
     padding: 2rem;
     margin-bottom: 1.5rem;
     transition: border-color 0.3s ease;
+    position: relative;
+    overflow: hidden;
 }
 
-.setup-block:hover {
-    border-color: var(--primary);
+.setup-block::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 4px;
+    height: 100%;
+    background: var(--primary);
+    opacity: 0.4;
+    border-radius: 16px 0 0 16px;
+}
+
+.setup-block:nth-of-type(1)::before {
+    background: #22c55e;
+}
+
+.setup-block:nth-of-type(2)::before {
+    background: var(--primary);
+}
+
+.setup-block:nth-of-type(3)::before {
+    background: #f59e0b;
+}
+
+.setup-block:nth-of-type(4)::before {
+    background: #3b82f6;
+}
+
+.setup-block:nth-of-type(5)::before {
+    background: #ec4899;
+}
+
+.setup-block:nth-of-type(6)::before {
+    background: var(--text-muted);
 }
 
 .setup-block:last-child {
@@ -452,12 +486,13 @@ a:hover {
     display: flex;
     align-items: center;
     gap: 0.5rem;
+    color: var(--text-primary);
 }
 
 .setup-block p {
     color: var(--text-secondary);
     margin-bottom: 0.75rem;
-    line-height: 1.7;
+    line-height: 1.75;
 }
 
 .setup-block p:last-child {
@@ -465,24 +500,41 @@ a:hover {
 }
 
 .setup-block ul {
-    margin: 0.75rem 0;
-    padding-left: 1.25rem;
+    margin: 1rem 0;
+    padding-left: 0;
     list-style: none;
 }
 
 .setup-block li {
     color: var(--text-secondary);
     margin-bottom: 0.75rem;
-    padding-left: 0.5rem;
-    line-height: 1.6;
+    padding-left: 1.25rem;
+    line-height: 1.65;
+    position: relative;
+}
+
+.setup-block li::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0.65em;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--primary);
+    opacity: 0.5;
 }
 
 .setup-block li:last-child {
     margin-bottom: 0;
 }
 
+.setup-block li strong {
+    color: var(--text-primary);
+}
+
 .setup-block li code {
-    margin-right: 0.25rem;
+    margin-right: 0.15rem;
 }
 
 .setup-block code {
@@ -959,6 +1011,17 @@ a:hover {
     .footer-container {
         flex-direction: column;
         text-align: center;
+    }
+
+    .setup-block li {
+        overflow-wrap: break-word;
+        word-break: break-word;
+    }
+
+    .setup-block code {
+        white-space: normal;
+        word-break: break-all;
+        display: inline;
     }
 }
 
