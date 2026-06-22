@@ -6,16 +6,18 @@
 <section class="legal-page">
     <h1>Privacy Policy</h1>
 
-    <p>Last updated: April 2026</p>
+    <p>Last updated: June 2026</p>
 
     <h2>What We Collect</h2>
     <p>Voidwave collects minimal data to provide its features:</p>
     <ul>
         <li><strong>User ID</strong> - Your Discord user identifier</li>
         <li><strong>Guild ID</strong> - The Discord server where you use the bot</li>
-        <li><strong>Username</strong> - Your Discord username (for display)</li>
+        <li><strong>Username & Display Name</strong> - Your Discord username and server nickname (for display)</li>
+        <li><strong>Avatar Hash</strong> - Your avatar identifier (for display)</li>
         <li><strong>XP & Level</strong> - Your progress in the leveling system</li>
         <li><strong>Message count</strong> - Total messages sent for XP calculation</li>
+        <li><strong>Message content</strong> - Temporarily logged to stdout for debugging purposes (not stored in the database)</li>
     </ul>
 
     <h2>Question of the Day</h2>
@@ -25,8 +27,8 @@
     <p>When using the LLM chat feature powered by Llama 3.2:</p>
     <ul>
         <li>Messages sent to the LLM are processed in real-time by a self-hosted model</li>
-        <li>We do <strong>NOT</strong> store, log, or retain any chat messages or LLM responses</li>
-        <li>No conversation history is saved - each message is stateless</li>
+        <li>Prompts and responses <strong>are logged to stdout</strong> for debugging purposes, but are <strong>not stored</strong> in the database or any persistent file</li>
+        <li>No conversation history is saved between messages - each request is stateless</li>
         <li>The LLM runs locally and does not share data with third parties</li>
     </ul>
 
@@ -40,8 +42,13 @@
         <li>QOTD posts daily prompts, no additional user data is collected</li>
     </ul>
 
-    <h2>Data Storage</h2>
-    <p>We store your data in a local SQLite database. We do not use third-party analytics or tracking services.</p>
+    <h2>Data Storage & Logging</h2>
+    <p>We store your persistent data (user IDs, XP, levels, settings, etc.) in a local SQLite database. Additionally:</p>
+    <ul>
+        <li><strong>Command usage</strong> is logged to a local text file for debugging and abuse prevention</li>
+        <li><strong>Message content, LLM prompts, and LLM responses</strong> may be written to stdout (server logs) for debugging. These are <strong>not stored</strong> in the database and are not retained beyond standard server log rotation</li>
+    </ul>
+    <p>We do not use third-party analytics or tracking services.</p>
 
     <h2>Data Sharing</h2>
     <p>We <strong>do NOT</strong> sell, trade, or share your data with anyone. Your data is used only for bot functionality within Discord servers you join.</p>
