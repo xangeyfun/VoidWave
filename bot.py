@@ -402,6 +402,7 @@ async def on_ready():
     update_stats.start()
     vc_xp_loop.start()
     bot.loop.create_task(llm_worker())
+    rotate_status.start()
 
 @bot.event
 async def on_interaction(interaction: discord.Interaction):
@@ -1461,6 +1462,24 @@ async def update_stats():
 
     conn.commit()
     conn.close()
+
+@tasks.loop(seconds=15)
+async def rotate_status():
+    guilds = len(bot.guilds)
+    members = sum(g.member_count or 0 for g in bot.guilds)
+
+    statuses = [
+        f"/help • {guilds} Servers",
+        f"/help • {members:,} Members",
+        f"/help • voidwave.xangey.dev",
+        f"/help • VoidWave",
+    ]
+
+    activity = discord.CustomActivity(
+        name=statuses[rotate_status.current_loop % len(statuses)]
+    )
+
+    await bot.change_presence(activity=activity)
 
 # Error handling
 
