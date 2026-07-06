@@ -266,8 +266,10 @@ async def send_qotd(channel_id, role_id, guild_id):
     conn = get_db()
     cur = conn.cursor()
 
+    queue = []
+
     try:
-        guild_settings = cur.execute("SELECT last_qotd_id, last_qotd_thread_id FROM guild_settings WHERE guild_id = ?", (guild_id,)).fetchone()
+        guild_settings = cur.execute("SELECT last_qotd_id, last_qotd_thread_id, qotd_queue FROM guild_settings WHERE guild_id = ?", (guild_id,)).fetchone()
 
         if guild_settings and guild_settings["last_qotd_id"] and guild_settings["last_qotd_thread_id"]:
             try:
@@ -284,13 +286,21 @@ async def send_qotd(channel_id, role_id, guild_id):
             except Exception as e:
                 print(f"{date()} ERROR  Failed to delete old QOTD message: {e}")
 
+        if guild_settings and guild_settings["qotd_queue"]:
+            queue = json.loads(guild_settings["qotd_queue"])
+
     except Exception as e:
         print(f"{date()} ERROR  Failed to clean up old QOTD: {e}")
 
     with open("questions.json", "r") as f:
         questions = json.load(f)
 
-    question = random.choice(questions)
+    if not queue:
+        queue = list(range(len(questions)))
+        random.shuffle(queue)
+
+    question_index = queue.pop(0)
+    question = questions[question_index]
     
     embed = discord.Embed(
         title="🧠 Question of the Day",
@@ -318,7 +328,7 @@ async def send_qotd(channel_id, role_id, guild_id):
     )
 
     try:
-        cur.execute("UPDATE guild_settings SET last_qotd_id=?, last_qotd_thread_id=? WHERE guild_id=?", (msg.id, thread.id, guild_id))
+        cur.execute("UPDATE guild_settings SET last_qotd_id=?, last_qotd_thread_id=?, qotd_queue=? WHERE guild_id=?", (msg.id, thread.id, json.dumps(queue), guild_id))
         conn.commit()
 
     except Exception as e:
@@ -1545,6 +1555,11 @@ if __name__ == "__main__":
     )
     """)
     conn.commit()
+
+    try:
+        cur.execute("ALTER TABLE guild_settings ADD COLUMN qotd_queue TEXT")
+    except sqlite3.OperationalError:
+        pass
 
     conn.close()
 
