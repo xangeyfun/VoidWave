@@ -1306,6 +1306,10 @@ async def on_message(message):
             await message.reply(f"Please wait before using the LLM again. Cooldown: `{LLM_COOLDOWN - (time.time() - last_llm[message.author.id]):.1f} seconds left.`")
             return
 
+        if len(llm_queue_size) >= 10:
+            await message.reply(f"The LLM is currently busy. Please try again later. Current queue size: `{len(llm_queue_size) + 1}`")
+            return
+
         msg = message.content.replace("<@1442229230384709752>", "").strip()
         msg = msg.replace("--stats", "").strip()
 
