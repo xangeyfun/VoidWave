@@ -447,19 +447,26 @@ async def help_command(interaction: discord.Interaction):
     help_text = (
         "## **Available Commands:**\n"
         "> **<required>**  |  **[optional]**\n\n"
-        "> **`/ping`** - Test the bot's latency.\n"
-        "> **`/calc <expression>`** - Simple calculator.\n"
-        "> **`/flip`** - Flip a coin.\n"
-        "> **`/github`** - Find the code on GitHub.\n"
-        "> **`/random <int> <int>`** - Generate a random number between a and b.\n"
-        "> **`/userinfo <user>`** - Get info about a user.\n"
-        "> **`/quote <choice>`** - Get a quote (Today or Random).\n"
-        "> **`/animal <animal>`** - Get a random animal picture (dog, cat, duck, fox).\n"
-        "> **`/uptime`** - Check the bot's uptime.\n"
-        "> **`/fact <choice>`** - Get a daily fact (Today or Random).\n"
-        "> **`/level [user]`** - Check your server level.\n"
+        "### **AI**\n"
+        "> **`/ai <message> [stats] [hidden]`** - Chat with the bot's LLM (powered by Llama 3.2).\n\n"
+        "### **Leveling**\n"
+        "> **`/level [user] [hidden]`** - Check your server level.\n"
         "> **`/leaderboard <sort> [global_lb]`** - Check the server level leaderboard.\n"
         "> **`/profile [user]`** - Check your profile.\n\n"
+        "### **Utilities**\n"
+        "> **`/ping`** - Test the bot's latency.\n"
+        "> **`/uptime`** - Check the bot's uptime.\n"
+        "> **`/github`** - Find the code on GitHub.\n"
+        "> **`/calc <expression>`** - Simple calculator.\n"
+        "> **`/userinfo <user> [hidden]`** - Get info about a user.\n\n"
+        "### **Fun**\n"
+        "> **`/flip [hidden]`** - Flip a coin.\n"
+        "> **`/random <int> <int> [hidden]`** - Generate a random number between a and b.\n"
+        "> **`/quote <choice>`** - Get a quote (Today or Random).\n"
+        "> **`/fact <choice>`** - Get a daily fact (Today or Random).\n"
+        "> **`/animal <animal> [hidden]`** - Get a random animal picture (dog, cat, duck, fox).\n\n"
+        "### **Configuration**\n"
+        "> **`/config help`** - View configuration commands (level-up messages, roles, QOTD).\n\n"
         "Some commands have an option to hide the response from others.\n"
         "Use it if you don't want to spam channels or just want some privacy :wink: \n\n"
     )
@@ -1064,6 +1071,14 @@ async def config_help(interaction: discord.Interaction):
     )
 
     embed.add_field(
+        name="General",
+        value=(
+            "`/config view` - View current configuration"
+        ),
+        inline=False
+    )
+
+    embed.add_field(
         name="Level Up Channel",
         value=(
             "`/config level set_channel [channel]` - Set the channel for level up messages\n"
@@ -1082,9 +1097,10 @@ async def config_help(interaction: discord.Interaction):
     )
 
     embed.add_field(
-        name="QOTD Channel",
+        name="QOTD Settings",
         value=(
             "`/config qotd set_channel [channel]` - Set the channel for QOTD messages\n"
+            "`/config qotd set_role [role]` - Set a role to ping with the QOTD\n"
             "`/config qotd enable [enabled]` - Enable or disable QOTD messages"
         ),
         inline=False
