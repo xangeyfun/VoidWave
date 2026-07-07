@@ -58,7 +58,7 @@ voidwave.xangey.dev/stats/guild_id/user_id
 
 ## 🧠 Why?
 
-i originally made voidwave because i wanted to learn more python + discord bots,
+i originally made VoidWave because i wanted to learn more python + discord bots,
 but eventually i got tired of most leveling bots feeling bloated or ugly.
 
 so i made my own.

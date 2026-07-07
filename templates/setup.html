@@ -2,12 +2,12 @@
 
 {% block title %}Setup Guide{% endblock %}
 
-{% block meta_description %}How to set up Voidwave on your Discord server. Leveling, QOTD, AI chat, and more.{% endblock %}
+{% block meta_description %}How to set up VoidWave on your Discord server. Leveling, QOTD, AI chat, and more.{% endblock %}
 
 {% block content %}
 <section class="setup-page">
     <h1>Setup Guide</h1>
-    <p>Getting Voidwave running on your server takes like 2 minutes. Here's how.</p>
+    <p>Getting VoidWave running on your server takes like 2 minutes. Here's how.</p>
 
     <div class="setup-block">
         <h2>1. Invite the Bot</h2>
@@ -44,10 +44,10 @@
 
     <div class="setup-block">
         <h2>4. AI Chat</h2>
-        <p>Voidwave runs a local Llama 3.2 model for AI chat. Everything stays on the server, no third party sees your messages. You can talk to it in a few ways:</p>
+        <p>VoidWave runs a local Llama 3.2 model for AI chat. Everything stays on the server, no third party sees your messages. You can talk to it in a few ways:</p>
         <ul>
             <li><strong>/ai command</strong> - Send <code>/ai your message here</code> and get a response. The command has a <code>stats</code> option you can toggle to see token count, response time, and retry info.</li>
-            <li><strong>Mention the bot</strong> - Ping @Voidwave with your question in any channel and it will answer. Append <code>--stats</code> to your message to see performance info.</li>
+            <li><strong>Mention the bot</strong> - Ping @VoidWave with your question in any channel and it will answer. Append <code>--stats</code> to your message to see performance info.</li>
             <li><strong>Reply to the bot</strong> - If the bot already said something, replying to its message continues the conversation. The bot sees what it said and your reply for context. Same <code>--stats</code> trick works here too.</li>
         </ul>
         <p>There is a 15 second cooldown per person so one user can't spam the AI. If the model is busy generating a response for someone else, newer requests get queued and processed in order. The queue can hold up to 10 requests at a time.</p>
