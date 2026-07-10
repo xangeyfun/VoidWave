@@ -1474,9 +1474,9 @@ async def qotd_loop():
         print(f"{date()} ERROR  Failed to fetch QOTD guilds: {e}")
         return
 
-    for guild in guilds:
-        await send_qotd(guild["qotd_channel"], guild["qotd_role_id"], guild["guild_id"])
-        print(f"{date()} INFO  Sent QOTD for guild {guild['guild_id']} in channel {guild['qotd_channel']}")
+    tasks = [send_qotd(g["qotd_channel"], g["qotd_role_id"], g["guild_id"]) for g in guilds]
+    await asyncio.gather(*tasks, return_exceptions=True)
+    print(f"{date()} INFO  Sent QOTD for {len(guilds)} guilds")
 
 @tasks.loop(minutes=1)
 async def update_stats():
