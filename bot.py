@@ -398,7 +398,7 @@ async def on_ready():
     sync_time = f"{done - start_sync:.2f}s"
     print(f"\n{date()} INFO  --- Bot is ready! ---")
     if bot.user:
-        print(f"{date()} INFO  Invite link: https://discord.com/api/oauth2/authorize?client_id={bot.user.id}&permissions=8&scope=bot%20applications.commands")
+        print(f"{date()} INFO  Invite link: https://discord.com/api/oauth2/authorize?client_id={bot.user.id}")
     else:
         exit(1) 
     print(f"{date()} DEBUG  Connected to {total_guilds} guilds ({total_members} members)")
