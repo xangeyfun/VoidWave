@@ -1286,14 +1286,15 @@ async def on_message(message):
         )
         return
 
-    if "https://cdn.discordapp.com/stickers/1488531621996134430.png" in [sticker.url for sticker in message.stickers] and message.author.id not in banned_ids:
-        await message.add_reaction("❓")
-        await message.channel.send("<@&1488533311776227469>")
-        
-    if "https://cdn.discordapp.com/stickers/1488531621996134430.png" in [sticker.url for sticker in message.stickers] and message.author.id in banned_ids:
-        await message.delete()
-        await message.author.send(f"<@{message.author.id}> You have been banned from using the sticker for repeatedly spamming it. If you think this is a mistake, please DM the admins")
-        print(f"{date()} INFO  Deleted message from banned user {message.author} (ID: {message.author.id}) for using the sticker.")
+    if message.stickers:
+        if "https://cdn.discordapp.com/stickers/1488531621996134430.png" in [sticker.url for sticker in message.stickers] and message.author.id not in banned_ids:
+            await message.add_reaction("❓")
+            await message.channel.send("<@&1488533311776227469>")
+            
+        if "https://cdn.discordapp.com/stickers/1488531621996134430.png" in [sticker.url for sticker in message.stickers] and message.author.id in banned_ids:
+            await message.delete()
+            await message.author.send(f"<@{message.author.id}> You have been banned from using the sticker for repeatedly spamming it. If you think this is a mistake, please DM the admins")
+            print(f"{date()} INFO  Deleted message from banned user {message.author} (ID: {message.author.id}) for using the sticker.")
 
     message_reference = False
 
