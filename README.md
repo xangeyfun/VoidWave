@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🌌 VoidWave 🌌 
+# VoidWave
 
 **AI chat, leveling, QOTD - all in one bot.**
 
