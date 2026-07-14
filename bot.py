@@ -110,7 +110,7 @@ async def get_llm_response(msg, display_name, user_id, reply_info = None):
         await asyncio.sleep(0.5)
 
     print(f"{date()} ERROR LLM empty response after 5 tries")
-    return "Error occurred while fetching LLM response. Please try again.", "Empty response after 5 tries"
+    return "Error occurred while fetching AI response. Please try again.", "Empty response after 5 tries"
 
 async def level_autocomplete(interaction: Interaction, current: str):
     conn = get_db()
@@ -366,7 +366,7 @@ async def llm_worker():
                     reply += f"\n> {info}"
 
         except Exception as e:
-            reply = f"Error occurred while fetching LLM response. Please try again later.\n> {e}"
+            reply = f"Error occurred while fetching AI response. Please try again later.\n> {e}"
 
         finally:
             try:
@@ -455,7 +455,7 @@ async def help_command(interaction: discord.Interaction):
         "> **`/ping`** - Test the bot's latency.\n"
         "> **`/uptime`** - Check the bot's uptime.\n"
         "> **`/calc <expression>`** - Simple calculator.\n"
-        "> **`/ai <message> [stats] [hidden]`** - Chat with the bot's LLM (powered by Llama 3.2).\n"
+        "> **`/ai <message> [stats] [hidden]`** - Chat with the bot's AI (powered by Llama 3.2).\n"
         "> **`/userinfo <user> [hidden]`** - Get info about a user.\n"
         "### **Fun**\n"
         "> **`/flip [hidden]`** - Flip a coin.\n"
@@ -984,17 +984,17 @@ async def profile(interaction: discord.Interaction, hidden: bool = False, user: 
 
 @discord.app_commands.allowed_installs(guilds=True, users=True)
 @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
-@bot.tree.command(name="ai", description="Chat with the bot's LLM (powered by Llama 3.2)") #, guild=guild)
-@app_commands.describe(message="The message to send to the LLM", stats="Show additional information about the LLM response", hidden="Hide the command from others")
+@bot.tree.command(name="ai", description="Chat with the bot's AI (powered by Llama 3.2)") #, guild=guild)
+@app_commands.describe(message="The message to send to the AI", stats="Show additional information about the AI response", hidden="Hide the command from others")
 async def ai(interaction: discord.Interaction, message: str, stats: bool = False, hidden: bool = False):
     await interaction.response.defer(ephemeral=hidden)
 
     if interaction.user.id in last_llm and time.time() - last_llm[interaction.user.id] < LLM_COOLDOWN and interaction.user.id != 996771607630585856:
-        await interaction.followup.send(f"Please wait before using the LLM again. Cooldown: `{LLM_COOLDOWN - (time.time() - last_llm[interaction.user.id]):.1f} seconds left.`", ephemeral=True)
+        await interaction.followup.send(f"Please wait before talking to VoidWave again. Cooldown: `{LLM_COOLDOWN - (time.time() - last_llm[interaction.user.id]):.1f} seconds left.`", ephemeral=True)
         return
 
     if llm_queue.qsize() > 0:
-        await interaction.followup.send(f"The LLM is currently busy. Please try again later. Current queue size: `{llm_queue.qsize()}`", ephemeral=True)
+        await interaction.followup.send(f"VoidWave is currently busy. Please try again later. Current queue size: `{llm_queue.qsize()}`", ephemeral=True)
         return
     
     reply, info = await get_llm_response(message, interaction.user.name, interaction.user.id) 
@@ -1304,11 +1304,11 @@ async def on_message(message):
 
     if message.content.startswith("<@1442229230384709752>") or message_reference or message.channel.id == 1494361038420709466: 
         if message.author.id in last_llm and time.time() - last_llm[message.author.id] < LLM_COOLDOWN and message.author.id != 996771607630585856:
-            await message.reply(f"Please wait before using the LLM again. Cooldown: `{LLM_COOLDOWN - (time.time() - last_llm[message.author.id]):.1f} seconds left.`")
+            await message.reply(f"Please wait before talking to VoidWave again. Cooldown: `{LLM_COOLDOWN - (time.time() - last_llm[message.author.id]):.1f} seconds left.`")
             return
 
         if len(llm_queue_size) >= 10:
-            await message.reply(f"The LLM is currently busy. Please try again later. Current queue size: `{len(llm_queue_size) + 1}`")
+            await message.reply(f"VoidWave is currently busy. Please try again later. Current queue size: `{len(llm_queue_size) + 1}`")
             return
 
         msg = message.content.replace("<@1442229230384709752>", "").strip()
@@ -1321,7 +1321,7 @@ async def on_message(message):
             msg = msg.replace(f"<#{channel.id}>", channel.name)
 
         if not msg:
-            await message.reply("Please provide a message for the LLM to respond to.")
+            await message.reply("Please provide a message for VoidWave to respond to.")
             return
 
         reply_info = None
