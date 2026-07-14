@@ -3,7 +3,7 @@ from discord.ext import commands, tasks
 from simpleeval import simple_eval
 from llm import ask_llm, llm_stats
 from dotenv import load_dotenv
-from zoneinfo import ZoneInfo
+import unicodedata
 import subprocess
 import traceback
 import datetime
@@ -406,7 +406,7 @@ async def on_ready():
     print(f"{date()} DEBUG  Startup time: {done - startup:.4f} seconds")
     print(f"{date()} INFO ----------------------\n")
     for guild in bot.guilds:
-        print(f"{date()} INFO  {guild.name:<30} | {guild.id:<20} | {str(guild.owner):<20} [{guild.owner_id:<20}] | {guild.member_count:<5} members")
+        print(f"{date()} INFO  {''.join(c for c in guild.name if unicodedata.category(c) != 'So')[:49].strip():<50} | {guild.id:<20} | {str(guild.owner)[:19]:<20} [{guild.owner_id:<20}] | {guild.member_count:<5} members")
     print(f"{date()} INFO ----------------------\n")
     qotd_loop.start()
     update_stats.start()
