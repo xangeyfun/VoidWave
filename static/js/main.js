@@ -39,44 +39,76 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Leaderboard client-side sorting
+    // Leaderboard controls
     try {
         const filterBtns = document.querySelectorAll('.filter-btn');
-        const table = document.getElementById('leaderboardTable');
-        if (filterBtns.length && table) {
-            const rows = Array.from(table.querySelectorAll('.leaderboard-row')).filter(r => !r.classList.contains('header'));
-            console.log('Found', rows.length, 'leaderboard rows');
+        const guildSelect = document.getElementById('guildSelect');
+        const findMeBtn = document.getElementById('findMeBtn');
+        const findMeInput = document.getElementById('findMeInput');
 
+        function buildUrl(params) {
+            const url = new URL(window.location.href);
+            for (const [k, v] of Object.entries(params)) {
+                if (v === '' || v === null || v === undefined) {
+                    url.searchParams.delete(k);
+                } else {
+                    url.searchParams.set(k, v);
+                }
+            }
+            return url.pathname + url.search;
+        }
+
+        function getParams() {
+            const p = new URLSearchParams(window.location.search);
+            return {
+                guild: p.get('guild') || '0',
+                sort: p.get('sort') || 'level',
+                dir: p.get('dir') || 'desc',
+                page: p.get('page') || '1'
+            };
+        }
+
+        if (filterBtns.length) {
             filterBtns.forEach(btn => {
                 btn.addEventListener('click', () => {
-                    filterBtns.forEach(b => b.classList.remove('active'));
-                    btn.classList.add('active');
-
-                    const sortBy = btn.dataset.sort;
-                    const dir = btn.dataset.dir;
-
-                    rows.sort((a, b) => {
-                        let valA, valB;
-                        if (sortBy === 'level') {
-                            valA = parseInt(a.dataset.level) || 0;
-                            valB = parseInt(b.dataset.level) || 0;
-                        } else if (sortBy === 'total_xp') {
-                            valA = parseInt(a.dataset.xp) || 0;
-                            valB = parseInt(b.dataset.xp) || 0;
-                        } else {
-                            valA = parseInt(a.dataset.messages) || 0;
-                            valB = parseInt(b.dataset.messages) || 0;
-                        }
-                        return dir === 'desc' ? valB - valA : valA - valB;
-                    });
-
-                    // Re-append sorted rows and update ranks
-                    rows.forEach((row, idx) => {
-                        const rankSpan = row.querySelector('.rank');
-                        if (rankSpan) rankSpan.textContent = `#${idx + 1}`;
-                        table.appendChild(row);
-                    });
+                    const params = getParams();
+                    params.sort = btn.dataset.sort;
+                    params.dir = btn.dataset.dir;
+                    params.page = '1';
+                    window.location.href = buildUrl(params);
                 });
+            });
+        }
+
+        if (guildSelect) {
+            guildSelect.addEventListener('change', () => {
+                const params = getParams();
+                params.guild = guildSelect.value;
+                params.page = '1';
+                window.location.href = buildUrl(params);
+            });
+        }
+
+        if (findMeBtn && findMeInput) {
+            function doFindMe() {
+                const query = findMeInput.value.toLowerCase().trim();
+                if (!query) return;
+
+                const rows = document.querySelectorAll('.leaderboard-row:not(.header)');
+                for (const row of rows) {
+                    const username = row.dataset.username || '';
+                    if (username.includes(query)) {
+                        row.classList.add('find-highlight');
+                        row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        setTimeout(() => row.classList.remove('find-highlight'), 2000);
+                        return;
+                    }
+                }
+            }
+
+            findMeBtn.addEventListener('click', doFindMe);
+            findMeInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') doFindMe();
             });
         }
     } catch (e) {

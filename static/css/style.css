@@ -797,6 +797,20 @@ a:hover {
     border-bottom: none;
 }
 
+.leaderboard-row.find-highlight {
+    background: var(--primary);
+    color: white;
+}
+
+.leaderboard-row.find-highlight .stat-cell,
+.leaderboard-row.find-highlight .rank {
+    color: white;
+}
+
+.leaderboard-row.find-highlight .user-name a {
+    color: white;
+}
+
 .leaderboard-row:hover {
     background: var(--bg-tertiary);
 }
