@@ -67,7 +67,7 @@
                 {% if entry.rank == 1 %}&#x1F947;{% elif entry.rank == 2 %}&#x1F948;{% elif entry.rank == 3 %}&#x1F949;{% else %}#{{ entry.rank }}{% endif %}
             </span>
             <div class="user-cell">
-                <img class="user-avatar" src="{% if entry.avatar_hash %}https://cdn.discordapp.com/avatars/{{ entry.user_id }}/{{ entry.avatar_hash }}.png{% else %}https://cdn.discordapp.com/embed/avatars/0.png{% endif %}" onerror="this.onerror=null;this.src='https://cdn.discordapp.com/embed/avatars/0.png'" alt="{{ entry.username }}">
+                <img class="user-avatar" src="{% if entry.avatar_hash %}https://cdn.discordapp.com/avatars/{{ entry.user_id }}/{{ entry.avatar_hash }}.png?size=128{% else %}https://cdn.discordapp.com/embed/avatars/0.png{% endif %}" onerror="this.onerror=null;this.src='https://cdn.discordapp.com/embed/avatars/0.png'" alt="{{ entry.username }}">
                 <span class="user-name"><a href="/stats/{{ entry.guild_id }}/{{ entry.user_id }}">{{ entry.username }}</a></span>
             </div>
             <span class="stat-cell level-cell">{{ entry.level }}</span>

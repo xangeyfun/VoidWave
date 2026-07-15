@@ -159,7 +159,7 @@ def stats(guild_id: int, user_id: int):
         vc_xp_minutes=user_data['vc_xp_minutes'],
         guild_id=guild_id,
         user_id=user_id,
-        avatar_url=f'https://cdn.discordapp.com/avatars/{user_id}/{user_data["avatar_hash"]}.png' if user_data['avatar_hash'] else 'https://cdn.discordapp.com/embed/avatars/0.png'
+        avatar_url=f'https://cdn.discordapp.com/avatars/{user_id}/{user_data["avatar_hash"]}.png?size=128' if user_data['avatar_hash'] else 'https://cdn.discordapp.com/embed/avatars/0.png'
     ), 200
 
 @app.route('/leaderboard')
