@@ -186,6 +186,20 @@ def leaderboard():
         })
     
     total_pages = max(1, (total + 24) // 25)
+
+    where = "WHERE guild_id = ?" if guild_id else ""
+    params = (guild_id,) if guild_id else ()
+    agg = cached_query(f"lb_agg:{guild_id}", f"SELECT COALESCE(SUM(total_xp),0), COALESCE(SUM(total_messages),0), COALESCE(SUM(vc_minutes),0) FROM users {where}", params)
+    
+    agg_xp = agg[0][0]
+    agg_messages = agg[0][1]
+    agg_vc = agg[0][2]
+    if agg_vc >= 1440:
+        agg_vc_str = f"{agg_vc // 1440:,}d"
+    elif agg_vc >= 60:
+        agg_vc_str = f"{agg_vc // 60:,}h"
+    else:
+        agg_vc_str = f"{agg_vc:,}m"
     
     return render_template('leaderboard.html',
         leaderboard=leaderboard_list,
@@ -194,7 +208,10 @@ def leaderboard():
         sort_by=sort_by,
         direction=direction,
         page=page,
-        total_pages=total_pages
+        total_pages=total_pages,
+        agg_xp=f"{agg_xp:,}",
+        agg_messages=f"{agg_messages:,}",
+        agg_vc=agg_vc_str
     ), 200
 
 @app.route('/api/leaderboard')

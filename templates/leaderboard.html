@@ -14,46 +14,57 @@
 {% endblock %}
 
 {% block content %}
-<section class="leaderboard-page">
-    <div class="leaderboard-header">
-        <h1>Leaderboard</h1>
-        <div class="leaderboard-controls">
-            <div class="guild-input">
-                <input type="text" id="guildInput" placeholder="Server ID..." class="find-input" value="{{ guild_id if guild_id else '' }}">
-                <button class="find-btn" id="guildBtn">Go</button>
-            </div>
-            <div class="find-me">
-                <input type="text" id="findMeInput" placeholder="Find user..." class="find-input">
-                <button class="find-btn" id="findMeBtn">Find Me</button>
-            </div>
-        </div>
-    </div>
+<section class="leaderboard-hero">
+    <span class="section-label">Rankings</span>
+    <h1>Leaderboard</h1>
+    <p>See who's on top across all servers.</p>
+</section>
 
-    <div class="leaderboard-filters">
-        <button class="filter-btn {% if sort_by == 'level' and direction == 'desc' %}active{% endif %}" data-sort="level" data-dir="desc">Level ↓</button>
-        <button class="filter-btn {% if sort_by == 'level' and direction == 'asc' %}active{% endif %}" data-sort="level" data-dir="asc">Level ↑</button>
-        <button class="filter-btn {% if sort_by == 'total_xp' and direction == 'desc' %}active{% endif %}" data-sort="total_xp" data-dir="desc">XP ↓</button>
-        <button class="filter-btn {% if sort_by == 'total_xp' and direction == 'asc' %}active{% endif %}" data-sort="total_xp" data-dir="asc">XP ↑</button>
-        <button class="filter-btn {% if sort_by == 'total_messages' and direction == 'desc' %}active{% endif %}" data-sort="total_messages" data-dir="desc">Messages ↓</button>
-        <button class="filter-btn {% if sort_by == 'total_messages' and direction == 'asc' %}active{% endif %}" data-sort="total_messages" data-dir="asc">Messages ↑</button>
-        <button class="filter-btn {% if sort_by == 'vc_minutes' and direction == 'desc' %}active{% endif %}" data-sort="vc_minutes" data-dir="desc">Voice ↓</button>
-        <button class="filter-btn {% if sort_by == 'vc_minutes' and direction == 'asc' %}active{% endif %}" data-sort="vc_minutes" data-dir="asc">Voice ↑</button>
+<div class="lb-stats-bar">
+    <div class="lb-stat">
+        <span class="lb-stat-value">{{ total }}</span>
+        <span class="lb-stat-label">Users</span>
+    </div>
+    <div class="lb-stat">
+        <span class="lb-stat-value">{{ agg_xp }}</span>
+        <span class="lb-stat-label">Total XP</span>
+    </div>
+    <div class="lb-stat">
+        <span class="lb-stat-value">{{ agg_messages }}</span>
+        <span class="lb-stat-label">Messages</span>
+    </div>
+    <div class="lb-stat">
+        <span class="lb-stat-value">{{ agg_vc }}</span>
+        <span class="lb-stat-label">Voice Time</span>
+    </div>
+</div>
+
+<section class="leaderboard-page">
+    <div class="leaderboard-controls">
+        <div class="guild-input">
+            <input type="text" id="guildInput" placeholder="Server ID..." class="find-input" value="{{ guild_id if guild_id else '' }}">
+            <button class="find-btn" id="guildBtn">Go</button>
+        </div>
+        <div class="find-me">
+            <input type="text" id="findMeInput" placeholder="Find user..." class="find-input">
+            <button class="find-btn" id="findMeBtn">Find Me</button>
+        </div>
     </div>
 
     <div class="leaderboard-table" id="leaderboardTable">
         <div class="leaderboard-row header">
             <span>Rank</span>
             <span>User</span>
-            <span>Level</span>
-            <span>XP</span>
-            <span>Messages</span>
-            <span>Voice</span>
+            <span class="sortable-header {% if sort_by == 'level' %}active{% endif %}" data-sort="level" data-dir="{% if sort_by == 'level' and direction == 'desc' %}asc{% else %}desc{% endif %}">Level {% if sort_by == 'level' %}{% if direction == 'desc' %}&#x2193;{% else %}&#x2191;{% endif %}{% endif %}</span>
+            <span class="sortable-header {% if sort_by == 'total_xp' %}active{% endif %}" data-sort="total_xp" data-dir="{% if sort_by == 'total_xp' and direction == 'desc' %}asc{% else %}desc{% endif %}">XP {% if sort_by == 'total_xp' %}{% if direction == 'desc' %}&#x2193;{% else %}&#x2191;{% endif %}{% endif %}</span>
+            <span class="sortable-header {% if sort_by == 'total_messages' %}active{% endif %}" data-sort="total_messages" data-dir="{% if sort_by == 'total_messages' and direction == 'desc' %}asc{% else %}desc{% endif %}">Messages {% if sort_by == 'total_messages' %}{% if direction == 'desc' %}&#x2193;{% else %}&#x2191;{% endif %}{% endif %}</span>
+            <span class="sortable-header {% if sort_by == 'vc_minutes' %}active{% endif %}" data-sort="vc_minutes" data-dir="{% if sort_by == 'vc_minutes' and direction == 'desc' %}asc{% else %}desc{% endif %}">Voice {% if sort_by == 'vc_minutes' %}{% if direction == 'desc' %}&#x2193;{% else %}&#x2191;{% endif %}{% endif %}</span>
         </div>
 
         {% for entry in leaderboard %}
         <div class="leaderboard-row {% if entry.rank == 1 %}top-1{% elif entry.rank == 2 %}top-2{% elif entry.rank == 3 %}top-3{% endif %}" data-level="{{ entry.level }}" data-xp="{{ entry.total_xp }}" data-messages="{{ entry.total_messages }}" data-voice="{{ entry.vc_minutes }}" data-username="{{ entry.username|lower }}">
             <span class="rank {% if entry.rank == 1 %}rank-1{% elif entry.rank == 2 %}rank-2{% elif entry.rank == 3 %}rank-3{% endif %}">
-                {% if entry.rank == 1 %}🥇{% elif entry.rank == 2 %}🥈{% elif entry.rank == 3 %}🥉{% else %}#{{ entry.rank }}{% endif %}
+                {% if entry.rank == 1 %}&#x1F947;{% elif entry.rank == 2 %}&#x1F948;{% elif entry.rank == 3 %}&#x1F949;{% else %}#{{ entry.rank }}{% endif %}
             </span>
             <div class="user-cell">
                 <img class="user-avatar" src="{% if entry.avatar_hash %}https://cdn.discordapp.com/avatars/{{ entry.user_id }}/{{ entry.avatar_hash }}.png{% else %}https://cdn.discordapp.com/embed/avatars/0.png{% endif %}" onerror="this.onerror=null;this.src='https://cdn.discordapp.com/embed/avatars/0.png'" alt="{{ entry.username }}">
@@ -77,7 +88,7 @@
         {% if total_pages > 1 %}
         <div class="pagination">
             {% if page > 1 %}
-            <a href="?guild={{ guild_id }}&sort={{ sort_by }}&dir={{ direction }}&page={{ page - 1 }}">←</a>
+            <a href="?guild={{ guild_id }}&sort={{ sort_by }}&dir={{ direction }}&page={{ page - 1 }}">&#x2190;</a>
             {% endif %}
 
             {% set page_start = [1, page - 2] | max %}
@@ -98,7 +109,7 @@
             {% endif %}
 
             {% if page < total_pages %}
-            <a href="?guild={{ guild_id }}&sort={{ sort_by }}&dir={{ direction }}&page={{ page + 1 }}">→</a>
+            <a href="?guild={{ guild_id }}&sort={{ sort_by }}&dir={{ direction }}&page={{ page + 1 }}">&#x2192;</a>
             {% endif %}
         </div>
         {% endif %}

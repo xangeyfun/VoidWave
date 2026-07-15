@@ -5,17 +5,24 @@
 {% block og_tags %}
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://voidwave.xangey.dev/stats/{{ guild_id }}/{{ user_id }}">
-<meta property="og:title" content="{{ username }} • Level {{ level }}">
-<meta property="og:description" content="Level {{ level }} • {{ total_xp|default(0)|int }} XP • Rank #{{ rank|default('?') }}">
+<meta property="og:title" content="{{ username }} - Level {{ level }}">
+<meta property="og:description" content="Level {{ level }} - {{ total_xp|default(0)|int }} XP - Rank #{{ rank|default('?') }}">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="{{ username }} • Level {{ level }}">
-<meta name="twitter:description" content="Level {{ level }} • {{ total_xp|default(0)|int }} XP • Rank #{{ rank|default('?') }}">
+<meta name="twitter:title" content="{{ username }} - Level {{ level }}">
+<meta name="twitter:description" content="Level {{ level }} - {{ total_xp|default(0)|int }} XP - Rank #{{ rank|default('?') }}">
 {% endblock %}
 
 {% block content %}
 <section class="stats-page">
     <div class="stats-card">
-        <img src="{{ avatar_url }}" alt="{{ username }}" class="stats-avatar" onerror="this.onerror=null;this.src='https://cdn.discordapp.com/embed/avatars/0.png'">
+        <div class="stats-avatar-wrap">
+            <img src="{{ avatar_url }}" alt="{{ username }}" class="stats-avatar" onerror="this.onerror=null;this.src='https://cdn.discordapp.com/embed/avatars/0.png'">
+            {% if rank <= 3 %}
+            <span class="stats-rank-badge rank-badge-{{ rank }}">
+                {% if rank == 1 %}&#x1F947;{% elif rank == 2 %}&#x1F948;{% elif rank == 3 %}&#x1F949;{% endif %}
+            </span>
+            {% endif %}
+        </div>
         <h1 class="stats-username">{{ username }}</h1>
         <p class="stats-level">Level {{ level }}</p>
         
@@ -23,31 +30,38 @@
             <div class="xp-bar" style="width: {{ progress_percent }}%"></div>
             <span class="xp-bar-text">{{ progress|default(0)|int }} / {{ out_of|default(100)|int }} XP</span>
         </div>
+        <p class="xp-progress-label">{{ progress_percent|round(1) }}% to next level</p>
         
-        <div class="stats-details">
-            <div class="stat-item">
-                <p class="stat-label">Total XP</p>
-                <p class="stat-value">{{ total_xp|default(0)|int }}</p>
+        <div class="stats-grid">
+            <div class="stat-card-lg">
+                <span class="stat-card-icon">&#x1F3AF;</span>
+                <p class="stat-card-value" data-stat="{{ total_xp|default(0)|int }}">{{ "{:,}".format(total_xp|default(0)|int) }}</p>
+                <p class="stat-card-label">Total XP</p>
             </div>
-            <div class="stat-item">
-                <p class="stat-label">Messages</p>
-                <p class="stat-value">{{ total_messages|default(0)|int }}</p>
+            <div class="stat-card-lg">
+                <span class="stat-card-icon">&#x1F4AC;</span>
+                <p class="stat-card-value" data-stat="{{ total_messages|default(0)|int }}">{{ "{:,}".format(total_messages|default(0)|int) }}</p>
+                <p class="stat-card-label">Messages</p>
             </div>
-            <div class="stat-item">
-                <p class="stat-label">Server Rank</p>
-                <p class="stat-value {% if rank == 1 %}rank-1{% elif rank == 2 %}rank-2{% elif rank == 3 %}rank-3{% endif %}">#{{ rank|default('?') }}</p>
+            <div class="stat-card-lg">
+                <span class="stat-card-icon">&#x1F3A4;</span>
+                <p class="stat-card-value">{% if vc_minutes|default(0) >= 1440 %}{{ "%dd %dh" | format(vc_minutes // 1440, (vc_minutes % 1440) // 60) }}{% elif vc_minutes|default(0) >= 60 %}{{ "%dh %dm" | format(vc_minutes // 60, vc_minutes % 60) }}{% else %}{{ vc_minutes|default(0) }}m{% endif %}</p>
+                <p class="stat-card-label">Voice Time</p>
             </div>
-            <div class="stat-item">
-                <p class="stat-label">Global Rank</p>
-                <p class="stat-value">#{{ global_rank|default('?') }}</p>
+            <div class="stat-card-lg">
+                <span class="stat-card-icon">&#x1F3C6;</span>
+                <p class="stat-card-value {% if rank == 1 %}rank-1{% elif rank == 2 %}rank-2{% elif rank == 3 %}rank-3{% endif %}">#{{ rank|default('?') }}</p>
+                <p class="stat-card-label">Server Rank</p>
             </div>
-            <div class="stat-item">
-                <p class="stat-label">Voice Time</p>
-                <p class="stat-value">{% if vc_minutes|default(0) >= 1440 %}{{ "%dd %dh" | format(vc_minutes // 1440, (vc_minutes % 1440) // 60) }}{% elif vc_minutes|default(0) >= 60 %}{{ "%dh %dm" | format(vc_minutes // 60, vc_minutes % 60) }}{% else %}{{ vc_minutes|default(0) }}m{% endif %}</p>
+            <div class="stat-card-lg">
+                <span class="stat-card-icon">&#x1F310;</span>
+                <p class="stat-card-value">#{{ global_rank|default('?') }}</p>
+                <p class="stat-card-label">Global Rank</p>
             </div>
-            <div class="stat-item">
-                <p class="stat-label">Progress</p>
-                <p class="stat-value">{{ progress_percent|round(1) }}%</p>
+            <div class="stat-card-lg">
+                <span class="stat-card-icon">&#x1F4C8;</span>
+                <p class="stat-card-value">{{ progress_percent|round(1) }}%</p>
+                <p class="stat-card-label">Progress</p>
             </div>
         </div>
     </div>

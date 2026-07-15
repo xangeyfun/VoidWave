@@ -170,7 +170,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Leaderboard controls
     try {
-        const filterBtns = document.querySelectorAll('.filter-btn');
+        const filterBtns = document.querySelectorAll('.sortable-header');
         const guildInput = document.getElementById('guildInput');
         const guildBtn = document.getElementById('guildBtn');
         const findMeBtn = document.getElementById('findMeBtn');
