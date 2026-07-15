@@ -27,7 +27,7 @@ intents.message_content = True
 intents.members = True
 bot = commands.Bot(command_prefix="%", intents=intents, status=discord.Status.online, activity=discord.Activity(type=discord.ActivityType.watching, name="/help | VoidWave"))
 TOKEN = os.getenv("TOKEN")
-allowed_user = int(os.getenv("ALLOWED_USER_ID") or 0)
+owner_id = int(os.getenv("ALLOWED_USER_ID") or 0)
 guild = discord.Object(id=int(os.getenv("GUILD_ID"))) # type: ignore
 XP_COOLDOWN = 30
 VC_COOLDOWN = 300
@@ -37,29 +37,6 @@ llm_queue = asyncio.Queue(maxsize=10)
 llm_queue_size = []
 last_xp = {}
 last_vc = {}
-CATEGORIES = {
-    "S1": "Violent Crimes",
-    "S2": "Non-Violent Crimes",
-    "S3": "Sex Crimes",
-    "S4": "Child Exploitation",
-    "S5": "Defamation",
-    "S6": "Specialized Advice",
-    "S7": "Privacy",
-    "S8": "Intellectual Property",
-    "S9": "Indiscriminate Weapons",
-    "S10": "Hate",
-    "S11": "Self-Harm",
-    "S12": "Sexual Content",
-    "S13": "Elections"
-}
-
-if os.path.exists("banned_ids.json"):
-    with open("banned_ids.json", "r") as f:
-        banned_ids = json.load(f)
-else:
-    with open("banned_ids.json", "w") as f:
-        json.dump([], f)
-    banned_ids = []
 
 # Helpers
 
@@ -646,7 +623,7 @@ async def uptime(interaction: discord.Interaction):
 @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
 @bot.tree.command(name="debug", description="Get bot's debug info (owner only)")
 async def debug(interaction: discord.Interaction):
-    if interaction.user.id != allowed_user:
+    if interaction.user.id != owner_id:
         return await interaction.response.send_message("> You do not have permission to use this command.", ephemeral=True)
 
     queue_size = llm_queue.qsize()
@@ -730,7 +707,7 @@ async def get_fact(interaction: discord.Interaction, choice: str, hidden: bool =
 
 @bot.tree.command(name="shutdown", description="Shut down the bot (owner only).") #, guild=guild)
 async def shutdown(interaction: discord.Interaction):
-    if interaction.user.id != allowed_user:
+    if interaction.user.id != owner_id:
         await interaction.response.send_message("> You do not have permission to use this command.", ephemeral=True)
         return
     await interaction.response.send_message("> Shutting down...")
@@ -1285,16 +1262,6 @@ async def on_message(message):
             "Some commands also work in DMs, so try typing `/` to see what's available! 🤖"
         )
         return
-
-    if message.stickers:
-        if "https://cdn.discordapp.com/stickers/1488531621996134430.png" in [sticker.url for sticker in message.stickers] and message.author.id not in banned_ids:
-            await message.add_reaction("❓")
-            await message.channel.send("<@&1488533311776227469>")
-            
-        if "https://cdn.discordapp.com/stickers/1488531621996134430.png" in [sticker.url for sticker in message.stickers] and message.author.id in banned_ids:
-            await message.delete()
-            await message.author.send(f"<@{message.author.id}> You have been banned from using the sticker for repeatedly spamming it. If you think this is a mistake, please DM the admins")
-            print(f"{date()} INFO  Deleted message from banned user {message.author} (ID: {message.author.id}) for using the sticker.")
 
     message_reference = False
 
