@@ -1,12 +1,27 @@
-from flask import Flask, render_template, request, redirect
+from flask import Flask, render_template, request, redirect, jsonify
 from dotenv import load_dotenv
 import sqlite3
+import time
 import os
 
 load_dotenv()
 
 app = Flask(__name__, template_folder='templates', static_folder='static')
 app.secret_key = os.getenv('SECRET_KEY')
+
+cache = {}
+CACHE_TTL = 30
+
+def cached_query(key, query, params=(), ttl=CACHE_TTL):
+    now = time.time()
+    if key in cache and now - cache[key]['time'] < ttl:
+        return cache[key]['data']
+    conn = get_db()
+    cur = conn.cursor()
+    result = cur.execute(query, params).fetchall()
+    conn.close()
+    cache[key] = {'data': result, 'time': now}
+    return result
 
 @app.before_request
 def remove_trailing_slash():
@@ -54,38 +69,29 @@ def get_user_stats(user_id: int, guild_id: int):
         print(f"Error fetching user stats: {e}")
         return None
 
-def get_leaderboard(guild_id: int = 0, sort_by: str = 'level', direction: str = 'desc', page: int = 1, per_page: int = 10):
-    try:
-        conn = get_db()
-        cur = conn.cursor()
-        
-        valid_sorts = {'level', 'total_xp', 'total_messages'}
-        if sort_by not in valid_sorts:
-            sort_by = 'level'
-        
-        dir_sql = 'DESC' if direction == 'desc' else 'ASC'
-        
-        if guild_id:
-            where_clause = 'WHERE guild_id=?'
-            params = (guild_id,)
-        else:
-            where_clause = ''
-            params = ()
-        
-        total = cur.execute(f"SELECT COUNT(*) FROM users {where_clause}", params).fetchone()[0]
-        
-        offset = (page - 1) * per_page
-        entries = cur.execute(
-            f"SELECT * FROM users {where_clause} ORDER BY {sort_by} {dir_sql} LIMIT ? OFFSET ?",
-            params + (per_page, offset)
-        ).fetchall()
-        
-        conn.close()
-        
-        return entries, total
-    except Exception as e:
-        print(f"Error fetching leaderboard: {e}")
-        return [], 0
+def get_leaderboard(guild_id: int = 0, sort_by: str = 'level', direction: str = 'desc', page: int = 1, per_page: int = 25):
+    valid_sorts = {'level', 'total_xp', 'total_messages', 'vc_minutes'}
+    if sort_by not in valid_sorts:
+        sort_by = 'level'
+    
+    dir_sql = 'DESC' if direction == 'desc' else 'ASC'
+    where_sql = 'WHERE guild_id=?' if guild_id else ''
+    params = (guild_id,) if guild_id else ()
+    
+    cache_key = f"lb:{guild_id}:{sort_by}:{dir_sql}:{page}:{per_page}"
+    total_key = f"lb_total:{guild_id}"
+    
+    total_rows = cached_query(total_key, f"SELECT COUNT(*) FROM users {where_sql}", params)
+    total = total_rows[0][0] if total_rows else 0
+    
+    offset = (page - 1) * per_page
+    entries = cached_query(
+        cache_key,
+        f"SELECT * FROM users {where_sql} ORDER BY {sort_by} {dir_sql} LIMIT ? OFFSET ?",
+        params + (per_page, offset)
+    )
+    
+    return entries, total
 
 @app.route('/')
 def index():
@@ -145,20 +151,78 @@ def stats(guild_id: int, user_id: int):
 
 @app.route('/leaderboard')
 def leaderboard():
-    entries, total = get_leaderboard(sort_by='level', per_page=10000)
+    guild_id = request.args.get('guild', 0, type=int)
+    sort_by = request.args.get('sort', 'level')
+    direction = request.args.get('dir', 'desc')
+    page = request.args.get('page', 1, type=int)
+    
+    entries, total = get_leaderboard(guild_id=guild_id, sort_by=sort_by, direction=direction, page=page, per_page=25)
+    
     leaderboard_list = []
-    for i, entry in enumerate(entries, 1):
+    for i, entry in enumerate(entries):
+        rank = (page - 1) * 25 + i + 1
         leaderboard_list.append({
-            'rank': i,
+            'rank': rank,
             'user_id': entry['user_id'],
             'username': entry['username'],
             'avatar_hash': entry['avatar_hash'],
             'guild_id': entry['guild_id'],
             'level': entry['level'],
             'total_xp': entry['total_xp'],
-            'total_messages': entry['total_messages']
+            'total_messages': entry['total_messages'],
+            'vc_minutes': entry['vc_minutes']
         })
-    return render_template('leaderboard.html', leaderboard=leaderboard_list, total=total), 200
+    
+    total_pages = max(1, (total + 24) // 25)
+    
+    guild_rows = cached_query('guilds', "SELECT DISTINCT guild_id FROM users ORDER BY guild_id")
+    guilds = [r[0] for r in guild_rows]
+    
+    return render_template('leaderboard.html',
+        leaderboard=leaderboard_list,
+        total=total,
+        guild_id=guild_id,
+        sort_by=sort_by,
+        direction=direction,
+        page=page,
+        total_pages=total_pages,
+        guilds=guilds
+    ), 200
+
+@app.route('/api/leaderboard')
+def api_leaderboard():
+    guild_id = request.args.get('guild', 0, type=int)
+    sort_by = request.args.get('sort', 'level')
+    direction = request.args.get('dir', 'desc')
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 25, type=int)
+    
+    per_page = min(per_page, 100)
+    
+    entries, total = get_leaderboard(guild_id=guild_id, sort_by=sort_by, direction=direction, page=page, per_page=per_page)
+    
+    data = []
+    for i, entry in enumerate(entries):
+        rank = (page - 1) * per_page + i + 1
+        data.append({
+            'rank': rank,
+            'user_id': entry['user_id'],
+            'username': entry['username'],
+            'avatar_hash': entry['avatar_hash'],
+            'guild_id': entry['guild_id'],
+            'level': entry['level'],
+            'total_xp': entry['total_xp'],
+            'total_messages': entry['total_messages'],
+            'vc_minutes': entry['vc_minutes']
+        })
+    
+    return jsonify({
+        'leaderboard': data,
+        'total': total,
+        'page': page,
+        'per_page': per_page,
+        'total_pages': max(1, (total + per_page - 1) // per_page)
+    })
 
 @app.errorhandler(404)
 def page_not_found(e):
