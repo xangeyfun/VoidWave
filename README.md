@@ -10,6 +10,11 @@
 ![SQLite](https://img.shields.io/badge/database-sqlite-lightgrey)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
+![GitHub stars](https://img.shields.io/github/stars/xangeyfun/VoidWave?style=social)
+![GitHub last commit](https://img.shields.io/github/last-commit/xangeyfun/VoidWave)
+![GitHub issues](https://img.shields.io/github/issues/xangeyfun/VoidWave)
+![Code size](https://img.shields.io/github/languages/code-size/xangeyfun/VoidWave)
+
 [![Invite](https://img.shields.io/badge/Invite-VoidWave-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.com/api/oauth2/authorize?client_id=1442229230384709752&scope=bot%20applications.commands)
 [![Top.gg](https://img.shields.io/badge/Top.gg-VoidWave-FF7A00?style=for-the-badge&logo=topdotgg&logoColor=white)](https://top.gg/bot/1442229230384709752)
 
@@ -17,15 +22,14 @@
 
 ## Features
 
-* XP & leveling system
-* Global + server leaderboards
-* AI chat powered by Llama 3.2
-* Fast slash commands
-* Shareable web profiles
-* Auto role rewards
-* Random utilities & fun commands
-* Daily Question of the Day with threaded discussions
-* Lightweight SQLite setup
+* XP & leveling from messages and voice chat, works instantly
+* Cross-server global profiles and leaderboards
+* AI chat powered by Llama 3.2, free and unlimited
+* Shareable web profiles with OpenGraph embeds
+* Auto role rewards at level milestones
+* Daily Question of the Day with auto-threads
+* Fun commands (animal pics, quotes, facts, calculator)
+* All slash commands, no prefix needed
 
 ## Tech Stack
 
@@ -37,16 +41,16 @@
 | Frontend | Jinja + vanilla CSS |
 | AI       | Ollama + Llama 3.2  |
 
-bot and website share the same database but run separately.
+The bot and website share the same SQLite database but run as separate processes.
 
 ---
 
 ## Why?
 
-originally made this to learn python + discord bots,
-but got tired of most leveling bots feeling bloated or ugly.
+started this to learn python and discord bots,
+but got tired of leveling bots being bloated, ugly, or locked behind paywalls.
 
-so i made my own.
+so i built one that's clean, private, and actually free.
 
 ---
 
@@ -80,10 +84,20 @@ python3 app.py     # web dashboard (optional)
 
 ---
 
+## Contributing
+
+contributions are welcome. open an issue or submit a pull request on github.
+
+---
+
 ## Links
 
-* [Invite VoidWave](https://discord.com/api/oauth2/authorize?client_id=1442229230384709752)
-* [Discord Server](https://discord.gg/tyQksBReAS)
-* [Top.gg](https://top.gg/bot/1442229230384709752)
-* [Website](https://voidwave.xangey.dev/)
-* [GitHub](https://github.com/xangeyfun/VoidWave)
+<div align="center">
+
+[![Invite](https://img.shields.io/badge/Invite-VoidWave-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.com/api/oauth2/authorize?client_id=1442229230384709752&scope=bot%20applications.commands)
+[![Support Server](https://img.shields.io/badge/Support_Discord-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/tyQksBReAS)
+[![Top.gg](https://img.shields.io/badge/Top.gg-VoidWave-FF7A00?style=for-the-badge&logo=topdotgg&logoColor=white)](https://top.gg/bot/1442229230384709752)
+[![Website](https://img.shields.io/badge/Website-voidwave.xangey.dev-blue?style=for-the-badge&logo=googlechrome&logoColor=white)](https://voidwave.xangey.dev/)
+[![GitHub](https://img.shields.io/badge/GitHub-xangeyfun-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/xangeyfun/VoidWave)
+
+</div>
