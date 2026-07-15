@@ -117,11 +117,6 @@ a:hover {
     to { opacity: 1; transform: scale(1); }
 }
 
-@keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
-}
-
 @keyframes spinIn {
     0% {
         opacity: 0;
@@ -348,11 +343,6 @@ a:hover {
     box-shadow: 0 4px 20px var(--glow);
 }
 
-.hero-stat-card:hover {
-    border-color: var(--primary);
-    box-shadow: 0 4px 20px var(--glow);
-}
-
 .hero-stat-card.stat-pulse {
     border-color: var(--primary);
     box-shadow: 0 0 20px var(--glow-strong);
@@ -378,17 +368,6 @@ a:hover {
     0% { opacity: 1; transform: translateY(0); }
     70% { opacity: 1; }
     100% { opacity: 0; transform: translateY(-28px); }
-}
-
-.hero-stat-card:nth-child(1) { animation-delay: 0.1s; }
-.hero-stat-card:nth-child(2) { animation-delay: 0.2s; }
-.hero-stat-card:nth-child(3) { animation-delay: 0.3s; }
-.hero-stat-card:nth-child(4) { animation-delay: 0.4s; }
-.hero-stat-card:nth-child(5) { animation-delay: 0.5s; }
-
-.hero-stat-card:hover {
-    border-color: var(--primary);
-    box-shadow: 0 4px 20px var(--glow);
 }
 
 .hero-stat-card.stat-pulse {
@@ -1156,10 +1135,6 @@ a:hover {
     color: white;
 }
 
-.leaderboard-row:hover {
-    background: var(--bg-tertiary);
-}
-
 .leaderboard-row.header {
     background: var(--bg-tertiary);
     font-weight: 600;
@@ -1475,12 +1450,33 @@ a:hover {
     }
     
     .leaderboard-row {
-        grid-template-columns: 50px 1fr 80px;
+        grid-template-columns: 1fr;
+        gap: 0.5rem;
+        padding: 1rem;
+    }
+    
+    .leaderboard-row .rank {
+        position: absolute;
+        top: 1rem;
+        right: 1rem;
+    }
+    
+    .leaderboard-row .user-cell {
+        width: 100%;
     }
     
     .leaderboard-row .stat-cell {
-        display: none;
+        display: inline-block;
+        font-size: 0.85rem;
+        padding: 0.25rem 0.5rem;
+        background: var(--bg-tertiary);
+        border-radius: 6px;
     }
+    
+    .leaderboard-row .level-cell::before { content: 'Lv '; }
+    .leaderboard-row .xp-cell::before { content: 'XP: '; }
+    .leaderboard-row .msg-cell::before { content: 'Msg: '; }
+    .leaderboard-row .voice-cell::before { content: 'VC: '; }
     
     .leaderboard-row.header {
         display: none;
