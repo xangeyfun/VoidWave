@@ -637,20 +637,35 @@ a:hover {
     color: var(--text-muted);
 }
 
-.setup-page {
+.setup-hero {
+    text-align: center;
+    padding: 3rem 0 4rem;
+    animation: slideUp 0.8s ease-out;
+}
+
+.setup-hero h1 {
+    font-size: 3rem;
+    font-weight: 800;
+    margin-bottom: 0.75rem;
+    background: linear-gradient(135deg, var(--text-primary) 0%, var(--primary) 50%, var(--secondary) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    background-size: 200% 200%;
+    animation: shimmer 3s ease infinite;
+    filter: drop-shadow(0 0 20px rgba(132, 56, 252, 0.2));
+}
+
+.setup-hero p {
+    font-size: 1.1rem;
+    color: var(--text-secondary);
+    max-width: 500px;
+    margin: 0 auto;
+}
+
+.setup-steps {
     max-width: 800px;
     margin: 0 auto;
-    padding: 2rem 0;
-}
-
-.setup-page h1 {
-    font-size: 2.5rem;
-    margin-bottom: 0.5rem;
-}
-
-.setup-page > p {
-    color: var(--text-secondary);
-    margin-bottom: 3rem;
 }
 
 .setup-block {
@@ -658,10 +673,15 @@ a:hover {
     border: 1px solid var(--border-light);
     border-radius: 16px;
     padding: 2rem;
-    margin-bottom: 1.5rem;
-    transition: border-color 0.3s ease;
+    margin-bottom: 1.25rem;
     position: relative;
     overflow: hidden;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.setup-block:hover {
+    border-color: var(--border);
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
 }
 
 .setup-block::before {
@@ -669,67 +689,70 @@ a:hover {
     position: absolute;
     top: 0;
     left: 0;
-    width: 4px;
+    width: 3px;
     height: 100%;
-    background: var(--primary);
-    opacity: 0.4;
-    border-radius: 16px 0 0 16px;
+    background: var(--step-color, var(--primary));
+    opacity: 0.6;
 }
 
-.setup-block:nth-of-type(1)::before {
-    background: #22c55e;
+.setup-step-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
 }
 
-.setup-block:nth-of-type(2)::before {
-    background: var(--primary);
+.step-badge {
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    background: var(--step-color, var(--primary));
+    color: white;
+    font-size: 1.1rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    opacity: 0.9;
 }
 
-.setup-block:nth-of-type(3)::before {
-    background: #f59e0b;
-}
-
-.setup-block:nth-of-type(4)::before {
-    background: #3b82f6;
-}
-
-.setup-block:nth-of-type(5)::before {
-    background: #ec4899;
-}
-
-.setup-block:nth-of-type(6)::before {
-    background: var(--text-muted);
-}
-
-.setup-block:last-child {
-    margin-bottom: 0;
-}
-
-.setup-block h2 {
+.setup-step-header h2 {
     font-size: 1.25rem;
-    margin-bottom: 1rem;
+    margin-bottom: 0;
     display: flex;
     align-items: center;
     gap: 0.5rem;
     color: var(--text-primary);
 }
 
-.setup-block p {
+.step-tag {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--text-muted);
+    background: var(--bg-tertiary);
+    padding: 0.15rem 0.5rem;
+    border-radius: 6px;
+    margin-left: 0.25rem;
+}
+
+.setup-step-body p {
     color: var(--text-secondary);
     margin-bottom: 0.75rem;
     line-height: 1.75;
 }
 
-.setup-block p:last-child {
+.setup-step-body p:last-child {
     margin-bottom: 0;
 }
 
-.setup-block ul {
+.setup-step-body ul {
     margin: 1rem 0;
     padding-left: 0;
     list-style: none;
 }
 
-.setup-block li {
+.setup-step-body li {
     color: var(--text-secondary);
     margin-bottom: 0.75rem;
     padding-left: 1.25rem;
@@ -737,7 +760,7 @@ a:hover {
     position: relative;
 }
 
-.setup-block li::before {
+.setup-step-body li::before {
     content: '';
     position: absolute;
     left: 0;
@@ -745,29 +768,63 @@ a:hover {
     width: 6px;
     height: 6px;
     border-radius: 50%;
-    background: var(--primary);
+    background: var(--step-color, var(--primary));
     opacity: 0.5;
 }
 
-.setup-block li:last-child {
+.setup-step-body li:last-child {
     margin-bottom: 0;
 }
 
-.setup-block li strong {
+.setup-step-body li strong {
     color: var(--text-primary);
 }
 
-.setup-block li code {
+.setup-step-body li code {
     margin-right: 0.15rem;
 }
 
-.setup-block code {
+.setup-step-body code {
     background: var(--bg-tertiary);
     padding: 0.2rem 0.5rem;
     border-radius: 6px;
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     color: var(--secondary);
     white-space: nowrap;
+}
+
+.setup-step-action {
+    margin-top: 1.25rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border-light);
+}
+
+.btn-sm {
+    padding: 0.6rem 1.25rem;
+    font-size: 0.9rem;
+}
+
+.setup-help {
+    text-align: center;
+    background: linear-gradient(135deg, var(--bg-card) 0%, rgba(132, 56, 252, 0.05) 100%);
+    border-color: var(--primary);
+    border-color: rgba(132, 56, 252, 0.2);
+}
+
+.setup-help::before {
+    display: none;
+}
+
+.setup-help h2 {
+    justify-content: center;
+    font-size: 1.2rem;
+    margin-bottom: 0.5rem;
+}
+
+.setup-help p {
+    color: var(--text-secondary);
+    margin-bottom: 0;
+    text-align: center;
 }
 
 .command-grid {
@@ -1373,15 +1430,19 @@ a:hover {
         text-align: center;
     }
 
-    .setup-block li {
+    .setup-step-body li {
         overflow-wrap: break-word;
         word-break: break-word;
     }
 
-    .setup-block code {
+    .setup-step-body code {
         white-space: normal;
         word-break: break-all;
         display: inline;
+    }
+
+    .setup-hero h1 {
+        font-size: 2.25rem;
     }
 }
 
@@ -1418,5 +1479,19 @@ a:hover {
     .home-feature {
         flex-direction: column;
         align-items: flex-start;
+    }
+
+    .setup-hero h1 {
+        font-size: 1.75rem;
+    }
+
+    .setup-block {
+        padding: 1.5rem;
+    }
+
+    .step-badge {
+        width: 36px;
+        height: 36px;
+        font-size: 1rem;
     }
 }

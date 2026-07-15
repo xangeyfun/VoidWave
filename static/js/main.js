@@ -31,8 +31,8 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }, observerOptions);
 
-    document.querySelectorAll('.leaderboard-row, .stat-item, .stat-card').forEach(el => {
-        if (!el.closest('#leaderboardTable')) {
+    document.querySelectorAll('.scroll-animate, .leaderboard-row, .stat-item, .stat-card').forEach(el => {
+        if (el.classList.contains('scroll-animate') || !el.closest('#leaderboardTable')) {
             el.classList.add('scroll-animate');
             observer.observe(el);
         }
