@@ -30,7 +30,7 @@ TOKEN = os.getenv("TOKEN")
 owner_id = int(os.getenv("ALLOWED_USER_ID") or 0)
 guild = discord.Object(id=int(os.getenv("GUILD_ID"))) # type: ignore
 XP_COOLDOWN = 30
-VC_COOLDOWN = 300
+VC_COOLDOWN = 600
 LLM_COOLDOWN = 15
 last_llm = {}
 llm_queue = asyncio.Queue(maxsize=10)
@@ -1370,7 +1370,7 @@ async def vc_xp_loop():
                     continue
                 
                 try:
-                    xp = random.randint(5, 20)
+                    xp = random.randint(3, 12)
                     last_vc[member.id] = time.time()
                     cur.execute("""
                     UPDATE users
