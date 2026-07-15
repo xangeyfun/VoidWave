@@ -17,9 +17,10 @@
 
 {% block content %}
 <section class="home-hero">
+    <canvas id="particles-canvas"></canvas>
     <div class="home-hero-left">
         <h1>VoidWave</h1>
-        <p class="tagline">Modern Discord bot.<br>Clean, fast, slightly chaotic.</p>
+        <p class="tagline"><span class="tagline-typed" id="taglineText"></span><span class="typing-cursor"></span></p>
         <p class="hero-desc">Leveling, AI chat, daily questions, and fun commands. Open source, privacy friendly, easy to set up.</p>
         <div class="hero-buttons">
             <a href="https://discord.com/oauth2/authorize?client_id=1442229230384709752" target="_blank" class="btn btn-primary">
@@ -33,11 +34,11 @@
     <div class="home-hero-right">
         <div class="hero-stat-stack">
             <div class="hero-stat-card">
-                <span class="hero-stat-num" id="statServers">{{ "{:,}".format(bot_stats.total_guilds) if bot_stats else '0' }}</span>
+                <span class="hero-stat-num" id="statServers">-</span>
                 <span class="hero-stat-label">servers</span>
             </div>
             <div class="hero-stat-card">
-                <span class="hero-stat-num" id="statMembers">{{ "{:,}".format(bot_stats.total_members) if bot_stats else '0' }}</span>
+                <span class="hero-stat-num" id="statMembers">-</span>
                 <span class="hero-stat-label">members</span>
             </div>
             <div class="hero-stat-card">

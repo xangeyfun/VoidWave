@@ -10,7 +10,7 @@ app = Flask(__name__, template_folder='templates', static_folder='static')
 app.secret_key = os.getenv('SECRET_KEY')
 
 cache = {}
-CACHE_TTL = 30
+CACHE_TTL = 10
 
 def cached_query(key, query, params=(), ttl=CACHE_TTL):
     now = time.time()

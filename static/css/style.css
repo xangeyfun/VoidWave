@@ -229,6 +229,22 @@ a:hover {
     gap: 4rem;
     padding: 3rem 0 5rem;
     animation: slideUp 0.8s ease-out;
+    position: relative;
+}
+
+#particles-canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 0;
+}
+
+.home-hero-left, .home-hero-right {
+    position: relative;
+    z-index: 1;
 }
 
 .home-hero-left {
@@ -257,6 +273,26 @@ a:hover {
     margin-bottom: 1rem;
     animation: fadeIn 1s ease 0.3s backwards;
     line-height: 1.4;
+    min-height: 1.4em;
+}
+
+.tagline-typed {
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+.typing-cursor {
+    display: inline-block;
+    width: 2px;
+    height: 1.1em;
+    background: var(--primary);
+    margin-left: 2px;
+    vertical-align: text-bottom;
+    animation: blink 0.7s step-end infinite;
+}
+
+@keyframes blink {
+    50% { opacity: 0; }
 }
 
 .hero-desc {
@@ -281,6 +317,7 @@ a:hover {
     display: flex;
     flex-direction: column;
     gap: 0.6rem;
+    perspective: 600px;
 }
 
 .hero-stat-card {
@@ -291,10 +328,13 @@ a:hover {
     display: flex;
     align-items: baseline;
     gap: 0.6rem;
-    transition: border-color 0.2s ease, transform 0.2s ease;
     min-width: 200px;
     opacity: 0;
     animation: spinIn 0.6s ease-out forwards;
+    transform-style: preserve-3d;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+    will-change: transform;
+    position: relative;
 }
 
 .hero-stat-card:nth-child(1) { animation-delay: 0.1s; }
@@ -305,18 +345,76 @@ a:hover {
 
 .hero-stat-card:hover {
     border-color: var(--primary);
-    transform: translateX(4px);
+    box-shadow: 0 4px 20px var(--glow);
+}
+
+.hero-stat-card:hover {
+    border-color: var(--primary);
+    box-shadow: 0 4px 20px var(--glow);
+}
+
+.hero-stat-card.stat-pulse {
+    border-color: var(--primary);
+    box-shadow: 0 0 20px var(--glow-strong);
+}
+
+.stat-increment {
+    position: absolute;
+    top: -6px;
+    right: -8px;
+    background: var(--success);
+    color: white;
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 8px;
+    pointer-events: none;
+    animation: floatUp 2s ease-out forwards;
+    white-space: nowrap;
+    z-index: 10;
+}
+
+@keyframes floatUp {
+    0% { opacity: 1; transform: translateY(0); }
+    70% { opacity: 1; }
+    100% { opacity: 0; transform: translateY(-28px); }
+}
+
+.hero-stat-card:nth-child(1) { animation-delay: 0.1s; }
+.hero-stat-card:nth-child(2) { animation-delay: 0.2s; }
+.hero-stat-card:nth-child(3) { animation-delay: 0.3s; }
+.hero-stat-card:nth-child(4) { animation-delay: 0.4s; }
+.hero-stat-card:nth-child(5) { animation-delay: 0.5s; }
+
+.hero-stat-card:hover {
+    border-color: var(--primary);
+    box-shadow: 0 4px 20px var(--glow);
+}
+
+.hero-stat-card.stat-pulse {
+    animation: statPulse 0.8s ease-out;
+}
+
+@keyframes statPulse {
+    0% { border-color: var(--primary); box-shadow: 0 0 20px var(--glow-strong); }
+    100% { border-color: var(--border-light); box-shadow: none; }
 }
 
 .hero-stat-num {
     font-size: 1.5rem;
     font-weight: 700;
     color: var(--text-primary);
+    transition: color 0.3s ease, text-shadow 0.3s ease;
 }
 
 .hero-stat-num.stat-updating {
     color: var(--primary);
     text-shadow: 0 0 12px var(--glow);
+}
+
+.hero-stat-num.stat-pulse {
+    color: var(--success);
+    text-shadow: 0 0 16px rgba(34, 197, 94, 0.5);
 }
 
 .hero-stat-label {
@@ -418,8 +516,23 @@ a:hover {
     background: var(--bg-card);
     border: 1px solid var(--border-light);
     border-radius: 14px;
-    transition: border-color 0.2s ease, transform 0.2s ease;
+    transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.4s ease;
     text-align: left;
+}
+
+.home-feature.glow-in {
+    animation: featureGlow 1.5s ease-out forwards;
+}
+
+@keyframes featureGlow {
+    0% {
+        border-color: var(--primary);
+        box-shadow: 0 0 25px var(--glow), inset 0 0 15px rgba(132, 56, 252, 0.05);
+    }
+    100% {
+        border-color: var(--border-light);
+        box-shadow: none;
+    }
 }
 
 .home-feature:hover {

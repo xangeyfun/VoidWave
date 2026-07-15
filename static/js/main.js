@@ -1,5 +1,4 @@
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('JS loaded');
     const navToggle = document.querySelector('.nav-toggle');
     const navLinks = document.querySelector('.nav-links');
 
@@ -38,6 +37,136 @@ document.addEventListener('DOMContentLoaded', () => {
             observer.observe(el);
         }
     });
+
+    // Feature card glow on scroll
+    const featureObserver = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.classList.add('glow-in');
+                featureObserver.unobserve(entry.target);
+            }
+        });
+    }, { threshold: 0.2 });
+
+    document.querySelectorAll('.home-feature').forEach(el => featureObserver.observe(el));
+
+    // Hover tilt on stat cards
+    document.querySelectorAll('.hero-stat-card').forEach(card => {
+        card.addEventListener('mousemove', (e) => {
+            const rect = card.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            const centerX = rect.width / 2;
+            const centerY = rect.height / 2;
+            const rotateX = ((y - centerY) / centerY) * -8;
+            const rotateY = ((x - centerX) / centerX) * 8;
+            card.style.transform = `rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale3d(1.03, 1.03, 1.03)`;
+        });
+        card.addEventListener('mouseleave', () => {
+            card.style.transform = 'rotateX(0) rotateY(0) scale3d(1, 1, 1)';
+        });
+    });
+
+    // Floating particles
+    const canvas = document.getElementById('particles-canvas');
+    if (canvas) {
+        const ctx = canvas.getContext('2d');
+        let particles = [];
+        let w, h;
+
+        function resize() {
+            const hero = canvas.parentElement;
+            w = canvas.width = hero.offsetWidth;
+            h = canvas.height = hero.offsetHeight;
+        }
+
+        function createParticles() {
+            particles = [];
+            const count = Math.floor((w * h) / 15000);
+            for (let i = 0; i < count; i++) {
+                particles.push({
+                    x: Math.random() * w,
+                    y: Math.random() * h,
+                    r: Math.random() * 2 + 0.5,
+                    vx: (Math.random() - 0.5) * 0.3,
+                    vy: (Math.random() - 0.5) * 0.3,
+                    alpha: Math.random() * 0.4 + 0.1
+                });
+            }
+        }
+
+        function drawParticles() {
+            ctx.clearRect(0, 0, w, h);
+            for (const p of particles) {
+                p.x += p.vx;
+                p.y += p.vy;
+                if (p.x < 0) p.x = w;
+                if (p.x > w) p.x = 0;
+                if (p.y < 0) p.y = h;
+                if (p.y > h) p.y = 0;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(132, 56, 252, ${p.alpha})`;
+                ctx.fill();
+            }
+            requestAnimationFrame(drawParticles);
+        }
+
+        resize();
+        createParticles();
+        drawParticles();
+        window.addEventListener('resize', () => { resize(); createParticles(); });
+    }
+
+    // Typing effect on tagline
+    const taglineEl = document.getElementById('taglineText');
+    if (taglineEl) {
+        const phrases = [
+            'Modern Discord bot.',
+            'Clean, fast, slightly chaotic.',
+            'Level up your server.',
+            'AI chat, built in.',
+            'Open source, privacy friendly.'
+        ];
+        let phraseIdx = 0;
+        let charIdx = 0;
+        let deleting = false;
+        let pauseTimer = 0;
+
+        function typeTick() {
+            const current = phrases[phraseIdx];
+
+            if (!deleting) {
+                taglineEl.textContent = current.substring(0, charIdx + 1);
+                charIdx++;
+                if (charIdx === current.length) {
+                    deleting = true;
+                    pauseTimer = 60;
+                    setTimeout(typeTick, 1200);
+                    return;
+                }
+                setTimeout(typeTick, 40 + Math.random() * 30);
+            } else {
+                if (pauseTimer > 0) {
+                    pauseTimer--;
+                    setTimeout(typeTick, 30);
+                    return;
+                }
+                taglineEl.textContent = current.substring(0, charIdx);
+                charIdx--;
+                if (charIdx < 0) {
+                    deleting = false;
+                    phraseIdx = (phraseIdx + 1) % phrases.length;
+                    charIdx = 0;
+                    setTimeout(typeTick, 250);
+                    return;
+                }
+                setTimeout(typeTick, 20);
+            }
+        }
+
+        setTimeout(typeTick, 500);
+    }
 
     // Leaderboard controls
     try {
@@ -141,9 +270,28 @@ document.addEventListener('DOMContentLoaded', () => {
             return parseInt(text) || 0;
         }
 
-        function animateValue(el, start, end, duration) {
+        const prevValues = {
+            statXp: 0,
+            statMessages: 0,
+            statVoice: 0,
+            statServers: 0,
+            statMembers: 0
+        };
+
+        function showIncrement(el, diff) {
+            const card = el.closest('.hero-stat-card');
+            if (!card || diff <= 0) return;
+            const badge = document.createElement('span');
+            badge.className = 'stat-increment';
+            badge.textContent = '+' + formatNumber(diff);
+            card.appendChild(badge);
+            badge.addEventListener('animationend', () => badge.remove());
+        }
+
+        function animateValue(el, start, end, duration, key) {
             if (start === end) return;
             el.classList.add('stat-updating');
+            const diff = end - start;
             const startTime = performance.now();
 
             function tick(now) {
@@ -156,10 +304,20 @@ document.addEventListener('DOMContentLoaded', () => {
                     requestAnimationFrame(tick);
                 } else {
                     el.classList.remove('stat-updating');
+                    if (key) prevValues[key] = end;
                 }
             }
 
             requestAnimationFrame(tick);
+        }
+
+        function pulseCard(el) {
+            const num = el.closest('.hero-stat-card')?.querySelector('.hero-stat-num');
+            if (!num) return;
+            num.classList.remove('stat-pulse');
+            void num.offsetWidth;
+            num.classList.add('stat-pulse');
+            setTimeout(() => num.classList.remove('stat-pulse'), 800);
         }
 
         function updateStats() {
@@ -172,20 +330,30 @@ document.addEventListener('DOMContentLoaded', () => {
                     const newGuilds = data.total_guilds;
                     const newMembers = data.total_members;
 
-                    animateValue(statXp, parseDisplayValue(statXp.textContent), newXp, 1600);
-                    animateValue(statMessages, parseDisplayValue(statMessages.textContent), newMsg, 1600);
-                    animateValue(statVoice, parseDisplayValue(statVoice.textContent), newVoice, 1600);
-                    if (statServers) animateValue(statServers, parseDisplayValue(statServers.textContent), newGuilds, 1600);
-                    if (statMembers) animateValue(statMembers, parseDisplayValue(statMembers.textContent), newMembers, 1600);
+                    const xpDiff = newXp - prevValues.statXp;
+                    const msgDiff = newMsg - prevValues.statMessages;
+                    const voiceDiff = newVoice - prevValues.statVoice;
+                    const guildDiff = newGuilds - prevValues.statServers;
+                    const memberDiff = newMembers - prevValues.statMembers;
+
+                    animateValue(statXp, prevValues.statXp, newXp, 1600, 'statXp');
+                    animateValue(statMessages, prevValues.statMessages, newMsg, 1600, 'statMessages');
+                    animateValue(statVoice, prevValues.statVoice, newVoice, 1600, 'statVoice');
+                    if (statServers) animateValue(statServers, prevValues.statServers, newGuilds, 1600, 'statServers');
+                    if (statMembers) animateValue(statMembers, prevValues.statMembers, newMembers, 1600, 'statMembers');
+
+                    setTimeout(() => {
+                        if (xpDiff > 0) { showIncrement(statXp, xpDiff); pulseCard(statXp); }
+                        if (msgDiff > 0) { showIncrement(statMessages, msgDiff); pulseCard(statMessages); }
+                        if (voiceDiff > 0) { showIncrement(statVoice, voiceDiff); pulseCard(statVoice); }
+                        if (guildDiff > 0 && statServers) { showIncrement(statServers, guildDiff); pulseCard(statServers); }
+                        if (memberDiff > 0 && statMembers) { showIncrement(statMembers, memberDiff); pulseCard(statMembers); }
+                    }, 1600);
                 })
                 .catch(() => {});
         }
 
         updateStats();
-        setInterval(updateStats, 30000);
-
-        // Animate servers and members on load
-        if (statServers) animateValue(statServers, 0, parseDisplayValue(statServers.textContent), 1800);
-        if (statMembers) animateValue(statMembers, 0, parseDisplayValue(statMembers.textContent), 1800);
+        setInterval(updateStats, 10000);
     }
 });
