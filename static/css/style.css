@@ -687,13 +687,65 @@ a:hover {
     align-items: center;
     flex-wrap: wrap;
     gap: 1rem;
-    margin-bottom: 2rem;
+    margin-bottom: 1.5rem;
+}
+
+.leaderboard-controls {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+}
+
+.guild-select {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.5rem 1rem;
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    cursor: pointer;
+}
+
+.find-me {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.find-input {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.5rem 1rem;
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    width: 160px;
+}
+
+.find-input::placeholder {
+    color: var(--text-muted);
+}
+
+.find-btn {
+    background: var(--primary);
+    border: none;
+    border-radius: 8px;
+    padding: 0.5rem 1rem;
+    color: white;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.find-btn:hover {
+    background: var(--primary-hover);
 }
 
 .leaderboard-filters {
     display: flex;
     gap: 0.5rem;
     flex-wrap: wrap;
+    margin-bottom: 1.5rem;
 }
 
 .filter-btn {
@@ -729,7 +781,7 @@ a:hover {
 
 .leaderboard-row {
     display: grid;
-    grid-template-columns: 60px 1fr 100px 100px 120px;
+    grid-template-columns: 60px 1fr 80px 100px 100px 100px;
     padding: 1rem 1.5rem;
     align-items: center;
     border-bottom: 1px solid var(--border-light);
@@ -763,10 +815,16 @@ a:hover {
 .leaderboard-row.top-3 { background: linear-gradient(90deg, rgba(205, 127, 50, 0.15), transparent); }
 
 .leaderboard-info {
-    text-align: center;
-    padding: 1rem;
     color: var(--text-muted);
     font-size: 0.9rem;
+}
+
+.leaderboard-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
     margin-top: 1rem;
 }
 
@@ -789,6 +847,7 @@ a:hover {
 .level-cell { color: var(--primary); font-weight: 600; }
 .xp-cell { color: var(--secondary); }
 .msg-cell { color: var(--text-muted); }
+.voice-cell { color: #3b82f6; }
 
 .user-cell {
     display: flex;
@@ -815,9 +874,7 @@ a:hover {
 
 .pagination {
     display: flex;
-    justify-content: center;
     gap: 0.5rem;
-    margin-top: 2rem;
 }
 
 .pagination a,
@@ -841,6 +898,11 @@ a:hover {
 .pagination .active {
     background: var(--primary);
     color: white;
+}
+
+.pagination .dots {
+    color: var(--text-muted);
+    padding: 0.5rem 0.25rem;
 }
 
 .error-page {
@@ -991,13 +1053,30 @@ a:hover {
         grid-template-columns: 50px 1fr 80px;
     }
     
-    .leaderboard-row .stat-cell,
-    .leaderboard-row .last-cell {
+    .leaderboard-row .stat-cell {
         display: none;
     }
     
     .leaderboard-row.header {
         display: none;
+    }
+
+    .leaderboard-controls {
+        flex-direction: column;
+        width: 100%;
+    }
+
+    .find-me {
+        width: 100%;
+    }
+
+    .find-input {
+        flex: 1;
+    }
+
+    .leaderboard-footer {
+        flex-direction: column;
+        text-align: center;
     }
     
     .stats-card {
