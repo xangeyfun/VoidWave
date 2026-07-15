@@ -133,7 +133,12 @@ document.addEventListener('DOMContentLoaded', () => {
             'Clean, fast, slightly chaotic.',
             'Level up your server.',
             'AI chat, built in.',
-            'Open source, privacy friendly.'
+            'Open source, privacy friendly.',
+            'No paywalls. No data collection. Just works.',
+            'Your server, your data.',
+            'Leveling that actually works.',
+            'Free forever. No catches.',
+            'Voice XP, QOTD, and more.'
         ];
         let phraseIdx = 0;
         let charIdx = 0;
