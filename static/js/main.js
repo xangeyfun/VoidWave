@@ -7,6 +7,13 @@ document.addEventListener('DOMContentLoaded', () => {
             navLinks.classList.toggle('active');
             navToggle.classList.toggle('active');
         });
+
+        document.addEventListener('click', (e) => {
+            if (!navLinks.contains(e.target) && !navToggle.contains(e.target)) {
+                navLinks.classList.remove('active');
+                navToggle.classList.remove('active');
+            }
+        });
     }
 
     document.querySelectorAll('a[href^="/"]').forEach(link => {
