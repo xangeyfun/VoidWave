@@ -176,6 +176,14 @@ a:hover {
     width: 100%;
 }
 
+.nav-link.active {
+    color: var(--text-primary);
+}
+
+.nav-link.active::after {
+    width: 100%;
+}
+
 .btn-invite {
     background: var(--primary);
     color: white !important;
