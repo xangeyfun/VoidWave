@@ -17,11 +17,13 @@ def cached_query(key, query, params=(), ttl=CACHE_TTL):
     if key in cache and now - cache[key]['time'] < ttl:
         return cache[key]['data']
     conn = get_db()
-    cur = conn.cursor()
-    result = cur.execute(query, params).fetchall()
-    conn.close()
-    cache[key] = {'data': result, 'time': now}
-    return result
+    try:
+        cur = conn.cursor()
+        result = cur.execute(query, params).fetchall()
+        cache[key] = {'data': result, 'time': now}
+        return result
+    finally:
+        conn.close()
 
 @app.before_request
 def remove_trailing_slash():
@@ -34,8 +36,8 @@ def get_db():
     return conn
 
 def get_user_stats(user_id: int, guild_id: int):
+    conn = get_db()
     try:
-        conn = get_db()
         cur = conn.cursor()
         
         user = cur.execute(
@@ -44,7 +46,6 @@ def get_user_stats(user_id: int, guild_id: int):
         ).fetchone()
         
         if not user:
-            conn.close()
             return None
         
         rank = cur.execute(
@@ -56,8 +57,6 @@ def get_user_stats(user_id: int, guild_id: int):
             "SELECT COUNT(*) + 1 FROM users WHERE total_xp > ?",
             (user['total_xp'],)
         ).fetchone()[0]
-        
-        conn.close()
         
         return {
             'username': user['username'],
@@ -76,6 +75,8 @@ def get_user_stats(user_id: int, guild_id: int):
     except Exception as e:
         print(f"Error fetching user stats: {e}")
         return None
+    finally:
+        conn.close()
 
 def get_leaderboard(guild_id: int = 0, sort_by: str = 'level', direction: str = 'desc', page: int = 1, per_page: int = 25):
     valid_sorts = {'level', 'total_xp', 'total_messages', 'vc_minutes'}
