@@ -16,57 +16,119 @@
 {% endblock %}
 
 {% block content %}
-<section class="hero">
-    <h1>VoidWave</h1>
-    <p class="tagline">Modern Discord bot. Clean, fast, slightly chaotic.</p>
-
-    <div class="hero-buttons">
-        <a href="https://discord.com/oauth2/authorize?client_id=1442229230384709752" target="_blank" class="btn btn-primary">
-            <span>Add to Discord</span>
-        </a>
-        <a href="/leaderboard" class="btn btn-secondary">
-            <span>Leaderboard</span>
-        </a>
-    </div>
-
-    <div class="live-stats" id="liveStats">
-        <div class="stat-row stat-row-main">
-            <div class="stat-card stat-card-lg">
-                <span class="stat-number" id="statServers">{{ "{:,}".format(bot_stats.total_guilds) if bot_stats else '0' }}</span>
-                <span class="stat-label">Servers</span>
-            </div>
-            <div class="stat-card stat-card-lg">
-                <span class="stat-number" id="statMembers">{{ "{:,}".format(bot_stats.total_members) if bot_stats else '0' }}</span>
-                <span class="stat-label">Members</span>
-            </div>
-        </div>
-        <div class="stat-row stat-row-secondary">
-            <div class="stat-card">
-                <span class="stat-number" id="statXp">-</span>
-                <span class="stat-label">Total XP Earned</span>
-            </div>
-            <div class="stat-card">
-                <span class="stat-number" id="statMessages">-</span>
-                <span class="stat-label">Total Messages</span>
-            </div>
-            <div class="stat-card">
-                <span class="stat-number" id="statVoice">-</span>
-                <span class="stat-label">Voice Hours</span>
-            </div>
+<section class="home-hero">
+    <div class="home-hero-left">
+        <h1>VoidWave</h1>
+        <p class="tagline">Modern Discord bot.<br>Clean, fast, slightly chaotic.</p>
+        <p class="hero-desc">Leveling, AI chat, daily questions, and fun commands. Open source, privacy friendly, easy to set up.</p>
+        <div class="hero-buttons">
+            <a href="https://discord.com/oauth2/authorize?client_id=1442229230384709752" target="_blank" class="btn btn-primary">
+                <span>Add to Discord</span>
+            </a>
+            <a href="/setup" class="btn btn-secondary">
+                <span>Setup Guide</span>
+            </a>
         </div>
     </div>
+    <div class="home-hero-right">
+        <div class="hero-stat-stack">
+            <div class="hero-stat-card">
+                <span class="hero-stat-num" id="statServers">{{ "{:,}".format(bot_stats.total_guilds) if bot_stats else '0' }}</span>
+                <span class="hero-stat-label">servers</span>
+            </div>
+            <div class="hero-stat-card">
+                <span class="hero-stat-num" id="statMembers">{{ "{:,}".format(bot_stats.total_members) if bot_stats else '0' }}</span>
+                <span class="hero-stat-label">members</span>
+            </div>
+            <div class="hero-stat-card">
+                <span class="hero-stat-num" id="statXp">-</span>
+                <span class="hero-stat-label">XP</span>
+            </div>
+            <div class="hero-stat-card">
+                <span class="hero-stat-num" id="statMessages">-</span>
+                <span class="hero-stat-label">messages</span>
+            </div>
+            <div class="hero-stat-card">
+                <span class="hero-stat-num" id="statVoice">-</span>
+                <span class="hero-stat-label">voice hours</span>
+            </div>
+        </div>
+    </div>
+</section>
 
-    <div class="cta-section">
-        <div class="cta-glow"></div>
-        <h2>Ready to set things up?</h2>
-        <p>Configure leveling roles, pick a QOTD channel, and more. Takes like 2 minutes.</p>
-        <div class="cta-buttons">
+<section class="home-features-section">
+    <div class="home-features-header">
+        <span class="section-label">What it does</span>
+        <h2>Everything your server needs</h2>
+    </div>
+    <div class="home-features-grid">
+        <div class="home-feature">
+            <span class="home-feature-icon">📊</span>
+            <h3>Leveling System</h3>
+            <p>Earn XP from messages and voice chat. Level up, unlock roles, and climb the leaderboard.</p>
+            <span class="home-feature-cmd">/level &bull; /leaderboard &bull; /profile</span>
+        </div>
+        <div class="home-feature">
+            <span class="home-feature-icon">🤖</span>
+            <h3>AI Chat</h3>
+            <p>Talk to a local Llama 3.2 model. No data leaves your server.</p>
+            <span class="home-feature-cmd">/ai</span>
+        </div>
+        <div class="home-feature">
+            <span class="home-feature-icon">📅</span>
+            <h3>Question of the Day</h3>
+            <p>Daily prompts with auto-generated threads for community discussion.</p>
+            <span class="home-feature-cmd">/config qotd</span>
+        </div>
+        <div class="home-feature">
+            <span class="home-feature-icon">🎮</span>
+            <h3>Fun Commands</h3>
+            <p>Calculator, animal pics, quotes, coin flips, random numbers, and more.</p>
+            <span class="home-feature-cmd">/calc &bull; /animal &bull; /quote</span>
+        </div>
+    </div>
+</section>
+
+<section class="home-bottom-section">
+    <div class="home-bottom-left">
+        <span class="section-label">Get started</span>
+        <h2>Set up in 2 minutes</h2>
+        <p>Pick a level-up channel, add some roles, enable QOTD. That's it.</p>
+        <div class="home-bottom-buttons">
             <a href="/setup" class="btn btn-primary">
-                <span>View Setup Guide</span>
+                <span>Setup Guide</span>
             </a>
             <a href="https://discord.gg/tyQksBReAS" target="_blank" class="btn btn-secondary">
-                <span>Join Support Server</span>
+                <span>Support Server</span>
             </a>
+        </div>
+    </div>
+    <div class="home-bottom-right">
+        <div class="home-cmd-list">
+            <div class="home-cmd">
+                <span class="home-cmd-name">/level</span>
+                <span class="home-cmd-desc">Check your rank</span>
+            </div>
+            <div class="home-cmd">
+                <span class="home-cmd-name">/leaderboard</span>
+                <span class="home-cmd-desc">See who's on top</span>
+            </div>
+            <div class="home-cmd">
+                <span class="home-cmd-name">/ai hello</span>
+                <span class="home-cmd-desc">Chat with AI</span>
+            </div>
+            <div class="home-cmd">
+                <span class="home-cmd-name">/animal cat</span>
+                <span class="home-cmd-desc">Random cat pic</span>
+            </div>
+            <div class="home-cmd">
+                <span class="home-cmd-name">/quote today</span>
+                <span class="home-cmd-desc">Daily quote</span>
+            </div>
+            <div class="home-cmd">
+                <span class="home-cmd-name">/calc 6*7</span>
+                <span class="home-cmd-desc">Quick math</span>
+            </div>
         </div>
     </div>
 </section>
