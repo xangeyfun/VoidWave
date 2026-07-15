@@ -232,6 +232,30 @@ def api_leaderboard():
         'total_pages': max(1, (total + per_page - 1) // per_page)
     })
 
+@app.route('/api/stats')
+def api_stats():
+    rows = cached_query('agg_stats', """
+        SELECT 
+            COUNT(*) as total_users,
+            SUM(total_xp) as total_xp,
+            SUM(total_messages) as total_messages,
+            SUM(vc_minutes) as total_vc_minutes
+        FROM users
+    """)
+    r = rows[0]
+
+    bot_rows = cached_query('bot_stats', "SELECT * FROM bot_stats")
+    bot = bot_rows[0] if bot_rows else None
+
+    return jsonify({
+        'total_guilds': dict(bot)['total_guilds'] if bot else 0,
+        'total_members': dict(bot)['total_members'] if bot else 0,
+        'total_users': r[0] or 0,
+        'total_xp': r[1] or 0,
+        'total_messages': r[2] or 0,
+        'total_vc_minutes': r[3] or 0
+    })
+
 @app.errorhandler(404)
 def page_not_found(e):
     return render_template('404.html'), 404
