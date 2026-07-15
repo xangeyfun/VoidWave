@@ -2,7 +2,7 @@
 
 # VoidWave
 
-**AI chat, leveling, QOTD - all in one bot.**
+**A Discord bot that respects your server. No data collection, no spam, no paywalls, just works.**
 
 ![Python](https://img.shields.io/badge/python-3.11+-blue)
 ![discord.py](https://img.shields.io/badge/discord.py-2.x-5865F2)
