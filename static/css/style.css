@@ -696,16 +696,7 @@ a:hover {
     align-items: center;
 }
 
-.guild-select {
-    background: var(--bg-tertiary);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 0.5rem 1rem;
-    color: var(--text-primary);
-    font-size: 0.9rem;
-    cursor: pointer;
-}
-
+.guild-input,
 .find-me {
     display: flex;
     gap: 0.5rem;

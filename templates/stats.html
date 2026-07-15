@@ -15,7 +15,7 @@
 {% block content %}
 <section class="stats-page">
     <div class="stats-card">
-        <img src="{{ avatar_url }}" alt="{{ username }}" class="stats-avatar">
+        <img src="{{ avatar_url }}" alt="{{ username }}" class="stats-avatar" onerror="this.onerror=null;this.src='https://cdn.discordapp.com/embed/avatars/0.png'">
         <h1 class="stats-username">{{ username }}</h1>
         <p class="stats-level">Level {{ level }}</p>
         

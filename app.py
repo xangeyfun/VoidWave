@@ -175,9 +175,6 @@ def leaderboard():
     
     total_pages = max(1, (total + 24) // 25)
     
-    guild_rows = cached_query('guilds', "SELECT DISTINCT guild_id FROM users ORDER BY guild_id")
-    guilds = [r[0] for r in guild_rows]
-    
     return render_template('leaderboard.html',
         leaderboard=leaderboard_list,
         total=total,
@@ -185,8 +182,7 @@ def leaderboard():
         sort_by=sort_by,
         direction=direction,
         page=page,
-        total_pages=total_pages,
-        guilds=guilds
+        total_pages=total_pages
     ), 200
 
 @app.route('/api/leaderboard')

@@ -18,12 +18,10 @@
     <div class="leaderboard-header">
         <h1>Leaderboard</h1>
         <div class="leaderboard-controls">
-            <select class="guild-select" id="guildSelect">
-                <option value="0" {% if guild_id == 0 %}selected{% endif %}>All Servers</option>
-                {% for g in guilds %}
-                <option value="{{ g }}" {% if guild_id == g %}selected{% endif %}>Server {{ g }}</option>
-                {% endfor %}
-            </select>
+            <div class="guild-input">
+                <input type="text" id="guildInput" placeholder="Server ID..." class="find-input" value="{{ guild_id if guild_id else '' }}">
+                <button class="find-btn" id="guildBtn">Go</button>
+            </div>
             <div class="find-me">
                 <input type="text" id="findMeInput" placeholder="Find user..." class="find-input">
                 <button class="find-btn" id="findMeBtn">Find Me</button>
@@ -58,7 +56,7 @@
                 {% if entry.rank == 1 %}🥇{% elif entry.rank == 2 %}🥈{% elif entry.rank == 3 %}🥉{% else %}#{{ entry.rank }}{% endif %}
             </span>
             <div class="user-cell">
-                <img class="user-avatar" src="{% if entry.avatar_hash %}https://cdn.discordapp.com/avatars/{{ entry.user_id }}/{{ entry.avatar_hash }}.png{% else %}https://cdn.discordapp.com/embed/avatars/0.png{% endif %}" alt="{{ entry.username }}">
+                <img class="user-avatar" src="{% if entry.avatar_hash %}https://cdn.discordapp.com/avatars/{{ entry.user_id }}/{{ entry.avatar_hash }}.png{% else %}https://cdn.discordapp.com/embed/avatars/0.png{% endif %}" onerror="this.onerror=null;this.src='https://cdn.discordapp.com/embed/avatars/0.png'" alt="{{ entry.username }}">
                 <span class="user-name"><a href="/stats/{{ entry.guild_id }}/{{ entry.user_id }}">{{ entry.username }}</a></span>
             </div>
             <span class="stat-cell level-cell">{{ entry.level }}</span>

@@ -42,7 +42,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // Leaderboard controls
     try {
         const filterBtns = document.querySelectorAll('.filter-btn');
-        const guildSelect = document.getElementById('guildSelect');
+        const guildInput = document.getElementById('guildInput');
+        const guildBtn = document.getElementById('guildBtn');
         const findMeBtn = document.getElementById('findMeBtn');
         const findMeInput = document.getElementById('findMeInput');
 
@@ -80,12 +81,16 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
-        if (guildSelect) {
-            guildSelect.addEventListener('change', () => {
+        if (guildBtn && guildInput) {
+            function goGuild() {
                 const params = getParams();
-                params.guild = guildSelect.value;
+                params.guild = guildInput.value.trim() || '0';
                 params.page = '1';
                 window.location.href = buildUrl(params);
+            }
+            guildBtn.addEventListener('click', goGuild);
+            guildInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') goGuild();
             });
         }
 
