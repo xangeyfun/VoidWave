@@ -27,7 +27,7 @@
         <div class="stats-details">
             <div class="stat-item">
                 <p class="stat-label">Total XP</p>
-                <p class="stat-value">{{ total_xp|default(0)|int|default(0) }}</p>
+                <p class="stat-value">{{ total_xp|default(0)|int }}</p>
             </div>
             <div class="stat-item">
                 <p class="stat-label">Messages</p>
@@ -36,6 +36,14 @@
             <div class="stat-item">
                 <p class="stat-label">Server Rank</p>
                 <p class="stat-value {% if rank == 1 %}rank-1{% elif rank == 2 %}rank-2{% elif rank == 3 %}rank-3{% endif %}">#{{ rank|default('?') }}</p>
+            </div>
+            <div class="stat-item">
+                <p class="stat-label">Global Rank</p>
+                <p class="stat-value">#{{ global_rank|default('?') }}</p>
+            </div>
+            <div class="stat-item">
+                <p class="stat-label">Voice Time</p>
+                <p class="stat-value">{% if vc_minutes|default(0) >= 1440 %}{{ "%dd %dh" | format(vc_minutes // 1440, (vc_minutes % 1440) // 60) }}{% elif vc_minutes|default(0) >= 60 %}{{ "%dh %dm" | format(vc_minutes // 60, vc_minutes % 60) }}{% else %}{{ vc_minutes|default(0) }}m{% endif %}</p>
             </div>
             <div class="stat-item">
                 <p class="stat-label">Progress</p>

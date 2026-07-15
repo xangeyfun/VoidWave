@@ -52,6 +52,11 @@ def get_user_stats(user_id: int, guild_id: int):
             (guild_id, user['total_xp'])
         ).fetchone()[0]
         
+        global_rank = cur.execute(
+            "SELECT COUNT(*) + 1 FROM users WHERE total_xp > ?",
+            (user['total_xp'],)
+        ).fetchone()[0]
+        
         conn.close()
         
         return {
@@ -62,8 +67,11 @@ def get_user_stats(user_id: int, guild_id: int):
             'out_of': user['out_of'],
             'total_xp': user['total_xp'],
             'total_messages': user['total_messages'],
+            'vc_minutes': user['vc_minutes'],
+            'vc_xp_minutes': user['vc_xp_minutes'],
             'avatar_hash': user['avatar_hash'],
-            'rank': rank
+            'rank': rank,
+            'global_rank': global_rank
         }
     except Exception as e:
         print(f"Error fetching user stats: {e}")
@@ -95,11 +103,9 @@ def get_leaderboard(guild_id: int = 0, sort_by: str = 'level', direction: str = 
 
 @app.route('/')
 def index():
-    conn = get_db()
-    cur = conn.cursor()
-    bot_stats = cur.execute("SELECT * FROM bot_stats").fetchone()
-    conn.close()
-    
+    bot_stats = cached_query('bot_stats', "SELECT * FROM bot_stats")
+    if bot_stats:
+        bot_stats = bot_stats[0]
     return render_template('index.html', bot_stats=bot_stats), 200
 
 @app.route('/setup')
@@ -127,7 +133,10 @@ def stats(guild_id: int, user_id: int):
             total_xp=0,
             total_messages=0,
             rank=0,
+            global_rank=0,
             progress_percent=0,
+            vc_minutes=0,
+            vc_xp_minutes=0,
             guild_id=guild_id,
             user_id=user_id,
             avatar_url='https://cdn.discordapp.com/embed/avatars/0.png'
@@ -143,7 +152,10 @@ def stats(guild_id: int, user_id: int):
         total_xp=user_data['total_xp'],
         total_messages=user_data['total_messages'],
         rank=user_data['rank'],
+        global_rank=user_data['global_rank'],
         progress_percent=progress_percent,
+        vc_minutes=user_data['vc_minutes'],
+        vc_xp_minutes=user_data['vc_xp_minutes'],
         guild_id=guild_id,
         user_id=user_id,
         avatar_url=f'https://cdn.discordapp.com/avatars/{user_id}/{user_data["avatar_hash"]}.png' if user_data['avatar_hash'] else 'https://cdn.discordapp.com/embed/avatars/0.png'
