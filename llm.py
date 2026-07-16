@@ -7,25 +7,11 @@ import os
 
 load_dotenv()
 
-avg_response_times = []
-avg_tps = []
-total_tokens = 0
 MODEL = os.getenv("MODEL", "llama3.2:3b")
 PROMPT_NAME = os.getenv("PROMPT_NAME", "default")
 
 def date():
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-
-def llm_stats():
-    global total_tokens
-
-    avgresponse = (sum(avg_response_times) / len(avg_response_times) if avg_response_times else 0)
-
-    avgtps = sum(avg_tps) / len(avg_tps) if avg_tps else 0
-
-    return total_tokens, avgtps, avgresponse
-
 
 def get_prompt(name="default"):
     try:
@@ -97,9 +83,5 @@ def ask_llm(prompt, username, user_id, reply_info=None):
     tps = tokens / total_time
 
     info = f"Tokens: {tokens}, Time: {total_time:.2f}s, TPS: {tps:.2f}"
-
-    avg_response_times.append(total_time)
-    avg_tps.append(tps)
-    total_tokens += tokens
 
     return reply, info

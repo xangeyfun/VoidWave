@@ -1,10 +1,9 @@
 from discord import app_commands, Interaction
 from discord.ext import commands, tasks
 from simpleeval import simple_eval
-from llm import ask_llm, llm_stats
+from llm import ask_llm
 from dotenv import load_dotenv
 import unicodedata
-import subprocess
 import traceback
 import datetime
 import requests
@@ -12,7 +11,6 @@ import discord
 import sqlite3
 import asyncio
 import random
-import psutil
 import time
 import json
 import os
@@ -621,70 +619,6 @@ async def uptime(interaction: discord.Interaction):
 
 @discord.app_commands.allowed_installs(guilds=True, users=True)
 @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
-@bot.tree.command(name="debug", description="Get bot's debug info (owner only)")
-async def debug(interaction: discord.Interaction):
-    if interaction.user.id != owner_id:
-        return await interaction.response.send_message("> You do not have permission to use this command.", ephemeral=True)
-
-    queue_size = llm_queue.qsize()
-    total_tokens, avg_tps, avg_response_time = llm_stats()
-
-    cpu_usage = psutil.cpu_percent(interval=0.5)
-    memory_usage = psutil.virtual_memory().percent
-    disk_usage = psutil.disk_usage('/').percent
-    system_uptime = int(time.time() - psutil.boot_time())
-    h, r = divmod(system_uptime, 3600)
-    m, s = divmod(r, 60)
-    d, h = divmod(h, 24)
-
-    try:
-        git_commit = subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD']).decode().strip()
-        git_branch = subprocess.check_output(['git', 'rev-parse', '--abbrev-ref', 'HEAD']).decode().strip()
-    except Exception:
-        git_commit = "unknown"
-        git_branch = "unknown"
-
-    embed = discord.Embed(title="🛠️ Bot Debug Info", color=discord.Color.blurple())
-
-    embed.add_field(
-        name="⏱️ Server Uptime",
-        value=f"{d}d {h}h {m}m {s}s",
-        inline=False
-    )
-
-    embed.add_field(
-        name="🧠 LLM",
-        value=(
-            f"Queue: {queue_size}\n"
-            f"Total Tokens: {total_tokens}\n"
-            f"Avg TPS: {avg_tps:.2f}\n"
-            f"Avg Response: {avg_response_time:.2f}s"
-        ),
-        inline=False
-    )
-
-    embed.add_field(
-        name="💻 System",
-        value=(
-            f"CPU: {cpu_usage}%\n"
-            f"RAM: {memory_usage}%\n"
-            f"Disk: {disk_usage}%"
-        ),
-        inline=False
-    )
-
-    embed.add_field(
-        name="🌿 Git",
-        value=f"{git_branch} @ `{git_commit}`",
-        inline=False
-    )
-
-    embed.set_footer(text="debug command • owner only")
-    
-    await interaction.response.send_message(embed=embed, ephemeral=True)   
-
-@discord.app_commands.allowed_installs(guilds=True, users=True)
-@discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
 @bot.tree.command(name="fact", description="Get a daily fact.") #, guild=guild)
 @app_commands.describe(hidden="Hide the command from others", choice='"Today" or "Random"')
 @app_commands.choices(choice=[
@@ -704,15 +638,6 @@ async def get_fact(interaction: discord.Interaction, choice: str, hidden: bool =
         return
     data = r.json()
     await interaction.followup.send(f"{data['text']}", ephemeral=hidden)
-
-@bot.tree.command(name="shutdown", description="Shut down the bot (owner only).") #, guild=guild)
-async def shutdown(interaction: discord.Interaction):
-    if interaction.user.id != owner_id:
-        await interaction.response.send_message("> You do not have permission to use this command.", ephemeral=True)
-        return
-    await interaction.response.send_message("> Shutting down...")
-    print(f"{date()} INFO  Shutdown command issued by {interaction.user.name} (ID: {interaction.user.id})")
-    await bot.close()
 
 @discord.app_commands.allowed_installs(guilds=True, users=False)
 @discord.app_commands.allowed_contexts(guilds=True, dms=False, private_channels=False)
