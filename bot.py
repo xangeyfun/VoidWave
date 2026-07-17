@@ -1295,7 +1295,7 @@ async def vc_xp_loop():
                     continue
                 
                 try:
-                    xp = random.randint(3, 12)
+                    xp = random.randint(1, 8)
                     last_vc[member.id] = time.time()
                     cur.execute("""
                     UPDATE users
