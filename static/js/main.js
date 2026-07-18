@@ -487,4 +487,93 @@ document.addEventListener('DOMContentLoaded', () => {
         resetLiveIndicator();
         setInterval(updateStats, 10000);
     }
+
+    // Setup page — timeline scroll reveal
+    const setupBlocks = document.querySelectorAll('.setup-block[data-step]');
+    const setupTimeline = document.querySelector('.setup-steps');
+    if (setupBlocks.length && setupTimeline) {
+        function updateTimelineLength() {
+            const lastBadge = setupBlocks[setupBlocks.length - 1].querySelector('.setup-step-badge');
+            if (lastBadge) {
+                const containerRect = setupTimeline.getBoundingClientRect();
+                const badgeRect = lastBadge.getBoundingClientRect();
+                const offset = badgeRect.top - containerRect.top + badgeRect.height;
+                setupTimeline.style.setProperty('--timeline-height', offset + 'px');
+            }
+        }
+        updateTimelineLength();
+        window.addEventListener('resize', updateTimelineLength);
+
+        const setupObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    const step = parseInt(entry.target.dataset.step);
+                    const animClass = step % 2 === 1 ? 'reveal-from-left' : 'reveal-from-right';
+                    entry.target.classList.add(animClass);
+
+                    const badge = entry.target.querySelector('.step-badge');
+                    if (badge) {
+                        setTimeout(() => badge.classList.add('pulse'), 300);
+                        setTimeout(() => badge.classList.remove('pulse'), 1100);
+                    }
+
+                    setupObserver.unobserve(entry.target);
+                }
+            });
+        }, { threshold: 0.15 });
+
+        setupBlocks.forEach(block => setupObserver.observe(block));
+    }
+
+    // Setup page — command grid stagger reveal
+    const commandItems = document.querySelectorAll('.command-item');
+    if (commandItems.length) {
+        const cmdGridObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('reveal');
+                    cmdGridObserver.unobserve(entry.target);
+                }
+            });
+        }, { threshold: 0.2 });
+
+        commandItems.forEach(item => cmdGridObserver.observe(item));
+    }
+
+    // Setup page — scroll progress dots
+    const setupProgress = document.getElementById('setupProgress');
+    const progressDots = setupProgress ? setupProgress.querySelectorAll('.setup-progress-dot') : [];
+    if (setupProgress && setupBlocks.length) {
+        const setupSection = document.querySelector('.setup-steps');
+
+        window.addEventListener('scroll', () => {
+            const rect = setupSection.getBoundingClientRect();
+            const sectionTop = rect.top;
+            const sectionHeight = rect.height;
+            const viewportH = window.innerHeight;
+
+            if (sectionTop < viewportH && sectionTop + sectionHeight > 0) {
+                setupProgress.classList.add('visible');
+            } else {
+                setupProgress.classList.remove('visible');
+            }
+
+            setupBlocks.forEach((block, i) => {
+                const blockRect = block.getBoundingClientRect();
+                const blockCenter = blockRect.top + blockRect.height / 2;
+                if (blockCenter < viewportH * 0.6 && blockCenter > 0) {
+                    progressDots.forEach(d => d.classList.remove('active'));
+                    if (progressDots[i]) progressDots[i].classList.add('active');
+                }
+            });
+        });
+
+        progressDots.forEach(dot => {
+            dot.addEventListener('click', () => {
+                const targetStep = dot.dataset.target;
+                const target = document.querySelector(`.setup-block[data-step="${targetStep}"]`);
+                if (target) target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            });
+        });
+    }
 });

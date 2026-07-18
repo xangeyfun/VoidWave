@@ -793,43 +793,34 @@ a:hover {
     margin: 0 auto;
 }
 
+/* Timeline */
 .setup-steps {
     max-width: 800px;
     margin: 0 auto;
+    position: relative;
+}
+
+.setup-steps::before {
+    content: '';
+    position: absolute;
+    left: 20px;
+    top: 0;
+    height: var(--timeline-height, 100%);
+    width: 2px;
+    background: var(--border-light);
 }
 
 .setup-block {
-    background: var(--bg-card);
-    border: 1px solid var(--border-light);
-    border-radius: 16px;
-    padding: 2rem;
+    display: flex;
+    gap: 1.5rem;
     margin-bottom: 1.25rem;
     position: relative;
-    overflow: hidden;
-    transition: border-color 0.3s ease, box-shadow 0.3s ease;
 }
 
-.setup-block:hover {
-    border-color: var(--border);
-    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
-}
-
-.setup-block::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 3px;
-    height: 100%;
-    background: var(--step-color, var(--primary));
-    opacity: 0.6;
-}
-
-.setup-step-header {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    margin-bottom: 1.25rem;
+.setup-step-badge {
+    flex-shrink: 0;
+    position: relative;
+    z-index: 1;
 }
 
 .step-badge {
@@ -845,6 +836,63 @@ a:hover {
     justify-content: center;
     flex-shrink: 0;
     opacity: 0.9;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.step-badge.pulse {
+    animation: badgePulse 0.8s ease-out;
+}
+
+@keyframes badgePulse {
+    0% { transform: scale(1); box-shadow: 0 0 0 0 var(--step-color, var(--primary)); }
+    50% { transform: scale(1.15); box-shadow: 0 0 20px 4px color-mix(in srgb, var(--step-color, var(--primary)) 50%, transparent); }
+    100% { transform: scale(1); box-shadow: 0 0 0 0 transparent; }
+}
+
+.setup-step-content {
+    flex: 1;
+    background: var(--bg-card);
+    border: 1px solid var(--border-light);
+    border-radius: 16px;
+    padding: 2rem;
+    overflow: hidden;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.setup-step-content:hover {
+    border-color: var(--border);
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
+}
+
+/* Scroll reveal */
+.setup-block {
+    opacity: 0;
+    transition: opacity 0.6s ease, transform 0.6s ease;
+}
+
+.setup-block.reveal-from-left {
+    animation: revealFromLeft 0.6s ease-out forwards;
+}
+
+.setup-block.reveal-from-right {
+    animation: revealFromRight 0.6s ease-out forwards;
+}
+
+@keyframes revealFromLeft {
+    from { opacity: 0; transform: translateX(-40px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes revealFromRight {
+    from { opacity: 0; transform: translateX(40px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+
+.setup-step-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
 }
 
 .setup-step-header h2 {
@@ -921,6 +969,12 @@ a:hover {
     font-size: 0.85rem;
     color: var(--secondary);
     white-space: nowrap;
+    transition: background 0.2s ease, box-shadow 0.2s ease;
+}
+
+.setup-step-body code:hover {
+    background: var(--bg-secondary);
+    box-shadow: 0 0 8px rgba(132, 56, 252, 0.15);
 }
 
 .setup-step-action {
@@ -936,13 +990,11 @@ a:hover {
 
 .setup-help {
     text-align: center;
-    background: linear-gradient(135deg, var(--bg-card) 0%, rgba(132, 56, 252, 0.05) 100%);
-    border-color: var(--primary);
-    border-color: rgba(132, 56, 252, 0.2);
 }
 
-.setup-help::before {
-    display: none;
+.setup-help .setup-step-content {
+    background: linear-gradient(135deg, var(--bg-card) 0%, rgba(132, 56, 252, 0.05) 100%);
+    border-color: rgba(132, 56, 252, 0.2);
 }
 
 .setup-help h2 {
@@ -957,6 +1009,7 @@ a:hover {
     text-align: center;
 }
 
+/* Command grid */
 .command-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -971,6 +1024,30 @@ a:hover {
     padding: 0.75rem 1rem;
     font-size: 0.9rem;
     transition: all 0.2s ease;
+    opacity: 0;
+    transform: translateY(10px);
+}
+
+.command-item.reveal {
+    animation: cmdItemReveal 0.3s ease-out forwards;
+}
+
+.command-item:nth-child(1).reveal { animation-delay: 0s; }
+.command-item:nth-child(2).reveal { animation-delay: 0.04s; }
+.command-item:nth-child(3).reveal { animation-delay: 0.08s; }
+.command-item:nth-child(4).reveal { animation-delay: 0.12s; }
+.command-item:nth-child(5).reveal { animation-delay: 0.16s; }
+.command-item:nth-child(6).reveal { animation-delay: 0.2s; }
+.command-item:nth-child(7).reveal { animation-delay: 0.24s; }
+.command-item:nth-child(8).reveal { animation-delay: 0.28s; }
+.command-item:nth-child(9).reveal { animation-delay: 0.32s; }
+.command-item:nth-child(10).reveal { animation-delay: 0.36s; }
+.command-item:nth-child(11).reveal { animation-delay: 0.4s; }
+.command-item:nth-child(12).reveal { animation-delay: 0.44s; }
+
+@keyframes cmdItemReveal {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
 .command-item:hover {
@@ -990,6 +1067,44 @@ a:hover {
     font-size: 0.85rem;
     display: block;
     margin-top: 0.15rem;
+}
+
+/* Scroll progress dots */
+.setup-progress {
+    position: fixed;
+    left: 2rem;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    z-index: 10;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.setup-progress.visible {
+    opacity: 1;
+}
+
+.setup-progress-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--border);
+    cursor: pointer;
+    transition: background 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.setup-progress-dot:hover {
+    background: var(--text-muted);
+    transform: scale(1.3);
+}
+
+.setup-progress-dot.active {
+    background: var(--primary);
+    transform: scale(1.3);
+    box-shadow: 0 0 8px var(--glow);
 }
 
 .stats-page {
@@ -1684,6 +1799,23 @@ a:hover {
         font-size: 2.25rem;
     }
 
+    .setup-steps::before {
+        display: none;
+    }
+
+    .setup-block {
+        flex-direction: column;
+        gap: 0;
+    }
+
+    .setup-step-badge {
+        display: none;
+    }
+
+    .setup-progress {
+        display: none;
+    }
+
     .stats-grid {
         grid-template-columns: repeat(2, 1fr);
     }
@@ -1767,7 +1899,7 @@ a:hover {
         font-size: 1.75rem;
     }
 
-    .setup-block {
+    .setup-step-content {
         padding: 1.5rem;
     }
 
