@@ -609,4 +609,10 @@ document.addEventListener('DOMContentLoaded', () => {
             window.scrollTo({ top: 0, behavior: 'smooth' });
         });
     }
+
+    // Footer year
+    const footerYear = document.getElementById('footerYear');
+    if (footerYear) {
+        footerYear.textContent = new Date().getFullYear();
+    }
 });
