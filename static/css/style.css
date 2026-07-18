@@ -409,6 +409,85 @@ a:hover {
     color: var(--text-muted);
 }
 
+/* Live indicator */
+.live-indicator {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.4rem 0;
+    opacity: 0;
+    animation: fadeIn 0.4s ease-out forwards;
+    animation-delay: 1.2s;
+}
+
+.live-indicator .live-countdown,
+.live-indicator .live-progress-track {
+    transition: opacity 0.3s ease;
+}
+
+.live-indicator.stale .live-countdown,
+.live-indicator.stale .live-progress-track {
+    opacity: 0;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.live-indicator.flash .live-dot {
+    animation: liveFlash 0.6s ease-out;
+}
+
+@keyframes liveFlash {
+    0% { box-shadow: 0 0 12px rgba(34, 197, 94, 0.9); transform: scale(1.4); }
+    100% { box-shadow: 0 0 4px rgba(34, 197, 94, 0.6); transform: scale(1); }
+}
+
+.live-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--success);
+    animation: livePulse 2s ease-in-out infinite;
+}
+
+@keyframes livePulse {
+    0%, 100% { opacity: 1; box-shadow: 0 0 4px rgba(34, 197, 94, 0.6); }
+    50% { opacity: 0.5; box-shadow: 0 0 8px rgba(34, 197, 94, 0.8); }
+}
+
+.live-text {
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: var(--success);
+    text-transform: uppercase;
+}
+
+.live-countdown {
+    font-size: 0.65rem;
+    font-weight: 500;
+    color: var(--text-muted);
+    min-width: 1.4rem;
+}
+
+.live-progress-track {
+    height: 1.5px;
+    background: var(--border-light);
+    border-radius: 1px;
+    overflow: hidden;
+    width: 60px;
+}
+
+.live-progress-bar {
+    height: 100%;
+    width: 0%;
+    background: var(--success);
+    border-radius: 1px;
+    transition: width 0.3s linear;
+}
+
 /* Buttons */
 .btn {
     display: inline-flex;
@@ -1596,6 +1675,10 @@ a:hover {
 
     .hero-stat-stack {
         flex-direction: column;
+    }
+
+    .live-indicator {
+        justify-content: center;
     }
 
     .hero-stat-card {

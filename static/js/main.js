@@ -348,6 +348,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     const guildDiff = newGuilds - prevValues.statServers;
                     const memberDiff = newMembers - prevValues.statMembers;
 
+                    const hasChange = xpDiff > 0 || msgDiff > 0 || voiceDiff > 0 || guildDiff > 0 || memberDiff > 0;
+                    if (hasChange) {
+                        resetLiveIndicator();
+                    } else if (liveIndicator) {
+                        liveIndicator.classList.add('stale');
+                    }
+
                     animateValue(statXp, prevValues.statXp, newXp, 1600, 'statXp');
                     animateValue(statMessages, prevValues.statMessages, newMsg, 1600, 'statMessages');
                     animateValue(statVoice, prevValues.statVoice, newVoice, 1600, 'statVoice');
@@ -365,7 +372,36 @@ document.addEventListener('DOMContentLoaded', () => {
                 .catch(() => {});
         }
 
+        const liveIndicator = document.getElementById('liveIndicator');
+        const liveCountdown = document.getElementById('liveCountdown');
+        const liveProgressBar = document.getElementById('liveProgressBar');
+        let progressInterval = null;
+
+        function resetLiveIndicator() {
+            if (!liveIndicator) return;
+            liveIndicator.classList.remove('stale');
+            liveIndicator.classList.remove('flash');
+            void liveIndicator.offsetWidth;
+            liveIndicator.classList.add('flash');
+            setTimeout(() => liveIndicator.classList.remove('flash'), 600);
+
+            if (liveCountdown) liveCountdown.textContent = '10s';
+            if (liveProgressBar) liveProgressBar.style.width = '100%';
+
+            clearInterval(progressInterval);
+            const startTime = Date.now();
+            progressInterval = setInterval(() => {
+                const elapsed = Date.now() - startTime;
+                const pct = Math.max(100 - (elapsed / 10000) * 100, 0);
+                const remaining = Math.max(10 - Math.floor(elapsed / 1000), 0);
+                if (liveProgressBar) liveProgressBar.style.width = pct + '%';
+                if (liveCountdown) liveCountdown.textContent = remaining + 's';
+                if (remaining <= 0) clearInterval(progressInterval);
+            }, 300);
+        }
+
         updateStats();
+        resetLiveIndicator();
         setInterval(updateStats, 10000);
     }
 });
