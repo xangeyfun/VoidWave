@@ -226,6 +226,21 @@ a:hover {
     position: relative;
 }
 
+.main-content > *:not(canvas) {
+    position: relative;
+    z-index: 1;
+}
+
+#particles-canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 0;
+}
+
 .mouse-glow {
     position: fixed;
     width: 250px;
@@ -250,27 +265,15 @@ a:hover {
     gap: 4rem;
     padding: 3rem 0 5rem;
     animation: slideUp 0.8s ease-out;
-    position: relative;
-}
-
-#particles-canvas {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    pointer-events: none;
-    z-index: 0;
-}
-
-.home-hero-left, .home-hero-right {
-    position: relative;
-    z-index: 1;
 }
 
 .home-hero-left {
     flex: 1;
     text-align: left;
+}
+
+.home-hero-right {
+    flex-shrink: 0;
 }
 
 .home-hero-left h1 {
@@ -1691,34 +1694,47 @@ a:hover {
     padding: 0.5rem 0.25rem;
 }
 
-.error-page {
+.error-hero {
     text-align: center;
-    padding: 4rem 0;
+    padding: 5rem 0;
+    animation: slideUp 0.8s ease-out;
 }
 
-.error-code {
-    font-size: 8rem;
-    font-weight: 800;
-    color: var(--primary);
-    line-height: 1;
-    text-shadow: 0 0 60px var(--glow);
-}
-
-.error-message {
-    font-size: 1.5rem;
+.error-hero .tagline {
+    font-size: 1.35rem;
     color: var(--text-secondary);
-    margin-top: 1rem;
+    margin-bottom: 0;
+    min-height: auto;
 }
 
-.error-reason {
+.error-hero .hero-buttons {
+    justify-content: center;
+}
+
+.error-hero .error-reason {
     font-size: 1.25rem;
     color: var(--secondary);
-    margin-top: 2rem;
+    margin-top: 1.5rem;
+    margin-bottom: 2rem;
     padding: 1rem 2rem;
     background: var(--bg-card);
     border-radius: 12px;
     display: inline-block;
     animation: fadeIn 0.5s ease;
+}
+
+.error-code {
+    font-size: 8rem;
+    font-weight: 800;
+    line-height: 1;
+    background: linear-gradient(135deg, var(--text-primary) 0%, var(--primary) 50%, var(--secondary) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    background-size: 200% 200%;
+    animation: shimmer 3s ease infinite;
+    text-shadow: 0 0 60px var(--glow);
+    filter: drop-shadow(0 0 30px rgba(132, 56, 252, 0.3));
 }
 
 @keyframes fadeIn {

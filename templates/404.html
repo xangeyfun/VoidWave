@@ -16,13 +16,17 @@
 {% endblock %}
 
 {% block content %}
-<section class="error-page">
+<section class="error-hero">
     <h1 class="error-code">404</h1>
-    <p class="error-message">This page got lost in the void</p>
+    <p class="tagline">This page got lost in the void</p>
     <p id="reason" class="error-reason">loading...</p>
-    
-    <div style="margin-top: 2rem;">
-        <a href="/" class="btn btn-primary">Go Home</a>
+    <div class="hero-buttons">
+        <a href="javascript:history.back()" class="btn btn-secondary">
+            <span>Go Back</span>
+        </a>
+        <a href="/" class="btn btn-primary">
+            <span>Go Home</span>
+        </a>
     </div>
 </section>
 
