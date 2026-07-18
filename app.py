@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, jsonify
+from flask import Flask, render_template, request, redirect, jsonify, Response
 from dotenv import load_dotenv
 import sqlite3
 import time
@@ -124,6 +124,26 @@ def terms():
 @app.route('/privacy')
 def privacy():
     return render_template('privacy.html'), 200
+
+@app.route('/robots.txt')
+def robots():
+    return Response(
+        "User-agent: *\nAllow: /\n\nSitemap: https://voidwave.xangey.dev/sitemap.xml\n",
+        mimetype='text/plain'
+    )
+
+@app.route('/sitemap.xml')
+def sitemap():
+    pages = [
+        '', 'commands', 'setup', 'leaderboard', 'stats/0/0',
+        'terms', 'privacy'
+    ]
+    xml = '<?xml version="1.0" encoding="UTF-8"?>\n'
+    xml += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+    for page in pages:
+        xml += f'  <url><loc>https://voidwave.xangey.dev/{page}</loc></url>\n'
+    xml += '</urlset>'
+    return Response(xml, mimetype='application/xml')
 
 @app.route('/stats/<int:guild_id>/<int:user_id>')
 def stats(guild_id: int, user_id: int):
