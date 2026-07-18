@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+
+{% block title %}Commands{% endblock %}
+
+{% block meta_description %}All available commands for VoidWave Discord bot. Leveling, AI chat, fun commands, and more.{% endblock %}
+
+{% block content %}
+<section class="commands-hero">
+    <span class="section-label">Commands</span>
+    <h1>All Commands</h1>
+    <p>Everything VoidWave can do. Use these in any server where the bot is added.</p>
+</section>
+
+<section class="commands-page">
+
+    <div class="commands-category">
+        <div class="commands-category-header">
+            <h2>Leveling</h2>
+            <span class="commands-category-tag">XP and ranks</span>
+        </div>
+        <div class="commands-grid">
+            <div class="command-card">
+                <div class="command-card-header">
+                    <code>/level</code>
+                    <span class="command-scope">server only</span>
+                </div>
+                <span>Check your server level, XP, rank, and stats</span>
+            </div>
+            <div class="command-card">
+                <div class="command-card-header">
+                    <code>/leaderboard</code>
+                    <span class="command-scope">server only</span>
+                </div>
+                <span>See who's on top. Sort by level, XP, messages, or voice</span>
+            </div>
+            <div class="command-card">
+                <code>/profile</code>
+                <span>View your global profile across all servers</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="commands-category">
+        <div class="commands-category-header">
+            <h2>AI Chat</h2>
+            <span class="commands-category-tag">powered by Llama 3.2</span>
+        </div>
+        <div class="commands-grid">
+            <div class="command-card">
+                <code>/ai</code>
+                <span>Chat with a local AI. Nothing leaves your server</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="commands-category">
+        <div class="commands-category-header">
+            <h2>Fun</h2>
+            <span class="commands-category-tag">things to try</span>
+        </div>
+        <div class="commands-grid">
+            <div class="command-card">
+                <code>/animal</code>
+                <span>Random dog, cat, duck, or fox pictures</span>
+            </div>
+            <div class="command-card">
+                <code>/quote</code>
+                <span>Today's quote or a random one</span>
+            </div>
+            <div class="command-card">
+                <code>/fact</code>
+                <span>Random fun fact</span>
+            </div>
+            <div class="command-card">
+                <code>/flip</code>
+                <span>Coin flip</span>
+            </div>
+            <div class="command-card">
+                <code>/random</code>
+                <span>Pick a random number between two values</span>
+            </div>
+            <div class="command-card">
+                <code>/calc</code>
+                <span>Quick math calculator</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="commands-category">
+        <div class="commands-category-header">
+            <h2>Utility</h2>
+            <span class="commands-category-tag">info and tools</span>
+        </div>
+        <div class="commands-grid">
+            <div class="command-card">
+                <code>/help</code>
+                <span>Show all available commands</span>
+            </div>
+            <div class="command-card">
+                <code>/ping</code>
+                <span>Check bot latency</span>
+            </div>
+            <div class="command-card">
+                <code>/uptime</code>
+                <span>How long the bot has been running</span>
+            </div>
+            <div class="command-card">
+                <code>/userinfo</code>
+                <span>Account info, join date, roles, and more</span>
+            </div>
+            <div class="command-card">
+                <code>/github</code>
+                <span>Link to the source code</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="commands-note">
+        <p>Admin configuration commands are available under <code>/config</code>. See the <a href="/setup">setup guide</a> for details.</p>
+    </div>
+
+</section>
+{% endblock %}
