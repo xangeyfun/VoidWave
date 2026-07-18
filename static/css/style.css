@@ -990,6 +990,9 @@ a:hover {
 
 .setup-help {
     text-align: center;
+    opacity: 1 !important;
+    transform: none !important;
+    animation: none !important;
 }
 
 .setup-help .setup-step-content {
