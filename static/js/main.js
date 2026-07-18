@@ -45,11 +45,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Feature card glow on scroll
+    // Feature card staggered reveal on scroll
     const featureObserver = new IntersectionObserver((entries) => {
         entries.forEach(entry => {
             if (entry.isIntersecting) {
-                entry.target.classList.add('glow-in');
+                entry.target.classList.add('reveal');
                 featureObserver.unobserve(entry.target);
             }
         });
@@ -73,6 +73,89 @@ document.addEventListener('DOMContentLoaded', () => {
             card.style.transform = 'rotateX(0) rotateY(0) scale3d(1, 1, 1)';
         });
     });
+
+    // Hover tilt on feature cards
+    document.querySelectorAll('.home-feature').forEach(card => {
+        card.addEventListener('mousemove', (e) => {
+            const rect = card.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            const centerX = rect.width / 2;
+            const centerY = rect.height / 2;
+            const rotateX = ((y - centerY) / centerY) * -5;
+            const rotateY = ((x - centerX) / centerX) * 5;
+            card.style.transform = `perspective(600px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale3d(1.02, 1.02, 1.02)`;
+        });
+        card.addEventListener('mouseleave', () => {
+            card.style.transform = 'perspective(600px) rotateX(0) rotateY(0) scale3d(1, 1, 1)';
+        });
+    });
+
+    // Command list staggered reveal on scroll
+    const cmdObserver = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.classList.add('reveal');
+                cmdObserver.unobserve(entry.target);
+            }
+        });
+    }, { threshold: 0.2 });
+
+    document.querySelectorAll('.home-cmd').forEach(el => cmdObserver.observe(el));
+
+    // Typing effect on command names
+    const cmdNameObserver = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                typeCommandNames();
+                cmdNameObserver.unobserve(entry.target);
+            }
+        });
+    }, { threshold: 0.3 });
+
+    const cmdList = document.querySelector('.home-cmd-list');
+    if (cmdList) cmdNameObserver.observe(cmdList);
+
+    function typeCommandNames() {
+        const names = document.querySelectorAll('.home-cmd-name');
+        names.forEach((el, i) => {
+            const fullText = el.textContent;
+            el.textContent = '';
+            const cursor = document.createElement('span');
+            cursor.className = 'typing-cursor';
+            el.appendChild(cursor);
+
+            setTimeout(() => {
+                let j = 0;
+                const interval = setInterval(() => {
+                    el.textContent = fullText.substring(0, j + 1);
+                    el.appendChild(cursor);
+                    j++;
+                    if (j >= fullText.length) {
+                        clearInterval(interval);
+                        setTimeout(() => cursor.remove(), 800);
+                    }
+                }, 40);
+            }, i * 500);
+        });
+    }
+
+    // Mouse glow spotlight (home page only)
+    if (document.querySelector('.home-hero')) {
+        const mouseGlow = document.createElement('div');
+        mouseGlow.className = 'mouse-glow';
+        document.body.appendChild(mouseGlow);
+
+        document.addEventListener('mousemove', (e) => {
+            mouseGlow.style.left = e.clientX + 'px';
+            mouseGlow.style.top = e.clientY + 'px';
+            mouseGlow.classList.add('active');
+        });
+
+        document.addEventListener('mouseleave', () => {
+            mouseGlow.classList.remove('active');
+        });
+    }
 
     // Floating particles
     const canvas = document.getElementById('particles-canvas');

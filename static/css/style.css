@@ -223,6 +223,24 @@ a:hover {
     max-width: 1200px;
     width: 100%;
     margin: 0 auto;
+    position: relative;
+}
+
+.mouse-glow {
+    position: fixed;
+    width: 250px;
+    height: 250px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(132, 56, 252, 0.06) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+    transform: translate(-50%, -50%);
+    transition: opacity 0.3s ease, left 0.4s ease-out, top 0.4s ease-out;
+    opacity: 0;
+}
+
+.mouse-glow.active {
+    opacity: 1;
 }
 
 /* Home - Hero */
@@ -582,8 +600,26 @@ a:hover {
     background: var(--bg-card);
     border: 1px solid var(--border-light);
     border-radius: 14px;
-    transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.4s ease;
     text-align: left;
+    opacity: 0;
+    transform: translateY(30px);
+    transition: border-color 0.2s ease, box-shadow 0.4s ease;
+    will-change: transform;
+    transform-style: preserve-3d;
+}
+
+.home-feature.reveal {
+    animation: featureReveal 0.6s ease-out forwards, featureGlow 1.5s ease-out 0.6s forwards;
+}
+
+.home-feature:nth-child(1).reveal { animation-delay: 0s, 0.6s; }
+.home-feature:nth-child(2).reveal { animation-delay: 0.1s, 0.7s; }
+.home-feature:nth-child(3).reveal { animation-delay: 0.2s, 0.8s; }
+.home-feature:nth-child(4).reveal { animation-delay: 0.3s, 0.9s; }
+
+@keyframes featureReveal {
+    from { opacity: 0; transform: translateY(30px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
 .home-feature.glow-in {
@@ -603,13 +639,23 @@ a:hover {
 
 .home-feature:hover {
     border-color: var(--primary);
-    transform: translateY(-2px);
 }
 
 .home-feature-icon {
     font-size: 1.5rem;
     display: block;
     margin-bottom: 0.75rem;
+    animation: iconFloat 3s ease-in-out infinite;
+}
+
+.home-feature:nth-child(1) .home-feature-icon { animation-delay: 0s; }
+.home-feature:nth-child(2) .home-feature-icon { animation-delay: 0.5s; }
+.home-feature:nth-child(3) .home-feature-icon { animation-delay: 1s; }
+.home-feature:nth-child(4) .home-feature-icon { animation-delay: 1.5s; }
+
+@keyframes iconFloat {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-4px); }
 }
 
 .home-feature h3 {
@@ -682,6 +728,24 @@ a:hover {
     padding: 0.85rem 1rem;
     transition: border-color 0.2s ease, transform 0.2s ease;
     text-align: left;
+    opacity: 0;
+    transform: translateX(20px);
+}
+
+.home-cmd.reveal {
+    animation: cmdReveal 0.4s ease-out forwards;
+}
+
+.home-cmd:nth-child(1).reveal { animation-delay: 0s; }
+.home-cmd:nth-child(2).reveal { animation-delay: 0.08s; }
+.home-cmd:nth-child(3).reveal { animation-delay: 0.16s; }
+.home-cmd:nth-child(4).reveal { animation-delay: 0.24s; }
+.home-cmd:nth-child(5).reveal { animation-delay: 0.32s; }
+.home-cmd:nth-child(6).reveal { animation-delay: 0.4s; }
+
+@keyframes cmdReveal {
+    from { opacity: 0; transform: translateX(20px); }
+    to { opacity: 1; transform: translateX(0); }
 }
 
 .home-cmd:hover {
@@ -690,7 +754,7 @@ a:hover {
 }
 
 .home-cmd-name {
-    display: block;
+    display: inline;
     font-family: monospace;
     font-size: 0.9rem;
     font-weight: 600;
