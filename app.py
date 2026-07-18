@@ -169,11 +169,11 @@ def leaderboard():
     direction = request.args.get('dir', 'desc')
     page = request.args.get('page', 1, type=int)
     
-    entries, total = get_leaderboard(guild_id=guild_id, sort_by=sort_by, direction=direction, page=page, per_page=25)
+    entries, total = get_leaderboard(guild_id=guild_id, sort_by=sort_by, direction=direction, page=page, per_page=50)
     
     leaderboard_list = []
     for i, entry in enumerate(entries):
-        rank = (page - 1) * 25 + i + 1
+        rank = (page - 1) * 50 + i + 1
         leaderboard_list.append({
             'rank': rank,
             'user_id': entry['user_id'],
@@ -186,7 +186,7 @@ def leaderboard():
             'vc_minutes': entry['vc_minutes']
         })
     
-    total_pages = max(1, (total + 24) // 25)
+    total_pages = max(1, (total + 49) // 50)
 
     where = "WHERE guild_id = ?" if guild_id else ""
     params = (guild_id,) if guild_id else ()

@@ -1268,6 +1268,11 @@ a:hover {
     transform: translateX(4px);
 }
 
+.leaderboard-row.header:hover {
+    background: var(--bg-tertiary);
+    transform: none;
+}
+
 .leaderboard-row:last-child {
     border-bottom: none;
 }
