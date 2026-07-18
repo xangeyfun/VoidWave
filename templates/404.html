@@ -19,7 +19,6 @@
 <section class="error-hero">
     <h1 class="error-code">404</h1>
     <p class="tagline">This page got lost in the void</p>
-    <p id="reason" class="error-reason">loading...</p>
     <div class="hero-buttons">
         <a href="javascript:history.back()" class="btn btn-secondary">
             <span>Go Back</span>
@@ -30,16 +29,4 @@
     </div>
 </section>
 
-<script>
-fetch("https://naas.isalman.dev/no")
-    .then(r => r.json())
-    .then(d => {
-        setTimeout(() => {
-            document.getElementById("reason").textContent = d.reason || "The void swallowed this page";
-        }, 500);
-    })
-    .catch(() => {
-        document.getElementById("reason").textContent = "The void swallowed this page";
-    });
-</script>
 {% endblock %}
