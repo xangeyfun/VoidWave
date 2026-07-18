@@ -561,8 +561,8 @@ document.addEventListener('DOMContentLoaded', () => {
             setupBlocks.forEach((block, i) => {
                 const blockRect = block.getBoundingClientRect();
                 const blockCenter = blockRect.top + blockRect.height / 2;
-                if (blockCenter < viewportH * 0.6 && blockCenter > 0) {
-                    progressDots.forEach(d => d.classList.remove('active'));
+                if (blockCenter < viewportH * 0.65 && blockCenter > 0) {
+                    progressDots.forEach(d => d.classList.remove('active', 'pulse'));
                     if (progressDots[i]) progressDots[i].classList.add('active');
                 }
             });
@@ -572,7 +572,11 @@ document.addEventListener('DOMContentLoaded', () => {
             dot.addEventListener('click', () => {
                 const targetStep = dot.dataset.target;
                 const target = document.querySelector(`.setup-block[data-step="${targetStep}"]`);
-                if (target) target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                if (target) {
+                    progressDots.forEach(d => d.classList.remove('active', 'pulse'));
+                    dot.classList.add('active', 'pulse');
+                    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
             });
         });
     }

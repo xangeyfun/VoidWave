@@ -226,7 +226,7 @@ a:hover {
     position: relative;
 }
 
-.main-content > *:not(canvas) {
+.main-content > *:not(canvas):not(.setup-progress) {
     position: relative;
     z-index: 1;
 }
@@ -1100,9 +1100,32 @@ a:hover {
     background: var(--border);
     cursor: pointer;
     transition: background 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease;
+    position: relative;
 }
 
-.setup-progress-dot:hover {
+.setup-progress-dot::after {
+    content: attr(data-label);
+    position: absolute;
+    left: calc(100% + 10px);
+    top: 50%;
+    transform: translateY(-50%);
+    background: var(--bg-card);
+    color: var(--text-primary);
+    border: 1px solid var(--border-light);
+    border-radius: 6px;
+    padding: 0.3rem 0.6rem;
+    font-size: 0.75rem;
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.setup-progress-dot:hover::after {
+    opacity: 1;
+}
+
+.setup-progress-dot:hover:not(.active) {
     background: var(--text-muted);
     transform: scale(1.3);
 }
@@ -1111,6 +1134,16 @@ a:hover {
     background: var(--primary);
     transform: scale(1.3);
     box-shadow: 0 0 8px var(--glow);
+}
+
+@keyframes dotPulse {
+    0% { box-shadow: 0 0 0 0 rgba(132, 56, 252, 0.6); }
+    70% { box-shadow: 0 0 0 8px rgba(132, 56, 252, 0); }
+    100% { box-shadow: 0 0 8px var(--glow); }
+}
+
+.setup-progress-dot.pulse {
+    animation: dotPulse 0.8s ease;
 }
 
 /* Commands Page */
