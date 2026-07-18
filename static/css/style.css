@@ -1736,7 +1736,7 @@ a:hover {
 .error-hero .tagline {
     font-size: 1.35rem;
     color: var(--text-secondary);
-    margin-bottom: 0;
+    margin-bottom: 2rem;
     min-height: auto;
 }
 
