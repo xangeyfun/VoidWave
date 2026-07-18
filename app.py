@@ -113,6 +113,10 @@ def index():
 def setup():
     return render_template('setup.html'), 200
 
+@app.route('/commands')
+def commands():
+    return render_template('commands.html'), 200
+
 @app.route('/terms')
 def terms():
     return render_template('terms.html'), 200
