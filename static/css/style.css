@@ -1110,6 +1110,170 @@ a:hover {
     box-shadow: 0 0 8px var(--glow);
 }
 
+/* Commands Page */
+.commands-hero {
+    text-align: center;
+    padding: 3rem 0 4rem;
+    animation: slideUp 0.8s ease-out;
+}
+
+.commands-hero h1 {
+    font-size: 3rem;
+    font-weight: 800;
+    margin-bottom: 0.75rem;
+    background: linear-gradient(135deg, var(--text-primary) 0%, var(--primary) 50%, var(--secondary) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    background-size: 200% 200%;
+    animation: shimmer 3s ease infinite;
+    filter: drop-shadow(0 0 20px rgba(132, 56, 252, 0.2));
+}
+
+.commands-hero p {
+    font-size: 1.1rem;
+    color: var(--text-secondary);
+    max-width: 500px;
+    margin: 0 auto;
+}
+
+.commands-page {
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+.commands-category {
+    margin-bottom: 3rem;
+}
+
+.commands-category-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+}
+
+.commands-category-header h2 {
+    font-size: 1.3rem;
+    font-weight: 700;
+}
+
+.commands-category-tag {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--text-muted);
+    background: var(--bg-tertiary);
+    padding: 0.15rem 0.5rem;
+    border-radius: 6px;
+}
+
+.commands-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.75rem;
+}
+
+.commands-grid .command-card code {
+    font-size: 0.95rem;
+}
+
+.command-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-light);
+    border-radius: 12px;
+    padding: 1rem 1.25rem;
+    transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.3s ease;
+}
+
+.command-card:hover {
+    border-color: var(--primary);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(132, 56, 252, 0.1);
+}
+
+.command-card code {
+    display: block;
+    background: transparent;
+    padding: 0;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--primary);
+    margin-bottom: 0.3rem;
+}
+
+.command-card-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.3rem;
+}
+
+.command-card-header code {
+    margin-bottom: 0;
+}
+
+.command-scope {
+    font-size: 0.65rem;
+    font-weight: 500;
+    color: var(--text-muted);
+    background: var(--bg-tertiary);
+    padding: 0.1rem 0.4rem;
+    border-radius: 4px;
+    white-space: nowrap;
+}
+
+.command-card span {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    line-height: 1.4;
+}
+
+.commands-note {
+    text-align: center;
+    padding: 2rem;
+    margin-top: 1rem;
+    border-top: 1px solid var(--border-light);
+    color: var(--text-muted);
+    font-size: 0.9rem;
+}
+
+.commands-note code {
+    background: var(--bg-tertiary);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    color: var(--secondary);
+}
+
+.commands-note a {
+    color: var(--primary);
+    text-decoration: none;
+}
+
+.commands-note a:hover {
+    text-decoration: underline;
+}
+
+@media (max-width: 768px) {
+    .commands-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .commands-hero h1 {
+        font-size: 2.25rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .commands-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .commands-hero h1 {
+        font-size: 1.75rem;
+    }
+}
+
 .stats-page {
     display: flex;
     flex-direction: column;
