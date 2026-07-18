@@ -576,4 +576,25 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
     }
+
+    // Commands page — category stagger reveal
+    const cmdCategories = document.querySelectorAll('.commands-category');
+    if (cmdCategories.length) {
+        const catObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.style.opacity = '1';
+                    entry.target.style.transform = 'translateY(0)';
+                    catObserver.unobserve(entry.target);
+                }
+            });
+        }, { threshold: 0.15 });
+
+        cmdCategories.forEach((cat, i) => {
+            cat.style.opacity = '0';
+            cat.style.transform = 'translateY(30px)';
+            cat.style.transition = `opacity 0.6s ease ${i * 0.1}s, transform 0.6s ease ${i * 0.1}s`;
+            catObserver.observe(cat);
+        });
+    }
 });
