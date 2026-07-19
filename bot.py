@@ -30,6 +30,7 @@ guild = discord.Object(id=int(os.getenv("GUILD_ID"))) # type: ignore
 XP_COOLDOWN = 30
 VC_COOLDOWN = 600
 LLM_COOLDOWN = 15
+STATS_LOG_FILE = "stats_history.json"
 last_llm = {}
 llm_queue = asyncio.Queue(maxsize=10)
 llm_queue_size = []
@@ -73,6 +74,64 @@ def format_minutes(minutes):
         parts.append(f"{minutes}m")
 
     return " ".join(parts)
+
+def log_stats():
+    conn = get_db()
+    cur = conn.cursor()
+
+    total_guilds = len(bot.guilds)
+    total_members = sum(g.member_count or 0 for g in bot.guilds)
+
+    cur.execute("SELECT COUNT(*) FROM users")
+    total_users = cur.fetchone()[0]
+
+    cur.execute("SELECT COALESCE(SUM(total_xp), 0) FROM users")
+    total_xp = cur.fetchone()[0]
+
+    cur.execute("SELECT COALESCE(SUM(total_messages), 0) FROM users")
+    total_messages = cur.fetchone()[0]
+
+    cur.execute("SELECT COALESCE(SUM(total_messages_xp), 0) FROM users")
+    total_messages_xp = cur.fetchone()[0]
+
+    cur.execute("SELECT COALESCE(SUM(vc_minutes), 0) FROM users")
+    total_vc_minutes = cur.fetchone()[0]
+
+    cur.execute("SELECT COALESCE(SUM(vc_xp_minutes), 0) FROM users")
+    total_vc_xp_minutes = cur.fetchone()[0]
+
+    cur.execute("SELECT COALESCE(AVG(level), 0) FROM users")
+    avg_level = round(cur.fetchone()[0], 2)
+
+    conn.close()
+
+    snapshot = {
+        "timestamp": datetime.datetime.now().isoformat(),
+        "total_guilds": total_guilds,
+        "total_members": total_members,
+        "total_users": total_users,
+        "total_xp": total_xp,
+        "total_messages": total_messages,
+        "total_messages_xp": total_messages_xp,
+        "total_vc_minutes": total_vc_minutes,
+        "total_vc_xp_minutes": total_vc_xp_minutes,
+        "avg_level": avg_level,
+    }
+
+    history = []
+    if os.path.exists(STATS_LOG_FILE):
+        try:
+            with open(STATS_LOG_FILE, "r") as f:
+                history = json.load(f)
+        except (json.JSONDecodeError, IOError):
+            history = []
+
+    history.append(snapshot)
+
+    with open(STATS_LOG_FILE, "w") as f:
+        json.dump(history, f, indent=2)
+
+    print(f"{date()} INFO  Stats snapshot logged ({total_guilds} guilds, {total_members} members, {total_xp} XP)")
 
 async def get_llm_response(msg, display_name, user_id, reply_info = None):
     for attempt in range(5):
@@ -385,6 +444,7 @@ async def on_ready():
     print(f"{date()} INFO ----------------------\n")
     qotd_loop.start()
     update_stats.start()
+    stats_log_loop.start()
     vc_xp_loop.start()
     bot.loop.create_task(llm_worker())
     rotate_status.start()
@@ -1420,6 +1480,13 @@ async def update_stats():
 
     conn.commit()
     conn.close()
+
+@tasks.loop(minutes=10)
+async def stats_log_loop():
+    try:
+        log_stats()
+    except Exception as e:
+        print(f"{date()} ERROR  Failed to log stats: {e}")
 
 @tasks.loop(seconds=15)
 async def rotate_status():

@@ -11,3 +11,5 @@ __pycache__/
 command_logs.txt
 prompts/*
 !prompts/default.txt
+stats_history.json
+Graphs/

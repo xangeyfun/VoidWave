@@ -4,3 +4,4 @@ python-dotenv>=1.0
 requests>=2.31
 simpleeval>=1.0
 psutil>=5.0
+matplotlib>=3.8
