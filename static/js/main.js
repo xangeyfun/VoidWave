@@ -353,16 +353,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (statXp && statMessages && statVoice) {
         function formatNumber(n) {
-            if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
-            if (n >= 1000) return (n / 1000).toFixed(1) + 'K';
             return n.toLocaleString();
         }
 
         function parseDisplayValue(text) {
-            text = text.replace(/,/g, '');
-            if (text.endsWith('M')) return parseFloat(text) * 1000000;
-            if (text.endsWith('K')) return parseFloat(text) * 1000;
-            return parseInt(text) || 0;
+            return parseInt(text.replace(/,/g, '')) || 0;
         }
 
         const prevValues = {
