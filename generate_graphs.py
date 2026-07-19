@@ -261,11 +261,14 @@ def make_readme_banner(data):
         ("VOICE HOURS", round(latest["total_vc_minutes"] / 60, 1), "#5865F2", [s["total_vc_minutes"] / 60 for s in data]),
     ]
 
-    fig = plt.figure(figsize=(18, 6))
+    fig = plt.figure(figsize=(18, 4.5))
     fig.patch.set_facecolor("#111318")
 
-    gs = fig.add_gridspec(2, 5, hspace=0.05, wspace=0.25,
-                          left=0.03, right=0.97, top=0.98, bottom=0.05)
+    gs = fig.add_gridspec(2, 5, hspace=0.15, wspace=0.25,
+                          left=0.03, right=0.97, top=0.85, bottom=0.01)
+
+    fig.text(0.5, 0.95, "Real-time stats, updated every hour", fontsize=18,
+             color="#8e9297", ha="center", va="center", fontfamily="sans-serif", fontweight="bold")
 
     for i, (label, value, color, values) in enumerate(stats):
         ax_num = fig.add_subplot(gs[0, i])
@@ -305,7 +308,7 @@ def make_readme_banner(data):
             spine.set_visible(False)
 
     path = os.path.join("static", "images", "stats.png")
-    fig.savefig(path, dpi=200, facecolor=fig.get_facecolor(), bbox_inches="tight")
+    fig.savefig(path, dpi=200, facecolor=fig.get_facecolor(), bbox_inches="tight", pad_inches=0.1)
     plt.close(fig)
     print(f"  Saved {path}")
 
