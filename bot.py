@@ -1278,6 +1278,14 @@ async def on_message(message):
         conn.close()
         await bot.process_commands(message)
 
+@bot.event
+async def on_guild_join(guild):
+    print(f"{date()} GUILD  Joined guild: {guild.name} ({guild.id})")
+
+@bot.event
+async def on_guild_remove(guild):
+    print(f"{date()} GUILD  Removed from guild: {guild.name} ({guild.id})")
+
 @tasks.loop(minutes=1)
 async def vc_xp_loop():
     conn = get_db()
