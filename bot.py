@@ -1498,6 +1498,10 @@ if __name__ == "__main__":
 
     try:
         cur.execute("ALTER TABLE guild_settings ADD COLUMN qotd_queue TEXT")
+    except sqlite3.OperationalError:
+        pass
+
+    try:
         cur.execute("ALTER TABLE guild_settings ADD COLUMN delete_old_qotd BOOLEAN DEFAULT 1")
     except sqlite3.OperationalError:
         pass
