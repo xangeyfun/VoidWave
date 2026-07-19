@@ -244,9 +244,9 @@ async def send_qotd(channel_id, role_id, guild_id):
     queue = []
 
     try:
-        guild_settings = cur.execute("SELECT last_qotd_id, last_qotd_thread_id, qotd_queue FROM guild_settings WHERE guild_id = ?", (guild_id,)).fetchone()
+        guild_settings = cur.execute("SELECT last_qotd_id, last_qotd_thread_id, qotd_queue, delete_old_qotd FROM guild_settings WHERE guild_id = ?", (guild_id,)).fetchone()
 
-        if guild_settings and guild_settings["last_qotd_id"] and guild_settings["last_qotd_thread_id"]:
+        if guild_settings and guild_settings["last_qotd_id"] and guild_settings["last_qotd_thread_id"] and guild_settings["delete_old_qotd"]:
             try:
                 thread = channel.get_thread(guild_settings["last_qotd_thread_id"])
                 if thread:
@@ -923,7 +923,7 @@ async def view_config(interaction: discord.Interaction):
         cur = conn.cursor()
         level_channel = cur.execute("SELECT level_channel_id, level_channel_enabled FROM guild_settings WHERE guild_id = ?", (interaction.guild.id,)).fetchone() # type: ignore
         level_roles = cur.execute("SELECT level, role_id FROM level_roles WHERE guild_id = ?", (interaction.guild.id,)).fetchall() # type: ignore
-        qotd_channel = cur.execute("SELECT qotd_channel, qotd_enabled FROM guild_settings WHERE guild_id = ?", (interaction.guild.id,)).fetchone() # type: ignore
+        qotd_channel = cur.execute("SELECT qotd_channel, qotd_enabled, delete_old_qotd FROM guild_settings WHERE guild_id = ?", (interaction.guild.id,)).fetchone() # type: ignore
     except Exception as e:
         print(f"{date()} ERROR  Failed to fetch config: {e}")
         await interaction.response.send_message(f"Failed to fetch config. Please try again later.\n> {e}", ephemeral=True)
@@ -944,6 +944,7 @@ async def view_config(interaction: discord.Interaction):
         channel = interaction.guild.get_channel(qotd_channel[0])
         channel_name = channel.mention if channel else "`No Channel Set`"
         embed.add_field(name="QOTD Channel", value=f"{channel_name} ({'Enabled' if qotd_channel[1] else 'Disabled'})", inline=False)
+        embed.add_field(name="Delete Old QOTD", value=f"{'Enabled' if qotd_channel[2] else 'Disabled'}", inline=False)
     else:
         embed.add_field(name="QOTD Channel", value="Not set", inline=False)
 
@@ -1001,6 +1002,7 @@ async def config_help(interaction: discord.Interaction):
         value=(
             "`/config qotd set_channel [channel]` - Set the channel for QOTD messages\n"
             "`/config qotd set_role [role]` - Set a role to ping with the QOTD\n"
+            "`/config qotd delete_old [enabled]` - Enable or disable deletion of old QOTD messages\n"
             "`/config qotd enable [enabled]` - Enable or disable QOTD messages"
         ),
         inline=False
@@ -1170,6 +1172,33 @@ async def set_qotd_role(interaction: discord.Interaction, role: discord.Role):
         conn.close()
 
     await interaction.response.send_message(f"QOTD role set to {role.mention}", ephemeral=True)
+
+@discord.app_commands.allowed_installs(guilds=True, users=False)
+@discord.app_commands.allowed_contexts(guilds=True, dms=False, private_channels=False)
+@discord.app_commands.checks.has_permissions(administrator=True)
+@qotd.command(name="delete_old", description="Enable or disable deletion of old QOTD messages") #, guild=guild)
+@app_commands.describe(enabled="Whether to delete old QOTD messages")
+async def delete_old_qotd(interaction: discord.Interaction, enabled: bool):
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        channel = cur.execute("SELECT qotd_channel FROM guild_settings WHERE guild_id = ?", (interaction.guild.id,)).fetchone() # type: ignore
+        channel = bot.get_channel(channel[0]) if channel and channel[0] else None
+        if not channel:
+            await interaction.response.send_message("Please set a QOTD channel first using `/config qotd set_channel`", ephemeral=True)
+            return
+
+        cur.execute("INSERT INTO guild_settings (guild_id, delete_old_qotd) VALUES (?, ?) ON CONFLICT(guild_id) DO UPDATE SET delete_old_qotd = excluded.delete_old_qotd", (interaction.guild.id, int(enabled))) # type: ignore
+        conn.commit()
+
+    except Exception as e:
+        print(f"{date()} ERROR  Failed to set delete old QOTD: {e}")
+        await interaction.response.send_message(f"Failed to update delete old QOTD setting. Please try again later.\n> {e}", ephemeral=True)
+        return
+    finally:
+        conn.close()
+
+    await interaction.response.send_message(f"Delete old QOTD messages has been {'enabled' if enabled else 'disabled'}", ephemeral=True)
 
 # Message events
 
@@ -1469,6 +1498,7 @@ if __name__ == "__main__":
 
     try:
         cur.execute("ALTER TABLE guild_settings ADD COLUMN qotd_queue TEXT")
+        cur.execute("ALTER TABLE guild_settings ADD COLUMN delete_old_qotd BOOLEAN DEFAULT 1")
     except sqlite3.OperationalError:
         pass
 
