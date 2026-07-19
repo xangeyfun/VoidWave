@@ -1421,7 +1421,7 @@ async def vc_xp_loop():
                         channel = bot.get_channel(level_channel["level_channel_id"]) if level_channel and level_channel["level_channel_id"] and level_channel["level_channel_enabled"] else None
 
                         if channel and isinstance(channel, discord.TextChannel) and level_channel["level_channel_enabled"]:
-            emojis = ['⭐', '🔥', '🌟', '💎', '⚡', '🏆', '🚀', '💫', '🐉', '👸']
+                            emojis = ['⭐', '🔥', '🌟', '💎', '⚡', '🏆', '🚀', '💫', '🐉', '👸']
                             index = min((level - 1) // 10, len(emojis) - 1)
                             emoji = emojis[index]
                             count = min((level - 1) % 10 + 1, 10)
