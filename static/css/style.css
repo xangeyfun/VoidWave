@@ -1830,6 +1830,7 @@ a:hover {
     align-items: center;
     gap: 0.5rem;
     font-weight: 600;
+    flex: 1;
 }
 
 .footer-links {
@@ -1844,6 +1845,8 @@ a:hover {
 .footer-copy {
     color: var(--text-muted);
     font-size: 0.9rem;
+    flex: 1;
+    text-align: right;
 }
 
 /* Scroll to top */
