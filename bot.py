@@ -145,7 +145,7 @@ async def get_llm_response(msg, display_name, user_id, reply_info = None):
         await asyncio.sleep(0.5)
 
     print(f"{date()} ERROR LLM empty response after 5 tries")
-    return "Error occurred while fetching AI response. Please try again.", "Empty response after 5 tries"
+    return "VoidWave couldn't generate a response. Please try again.", "Empty response after 5 tries"
 
 async def level_autocomplete(interaction: Interaction, current: str):
     conn = get_db()
@@ -401,7 +401,7 @@ async def llm_worker():
                     reply += f"\n> {info}"
 
         except Exception as e:
-            reply = f"Error occurred while fetching AI response. Please try again later.\n> {e}"
+            reply = f"VoidWave couldn't generate a response. Please try again later.\n> {e}"
 
         finally:
             try:
@@ -954,11 +954,11 @@ async def ai(interaction: discord.Interaction, message: str, stats: bool = False
     await interaction.response.defer(ephemeral=hidden)
 
     if interaction.user.id in last_llm and time.time() - last_llm[interaction.user.id] < LLM_COOLDOWN and interaction.user.id != 996771607630585856:
-        await interaction.followup.send(f"Please wait before talking to VoidWave again. Cooldown: `{LLM_COOLDOWN - (time.time() - last_llm[interaction.user.id]):.1f} seconds left.`", ephemeral=True)
+        await interaction.followup.send(f"Slow down! VoidWave needs a breather. Try again in `{LLM_COOLDOWN - (time.time() - last_llm[interaction.user.id]):.1f} seconds.`", ephemeral=True)
         return
 
     if len(llm_queue_size) > 0 or ai_processing:
-        await interaction.followup.send(f"VoidWave is currently busy. Please try again later. Current queue size: `{len(llm_queue_size) + (1 if ai_processing else 0)}`", ephemeral=True)
+        await interaction.followup.send(f"VoidWave is busy right now. Try again in a bit! (Queue: `{len(llm_queue_size) + (1 if ai_processing else 0)}`)", ephemeral=True)
         return
 
     ai_processing = True
@@ -1291,11 +1291,11 @@ async def on_message(message):
 
     if message.content.startswith("<@1442229230384709752>") or message_reference or message.channel.id == 1494361038420709466: 
         if message.author.id in last_llm and time.time() - last_llm[message.author.id] < LLM_COOLDOWN and message.author.id != 996771607630585856:
-            await message.reply(f"Please wait before talking to VoidWave again. Cooldown: `{LLM_COOLDOWN - (time.time() - last_llm[message.author.id]):.1f} seconds left.`")
+            await message.reply(f"Slow down! VoidWave needs a breather. Try again in `{LLM_COOLDOWN - (time.time() - last_llm[message.author.id]):.1f} seconds.`")
             return
 
         if len(llm_queue_size) >= 10:
-            await message.reply(f"VoidWave is currently busy. Please try again later. Current queue size: `{len(llm_queue_size) + 1}`")
+            await message.reply(f"VoidWave is busy right now. Try again in a bit! (Queue: `{len(llm_queue_size) + 1}`)")
             return
 
         msg = message.content.replace("<@1442229230384709752>", "").strip()
