@@ -1349,12 +1349,15 @@ async def on_guild_join(guild):
     print(f"{date()} GUILD  Joined guild: {guild.name} | {guild.member_count} members | ID: {guild.id}")
     channel = bot.get_channel(1475562384860119196)
     total_members = sum(g.member_count or 0 for g in bot.guilds)
+    total_guilds = len(bot.guilds)
     embed = discord.Embed(
-        title="Joined a new guild!",
-        description=f"**{guild.name}** has **{guild.member_count or 0}** members\n\n**Total members:** {total_members}",
-        color=discord.Color(0x7128fc)
+        title=" Joined a new guild!",
+        color=discord.Color.green(),
+        timestamp=datetime.datetime.now(datetime.timezone.utc)
     )
-    embed.set_thumbnail(url=guild.icon.url if guild.icon else None)
+    embed.add_field(name="Guild Members", value=f"`{guild.member_count or 0}`", inline=True)
+    embed.add_field(name="Total Members", value=f"`{total_members}`", inline=True)
+    embed.add_field(name="Total Guilds", value=f"`{total_guilds}`", inline=True)
     await channel.send(embed=embed)
 
 @bot.event
@@ -1362,12 +1365,15 @@ async def on_guild_remove(guild):
     print(f"{date()} GUILD  Removed from guild: {guild.name} | {guild.member_count} members | ID: {guild.id}")
     channel = bot.get_channel(1475562384860119196)
     total_members = sum(g.member_count or 0 for g in bot.guilds)
+    total_guilds = len(bot.guilds)
     embed = discord.Embed(
-        title="Removed from a guild!",
-        description=f"**{guild.name}** had **{guild.member_count or 0}** members\n\n**Total members:** {total_members}",
-        color=discord.Color(0x7128fc)
+        title=" Removed from a guild!",
+        color=discord.Color.red(),
+        timestamp=datetime.datetime.now(datetime.timezone.utc)
     )
-    embed.set_thumbnail(url=guild.icon.url if guild.icon else None)
+    embed.add_field(name="Guild Members", value=f"`{guild.member_count or 0}`", inline=True)
+    embed.add_field(name="Total Members", value=f"`{total_members}`", inline=True)
+    embed.add_field(name="Total Guilds", value=f"`{total_guilds}`", inline=True)
     await channel.send(embed=embed)
 
 @tasks.loop(minutes=1)
