@@ -1346,11 +1346,29 @@ async def on_message(message):
 
 @bot.event
 async def on_guild_join(guild):
-    print(f"{date()} GUILD  Joined guild: {guild.name} ({guild.id})")
+    print(f"{date()} GUILD  Joined guild: {guild.name} | {guild.member_count} members | ID: {guild.id}")
+    channel = bot.get_channel(1475562384860119196)
+    total_members = sum(g.member_count or 0 for g in bot.guilds)
+    embed = discord.Embed(
+        title="Joined a new guild!",
+        description=f"**{guild.name}** has **{guild.member_count or 0}** members\n\n**Total members:** {total_members}",
+        color=discord.Color(0x7128fc)
+    )
+    embed.set_thumbnail(url=guild.icon.url if guild.icon else None)
+    await channel.send(embed=embed)
 
 @bot.event
 async def on_guild_remove(guild):
-    print(f"{date()} GUILD  Removed from guild: {guild.name} ({guild.id})")
+    print(f"{date()} GUILD  Removed from guild: {guild.name} | {guild.member_count} members | ID: {guild.id}")
+    channel = bot.get_channel(1475562384860119196)
+    total_members = sum(g.member_count or 0 for g in bot.guilds)
+    embed = discord.Embed(
+        title="Removed from a guild!",
+        description=f"**{guild.name}** had **{guild.member_count or 0}** members\n\n**Total members:** {total_members}",
+        color=discord.Color(0x7128fc)
+    )
+    embed.set_thumbnail(url=guild.icon.url if guild.icon else None)
+    await channel.send(embed=embed)
 
 @tasks.loop(minutes=1)
 async def vc_xp_loop():
