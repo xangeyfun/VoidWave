@@ -586,7 +586,7 @@ async def calc(interaction: Interaction, expression: str, hidden: bool = False):
         result = simple_eval(expression)
         await interaction.response.send_message(f"`{expression}` = {result}", ephemeral=hidden)
     except Exception as e:
-        await interaction.response.send_message(f"> Error evaluating expression: {e}", ephemeral=hidden)
+        await interaction.response.send_message(f"Error evaluating expression: {e}", ephemeral=hidden)
 
 @discord.app_commands.allowed_installs(guilds=True, users=True)
 @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
@@ -655,16 +655,16 @@ async def userinfo(interaction: discord.Interaction, user: discord.Member | disc
 async def quote(interaction: discord.Interaction, choice: str, hidden: bool = False):
     await interaction.response.defer(ephemeral=hidden)
     if choice.lower() != "today" and choice.lower() != "random":
-        await interaction.followup.send(f"> Invalid input: {choice}", ephemeral=True)
+        await interaction.followup.send(f"Invalid input: {choice}", ephemeral=True)
         return
     try:
         r = requests.get(f"https://zenquotes.io/api/{choice.lower()}")
         print(f"{date()} INFO  Quote API response status: {r.status_code}")
     except Exception as e:
-        await interaction.followup.send(f"> Could not fetch quote. Please try again later.\nDetails: {e}", ephemeral=True)
+        await interaction.followup.send(f"Could not fetch quote. Please try again later.\nDetails: {e}", ephemeral=True)
         return
     data = r.json()
-    await interaction.followup.send(f"> \"{data[0]['q']}\" - {data[0]['a']}", ephemeral=hidden)
+    await interaction.followup.send(f"\"{data[0]['q']}\" - {data[0]['a']}", ephemeral=hidden)
 
 @discord.app_commands.allowed_installs(guilds=True, users=True)
 @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
@@ -689,13 +689,13 @@ async def uptime(interaction: discord.Interaction):
 async def get_fact(interaction: discord.Interaction, choice: str, hidden: bool = False):
     await interaction.response.defer(ephemeral=hidden)
     if choice.lower() != "today" and choice.lower() != "random":
-        await interaction.followup.send(f"> Invalid input: {choice}", ephemeral=True)
+        await interaction.followup.send(f"Invalid input: {choice}", ephemeral=True)
         return
     try:
         r = requests.get(f"https://uselessfacts.jsph.pl/{'today' if choice.lower() == 'today' else 'random'}.json?language=en")
         print(f"{date()} INFO  Fact API response status: {r.status_code}")
     except Exception as e:
-        await interaction.followup.send(f"> Could not fetch fact. Please try again later.\nDetails: {e}", ephemeral=True)
+        await interaction.followup.send(f"Could not fetch fact. Please try again later.\nDetails: {e}", ephemeral=True)
         return
     data = r.json()
     await interaction.followup.send(f"{data['text']}", ephemeral=hidden)
