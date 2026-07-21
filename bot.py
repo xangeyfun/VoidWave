@@ -23,7 +23,7 @@ load_dotenv()
 intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
-bot = commands.Bot(command_prefix="%", intents=intents, status=discord.Status.online, activity=discord.Activity(type=discord.ActivityType.watching, name="/help | VoidWave"))
+bot = commands.Bot(command_prefix="%", intents=intents, status=discord.Status.online, activity=discord.Activity(type=discord.ActivityType.watching, name="/help • VoidWave"))
 TOKEN = os.getenv("TOKEN")
 owner_id = int(os.getenv("ALLOWED_USER_ID") or 0)
 guild = discord.Object(id=int(os.getenv("GUILD_ID"))) # type: ignore
