@@ -37,6 +37,8 @@ DERIVED_GRAPHS = [
     ("vc_xp_ratio", "Voice XP Ratio", "% VC Minutes with XP", "#FEE75C"),
 ]
 
+MAX_SCATTER_DOTS = 30
+
 COMBINED_GRAPHS = [
     ("total_guilds", "Servers", "#5865F2", 1),
     ("total_members", "Members", "#57F287", 1),
@@ -57,7 +59,7 @@ def parse_timestamps(data):
 
 
 def apply_xaxis(ax, timestamps):
-    max_ticks = 8
+    max_ticks = 14
     if len(timestamps) < 2:
         return
     span = (timestamps[-1] - timestamps[0]).total_seconds()
@@ -66,26 +68,28 @@ def apply_xaxis(ax, timestamps):
         interval = max(1, int(span / max_ticks / 60))
         ax.xaxis.set_major_formatter(mdates.DateFormatter("%H:%M"))
         ax.xaxis.set_major_locator(mdates.MinuteLocator(interval=interval))
-    elif span < 3600 * 24:
+    elif span < 86400 * 3:
         interval = max(1, int(span / max_ticks / 3600))
         ax.xaxis.set_major_formatter(mdates.DateFormatter("%H:%M"))
         ax.xaxis.set_major_locator(mdates.HourLocator(interval=interval))
-    elif span < 86400 * 14:
+    elif span < 86400 * 30:
         interval = max(1, int(span / max_ticks / 86400))
         ax.xaxis.set_major_formatter(mdates.DateFormatter("%a %d"))
         ax.xaxis.set_major_locator(mdates.DayLocator(interval=interval))
-    elif span < 86400 * 90:
+    elif span < 86400 * 365:
         interval = max(1, int(span / max_ticks / 86400 / 7))
         ax.xaxis.set_major_formatter(mdates.DateFormatter("%b %d"))
         ax.xaxis.set_major_locator(mdates.WeekdayLocator(interval=interval))
-    elif span < 86400 * 365:
-        interval = max(1, int(span / max_ticks / 86400 / 30))
-        ax.xaxis.set_major_formatter(mdates.DateFormatter("%b %Y"))
-        ax.xaxis.set_major_locator(mdates.MonthLocator(interval=interval))
     else:
         interval = max(1, int(span / max_ticks / 86400 / 365))
         ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y"))
         ax.xaxis.set_major_locator(mdates.YearLocator(interval=interval))
+
+
+def get_tick_positions(ax, timestamps):
+    loc = ax.xaxis.get_major_locator()
+    ticks = loc.tick_values(timestamps[0], timestamps[-1])
+    return [mdates.num2date(t) for t in ticks]
 
 
 def make_graph(data, key, title, ylabel, color, filename, value_fn=None):
@@ -106,7 +110,6 @@ def make_graph(data, key, title, ylabel, color, filename, value_fn=None):
     ax.set_facecolor(PLOT_COLOR)
 
     ax.plot(timestamps, values, color=color, linewidth=2.5, zorder=3)
-    ax.scatter(timestamps, values, color=color, s=16, zorder=4, edgecolors="white", linewidths=0.8)
     ax.fill_between(timestamps, values, alpha=0.12, color=color, zorder=2)
 
     ax.set_title(title, fontsize=18, fontweight="bold", color=TEXT_COLOR, pad=16)
@@ -122,7 +125,7 @@ def make_graph(data, key, title, ylabel, color, filename, value_fn=None):
         if y_max == y_min:
             padding = max(abs(y_max) * 0.2, 1)
         else:
-            padding = (y_max - y_min) * 0.2
+            padding = (y_max - y_min) * 0.3
         ax.set_ylim(bottom=y_min - padding, top=y_max + padding)
 
     for spine in ax.spines.values():
@@ -133,6 +136,31 @@ def make_graph(data, key, title, ylabel, color, filename, value_fn=None):
     plt.setp(ax.get_xticklabels(), color=SUBTEXT_COLOR)
 
     plt.tight_layout(pad=2)
+    fig.canvas.draw()
+
+    tick_times = get_tick_positions(ax, timestamps)
+    ts_arr = np.array([t.timestamp() for t in timestamps])
+    plot_idx = []
+    for tick_t in tick_times:
+        tick_ts = tick_t.timestamp()
+        nearest = int(np.argmin(np.abs(ts_arr - tick_ts)))
+        if nearest not in plot_idx:
+            plot_idx.append(nearest)
+    plot_idx.sort()
+
+    ax.scatter([timestamps[i] for i in plot_idx], [values[i] for i in plot_idx],
+               color=color, s=16, zorder=6)
+    last_label_x = None
+    min_pixel_gap = 40
+    for i in plot_idx:
+        ts, val = timestamps[i], values[i]
+        label = f"{val:,.0f}" if val == int(val) else f"{val:,.1f}"
+        disp = ax.transData.transform((mdates.date2num(ts), val))
+        if last_label_x is not None and abs(disp[0] - last_label_x) < min_pixel_gap:
+            continue
+        last_label_x = disp[0]
+        ax.annotate(label, (ts, val), textcoords="offset points", xytext=(0, 14),
+                    ha="center", va="bottom", fontsize=7, color=SUBTEXT_COLOR, zorder=5)
     path = os.path.join(OUTPUT_DIR, filename)
     fig.savefig(path, dpi=150, facecolor=fig.get_facecolor(), bbox_inches="tight")
     plt.close(fig)
@@ -176,8 +204,11 @@ def make_combined_graph(data):
             if y_max == y_min:
                 padding = max(abs(y_max) * 0.2, 1)
             else:
-                padding = (y_max - y_min) * 0.2
-            ax.set_ylim(bottom=y_min - padding, top=y_max + padding)
+                padding = (y_max - y_min) * 0.3
+                ax.set_ylim(bottom=y_min - padding, top=y_max + padding)
+
+        for spine in ax.spines.values():
+            spine.set_visible(False)
 
         apply_xaxis(ax, timestamps)
         fig.autofmt_xdate(rotation=40, ha="right")
@@ -228,7 +259,7 @@ def make_ratio_graph(data):
                 if y_max == y_min:
                     padding = max(abs(y_max) * 0.2, 1)
                 else:
-                    padding = (y_max - y_min) * 0.2
+                    padding = (y_max - y_min) * 0.3
                 ax.set_ylim(bottom=y_min - padding, top=y_max + padding)
         else:
             ax.set_visible(False)
