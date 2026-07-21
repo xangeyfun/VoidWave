@@ -353,10 +353,15 @@ async def send_qotd(channel_id, role_id, guild_id):
     thread = await msg.create_thread(name=f"💬 QOTD • {datetime.datetime.now().strftime('%b %d')}", auto_archive_duration=1440) 
 
     role = channel.guild.get_role(role_id)
-    role = role.mention if role else "everyone"
+    if role and role.is_default():
+        role_text = "@everyone"
+    elif role:
+        role_text = role.mention
+    else:
+        role_text = "everyone"
 
     await thread.send(
-        f"Hey {role}! ✨\n\n"
+        f"Hey {role_text}! ✨\n\n"
         f"Today's question:\n"
         f"> **{question}**\n\n"
         f"What's your answer? Feel free to share your thoughts, stories, or hot takes!"
@@ -1094,7 +1099,7 @@ async def set_level_channel(interaction: discord.Interaction, channel: discord.T
     finally:
         conn.close()
 
-    await interaction.response.send_message(f"Level up channel set to {channel.mention}", ephemeral=True)
+    await interaction.response.send_message(f"Level up channel set to {channel.mention}\n\n**Don't forget:** Enable level-up messages with `/config level toggle_channel` to start announcing them!", ephemeral=True)
 
 @discord.app_commands.allowed_installs(guilds=True, users=False)
 @discord.app_commands.allowed_contexts(guilds=True, dms=False, private_channels=False)
@@ -1141,7 +1146,8 @@ async def add_level_role(interaction: discord.Interaction, level: int, role: dis
     finally:
         conn.close()
 
-    await interaction.response.send_message(f"Role {role.mention} will now be given at level {level}", ephemeral=True)
+    role_text = role.name if role.is_default() else role.mention
+    await interaction.response.send_message(f"Role {role_text} will now be given at level {level}", ephemeral=True)
 
 @discord.app_commands.allowed_installs(guilds=True, users=False)
 @discord.app_commands.allowed_contexts(guilds=True, dms=False, private_channels=False)
@@ -1176,6 +1182,9 @@ async def set_qotd_channel(interaction: discord.Interaction, channel: discord.Te
         cur.execute("INSERT INTO guild_settings (guild_id, qotd_channel) VALUES (?, ?) ON CONFLICT(guild_id) DO UPDATE SET qotd_channel = excluded.qotd_channel", (interaction.guild.id, channel.id)) # type: ignore
         conn.commit()
 
+        role_row = cur.execute("SELECT qotd_role_id FROM guild_settings WHERE guild_id = ?", (interaction.guild.id,)).fetchone()
+        has_role = role_row and role_row[0]
+
     except Exception as e:
         print(f"{date()} ERROR  Failed to set QOTD channel: {e}")
         await interaction.response.send_message(f"Failed to set QOTD channel. Please try again later.\n> {e}", ephemeral=True)
@@ -1183,7 +1192,12 @@ async def set_qotd_channel(interaction: discord.Interaction, channel: discord.Te
     finally:
         conn.close()
 
-    await interaction.response.send_message(f"QOTD channel set to {channel.mention}", ephemeral=True)
+    msg = f"QOTD channel set to {channel.mention}"
+    if not has_role:
+        msg += "\n\n**Next steps:**\n1. Set a role to ping with `/config qotd set_role`\n2. Enable QOTD with `/config qotd enable`"
+    else:
+        msg += "\n\n**Don't forget:** Enable QOTD with `/config qotd enable` to start posting daily questions!"
+    await interaction.response.send_message(msg, ephemeral=True)
 
 @discord.app_commands.allowed_installs(guilds=True, users=False)
 @discord.app_commands.allowed_contexts(guilds=True, dms=False, private_channels=False)
@@ -1237,7 +1251,23 @@ async def set_qotd_role(interaction: discord.Interaction, role: discord.Role):
     finally:
         conn.close()
 
-    await interaction.response.send_message(f"QOTD role set to {role.mention}", ephemeral=True)
+    role_text = role.name if role.is_default() else role.mention
+    msg = f"QOTD role set to {role_text}"
+    channel_row = None
+    try:
+        conn2 = get_db()
+        cur2 = conn2.cursor()
+        channel_row = cur2.execute("SELECT qotd_channel, qotd_enabled FROM guild_settings WHERE guild_id = ?", (interaction.guild.id,)).fetchone()
+    except Exception:
+        pass
+    finally:
+        conn2.close()
+
+    if not channel_row or not channel_row[0]:
+        msg += "\n\n**Next step:** Set a QOTD channel with `/config qotd set_channel`"
+    elif not channel_row[1]:
+        msg += "\n\n**Don't forget:** Enable QOTD with `/config qotd enable` to start posting daily questions!"
+    await interaction.response.send_message(msg, ephemeral=True)
 
 @discord.app_commands.allowed_installs(guilds=True, users=False)
 @discord.app_commands.allowed_contexts(guilds=True, dms=False, private_channels=False)
@@ -1347,7 +1377,7 @@ async def on_message(message):
 @bot.event
 async def on_guild_join(guild):
     print(f"{date()} GUILD  Joined guild: {guild.name} | {guild.member_count} members | ID: {guild.id}")
-    channel = bot.get_channel(1475562384860119196)
+    log_channel = bot.get_channel(1475562384860119196)
     total_members = sum(g.member_count or 0 for g in bot.guilds)
     total_guilds = len(bot.guilds)
     embed = discord.Embed(
@@ -1358,7 +1388,36 @@ async def on_guild_join(guild):
     embed.add_field(name="Guild Members", value=f"`{guild.member_count or 0}`", inline=True)
     embed.add_field(name="Total Members", value=f"`{total_members}`", inline=True)
     embed.add_field(name="Total Guilds", value=f"`{total_guilds}`", inline=True)
-    await channel.send(embed=embed)
+    await log_channel.send(embed=embed)
+
+    welcome_channel = guild.system_channel
+    if not welcome_channel or not welcome_channel.permissions_for(guild.me).send_messages:
+        for ch in guild.text_channels:
+            if ch.permissions_for(guild.me).send_messages:
+                welcome_channel = ch
+                break
+    if not welcome_channel:
+        return
+
+    welcome_embed = discord.Embed(
+        title="Hey! Thanks for adding VoidWave!",
+        description=(
+            "I'm here to make your server more fun with **levels**, **questions of the day**, and more.\n\n"
+            "**Works out of the box (no setup needed):**\n"
+            "> **Leveling** - Members earn XP by chatting and hanging out in voice channels.\n"
+            "> **Stat cards** - Use `/level` to see your level and XP progress.\n"
+            "> **Leaderboard** - Use `/leaderboard` to see who's the most active.\n\n"
+            "**Optional setup (all under `/config`):**\n"
+            "> **Level-up channel** - `/config level set_channel` - Pick a channel and enable level-up announcements.\n"
+            "> **Level-up roles** - `/config level add_role` - Reward members with roles at certain levels.\n"
+            "> **Question of the Day** - `/config qotd set_channel` - Post a daily question and ping a role.\n\n"
+            "**Need help?** Use `/config help` to see all commands, or visit [voidwave.xangey.dev/setup](https://voidwave.xangey.dev/setup) for the full guide."
+        ),
+        color=0x5865F2,
+        timestamp=datetime.datetime.now(datetime.timezone.utc)
+    )
+    welcome_embed.set_thumbnail(url=bot.user.display_avatar.url)
+    await welcome_channel.send(embed=welcome_embed)
 
 @bot.event
 async def on_guild_remove(guild):
