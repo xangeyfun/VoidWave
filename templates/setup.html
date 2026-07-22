@@ -24,9 +24,10 @@
 
 <div class="setup-progress" id="setupProgress">
     <div class="setup-progress-dot active" data-target="1" data-label="Invite the Bot"></div>
-    <div class="setup-progress-dot" data-target="2" data-label="Leveling System"></div>
-    <div class="setup-progress-dot" data-target="3" data-label="Question of the Day"></div>
-    <div class="setup-progress-dot" data-target="4" data-label="Admin Info"></div>
+    <div class="setup-progress-dot" data-target="2" data-label="Quick Setup"></div>
+    <div class="setup-progress-dot" data-target="3" data-label="Leveling System"></div>
+    <div class="setup-progress-dot" data-target="4" data-label="Question of the Day"></div>
+    <div class="setup-progress-dot" data-target="5" data-label="Admin Info"></div>
 </div>
 
 <section class="setup-steps">
@@ -61,6 +62,29 @@
         <div class="setup-step-content">
             <div class="setup-step-header">
                 <div>
+                    <h2>Quick Setup</h2>
+                    <span class="step-tag">easiest</span>
+                </div>
+            </div>
+            <div class="setup-step-body">
+                <p>Want everything set up in one command? Use <code>/config auto</code> to automatically create channels, roles, and enable features.</p>
+                <ul>
+                    <li><strong>Set up everything</strong> - <code>/config auto level:true qotd:true</code> creates a level-ups channel, QOTD channel, QOTD Ping role, and enables both features.</li>
+                    <li><strong>Just leveling</strong> - <code>/config auto level:true qotd:false</code> only sets up level-up announcements.</li>
+                    <li><strong>Just QOTD</strong> - <code>/config auto level:false qotd:true</code> only sets up Question of the Day.</li>
+                </ul>
+                <p>The bot needs <strong>Manage Channels</strong> and <strong>Manage Roles</strong> permissions for this to work. Skip to the next steps if you'd rather configure things manually.</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="setup-block" data-step="3">
+        <div class="setup-step-badge">
+            <span class="step-badge" style="--step-color: var(--primary)">3</span>
+        </div>
+        <div class="setup-step-content">
+            <div class="setup-step-header">
+                <div>
                     <h2>Leveling System</h2>
                     <span class="step-tag">out of the box</span>
                 </div>
@@ -76,9 +100,9 @@
         </div>
     </div>
 
-    <div class="setup-block" data-step="3">
+    <div class="setup-block" data-step="4">
         <div class="setup-step-badge">
-            <span class="step-badge" style="--step-color: #f59e0b">3</span>
+            <span class="step-badge" style="--step-color: #f59e0b">4</span>
         </div>
         <div class="setup-step-content">
             <div class="setup-step-header">
@@ -100,9 +124,9 @@
         </div>
     </div>
 
-    <div class="setup-block" data-step="4">
+    <div class="setup-block" data-step="5">
         <div class="setup-step-badge">
-            <span class="step-badge" style="--step-color: var(--text-muted)">4</span>
+            <span class="step-badge" style="--step-color: var(--text-muted)">5</span>
         </div>
         <div class="setup-step-content">
             <div class="setup-step-header">

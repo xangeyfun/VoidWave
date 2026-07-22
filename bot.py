@@ -1058,60 +1058,86 @@ async def view_config(interaction: discord.Interaction):
 @discord.app_commands.allowed_contexts(guilds=True, dms=False, private_channels=False)
 @discord.app_commands.checks.has_permissions(administrator=True)
 @config.command(name="help", description="Get help with configuration commands") #, guild=guild)
-async def config_help(interaction: discord.Interaction):
-    embed = discord.Embed(
-        title="⚙️ Configuration Help",
-        description=(
-            "Use these commands to configure level-up messages, level roles, and QOTD settings for your server. "
-            "You can also find full setup documentation at https://voidwave.xangey.dev/setup"
-        ),
-        color=discord.Color(0x7128fc)
-    )
-
-    embed.add_field(
-        name="Quick Setup",
-        value=(
-            "`/config auto [level] [qotd]` - Automatically create channels, roles, and enable features"
-        ),
-        inline=False
-    )
-
-    embed.add_field(
-        name="General",
-        value=(
-            "`/config view` - View current configuration"
-        ),
-        inline=False
-    )
-
-    embed.add_field(
-        name="Level Up Channel",
-        value=(
-            "`/config level set_channel [channel]` - Set the channel for level up messages\n"
-            "`/config level toggle_channel [enabled]` - Enable or disable level up messages"
-        ),
-        inline=False
-    )
-
-    embed.add_field(
-        name="Level Roles",
-        value=(
-            "`/config level add_role [level] [role]` - Add a role to be given on level up\n"
-            "`/config level remove_role [level]` - Remove a level role"
-        ),
-        inline=False
-    )
-
-    embed.add_field(
-        name="QOTD Settings",
-        value=(
-            "`/config qotd set_channel [channel]` - Set the channel for QOTD messages\n"
-            "`/config qotd set_role [role]` - Set a role to ping with the QOTD\n"
-            "`/config qotd delete_old [enabled]` - Enable or disable deletion of old QOTD messages\n"
-            "`/config qotd enable [enabled]` - Enable or disable QOTD messages"
-        ),
-        inline=False
-    )
+@app_commands.describe(topic="Get help for a specific feature")
+@app_commands.choices(topic=[
+    app_commands.Choice(name="Leveling", value="leveling"),
+    app_commands.Choice(name="Question of the Day", value="qotd"),
+])
+async def config_help(interaction: discord.Interaction, topic: str = None):
+    if topic == "leveling":
+        embed = discord.Embed(
+            title="⚙️ Leveling Configuration",
+            description="Set up level-up announcements and auto-roles for your server.",
+            color=discord.Color(0x7128fc)
+        )
+        embed.add_field(
+            name="Quick Setup",
+            value="`/config auto level:true` - Create channel and enable announcements instantly",
+            inline=False
+        )
+        embed.add_field(
+            name="Level Up Channel",
+            value=(
+                "`/config level set_channel [channel]` - Set the channel for level up messages\n"
+                "`/config level toggle_channel [enabled]` - Enable or disable level up messages"
+            ),
+            inline=False
+        )
+        embed.add_field(
+            name="Level Roles",
+            value=(
+                "`/config level add_role [level] [role]` - Add a role to be given on level up\n"
+                "`/config level remove_role [level]` - Remove a level role"
+            ),
+            inline=False
+        )
+    elif topic == "qotd":
+        embed = discord.Embed(
+            title="⚙️ QOTD Configuration",
+            description="Set up a daily question with auto-threads and role pings.",
+            color=discord.Color(0x7128fc)
+        )
+        embed.add_field(
+            name="Quick Setup",
+            value="`/config auto qotd:true` - Create channel, role, and enable QOTD instantly",
+            inline=False
+        )
+        embed.add_field(
+            name="QOTD Settings",
+            value=(
+                "`/config qotd set_channel [channel]` - Set the channel for QOTD messages\n"
+                "`/config qotd set_role [role]` - Set a role to ping with the QOTD\n"
+                "`/config qotd enable [enabled]` - Enable or disable QOTD messages\n"
+                "`/config qotd delete_old [enabled]` - Enable or disable deletion of old QOTD messages"
+            ),
+            inline=False
+        )
+    else:
+        embed = discord.Embed(
+            title="⚙️ Configuration Help",
+            description=(
+                "Use these commands to configure your server. "
+                "You can also find full setup documentation at https://voidwave.xangey.dev/setup"
+            ),
+            color=discord.Color(0x7128fc)
+        )
+        embed.add_field(
+            name="Quick Setup",
+            value=(
+                "`/config auto [level] [qotd]` - Automatically create channels, roles, and enable features\n"
+                "Example: `/config auto level:true qotd:true`"
+            ),
+            inline=False
+        )
+        embed.add_field(
+            name="General",
+            value=(
+                "`/config view` - View current configuration\n"
+                "`/config help topic:Leveling` - View leveling commands\n"
+                "`/config help topic:Question of the Day` - View QOTD commands"
+            ),
+            inline=False
+        )
 
     await interaction.response.send_message(embed=embed, ephemeral=True)
 
