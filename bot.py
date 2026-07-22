@@ -1183,8 +1183,8 @@ async def auto_config(interaction: discord.Interaction, level: bool = True, qotd
         else:
             try:
                 overwrites = {
-                    guild_obj.default_role: discord.PermissionOverwrite(read_messages=True, send_messages=False),
-                    bot_member: discord.PermissionOverwrite(read_messages=True, send_messages=True, manage_messages=True)
+                    guild_obj.default_role: discord.PermissionOverwrite(read_messages=True, send_messages=False, create_public_threads=False),
+                    bot_member: discord.PermissionOverwrite(read_messages=True, send_messages=True, manage_messages=True, create_public_threads=True)
                 }
                 level_channel = await guild_obj.create_text_channel(
                     "level-ups",
@@ -1211,8 +1211,8 @@ async def auto_config(interaction: discord.Interaction, level: bool = True, qotd
         else:
             try:
                 overwrites = {
-                    guild_obj.default_role: discord.PermissionOverwrite(read_messages=True, send_messages=False),
-                    bot_member: discord.PermissionOverwrite(read_messages=True, send_messages=True, manage_messages=True)
+                    guild_obj.default_role: discord.PermissionOverwrite(read_messages=True, send_messages=False, create_public_threads=False, send_messages_in_threads=True),
+                    bot_member: discord.PermissionOverwrite(read_messages=True, send_messages=True, manage_messages=True, create_public_threads=True)
                 }
                 qotd_channel = await guild_obj.create_text_channel(
                     "qotd",
