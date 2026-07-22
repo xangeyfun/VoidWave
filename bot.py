@@ -1664,17 +1664,12 @@ async def on_guild_join(guild):
         title="Hey! Thanks for adding VoidWave!",
         description=(
             "I'm here to make your server more fun with **levels**, **questions of the day**, and more.\n\n"
-            "**Works out of the box (no setup needed):**\n"
-            "> **Leveling** - Members earn XP by chatting and hanging out in voice channels.\n"
-            "> **Stat cards** - Use `/level` to see your level and XP progress.\n"
-            "> **Leaderboard** - Use `/leaderboard` to see who's the most active.\n\n"
-            "**Quick setup (easiest):**\n"
-            "> **`/config auto`** - Automatically creates channels, roles, and enables leveling + QOTD in one command.\n\n"
-            "**Manual setup (all under `/config`):**\n"
-            "> **Level-up channel** - `/config level set_channel` - Pick a channel and enable level-up announcements.\n"
-            "> **Level-up roles** - `/config level add_role` - Reward members with roles at certain levels.\n"
-            "> **Question of the Day** - `/config qotd set_channel` - Post a daily question and ping a role.\n\n"
-            "**Need help?** Use `/help` for all commands, `/config help` for configuration, or visit [voidwave.xangey.dev/setup](https://voidwave.xangey.dev/setup) for the full guide."
+            "**Works out of the box:**\n"
+            "Members earn XP by chatting and hanging out in voice channels.\n\n"
+            "**Quick setup:**\n"
+            "`/config auto` - Automatically creates channels, roles, and enables features in one command.\n"
+            "`/config help` - See all configuration options.\n\n"
+            "Visit [voidwave.xangey.dev/setup](https://voidwave.xangey.dev/setup) for the full guide."
         ),
         color=0x5865F2,
         timestamp=datetime.datetime.now(datetime.timezone.utc)
