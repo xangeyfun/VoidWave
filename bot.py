@@ -506,7 +506,7 @@ async def help_command(interaction: discord.Interaction):
         "> **`/random <int> <int> [hidden]`** - Generate a random number between a and b.\n"
         "> **`/quote <choice>`** - Get a quote (Today or Random).\n"
         "> **`/fact <choice>`** - Get a daily fact (Today or Random).\n"
-        "> **`/animal <animal> [hidden]`** - Get a random animal picture (dog, cat, bird, bunny, duck, fox, red panda).\n"
+        "> **`/animal <animal> [hidden]`** - Get a random animal picture.\n"
         "### **Configuration**\n"
         "> **`/config help`** - View configuration commands (level-up messages, roles, QOTD).\n"
         "Some commands have an option to hide the response from others.\n"
@@ -532,7 +532,12 @@ async def ping(interaction: discord.Interaction):
     app_commands.Choice(name="🐰 Bunny", value="bunny"),
     app_commands.Choice(name="🦆 Duck", value="duck"),
     app_commands.Choice(name="🦊 Fox", value="fox"),
-    app_commands.Choice(name=" red panda", value="redpanda")
+    app_commands.Choice(name=" red panda", value="redpanda"),
+    app_commands.Choice(name="🐼 Panda", value="panda"),
+    app_commands.Choice(name="🐨 Koala", value="koala"),
+    app_commands.Choice(name="🦘 Kangaroo", value="kangaroo"),
+    app_commands.Choice(name="🦝 Raccoon", value="raccoon"),
+    app_commands.Choice(name="🐋 Whale", value="whale"),
 ])
 async def animal(interaction: discord.Interaction, animal: str, hidden: bool = False):
     await interaction.response.defer(ephemeral=hidden)
@@ -545,6 +550,11 @@ async def animal(interaction: discord.Interaction, animal: str, hidden: bool = F
         "duck": ("https://random-d.uk/api/v2/quack", "url", "🦆 Quack!"),
         "fox": ("https://randomfox.ca/floof/", "image", "🦊 Floof!"),
         "redpanda": ("https://api.rainbeam.io/v2/images?type=redpanda", "url", " red panda!"),
+        "panda": ("https://some-random-api.com/animal/panda", "image", "🐼 Bamboo crunch!"),
+        "koala": ("https://some-random-api.com/animal/koala", "image", "🐨 Eucalyptus nap!"),
+        "kangaroo": ("https://some-random-api.com/animal/kangaroo", "image", "🦘 Boing!"),
+        "raccoon": ("https://some-random-api.com/animal/racoon", "image", "🦝 Trash panda!"),
+        "whale": ("https://some-random-api.com/animal/whale", "image", "🐋 Sploosh!"),
     }
 
     url, key, title = animal_handlers[animal]
