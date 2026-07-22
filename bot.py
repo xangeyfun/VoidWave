@@ -269,7 +269,12 @@ async def add_message_xp(message):
                 index = min((level - 1) // 10, len(emojis) - 1)
                 emoji = emojis[index]
                 count = min((level - 1) % 10 + 1, 10)
-                await channel.send(f"🎊 {message.author.mention} reached **Level {level}**! {emoji*count}")
+                try:
+                    await channel.send(f"🎊 {message.author.mention} reached **Level {level}**! {emoji*count}")
+                except discord.Forbidden:
+                    print(f"{date()} WARN  Missing permissions to send level-up message in {channel.id} for guild {guild_id}")
+                except Exception as e:
+                    print(f"{date()} ERROR  Failed to send level-up message: {e}")
 
             level_roles = (cur.execute("SELECT level, role_id FROM level_roles WHERE guild_id = ?", (guild_id,)).fetchall())
             level_roles = dict(level_roles) if level_roles else None
@@ -282,10 +287,20 @@ async def add_message_xp(message):
                     role = message.guild.get_role(role_id)
 
                     if role and role not in message.author.roles:
-                        await message.author.add_roles(role)
+                        try:
+                            await message.author.add_roles(role)
+                        except discord.Forbidden:
+                            print(f"{date()} WARN  Missing permissions to assign role {role_id} in guild {guild_id}")
+                        except Exception as e:
+                            print(f"{date()} ERROR  Failed to assign role: {e}")
 
                         if channel and isinstance(channel, discord.TextChannel):
-                            await channel.send(f"🎖️ Congrats {message.author.mention}! You've earned the **`{role.name}`** role!")
+                            try:
+                                await channel.send(f"🎖️ Congrats {message.author.mention}! You've earned the **`{role.name}`** role!")
+                            except discord.Forbidden:
+                                print(f"{date()} WARN  Missing permissions to send role message in {channel.id} for guild {guild_id}")
+                            except Exception as e:
+                                print(f"{date()} ERROR  Failed to send role message: {e}")
 
         cur.execute("UPDATE users SET level=?, progress=?, out_of=? WHERE guild_id=? AND user_id=?", (level, progress, out_of, guild_id, user_id))
         conn.commit()
@@ -349,9 +364,25 @@ async def send_qotd(channel_id, role_id, guild_id):
     )
     embed.set_footer(text="New question every day • Powered by VoidWave")
 
-    msg = await channel.send(embed=embed)
+    msg = None
+    try:
+        msg = await channel.send(embed=embed)
+    except discord.Forbidden:
+        print(f"{date()} ERROR  Missing permissions to send QOTD in channel {channel_id} for guild {guild_id}")
+        conn.close()
+        return
+    except Exception as e:
+        print(f"{date()} ERROR  Failed to send QOTD message: {e}")
+        conn.close()
+        return
 
-    thread = await msg.create_thread(name=f"💬 QOTD • {datetime.datetime.now().strftime('%b %d')}", auto_archive_duration=1440) 
+    thread = None
+    try:
+        thread = await msg.create_thread(name=f"💬 QOTD • {datetime.datetime.now().strftime('%b %d')}", auto_archive_duration=1440)
+    except discord.Forbidden:
+        print(f"{date()} WARN  Missing permissions to create thread in channel {channel_id} for guild {guild_id}")
+    except Exception as e:
+        print(f"{date()} ERROR  Failed to create QOTD thread: {e}")
 
     role = channel.guild.get_role(role_id)
     if role and role.is_default():
@@ -361,12 +392,18 @@ async def send_qotd(channel_id, role_id, guild_id):
     else:
         role_text = "everyone"
 
-    await thread.send(
-        f"Hey {role_text}! ✨\n\n"
-        f"Today's question:\n"
-        f"> **{question}**\n\n"
-        f"What's your answer? Feel free to share your thoughts, stories, or hot takes!"
-    )
+    if thread:
+        try:
+            await thread.send(
+                f"Hey {role_text}! ✨\n\n"
+                f"Today's question:\n"
+                f"> **{question}**\n\n"
+                f"What's your answer? Feel free to share your thoughts, stories, or hot takes!"
+            )
+        except discord.Forbidden:
+            print(f"{date()} WARN  Missing permissions to send QOTD ping in thread for guild {guild_id}")
+        except Exception as e:
+            print(f"{date()} ERROR  Failed to send QOTD ping: {e}")
 
     try:
         cur.execute("UPDATE guild_settings SET last_qotd_id=?, last_qotd_thread_id=?, qotd_queue=? WHERE guild_id=?", (msg.id, thread.id, json.dumps(queue), guild_id))
@@ -1095,6 +1132,16 @@ async def auto_config(interaction: discord.Interaction, level: bool = True, qotd
     created_items = []
     errors = []
 
+    bot_perms = bot_member.guild_permissions
+    missing = []
+    if not bot_perms.manage_channels:
+        missing.append("Manage Channels")
+    if not bot_perms.manage_roles:
+        missing.append("Manage Roles")
+    if missing:
+        await interaction.followup.send(f"I need the following permissions to set up features:\n> **{'**, **'.join(missing)}**\n\nPlease add these permissions and try again.", ephemeral=True)
+        return
+
     conn = get_db()
     cur = conn.cursor()
     existing = cur.execute("SELECT level_channel_id, qotd_channel, qotd_role_id FROM guild_settings WHERE guild_id = ?", (guild_obj.id,)).fetchone()
@@ -1334,6 +1381,11 @@ async def enable_qotd(interaction: discord.Interaction, enabled: bool):
             await interaction.response.send_message("Please set a QOTD channel first using `/config qotd set_channel`", ephemeral=True)
             return
         
+        permissions = channel.permissions_for(interaction.guild.me)
+        if not permissions.send_messages or not permissions.view_channel:
+            await interaction.response.send_message(f"I don't have permission to send messages in {channel.mention}. Please update my permissions for that channel.", ephemeral=True)
+            return
+
         role = cur.execute("SELECT qotd_role_id FROM guild_settings WHERE guild_id = ?", (interaction.guild.id,)).fetchone() # type: ignore
         role = interaction.guild.get_role(role[0]) if role and role[0] else None
         if not role:
