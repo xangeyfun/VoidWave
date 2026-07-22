@@ -1195,6 +1195,11 @@ async def auto_config(interaction: discord.Interaction, level: bool = True, qotd
 @level.command(name="set_channel", description="Set the channel for level up messages") #, guild=guild)
 @app_commands.describe(channel="The channel to send level up messages in")
 async def set_level_channel(interaction: discord.Interaction, channel: discord.TextChannel):
+    permissions = channel.permissions_for(interaction.guild.me)
+    if not permissions.send_messages or not permissions.view_channel:
+        await interaction.response.send_message(f"I don't have permission to send messages in {channel.mention}. Please update my permissions for that channel.", ephemeral=True)
+        return
+
     try:
         conn = get_db()
         cur = conn.cursor()
@@ -1242,6 +1247,10 @@ async def toggle_level_channel(interaction: discord.Interaction, enabled: bool):
 @level.command(name="add_role", description="Add a role to be given on level up") #, guild=guild)
 @app_commands.describe(level="The level to give the role at", role="The role to give")
 async def add_level_role(interaction: discord.Interaction, level: int, role: discord.Role):
+    if role >= interaction.guild.me.top_role:
+        await interaction.response.send_message(f"I can't assign {role.mention} because it's higher than or equal to my highest role. Please move my role above it in the server settings.", ephemeral=True)
+        return
+
     try:
         conn = get_db()
         cur = conn.cursor()
@@ -1282,6 +1291,11 @@ async def remove_level_role(interaction: discord.Interaction, level: int):
 @qotd.command(name="set_channel", description="Set the channel for QOTD") #, guild=guild)
 @app_commands.describe(channel="The channel to send the QOTD in")
 async def set_qotd_channel(interaction: discord.Interaction, channel: discord.TextChannel):
+    permissions = channel.permissions_for(interaction.guild.me)
+    if not permissions.send_messages or not permissions.view_channel:
+        await interaction.response.send_message(f"I don't have permission to send messages in {channel.mention}. Please update my permissions for that channel.", ephemeral=True)
+        return
+
     try:
         conn = get_db()
         cur = conn.cursor()
@@ -1344,6 +1358,10 @@ async def enable_qotd(interaction: discord.Interaction, enabled: bool):
 @qotd.command(name="set_role", description="Set a role to be pinged with the QOTD") #, guild=guild)
 @app_commands.describe(role="The role to ping with the QOTD")
 async def set_qotd_role(interaction: discord.Interaction, role: discord.Role):
+    if role >= interaction.guild.me.top_role:
+        await interaction.response.send_message(f"I can't use {role.mention} because it's higher than or equal to my highest role. Please move my role above it in the server settings.", ephemeral=True)
+        return
+
     try:
         conn = get_db()
         cur = conn.cursor()
