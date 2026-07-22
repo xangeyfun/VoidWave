@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 import unicodedata
 import traceback
 import datetime
-import requests
+import aiohttp
 import discord
 import sqlite3
 import asyncio
@@ -37,6 +37,7 @@ llm_queue_size = []
 ai_processing = False
 last_xp = {}
 last_vc = {}
+http_session = None
 
 # Helpers
 
@@ -424,6 +425,8 @@ print(f"{date()} INFO  Starting bot...\n")
 
 @bot.event
 async def on_ready():
+    global http_session
+    http_session = aiohttp.ClientSession()
     print(f"\n{date()} INFO  Logged in as {bot.user}")
     try:
         print(f"{date()} DEBUG  Syncing commands...")
@@ -532,11 +535,11 @@ async def animal(interaction: discord.Interaction, animal: str, hidden: bool = F
     await interaction.response.defer(ephemeral=hidden)
     if animal == "dog":
         url = "https://random.dog/woof.json"
-        r = requests.get(url)
-        if r.status_code != 200:
-            await interaction.followup.send("> Could not fetch dog picture. Please try again later.", ephemeral=hidden)
-            return
-        data = r.json()
+        async with http_session.get(url) as r:
+            if r.status != 200:
+                await interaction.followup.send("> Could not fetch dog picture. Please try again later.", ephemeral=hidden)
+                return
+            data = await r.json()
         embed = discord.Embed(title="🐶 Woof!", color=discord.Color.orange())
         embed.set_image(url=data["url"])
         embed.set_footer(text=f"{datetime.datetime.now()}")
@@ -544,11 +547,11 @@ async def animal(interaction: discord.Interaction, animal: str, hidden: bool = F
 
     if animal == "cat":
         url = "https://cataas.com/cat?json=True"
-        r = requests.get(url)
-        if r.status_code != 200:
-            await interaction.followup.send("> Could not fetch cat picture. Please try again later.", ephemeral=hidden)
-            return
-        data = r.json()
+        async with http_session.get(url) as r:
+            if r.status != 200:
+                await interaction.followup.send("> Could not fetch cat picture. Please try again later.", ephemeral=hidden)
+                return
+            data = await r.json()
         embed = discord.Embed(title="🐱 Meow!", color=discord.Color.orange())
         embed.set_image(url=data["url"])
         embed.set_footer(text=f"{datetime.datetime.now()}")
@@ -556,11 +559,11 @@ async def animal(interaction: discord.Interaction, animal: str, hidden: bool = F
 
     if animal == "duck":
         url = "https://random-d.uk/api/v2/quack"
-        r = requests.get(url)
-        if r.status_code != 200:
-            await interaction.followup.send("> Could not fetch duck picture. Please try again later.", ephemeral=hidden)
-            return
-        data = r.json()
+        async with http_session.get(url) as r:
+            if r.status != 200:
+                await interaction.followup.send("> Could not fetch duck picture. Please try again later.", ephemeral=hidden)
+                return
+            data = await r.json()
         embed = discord.Embed(title="🦆 Quack!", color=discord.Color.orange())
         embed.set_image(url=data["url"])
         embed.set_footer(text=f"{datetime.datetime.now()}")
@@ -568,11 +571,11 @@ async def animal(interaction: discord.Interaction, animal: str, hidden: bool = F
     
     if animal == "fox":
         url = "https://randomfox.ca/floof/"
-        r = requests.get(url)
-        if r.status_code != 200:
-            await interaction.followup.send("> Could not fetch fox picture. Please try again later.", ephemeral=hidden)
-            return
-        data = r.json()
+        async with http_session.get(url) as r:
+            if r.status != 200:
+                await interaction.followup.send("> Could not fetch fox picture. Please try again later.", ephemeral=hidden)
+                return
+            data = await r.json()
         embed = discord.Embed(title="🦊 What does the fox say?", color=discord.Color.orange())
         embed.set_image(url=data["image"])
         embed.set_footer(text=f"{datetime.datetime.now()}")
@@ -663,12 +666,12 @@ async def quote(interaction: discord.Interaction, choice: str, hidden: bool = Fa
         await interaction.followup.send(f"Invalid input: {choice}", ephemeral=True)
         return
     try:
-        r = requests.get(f"https://zenquotes.io/api/{choice.lower()}")
-        print(f"{date()} INFO  Quote API response status: {r.status_code}")
+        async with http_session.get(f"https://zenquotes.io/api/{choice.lower()}") as r:
+            print(f"{date()} INFO  Quote API response status: {r.status}")
+            data = await r.json()
     except Exception as e:
         await interaction.followup.send(f"Could not fetch quote. Please try again later.\nDetails: {e}", ephemeral=True)
         return
-    data = r.json()
     await interaction.followup.send(f"\"{data[0]['q']}\" - {data[0]['a']}", ephemeral=hidden)
 
 @discord.app_commands.allowed_installs(guilds=True, users=True)
@@ -697,12 +700,12 @@ async def get_fact(interaction: discord.Interaction, choice: str, hidden: bool =
         await interaction.followup.send(f"Invalid input: {choice}", ephemeral=True)
         return
     try:
-        r = requests.get(f"https://uselessfacts.jsph.pl/{'today' if choice.lower() == 'today' else 'random'}.json?language=en")
-        print(f"{date()} INFO  Fact API response status: {r.status_code}")
+        async with http_session.get(f"https://uselessfacts.jsph.pl/{'today' if choice.lower() == 'today' else 'random'}.json?language=en") as r:
+            print(f"{date()} INFO  Fact API response status: {r.status}")
+            data = await r.json()
     except Exception as e:
         await interaction.followup.send(f"Could not fetch fact. Please try again later.\nDetails: {e}", ephemeral=True)
         return
-    data = r.json()
     await interaction.followup.send(f"{data['text']}", ephemeral=hidden)
 
 @discord.app_commands.allowed_installs(guilds=True, users=False)
