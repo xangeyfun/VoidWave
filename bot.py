@@ -1026,10 +1026,17 @@ async def config_help(interaction: discord.Interaction):
         title="⚙️ Configuration Help",
         description=(
             "Use these commands to configure level-up messages, level roles, and QOTD settings for your server. "
-            "Each section below shows the commands available for that area. "
             "You can also find full setup documentation at https://voidwave.xangey.dev/setup"
         ),
         color=discord.Color(0x7128fc)
+    )
+
+    embed.add_field(
+        name="Quick Setup",
+        value=(
+            "`/config auto [level] [qotd]` - Automatically create channels, roles, and enable features"
+        ),
+        inline=False
     )
 
     embed.add_field(
@@ -1070,6 +1077,115 @@ async def config_help(interaction: discord.Interaction):
     )
 
     await interaction.response.send_message(embed=embed, ephemeral=True)
+
+@discord.app_commands.allowed_installs(guilds=True, users=False)
+@discord.app_commands.allowed_contexts(guilds=True, dms=False, private_channels=False)
+@discord.app_commands.checks.has_permissions(administrator=True)
+@config.command(name="auto", description="Automatically set up features for your server")
+@app_commands.describe(level="Set up leveling channel and enable announcements", qotd="Set up QOTD channel, role, and enable QOTD")
+async def auto_config(interaction: discord.Interaction, level: bool = True, qotd: bool = True):
+    if not level and not qotd:
+        await interaction.response.send_message("Enable at least one feature! Use `/config auto level:true qotd:true`", ephemeral=True)
+        return
+
+    await interaction.response.defer(ephemeral=True)
+
+    guild_obj = interaction.guild
+    bot_member = guild_obj.me
+    created_items = []
+    errors = []
+
+    conn = get_db()
+    cur = conn.cursor()
+    existing = cur.execute("SELECT level_channel_id, qotd_channel, qotd_role_id FROM guild_settings WHERE guild_id = ?", (guild_obj.id,)).fetchone()
+    conn.close()
+
+    existing_level = existing and existing[0]
+    existing_qotd_channel = existing and existing[1]
+    existing_qotd_role = existing and existing[2]
+
+    if level:
+        if existing_level:
+            await interaction.followup.send("Leveling is already configured. Use `/config level set_channel` to change it.", ephemeral=True)
+        else:
+            try:
+                overwrites = {
+                    guild_obj.default_role: discord.PermissionOverwrite(read_messages=True, send_messages=False),
+                    bot_member: discord.PermissionOverwrite(read_messages=True, send_messages=True, manage_messages=True)
+                }
+                level_channel = await guild_obj.create_text_channel(
+                    "level-ups",
+                    topic="Level up announcements",
+                    overwrites=overwrites,
+                    reason="VoidWave auto config"
+                )
+                created_items.append(f"Channel: {level_channel.mention}")
+
+                conn = get_db()
+                cur = conn.cursor()
+                cur.execute(
+                    "INSERT INTO guild_settings (guild_id, level_channel_id, level_channel_enabled) VALUES (?, ?, 1) ON CONFLICT(guild_id) DO UPDATE SET level_channel_id = excluded.level_channel_id, level_channel_enabled = 1",
+                    (guild_obj.id, level_channel.id)
+                )
+                conn.commit()
+                conn.close()
+            except Exception as e:
+                errors.append(f"Failed to create level-ups channel: {e}")
+
+    if qotd:
+        if existing_qotd_channel and existing_qotd_role:
+            await interaction.followup.send("QOTD is already configured. Use `/config qotd set_channel` to change it.", ephemeral=True)
+        else:
+            try:
+                overwrites = {
+                    guild_obj.default_role: discord.PermissionOverwrite(read_messages=True, send_messages=False),
+                    bot_member: discord.PermissionOverwrite(read_messages=True, send_messages=True, manage_messages=True)
+                }
+                qotd_channel = await guild_obj.create_text_channel(
+                    "qotd",
+                    topic="Question of the Day",
+                    overwrites=overwrites,
+                    reason="VoidWave auto config"
+                )
+                created_items.append(f"Channel: {qotd_channel.mention}")
+
+                qotd_role = await guild_obj.create_role(
+                    name="QOTD Ping",
+                    mentionable=True,
+                    reason="VoidWave auto config"
+                )
+                created_items.append(f"Role: {qotd_role.mention}")
+
+                conn = get_db()
+                cur = conn.cursor()
+                cur.execute(
+                    "INSERT INTO guild_settings (guild_id, qotd_channel, qotd_role_id, qotd_enabled) VALUES (?, ?, ?, 1) ON CONFLICT(guild_id) DO UPDATE SET qotd_channel = excluded.qotd_channel, qotd_role_id = excluded.qotd_role_id, qotd_enabled = 1",
+                    (guild_obj.id, qotd_channel.id, qotd_role.id)
+                )
+                conn.commit()
+                conn.close()
+            except Exception as e:
+                errors.append(f"Failed to create QOTD setup: {e}")
+
+    if errors:
+        error_text = "\n".join(errors)
+        if created_items:
+            items_text = "\n".join(created_items)
+            await interaction.followup.send(
+                f"### Partially configured!\n**Created:**\n{items_text}\n\n**Errors:**\n```\n{error_text}\n```\nMake sure VoidWave has **Manage Channels** and **Manage Roles** permissions.",
+                ephemeral=True
+            )
+        else:
+            await interaction.followup.send(
+                f"### Setup failed!\n```\n{error_text}\n```\nMake sure VoidWave has **Manage Channels** and **Manage Roles** permissions.",
+                ephemeral=True
+            )
+    else:
+        items_text = "\n".join(created_items)
+        await interaction.followup.send(
+            f"### All set up!\n**Created:**\n{items_text}\n\nBoth features are now enabled. Customize further with `/config help`.",
+            ephemeral=True
+        )
 
 # Levelup channel config
 
