@@ -94,9 +94,15 @@ def get_leaderboard(guild_id: int = 0, sort_by: str = 'level', direction: str = 
     total = total_rows[0][0] if total_rows else 0
     
     offset = (page - 1) * per_page
+    sort_column = {
+        'level': 'level',
+        'total_xp': 'total_xp',
+        'total_messages': 'total_messages',
+        'vc_minutes': 'vc_minutes',
+    }[sort_by]
     entries = cached_query(
         cache_key,
-        f"SELECT * FROM users {where_sql} ORDER BY {sort_by} {dir_sql} LIMIT ? OFFSET ?",
+        f"SELECT * FROM users {where_sql} ORDER BY {sort_column} {dir_sql} LIMIT ? OFFSET ?",
         params + (per_page, offset)
     )
     
