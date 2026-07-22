@@ -524,32 +524,92 @@ async def on_interaction(interaction: discord.Interaction):
 @discord.app_commands.allowed_installs(guilds=True, users=True)
 @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
 @bot.tree.command(name="help", description="Get help about the bot.") #, guild=guild)
-async def help_command(interaction: discord.Interaction):
-    help_text = (
-        "## **Available Commands:**\n"
-        "> **<required>**  |  **[optional]**\n"
-        "### **Leveling**\n"
-        "> **`/level [user] [hidden]`** - Check your server level.\n"
-        "> **`/leaderboard <sort> [global_lb]`** - Check the server level leaderboard.\n"
-        "> **`/profile [user]`** - Check your profile.\n"
-        "### **Utilities**\n"
-        "> **`/ping`** - Test the bot's latency.\n"
-        "> **`/uptime`** - Check the bot's uptime.\n"
-        "> **`/calc <expression>`** - Simple calculator.\n"
-        "> **`/ai <message> [stats] [hidden]`** - Chat with the bot's AI (powered by Llama 3.2).\n"
-        "> **`/userinfo <user> [hidden]`** - Get info about a user.\n"
-        "### **Fun**\n"
-        "> **`/flip [hidden]`** - Flip a coin.\n"
-        "> **`/random <int> <int> [hidden]`** - Generate a random number between a and b.\n"
-        "> **`/quote <choice>`** - Get a quote (Today or Random).\n"
-        "> **`/fact <choice>`** - Get a daily fact (Today or Random).\n"
-        "> **`/animal <animal> [hidden]`** - Get a random animal picture.\n"
-        "### **Configuration**\n"
-        "> **`/config help`** - View configuration commands (level-up messages, roles, QOTD).\n"
-        "Some commands have an option to hide the response from others.\n"
-        "Use it if you don't want to spam channels or just want some privacy :wink: \n"
-    )
-    await interaction.response.send_message(help_text, ephemeral=True)
+@app_commands.describe(topic="Get help for a specific category")
+@app_commands.choices(topic=[
+    app_commands.Choice(name="Leveling", value="leveling"),
+    app_commands.Choice(name="Utilities", value="utilities"),
+    app_commands.Choice(name="Fun", value="fun"),
+    app_commands.Choice(name="Configuration", value="configuration"),
+])
+async def help_command(interaction: discord.Interaction, topic: str = None):
+    if topic == "leveling":
+        embed = discord.Embed(title="📊 Leveling Commands", color=discord.Color(0x7128fc))
+        embed.add_field(
+            name="Commands",
+            value=(
+                "`/level [user] [hidden]` - Check your server level\n"
+                "`/leaderboard <sort> [global_lb]` - Check the server level leaderboard\n"
+                "`/profile [user]` - Check your profile"
+            ),
+            inline=False
+        )
+    elif topic == "utilities":
+        embed = discord.Embed(title="🔧 Utility Commands", color=discord.Color(0x7128fc))
+        embed.add_field(
+            name="Commands",
+            value=(
+                "`/ping` - Test the bot's latency\n"
+                "`/uptime` - Check the bot's uptime\n"
+                "`/calc <expression>` - Simple calculator\n"
+                "`/ai <message> [stats] [hidden]` - Chat with the bot's AI\n"
+                "`/userinfo <user> [hidden]` - Get info about a user"
+            ),
+            inline=False
+        )
+    elif topic == "fun":
+        embed = discord.Embed(title="🎉 Fun Commands", color=discord.Color(0x7128fc))
+        embed.add_field(
+            name="Commands",
+            value=(
+                "`/flip [hidden]` - Flip a coin\n"
+                "`/random <int> <int> [hidden]` - Generate a random number\n"
+                "`/quote <choice>` - Get a quote (Today or Random)\n"
+                "`/fact <choice>` - Get a daily fact (Today or Random)\n"
+                "`/animal <animal> [hidden]` - Get a random animal picture"
+            ),
+            inline=False
+        )
+    elif topic == "configuration":
+        embed = discord.Embed(title="⚙️ Configuration Commands", color=discord.Color(0x7128fc))
+        embed.add_field(
+            name="Commands",
+            value=(
+                "`/config auto [level] [qotd]` - Automatically set up features\n"
+                "`/config view` - View current configuration\n"
+                "`/config help` - View all configuration commands"
+            ),
+            inline=False
+        )
+        embed.set_footer(text="Only available to server admins")
+    else:
+        embed = discord.Embed(
+            title="VoidWave Help",
+            description="Select a category below or use `/help topic:<category>` for details.",
+            color=discord.Color(0x7128fc)
+        )
+        embed.add_field(
+            name="📊 Leveling",
+            value="`/level`, `/leaderboard`, `/profile`",
+            inline=True
+        )
+        embed.add_field(
+            name="🔧 Utilities",
+            value="`/ping`, `/uptime`, `/calc`, `/ai`, `/userinfo`",
+            inline=True
+        )
+        embed.add_field(
+            name="🎉 Fun",
+            value="`/flip`, `/random`, `/quote`, `/fact`, `/animal`",
+            inline=True
+        )
+        embed.add_field(
+            name="⚙️ Configuration",
+            value="`/config auto`, `/config view`, `/config help`",
+            inline=True
+        )
+        embed.set_footer(text="Use /help topic:<category> for details • Some commands have a [hidden] option")
+
+    await interaction.response.send_message(embed=embed, ephemeral=True)
 
 
 @discord.app_commands.allowed_installs(guilds=True, users=True)
