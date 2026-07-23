@@ -362,7 +362,7 @@ async def send_qotd(channel_id, role_id, guild_id):
         color=0x5865F2,
         timestamp=datetime.datetime.now(datetime.timezone.utc)
     )
-    embed.set_footer(text="New question every day • Powered by VoidWave • Vote on Top.gg!")
+    embed.set_footer(text="New question every day • Powered by VoidWave • Vote for the bot! /vote")
 
     msg = None
     try:
@@ -550,6 +550,7 @@ async def help_command(interaction: discord.Interaction, topic: str = None):
             value=(
                 "`/ping` - Test the bot's latency\n"
                 "`/uptime` - Check the bot's uptime and useful links\n"
+                "`/vote` - Vote for the bot on Top.gg\n"
                 "`/calc <expression>` - Simple calculator\n"
                 "`/ai <message> [stats] [hidden]` - Chat with the bot's AI\n"
                 "`/userinfo <user> [hidden]` - Get info about a user"
@@ -607,7 +608,7 @@ async def help_command(interaction: discord.Interaction, topic: str = None):
             value="`/config auto`, `/config view`, `/config help`",
             inline=True
         )
-        embed.set_footer(text="Use /help topic:<category> for details • Vote on Top.gg!")
+        embed.set_footer(text="Use /help topic:<category> for details • Vote for the bot! /vote")
 
     await interaction.response.send_message(embed=embed, ephemeral=True)
 
@@ -726,7 +727,7 @@ async def userinfo(interaction: discord.Interaction, user: discord.Member | disc
         embed.add_field(name="Roles", value=", ".join(roles) or "None")
 
     embed.set_thumbnail(url=user.display_avatar.url)
-    embed.set_footer(text=f"Requested by {interaction.user.name} • Vote on Top.gg!")
+    embed.set_footer(text=f"Requested by {interaction.user.name} • Vote for the bot! /vote")
 
     await interaction.response.send_message(embed=embed, ephemeral=hidden)
 
@@ -772,6 +773,12 @@ async def uptime(interaction: discord.Interaction):
         ephemeral=True,
         allowed_mentions=discord.AllowedMentions(users=False)
     )
+
+@discord.app_commands.allowed_installs(guilds=True, users=True)
+@discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
+@bot.tree.command(name="vote", description="Vote for VoidWave on Top.gg!") #, guild=guild)
+async def vote(interaction: discord.Interaction):
+    await interaction.response.send_message("🗳️ **Vote for VoidWave!**\n> <https://top.gg/bot/1442229230384709752/vote>", ephemeral=True)
 
 @discord.app_commands.allowed_installs(guilds=True, users=True)
 @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
@@ -874,7 +881,7 @@ async def level(interaction: discord.Interaction, hidden: bool = False, user: di
     embed.set_thumbnail(url=user.display_avatar.url) # type: ignore
 
     embed.set_footer(
-        text=f"{interaction.guild.name} • Vote on Top.gg!",
+        text=f"{interaction.guild.name} • Vote for the bot! /vote",
         icon_url=interaction.guild.icon.url if interaction.guild.icon else None
     )
 
@@ -957,7 +964,7 @@ async def leaderboard(interaction: discord.Interaction, sort: str, global_lb: bo
     embed.description = "\n".join(lines) + "\n\n**View online:** [Leaderboard](https://voidwave.xangey.dev/leaderboard)" if lines else "no data yet :("
 
     embed.set_footer(
-        text=f"{interaction.guild.name if interaction.guild and not global_lb else 'Global'} Leaderboard • Vote on Top.gg!",
+        text=f"{interaction.guild.name if interaction.guild and not global_lb else 'Global'} Leaderboard • Vote for the bot! /vote",
         icon_url=interaction.guild.icon.url if interaction.guild and interaction.guild.icon and not global_lb else None
     )
 
@@ -1032,7 +1039,7 @@ async def profile(interaction: discord.Interaction, hidden: bool = False, user: 
     embed.set_thumbnail(url=user.display_avatar.url)
 
     embed.set_footer(
-        text=f"user id: {user.id} • Vote on Top.gg!",
+        text=f"user id: {user.id} • Vote for the bot! /vote",
         icon_url=user.display_avatar.url
     )
 
