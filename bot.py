@@ -362,7 +362,7 @@ async def send_qotd(channel_id, role_id, guild_id):
         color=0x5865F2,
         timestamp=datetime.datetime.now(datetime.timezone.utc)
     )
-    embed.set_footer(text="New question every day • Powered by VoidWave")
+    embed.set_footer(text="New question every day • Powered by VoidWave • Vote on Top.gg!")
 
     msg = None
     try:
@@ -607,7 +607,7 @@ async def help_command(interaction: discord.Interaction, topic: str = None):
             value="`/config auto`, `/config view`, `/config help`",
             inline=True
         )
-        embed.set_footer(text="Use /help topic:<category> for details • Some commands have a [hidden] option")
+        embed.set_footer(text="Use /help topic:<category> for details • Vote on Top.gg!")
 
     await interaction.response.send_message(embed=embed, ephemeral=True)
 
@@ -726,7 +726,7 @@ async def userinfo(interaction: discord.Interaction, user: discord.Member | disc
         embed.add_field(name="Roles", value=", ".join(roles) or "None")
 
     embed.set_thumbnail(url=user.display_avatar.url)
-    embed.set_footer(text=f"Requested by {interaction.user.name} • {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    embed.set_footer(text=f"Requested by {interaction.user.name} • Vote on Top.gg!")
 
     await interaction.response.send_message(embed=embed, ephemeral=hidden)
 
@@ -874,7 +874,7 @@ async def level(interaction: discord.Interaction, hidden: bool = False, user: di
     embed.set_thumbnail(url=user.display_avatar.url) # type: ignore
 
     embed.set_footer(
-        text=f"{interaction.guild.name} • {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+        text=f"{interaction.guild.name} • Vote on Top.gg!",
         icon_url=interaction.guild.icon.url if interaction.guild.icon else None
     )
 
@@ -957,7 +957,7 @@ async def leaderboard(interaction: discord.Interaction, sort: str, global_lb: bo
     embed.description = "\n".join(lines) + "\n\n**View online:** [Leaderboard](https://voidwave.xangey.dev/leaderboard)" if lines else "no data yet :("
 
     embed.set_footer(
-        text=f"{interaction.guild.name if interaction.guild and not global_lb else 'Global'} Leaderboard • {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+        text=f"{interaction.guild.name if interaction.guild and not global_lb else 'Global'} Leaderboard • Vote on Top.gg!",
         icon_url=interaction.guild.icon.url if interaction.guild and interaction.guild.icon and not global_lb else None
     )
 
@@ -1032,7 +1032,7 @@ async def profile(interaction: discord.Interaction, hidden: bool = False, user: 
     embed.set_thumbnail(url=user.display_avatar.url)
 
     embed.set_footer(
-        text=f"user id: {user.id}",
+        text=f"user id: {user.id} • Vote on Top.gg!",
         icon_url=user.display_avatar.url
     )
 
