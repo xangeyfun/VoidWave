@@ -663,7 +663,7 @@ async def animal(interaction: discord.Interaction, animal: str, hidden: bool = F
     image_url = data[key]
     embed = discord.Embed(title=title, color=discord.Color.orange())
     embed.set_image(url=image_url)
-    embed.set_footer(text=f"{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')} • Vote for the bot! /vote")
+    embed.set_footer(text="Vote for the bot! /vote")
     await interaction.followup.send(embed=embed, ephemeral=hidden)
 
 @discord.app_commands.allowed_installs(guilds=True, users=True)
