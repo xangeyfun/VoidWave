@@ -549,7 +549,7 @@ async def help_command(interaction: discord.Interaction, topic: str = None):
             name="Commands",
             value=(
                 "`/ping` - Test the bot's latency\n"
-                "`/uptime` - Check the bot's uptime\n"
+                "`/uptime` - Check the bot's uptime and useful links\n"
                 "`/calc <expression>` - Simple calculator\n"
                 "`/ai <message> [stats] [hidden]` - Chat with the bot's AI\n"
                 "`/userinfo <user> [hidden]` - Get info about a user"
@@ -689,12 +689,6 @@ async def flip(interaction: Interaction, hidden: bool = False):
 
 @discord.app_commands.allowed_installs(guilds=True, users=True)
 @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
-@bot.tree.command(name="github", description="Find the code on github!") #, guild=guild)
-async def github(interaction: discord.Interaction):
-    await interaction.response.send_message("Bot made by `xangey` (<@996771607630585856>)\n> <https://github.com/xangeyfun/VoidWave>\n> <https://voidwave.xangey.dev/>", ephemeral=True, allowed_mentions=discord.AllowedMentions(users=False))
-
-@discord.app_commands.allowed_installs(guilds=True, users=True)
-@discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
 @bot.tree.command(name="random", description="Random number generator") #, guild=guild)
 @app_commands.describe(a="Lowest number", b="Highest number", hidden="Hide the command from others")
 async def random_number(interaction: Interaction, a: int, b: int, hidden: bool = False):
@@ -768,7 +762,16 @@ async def uptime(interaction: discord.Interaction):
     minutes, seconds = divmod(remainder, 60)
     days, hours = divmod(hours, 24)
     uptime_str = f"{days}d {hours}h {minutes}m {seconds}s"
-    await interaction.response.send_message(f"⏱️ **Bot Uptime**\n> {uptime_str}\n\n🔗 Status Page: <https://status.xangey.dev/>", ephemeral=True)
+    await interaction.response.send_message(
+        f"⏱️ **Bot Uptime**\n> {uptime_str}\n\n"
+        f"🔗 **Links**\n"
+        f"> Status Page: <https://status.xangey.dev/>\n"
+        f"> GitHub: <https://github.com/xangeyfun/VoidWave>\n"
+        f"> Website: <https://voidwave.xangey.dev/>\n"
+        f"> Vote on Top.gg: <https://top.gg/bot/1442229230384709752/vote>",
+        ephemeral=True,
+        allowed_mentions=discord.AllowedMentions(users=False)
+    )
 
 @discord.app_commands.allowed_installs(guilds=True, users=True)
 @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
