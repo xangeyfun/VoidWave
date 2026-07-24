@@ -1685,6 +1685,7 @@ async def on_guild_join(guild):
         timestamp=datetime.datetime.now(datetime.timezone.utc)
     )
     welcome_embed.set_thumbnail(url=bot.user.display_avatar.url)
+    welcome_embed.set_footer(text="Vote for the bot! /vote")
     await welcome_channel.send(embed=welcome_embed)
 
 @bot.event
