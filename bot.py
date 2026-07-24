@@ -769,7 +769,8 @@ async def uptime(interaction: discord.Interaction):
         f"> Status Page: <https://status.xangey.dev/>\n"
         f"> GitHub: <https://github.com/xangeyfun/VoidWave>\n"
         f"> Website: <https://voidwave.xangey.dev/>\n"
-        f"> Vote on Top.gg: <https://top.gg/bot/1442229230384709752/vote>",
+        f"> Vote on Top.gg: <https://top.gg/bot/1442229230384709752/vote>\n"
+        f"> Vote on DiscordBotList: <https://discordbotlist.com/bots/voidwave/upvote>",
         ephemeral=True,
         allowed_mentions=discord.AllowedMentions(users=False)
     )
@@ -778,7 +779,7 @@ async def uptime(interaction: discord.Interaction):
 @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
 @bot.tree.command(name="vote", description="Vote for VoidWave on Top.gg!") #, guild=guild)
 async def vote(interaction: discord.Interaction):
-    await interaction.response.send_message("🗳️ **Vote for VoidWave!**\n> <https://top.gg/bot/1442229230384709752/vote>", ephemeral=True)
+    await interaction.response.send_message("🗳️ **Vote for VoidWave!**\n> <https://top.gg/bot/1442229230384709752/vote>\n> <https://discordbotlist.com/bots/voidwave/upvote>", ephemeral=True)
 
 @discord.app_commands.allowed_installs(guilds=True, users=True)
 @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
