@@ -633,7 +633,6 @@ async def ping(interaction: discord.Interaction):
     app_commands.Choice(name="🐼 Panda", value="panda"),
     app_commands.Choice(name="🐨 Koala", value="koala"),
     app_commands.Choice(name="🦘 Kangaroo", value="kangaroo"),
-    app_commands.Choice(name="🦝 Raccoon", value="raccoon"),
     app_commands.Choice(name="🐋 Whale", value="whale"),
 ])
 async def animal(interaction: discord.Interaction, animal: str, hidden: bool = False):
@@ -644,11 +643,10 @@ async def animal(interaction: discord.Interaction, animal: str, hidden: bool = F
         "cat": ("https://cataas.com/cat?json=True", "url", "🐱 Meow!"),
         "duck": ("https://random-d.uk/api/v2/quack", "url", "🦆 Quack!"),
         "fox": ("https://randomfox.ca/floof/", "image", "🦊 Floof!"),
-        "panda": ("https://some-random-api.com/animal/panda", "image", "🐼 Bamboo crunch!"),
-        "koala": ("https://some-random-api.com/animal/koala", "image", "🐨 Eucalyptus nap!"),
-        "kangaroo": ("https://some-random-api.com/animal/kangaroo", "image", "🦘 Boing!"),
-        "raccoon": ("https://some-random-api.com/animal/racoon", "image", "🦝 Trash panda!"),
-        "whale": ("https://some-random-api.com/animal/whale", "image", "🐋 Sploosh!"),
+        "panda": ("https://api.animality.xyz/img/panda", "image", "🐼 Bamboo crunch!"),
+        "koala": ("https://api.animality.xyz/img/koala", "image", "🐨 Eucalyptus nap!"),
+        "kangaroo": ("https://api.animality.xyz/img/kangaroo", "image", "🦘 Boing!"),
+        "whale": ("https://api.animality.xyz/img/whale", "image", "🐋 Sploosh!"),
     }
 
     url, key, title = animal_handlers[animal]
