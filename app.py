@@ -3,6 +3,7 @@ from dotenv import load_dotenv
 import sqlite3
 import time
 import os
+import json
 
 load_dotenv()
 
@@ -223,6 +224,35 @@ def leaderboard():
         agg_xp=f"{agg_xp:,}",
         agg_messages=f"{agg_messages:,}",
         agg_vc=agg_vc_str
+    ), 200
+
+@app.route('/stats')
+def botstats():
+    history = []
+    try:
+        with open('stats_history.json', 'r') as f:
+            history = json.load(f)
+    except Exception:
+        pass
+
+    latest = history[-1] if history else {}
+    total_snapshots = len(history)
+
+    first_ts = history[0]['timestamp'] if history else None
+    last_ts = latest.get('timestamp') if latest else None
+
+    return render_template('botstats.html',
+        history=history,
+        total_snapshots=total_snapshots,
+        first_ts=first_ts,
+        last_ts=last_ts,
+        guilds=latest.get('total_guilds', 0),
+        members=latest.get('total_members', 0),
+        users=latest.get('total_users', 0),
+        xp=latest.get('total_xp', 0),
+        messages=latest.get('total_messages', 0),
+        vc_minutes=latest.get('total_vc_minutes', 0),
+        avg_level=latest.get('avg_level', 0),
     ), 200
 
 @app.route('/api/leaderboard')

@@ -1,0 +1,144 @@
+{% extends 'base.html' %}
+
+{% block title %}Stats{% endblock %}
+
+{% block meta_description %}VoidWave bot statistics — servers, members, messages, XP, and voice activity across all guilds.{% endblock %}
+
+{% block og_tags %}
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="VoidWave">
+<meta property="og:url" content="https://voidwave.xangey.dev/stats">
+<meta property="og:title" content="VoidWave Stats">
+<meta property="og:description" content="Live bot statistics — servers, members, messages, XP, and voice activity across all guilds.">
+<meta property="og:image" content="https://voidwave.xangey.dev/static/images/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+{% endblock %}
+
+{% block content %}
+<div class="botstats-page">
+    <div class="leaderboard-hero">
+        <h1>Bot Stats</h1>
+        <p>Live metrics from VoidWave across all servers</p>
+        <div class="lb-stats-bar">
+            <div class="lb-stat">
+                <span class="lb-stat-value">{{ "{:,}".format(guilds) }}</span>
+                <span class="lb-stat-label">Servers</span>
+            </div>
+            <div class="lb-stat">
+                <span class="lb-stat-value">{{ "{:,}".format(members) }}</span>
+                <span class="lb-stat-label">Members</span>
+            </div>
+            <div class="lb-stat">
+                <span class="lb-stat-value">{{ "{:,}".format(users) }}</span>
+                <span class="lb-stat-label">Tracked Users</span>
+            </div>
+            <div class="lb-stat">
+                <span class="lb-stat-value">{{ "{:,}".format(messages) }}</span>
+                <span class="lb-stat-label">Messages</span>
+            </div>
+            <div class="lb-stat">
+                <span class="lb-stat-value">{{ "{:,}".format(xp) }}</span>
+                <span class="lb-stat-label">Total XP</span>
+            </div>
+            <div class="lb-stat">
+                <span class="lb-stat-value">{{ "{:,}".format(vc_minutes) }}</span>
+                <span class="lb-stat-label">VC Minutes</span>
+            </div>
+
+        </div>
+    </div>
+
+    <div class="botstats-grid">
+        <div class="chart-card">
+            <h3>Servers</h3>
+            <div class="chart-wrap"><canvas id="chartGuilds"></canvas></div>
+        </div>
+        <div class="chart-card">
+            <h3>Members</h3>
+            <div class="chart-wrap"><canvas id="chartMembers"></canvas></div>
+        </div>
+        <div class="chart-card">
+            <h3>Tracked Users</h3>
+            <div class="chart-wrap"><canvas id="chartUsers"></canvas></div>
+        </div>
+        <div class="chart-card">
+            <h3>Messages</h3>
+            <div class="chart-wrap"><canvas id="chartMessages"></canvas></div>
+        </div>
+        <div class="chart-card">
+            <h3>Total XP</h3>
+            <div class="chart-wrap"><canvas id="chartXP"></canvas></div>
+        </div>
+        <div class="chart-card">
+            <h3>Voice Minutes</h3>
+            <div class="chart-wrap"><canvas id="chartVC"></canvas></div>
+        </div>
+    </div>
+</div>
+
+<script src="/static/js/chart.umd.min.js"></script>
+<script>
+const raw = {{ history | tojson }};
+const labels = raw.map(d => {
+    const dt = new Date(d.timestamp);
+    return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+});
+
+const chartOpts = (color) => ({
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+        legend: { display: false },
+        tooltip: { mode: 'index', intersect: false }
+    },
+    scales: {
+        x: {
+            ticks: { color: '#606070', maxTicksLimit: 10, font: { size: 11 } },
+            grid: { color: 'rgba(255,255,255,0.03)' }
+        },
+        y: {
+            ticks: { color: '#606070', font: { size: 11 } },
+            grid: { color: 'rgba(255,255,255,0.04)' }
+        }
+    },
+    elements: {
+        point: { radius: 0, hoverRadius: 4 },
+        line: { tension: 0.3, borderWidth: 2 }
+    },
+    interaction: { mode: 'nearest', axis: 'x', intersect: false }
+});
+
+function makeGradient(ctx, color) {
+    const g = ctx.createLinearGradient(0, 0, 0, 250);
+    g.addColorStop(0, color);
+    g.addColorStop(1, 'transparent');
+    return g;
+}
+
+function createChart(id, key, color) {
+    const canvas = document.getElementById(id);
+    const ctx = canvas.getContext('2d');
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                data: raw.map(d => d[key]),
+                borderColor: color,
+                backgroundColor: makeGradient(ctx, color.replace('1)', '0.25)')),
+                fill: true
+            }]
+        },
+        options: chartOpts(color)
+    });
+}
+
+createChart('chartGuilds', 'total_guilds', 'rgba(132, 56, 252, 1)');
+createChart('chartMembers', 'total_members', 'rgba(192, 132, 236, 1)');
+createChart('chartUsers', 'total_users', 'rgba(96, 165, 250, 1)');
+createChart('chartMessages', 'total_messages', 'rgba(34, 197, 94, 1)');
+createChart('chartXP', 'total_xp', 'rgba(251, 191, 36, 1)');
+createChart('chartVC', 'total_vc_minutes', 'rgba(244, 114, 182, 1)');
+</script>
+{% endblock %}

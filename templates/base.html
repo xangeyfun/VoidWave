@@ -41,8 +41,14 @@
                     <a href="/" class="nav-link {% if request.path == '/' %}active{% endif %}">Home</a>
                     <a href="/leaderboard" class="nav-link {% if request.path == '/leaderboard' %}active{% endif %}">Leaderboard</a>
                     <a href="/commands" class="nav-link {% if request.path == '/commands' %}active{% endif %}">Commands</a>
-                    <a href="/setup" class="nav-link {% if request.path == '/setup' %}active{% endif %}">Setup</a>
-                    <a href="https://github.com/xangeyfun/VoidWave" target="_blank" class="nav-link">GitHub</a>
+                    <div class="nav-dropdown">
+                        <button class="nav-link nav-dropdown-toggle">More &#9662;</button>
+                        <div class="nav-dropdown-menu">
+                            <a href="/stats" class="nav-dropdown-item {% if request.path == '/stats' %}active{% endif %}">Stats</a>
+                            <a href="/setup" class="nav-dropdown-item {% if request.path == '/setup' %}active{% endif %}">Setup</a>
+                            <a href="https://github.com/xangeyfun/VoidWave" target="_blank" class="nav-dropdown-item">GitHub</a>
+                        </div>
+                    </div>
                     <a href="https://discord.com/oauth2/authorize?client_id=1442229230384709752" target="_blank" class="nav-link btn-invite">Invite</a>
                 </div>
                 <button class="nav-toggle" aria-label="Toggle menu">

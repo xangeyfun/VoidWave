@@ -199,6 +199,63 @@ a:hover {
     box-shadow: 0 4px 20px var(--glow);
 }
 
+.nav-dropdown {
+    position: relative;
+}
+
+.nav-dropdown-toggle {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: inherit;
+}
+
+.nav-dropdown-toggle::after {
+    content: none;
+}
+
+.nav-dropdown-menu {
+    display: block;
+    position: absolute;
+    top: 100%;
+    right: 0;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 0.5rem 0;
+    min-width: 150px;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+    z-index: 200;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-8px);
+    transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s ease;
+    pointer-events: none;
+}
+
+.nav-dropdown.open .nav-dropdown-menu {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+    pointer-events: auto;
+}
+
+.nav-dropdown-item {
+    display: block;
+    padding: 0.5rem 1rem;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    transition: color 0.15s ease, background 0.15s ease;
+    text-decoration: none;
+}
+
+.nav-dropdown-item:hover,
+.nav-dropdown-item.active {
+    color: var(--text-primary);
+    background: var(--bg-tertiary);
+}
+
 .nav-toggle {
     display: none;
     flex-direction: column;
@@ -1290,6 +1347,48 @@ a:hover {
     text-decoration: underline;
 }
 
+/* Bot Stats Page */
+.botstats-page {
+    padding: 3rem 0;
+    animation: slideUp 0.8s ease-out;
+}
+
+.botstats-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.25rem;
+    margin-top: 2rem;
+    padding: 0 2rem;
+    max-width: 1200px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.chart-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-light);
+    border-radius: 14px;
+    padding: 1.25rem 1.5rem;
+    transition: border-color 0.2s ease, box-shadow 0.3s ease;
+}
+
+.chart-card:hover {
+    border-color: var(--primary);
+    box-shadow: 0 0 24px var(--glow);
+}
+
+.chart-card h3 {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 0.75rem;
+}
+
+.chart-wrap {
+    position: relative;
+    height: 220px;
+}
+
 @media (max-width: 768px) {
     .commands-grid {
         grid-template-columns: 1fr 1fr;
@@ -1297,6 +1396,10 @@ a:hover {
 
     .commands-hero h1 {
         font-size: 2.25rem;
+    }
+
+    .botstats-grid {
+        grid-template-columns: 1fr;
     }
 }
 
@@ -1899,6 +2002,28 @@ a:hover {
         display: flex;
     }
     
+    .nav-dropdown-menu {
+        position: static;
+        box-shadow: none;
+        border: none;
+        border-radius: 0;
+        padding: 0;
+        min-width: auto;
+        opacity: 1;
+        visibility: visible;
+        transform: none;
+        pointer-events: auto;
+        transition: none;
+    }
+
+    .nav-dropdown-toggle {
+        display: none;
+    }
+
+    .nav-dropdown-item {
+        padding: 0;
+    }
+
     .nav-toggle {
         display: flex;
     }
