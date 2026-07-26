@@ -3,20 +3,14 @@ from discord.ext import commands
 import discord
 from utils import get_db, date, level_autocomplete
 
-config = discord.app_commands.Group(name="config", description="Admin commands for configuring the bot", allowed_installs=discord.app_commands.AppInstallationType(guild=True, user=False), allowed_contexts=discord.app_commands.AppCommandContext(guild=True, dm_channel=False, private_channel=False))
-level = discord.app_commands.Group(name="level", description="Configure level system settings", parent=config)
-qotd = discord.app_commands.Group(name="qotd", description="Configure QOTD settings", parent=config)
-
 
 class ConfigCog(commands.Cog):
+    config = discord.app_commands.Group(name="config", description="Admin commands for configuring the bot", allowed_installs=discord.app_commands.AppInstallationType(guild=True, user=False), allowed_contexts=discord.app_commands.AppCommandContext(guild=True, dm_channel=False, private_channel=False))
+    level = discord.app_commands.Group(name="level", description="Configure level system settings", parent=config)
+    qotd = discord.app_commands.Group(name="qotd", description="Configure QOTD settings", parent=config)
+
     def __init__(self, bot):
         self.bot = bot
-
-    async def cog_load(self):
-        self.bot.tree.add_command(config)
-
-    async def cog_unload(self):
-        self.bot.tree.remove_command("config")
 
     @discord.app_commands.allowed_installs(guilds=True, users=False)
     @discord.app_commands.allowed_contexts(guilds=True, dms=False, private_channels=False)
