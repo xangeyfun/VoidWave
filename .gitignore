@@ -12,6 +12,4 @@ command_logs.txt
 prompts/*
 !prompts/default.txt
 stats_history.json
-Graphs/
-graphs.log
-static/images/stats.png
+
