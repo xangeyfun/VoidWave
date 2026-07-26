@@ -15,6 +15,7 @@ VC_COOLDOWN = 600
 LLM_COOLDOWN = 15
 STATS_LOG_FILE = "stats_history.json"
 TOPGG_TOKEN = os.getenv("TOPGG_TOKEN")
+DBL_TOKEN = os.getenv("DBL_TOKEN")
 
 # Shared state
 startup = time.time()

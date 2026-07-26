@@ -9,7 +9,7 @@ import time
 from utils import (
     get_db, date, log_stats, add_message_xp, send_qotd, llm_worker,
     LLMRequest, get_command_path, extract_options, startup,
-    last_llm, llm_queue, llm_queue_size, LLM_COOLDOWN, TOPGG_TOKEN,
+    last_llm, llm_queue, llm_queue_size, LLM_COOLDOWN, TOPGG_TOKEN, DBL_TOKEN,
     http_session as _http_session
 )
 import utils
@@ -282,16 +282,52 @@ class EventsCog(commands.Cog):
     @tasks.loop(minutes=30)
     async def update_topgg(self):
         async with aiohttp.ClientSession() as session:
-            await session.patch(
-                "https://top.gg/api/v1/projects/@me/metrics",
-                headers={
-                    "Authorization": f"Bearer {TOPGG_TOKEN}"
-                },
-                json={
-                    "server_count": len(self.bot.guilds),
-                    "shard_count": self.bot.shard_count or 1,
-                },
-            )
+            if not TOPGG_TOKEN and not DBL_TOKEN:
+                return
+
+            if TOPGG_TOKEN:
+                topgg_headers = {"Authorization": f"Bearer {TOPGG_TOKEN}"}
+                await session.patch(
+                    "https://top.gg/api/v1/projects/@me/metrics",
+                    headers=topgg_headers,
+                    json={
+                        "server_count": len(self.bot.guilds),
+                        "shard_count": self.bot.shard_count or 1,
+                    },
+                )
+
+            if self.bot.user:
+                try:
+                    commands = await self.bot.tree.fetch_commands()
+                    cmd_dicts = [c.to_dict() for c in commands]
+
+                    if TOPGG_TOKEN:
+                        await session.put(
+                            "https://top.gg/api/v1/projects/@me/commands",
+                            headers={**topgg_headers, "Content-Type": "application/json"},
+                            json=cmd_dicts,
+                        )
+
+                    if DBL_TOKEN:
+                        bot_id = str(self.bot.user.id)
+                        dbl_headers = {"Authorization": DBL_TOKEN, "Content-Type": "application/json"}
+
+                        await session.post(
+                            f"https://discordbotlist.com/api/v1/bots/{bot_id}/stats",
+                            headers=dbl_headers,
+                            json={
+                                "guilds": len(self.bot.guilds),
+                                "users": sum(g.member_count or 0 for g in self.bot.guilds),
+                            },
+                        )
+
+                        await session.post(
+                            f"https://discordbotlist.com/api/v1/bots/{bot_id}/commands",
+                            headers=dbl_headers,
+                            json=cmd_dicts,
+                        )
+                except Exception as e:
+                    print(f"{date()} ERROR  Failed to post to bot lists: {e}")
 
 
 async def setup(bot):
