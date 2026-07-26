@@ -37,6 +37,10 @@ class FunCog(commands.Cog):
         app_commands.Choice(name="🐿️ Squirrel", value="squirrel"),
         app_commands.Choice(name="🐬 Dolphin", value="dolphin"),
         app_commands.Choice(name="🐾 Red Panda", value="red_panda"),
+        app_commands.Choice(name="🦎 Axolotl", value="axolotl"),
+        app_commands.Choice(name="🦆 Goose", value="goose"),
+        app_commands.Choice(name="🦎 Lizard", value="lizard"),
+        app_commands.Choice(name="🐰 Bunny", value="bunny"),
     ])
     async def animal(self, interaction: discord.Interaction, animal: str, hidden: bool = False):
         await interaction.response.defer(ephemeral=hidden)
@@ -62,7 +66,11 @@ class FunCog(commands.Cog):
             "rabbit": ("https://api.animality.xyz/img/rabbit", "image", "🐰 Bunny hop!"),
             "squirrel": ("https://api.animality.xyz/img/squirrel", "image", "🐿️ Nut collector!"),
             "dolphin": ("https://api.animality.xyz/img/dolphin", "image", "🐬 Ocean acrobat!"),
-            "red_panda": ("https://some-random-api.com/img/red_panda", "link", "🐾 Bamboo bandit!"),
+            "red_panda": ("https://api.animality.xyz/img/redpanda", "image", "🐾 Bamboo bandit!"),
+            "axolotl": ("https://api.animality.xyz/img/axolotl", "image", "🦎 Always smiling!"),
+            "goose": ("https://nekos.life/api/v2/img/goose", "url", "🦆 Honk!"),
+            "lizard": ("https://nekos.life/api/v2/img/lizard", "url", "🦎 Sunbather!"),
+            "bunny": ("https://api.bunnies.io/v2/loop/random/?media=gif", "media", "🐰 Bun! 🥕"),
         }
 
         url, key, title = animal_handlers[animal]
@@ -76,7 +84,7 @@ class FunCog(commands.Cog):
             await interaction.followup.send(f"> Could not fetch {animal} picture. Please try again later.\n> {e}", ephemeral=hidden)
             return
 
-        image_url = data[key]
+        image_url = data[key]["gif"] if key == "media" else data[key]
         embed = discord.Embed(title=title, color=discord.Color.orange())
         embed.set_image(url=image_url)
         embed.set_footer(text="Vote for the bot! /vote")
