@@ -33,6 +33,10 @@ class FunCog(commands.Cog):
         app_commands.Choice(name="🐻 Bear", value="bear"),
         app_commands.Choice(name="🐸 Frog", value="frog"),
         app_commands.Choice(name="🐴 Horse", value="horse"),
+        app_commands.Choice(name="🐰 Rabbit", value="rabbit"),
+        app_commands.Choice(name="🐿️ Squirrel", value="squirrel"),
+        app_commands.Choice(name="🐬 Dolphin", value="dolphin"),
+        app_commands.Choice(name="🐾 Red Panda", value="red_panda"),
     ])
     async def animal(self, interaction: discord.Interaction, animal: str, hidden: bool = False):
         await interaction.response.defer(ephemeral=hidden)
@@ -55,6 +59,10 @@ class FunCog(commands.Cog):
             "bear": ("https://api.animality.xyz/img/bear", "image", "🐻 Rawr!"),
             "frog": ("https://api.animality.xyz/img/frog", "image", "🐸 Ribbit!"),
             "horse": ("https://api.animality.xyz/img/horse", "image", "🐴 Neigh!"),
+            "rabbit": ("https://api.animality.xyz/img/rabbit", "image", "🐰 Bunny hop!"),
+            "squirrel": ("https://api.animality.xyz/img/squirrel", "image", "🐿️ Nut collector!"),
+            "dolphin": ("https://api.animality.xyz/img/dolphin", "image", "🐬 Ocean acrobat!"),
+            "red_panda": ("https://some-random-api.com/img/red_panda", "link", "🐾 Bamboo bandit!"),
         }
 
         url, key, title = animal_handlers[animal]
