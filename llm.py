@@ -74,7 +74,7 @@ def ask_llm(prompt, username, user_id, reply_info=None):
         data = {}
 
     print(f"{date()} INFO  LLM raw response: '{reply}'")
-    reply = reply.strip().replace("@everyone", "").replace("@here", "")
+    reply = reply.strip()
     if reply.startswith(f"{username}:"):
         reply = reply.split(":", 1)[1].strip()
     tokens = data.get("eval_count", 0)

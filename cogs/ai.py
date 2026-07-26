@@ -32,7 +32,7 @@ class AICog(commands.Cog):
             if stats:
                 reply += f"\n> {info}"
 
-            await interaction.followup.send(reply, ephemeral=hidden)
+            await interaction.followup.send(reply, ephemeral=hidden, allowed_mentions=discord.AllowedMentions.none())
         finally:
             ai_processing = False
 

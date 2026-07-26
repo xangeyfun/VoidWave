@@ -442,7 +442,7 @@ async def llm_worker(bot):
 
         finally:
             try:
-                await ctx.reply(reply)
+                await ctx.reply(reply, allowed_mentions=discord.AllowedMentions.none())
             except discord.errors.HTTPException:
                 pass
             print(f"{date()} INFO  LLM response to {ctx.author} (ID: {ctx.author.id}): {reply} ({info})")
