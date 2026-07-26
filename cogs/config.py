@@ -202,13 +202,15 @@ class ConfigCog(commands.Cog):
                     created_items.append(f"Channel: {level_channel.mention}")
 
                     conn = get_db()
-                    cur = conn.cursor()
-                    cur.execute(
-                        "INSERT INTO guild_settings (guild_id, level_channel_id, level_channel_enabled) VALUES (?, ?, 1) ON CONFLICT(guild_id) DO UPDATE SET level_channel_id = excluded.level_channel_id, level_channel_enabled = 1",
-                        (guild_obj.id, level_channel.id)
-                    )
-                    conn.commit()
-                    conn.close()
+                    try:
+                        cur = conn.cursor()
+                        cur.execute(
+                            "INSERT INTO guild_settings (guild_id, level_channel_id, level_channel_enabled) VALUES (?, ?, 1) ON CONFLICT(guild_id) DO UPDATE SET level_channel_id = excluded.level_channel_id, level_channel_enabled = 1",
+                            (guild_obj.id, level_channel.id)
+                        )
+                        conn.commit()
+                    finally:
+                        conn.close()
                 except Exception as e:
                     errors.append(f"Failed to create level-ups channel: {e}")
 
@@ -237,13 +239,15 @@ class ConfigCog(commands.Cog):
                     created_items.append(f"Role: {qotd_role.mention}")
 
                     conn = get_db()
-                    cur = conn.cursor()
-                    cur.execute(
-                        "INSERT INTO guild_settings (guild_id, qotd_channel, qotd_role_id, qotd_enabled) VALUES (?, ?, ?, 1) ON CONFLICT(guild_id) DO UPDATE SET qotd_channel = excluded.qotd_channel, qotd_role_id = excluded.qotd_role_id, qotd_enabled = 1",
-                        (guild_obj.id, qotd_channel.id, qotd_role.id)
-                    )
-                    conn.commit()
-                    conn.close()
+                    try:
+                        cur = conn.cursor()
+                        cur.execute(
+                            "INSERT INTO guild_settings (guild_id, qotd_channel, qotd_role_id, qotd_enabled) VALUES (?, ?, ?, 1) ON CONFLICT(guild_id) DO UPDATE SET qotd_channel = excluded.qotd_channel, qotd_role_id = excluded.qotd_role_id, qotd_enabled = 1",
+                            (guild_obj.id, qotd_channel.id, qotd_role.id)
+                        )
+                        conn.commit()
+                    finally:
+                        conn.close()
                 except Exception as e:
                     errors.append(f"Failed to create QOTD setup: {e}")
 
@@ -278,8 +282,8 @@ class ConfigCog(commands.Cog):
             await interaction.response.send_message(f"I don't have permission to send messages in {channel.mention}. Please update my permissions for that channel.", ephemeral=True)
             return
 
+        conn = get_db()
         try:
-            conn = get_db()
             cur = conn.cursor()
             cur.execute("INSERT INTO guild_settings (guild_id, level_channel_id) VALUES (?, ?) ON CONFLICT(guild_id) DO UPDATE SET level_channel_id = excluded.level_channel_id", (interaction.guild.id, channel.id)) # type: ignore
             conn.commit()
@@ -327,8 +331,8 @@ class ConfigCog(commands.Cog):
             await interaction.response.send_message(f"I can't assign {role.mention} because it's higher than or equal to my highest role. Please move my role above it in the server settings.", ephemeral=True)
             return
 
+        conn = get_db()
         try:
-            conn = get_db()
             cur = conn.cursor()
             cur.execute("INSERT OR REPLACE INTO level_roles (guild_id, level, role_id) VALUES (?, ?, ?)", (interaction.guild.id, level, role.id)) # type: ignore
             conn.commit()
@@ -347,8 +351,8 @@ class ConfigCog(commands.Cog):
     @app_commands.describe(level="The level of the role to remove")
     @app_commands.autocomplete(level=level_autocomplete)
     async def remove_level_role(self, interaction: discord.Interaction, level: int):
+        conn = get_db()
         try:
-            conn = get_db()
             cur = conn.cursor()
             cur.execute("DELETE FROM level_roles WHERE guild_id = ? AND level = ?", (interaction.guild.id, level)) # type: ignore
             conn.commit()
@@ -370,8 +374,8 @@ class ConfigCog(commands.Cog):
             await interaction.response.send_message(f"I don't have permission to send messages in {channel.mention}. Please update my permissions for that channel.", ephemeral=True)
             return
 
+        conn = get_db()
         try:
-            conn = get_db()
             cur = conn.cursor()
             cur.execute("INSERT INTO guild_settings (guild_id, qotd_channel) VALUES (?, ?) ON CONFLICT(guild_id) DO UPDATE SET qotd_channel = excluded.qotd_channel", (interaction.guild.id, channel.id)) # type: ignore
             conn.commit()
@@ -441,8 +445,8 @@ class ConfigCog(commands.Cog):
             await interaction.response.send_message(f"I can't use {role.mention} because it's higher than or equal to my highest role. Please move my role above it in the server settings.", ephemeral=True)
             return
 
+        conn = get_db()
         try:
-            conn = get_db()
             cur = conn.cursor()
             cur.execute("INSERT INTO guild_settings (guild_id, qotd_role_id) VALUES (?, ?) ON CONFLICT(guild_id) DO UPDATE SET qotd_role_id = excluded.qotd_role_id", (interaction.guild.id, role.id)) # type: ignore
             conn.commit()
@@ -457,8 +461,8 @@ class ConfigCog(commands.Cog):
         role_text = role.name if role.is_default() else role.mention
         msg = f"QOTD role set to {role_text}"
         channel_row = None
+        conn2 = get_db()
         try:
-            conn2 = get_db()
             cur2 = conn2.cursor()
             channel_row = cur2.execute("SELECT qotd_channel, qotd_enabled FROM guild_settings WHERE guild_id = ?", (interaction.guild.id,)).fetchone()
         except Exception:

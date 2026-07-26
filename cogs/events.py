@@ -153,9 +153,6 @@ class EventsCog(commands.Cog):
             await message.reply(f"Something went wrong... Please DM <@996771607630585856> about this\n> {e}\n> {trace}", allowed_mentions=discord.AllowedMentions(users=False))
             return
 
-        finally:
-            await self.bot.process_commands(message)
-
     @commands.Cog.listener()
     async def on_guild_join(self, guild):
         print(f"{date()} GUILD  Joined guild: {guild.name} | {guild.member_count} members | ID: {guild.id}")
@@ -245,15 +242,17 @@ class EventsCog(commands.Cog):
     @tasks.loop(minutes=1)
     async def update_stats(self):
         conn = get_db()
-        cur = conn.cursor()
+        try:
+            cur = conn.cursor()
 
-        total_guilds = len(self.bot.guilds)
-        total_members = sum(guild.member_count or 0 for guild in self.bot.guilds)
+            total_guilds = len(self.bot.guilds)
+            total_members = sum(guild.member_count or 0 for guild in self.bot.guilds)
 
-        cur.execute("UPDATE bot_stats SET total_guilds = ?, total_members = ?", (total_guilds, total_members))
+            cur.execute("UPDATE bot_stats SET total_guilds = ?, total_members = ?", (total_guilds, total_members))
 
-        conn.commit()
-        conn.close()
+            conn.commit()
+        finally:
+            conn.close()
 
     @tasks.loop(minutes=10)
     async def stats_log_loop(self):

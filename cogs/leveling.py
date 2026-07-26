@@ -22,15 +22,14 @@ class LevelingCog(commands.Cog):
 
         user = user or interaction.user # type: ignore
 
+        conn = get_db()
         try:
-            conn = get_db()
             cur = conn.cursor()
 
             data = cur.execute("SELECT * FROM users WHERE guild_id=? AND user_id=?", (interaction.guild.id, user.id)).fetchone() # type: ignore
 
             if not data:
                 await interaction.followup.send(f"{user.display_name}'s data file was not found! Try sending a message to create one.", ephemeral=hidden)
-                conn.close()
                 return
 
             rank = cur.execute("SELECT COUNT(*) + 1 FROM users WHERE guild_id=? AND total_xp > ?", (interaction.guild.id, data["total_xp"])).fetchone()[0]
@@ -39,8 +38,9 @@ class LevelingCog(commands.Cog):
 
         except Exception as e:
             await interaction.followup.send(f"Something went wrong... Please DM <@996771607630585856> about this\n> {e}", ephemeral=hidden, allowed_mentions=discord.AllowedMentions(users=False))
-            conn.close()
             return
+        finally:
+            conn.close()
 
         progress = data["progress"]
         out_of = data["out_of"]
@@ -92,8 +92,6 @@ class LevelingCog(commands.Cog):
             icon_url=interaction.guild.icon.url if interaction.guild.icon else None
         )
 
-        conn.close()
-
         await interaction.followup.send(
             embed=embed,
             ephemeral=hidden,
@@ -143,8 +141,9 @@ class LevelingCog(commands.Cog):
 
         except Exception as e:
             await interaction.followup.send(f"Something went wrong... Please DM <@996771607630585856> about this\n> {e}", ephemeral=hidden, allowed_mentions=discord.AllowedMentions(users=False))
-            conn.close()
             return
+        finally:
+            conn.close()
 
         embed = discord.Embed(
             title=f"🏆 {'Global' if global_lb else 'Server'} {sort} Leaderboard",
@@ -175,7 +174,6 @@ class LevelingCog(commands.Cog):
             icon_url=interaction.guild.icon.url if interaction.guild and interaction.guild.icon and not global_lb else None
         )
 
-        conn.close()
         await interaction.followup.send(embed=embed, ephemeral=hidden)
 
     @discord.app_commands.allowed_installs(guilds=True, users=True)
@@ -186,8 +184,8 @@ class LevelingCog(commands.Cog):
         await interaction.response.defer(ephemeral=hidden)
         user = user if user else interaction.user
 
+        conn = get_db()
         try:
-            conn = get_db()
             cur = conn.cursor()
 
             total_xp = cur.execute("SELECT SUM(total_xp) FROM users WHERE user_id=?", (user.id,)).fetchone()[0] or 0
@@ -199,8 +197,7 @@ class LevelingCog(commands.Cog):
             return
 
         finally:
-            if conn:
-                conn.close()
+            conn.close()
 
         embed = discord.Embed(
             title=f"{user.display_name}'s Profile",
