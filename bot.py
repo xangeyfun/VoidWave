@@ -634,6 +634,15 @@ async def ping(interaction: discord.Interaction):
     app_commands.Choice(name="🐨 Koala", value="koala"),
     app_commands.Choice(name="🦘 Kangaroo", value="kangaroo"),
     app_commands.Choice(name="🐋 Whale", value="whale"),
+    app_commands.Choice(name="🐦 Bird", value="bird"),
+    app_commands.Choice(name="🐹 Capybara", value="capybara"),
+    app_commands.Choice(name="🦔 Hedgehog", value="hedgehog"),
+    app_commands.Choice(name="🐧 Penguin", value="penguin"),
+    app_commands.Choice(name="🐢 Turtle", value="turtle"),
+    app_commands.Choice(name="🦁 Lion", value="lion"),
+    app_commands.Choice(name="🐻 Bear", value="bear"),
+    app_commands.Choice(name="🐸 Frog", value="frog"),
+    app_commands.Choice(name="🐴 Horse", value="horse"),
 ])
 async def animal(interaction: discord.Interaction, animal: str, hidden: bool = False):
     await interaction.response.defer(ephemeral=hidden)
@@ -647,6 +656,15 @@ async def animal(interaction: discord.Interaction, animal: str, hidden: bool = F
         "koala": ("https://api.animality.xyz/img/koala", "image", "🐨 Eucalyptus nap!"),
         "kangaroo": ("https://api.animality.xyz/img/kangaroo", "image", "🦘 Boing!"),
         "whale": ("https://api.animality.xyz/img/whale", "image", "🐋 Sploosh!"),
+        "bird": ("https://api.animality.xyz/img/bird", "image", "🐦 Tweet!"),
+        "capybara": ("https://api.animality.xyz/img/capybara", "image", "🐹 Chill vibes!"),
+        "hedgehog": ("https://api.animality.xyz/img/hedgehog", "image", "🦔 Prickly!"),
+        "penguin": ("https://api.animality.xyz/img/penguin", "image", "🐧 Waddle!"),
+        "turtle": ("https://api.animality.xyz/img/turtle", "image", "🐢 Slow and steady!"),
+        "lion": ("https://api.animality.xyz/img/lion", "image", "🦁 Roar!"),
+        "bear": ("https://api.animality.xyz/img/bear", "image", "🐻 Rawr!"),
+        "frog": ("https://api.animality.xyz/img/frog", "image", "🐸 Ribbit!"),
+        "horse": ("https://api.animality.xyz/img/horse", "image", "🐴 Neigh!"),
     }
 
     url, key, title = animal_handlers[animal]
