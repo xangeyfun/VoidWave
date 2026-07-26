@@ -25,6 +25,7 @@ intents.message_content = True
 intents.members = True
 bot = commands.Bot(command_prefix="%", intents=intents, status=discord.Status.online, activity=discord.Activity(type=discord.ActivityType.watching, name="/help • VoidWave"))
 TOKEN = os.getenv("TOKEN")
+TOPGG_TOKEN = os.getenv("TOPGG_TOKEN")
 owner_id = int(os.getenv("ALLOWED_USER_ID") or 0)
 guild = discord.Object(id=int(os.getenv("GUILD_ID"))) # type: ignore
 XP_COOLDOWN = 30
@@ -488,12 +489,13 @@ async def on_ready():
     for guild in bot.guilds:
         print(f"{date()} INFO  {''.join(c for c in guild.name if unicodedata.category(c) != 'So')[:49].strip():<50} | {guild.id:<20} | {str(guild.owner)[:19]:<20} [{guild.owner_id:<20}] | {guild.member_count:<5} members")
     print(f"{date()} INFO ----------------------\n")
+    bot.loop.create_task(llm_worker())
     qotd_loop.start()
     update_stats.start()
     stats_log_loop.start()
     vc_xp_loop.start()
-    bot.loop.create_task(llm_worker())
     rotate_status.start()
+    update_topgg.start()
 
 @bot.event
 async def on_interaction(interaction: discord.Interaction):
@@ -1868,6 +1870,20 @@ async def rotate_status():
     )
 
     await bot.change_presence(activity=activity)
+
+@tasks.loop(minutes=30)
+async def update_topgg():
+    async with aiohttp.ClientSession() as session:
+        await session.patch(
+            "https://top.gg/api/v1/projects/@me/metrics",
+            headers={
+                "Authorization": f"Bearer {TOPGG_TOKEN}"
+            },
+            json={
+                "server_count": len(bot.guilds),
+                "shard_count": bot.shard_count or 1,
+            },
+        )
 
 # Error handling
 
