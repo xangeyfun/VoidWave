@@ -3,7 +3,8 @@ from discord.ext import commands
 from simpleeval import simple_eval
 import discord
 import random
-from utils import http_session, date
+import utils
+from utils import date
 
 
 class FunCog(commands.Cog):
@@ -58,7 +59,7 @@ class FunCog(commands.Cog):
 
         url, key, title = animal_handlers[animal]
         try:
-            async with http_session.get(url) as r:
+            async with utils.http_session.get(url) as r:
                 if r.status != 200:
                     await interaction.followup.send(f"> Could not fetch {animal} picture. Please try again later.", ephemeral=hidden)
                     return
@@ -152,7 +153,7 @@ class FunCog(commands.Cog):
             await interaction.followup.send(f"Invalid input: {choice}", ephemeral=True)
             return
         try:
-            async with http_session.get(f"https://zenquotes.io/api/{choice.lower()}") as r:
+            async with utils.http_session.get(f"https://zenquotes.io/api/{choice.lower()}") as r:
                 print(f"{date()} INFO  Quote API response status: {r.status}")
                 data = await r.json()
         except Exception as e:
@@ -174,7 +175,7 @@ class FunCog(commands.Cog):
             await interaction.followup.send(f"Invalid input: {choice}", ephemeral=True)
             return
         try:
-            async with http_session.get(f"https://uselessfacts.jsph.pl/{'today' if choice.lower() == 'today' else 'random'}.json?language=en") as r:
+            async with utils.http_session.get(f"https://uselessfacts.jsph.pl/{'today' if choice.lower() == 'today' else 'random'}.json?language=en") as r:
                 print(f"{date()} INFO  Fact API response status: {r.status}")
                 data = await r.json()
         except Exception as e:
