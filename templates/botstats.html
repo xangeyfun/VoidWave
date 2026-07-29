@@ -79,6 +79,64 @@
 
 <script src="/static/js/chart.umd.min.js"></script>
 <script>
+const charts = [];
+
+const crosshairPlugin = {
+    id: 'crosshair',
+    afterDraw(chart) {
+        const active = chart.getActiveElements();
+        if (!active.length) return;
+        const el = active[0].element;
+        const { ctx, chartArea: ca, data } = chart;
+        ctx.save();
+
+        ctx.setLineDash([5, 5]);
+        ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+        ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(el.x, ca.top); ctx.lineTo(el.x, ca.bottom); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(ca.left, el.y); ctx.lineTo(ca.right, el.y); ctx.stroke();
+
+        const rawVal = data.datasets[0].data[active[0].index];
+        const val = typeof rawVal === 'number' ? rawVal.toLocaleString() : rawVal;
+        const text = data.labels[active[0].index] + '  ' + val;
+        ctx.font = 'bold 13px system-ui, sans-serif';
+        const tw = ctx.measureText(text).width;
+        const pad = 8, bh = 26, bw = tw + pad * 2;
+        let bx = el.x + 12, by = el.y - 36;
+        if (bx + bw > ca.right) bx = ca.right - bw - 4;
+        if (by < ca.top + 4) by = ca.top + 4;
+
+        ctx.fillStyle = 'rgba(20,20,30,0.9)';
+        ctx.beginPath(); ctx.roundRect(bx, by, bw, bh, 6); ctx.fill();
+
+        ctx.fillStyle = 'rgba(255,255,255,0.9)';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(text, bx + pad, by + bh / 2);
+
+        ctx.restore();
+    }
+};
+Chart.register(crosshairPlugin);
+
+function syncCharts(src) {
+    const active = src.getActiveElements();
+    const index = active.length ? active[0].index : -1;
+    charts.forEach(c => {
+        if (c === src) { c.draw(); return; }
+        const meta = c.getDatasetMeta(0);
+        if (index >= 0 && meta.data[index] && meta.data[index].hasValue()) {
+            c.setActiveElements([{ datasetIndex: 0, index }]);
+        } else {
+            c.setActiveElements([]);
+        }
+        c.draw();
+    });
+}
+
+function clearAll() {
+    charts.forEach(c => { c.setActiveElements([]); c.draw(); });
+}
+
 const raw = {{ history | tojson }};
 const labels = raw.map(d => {
     const dt = new Date(d.timestamp);
@@ -90,7 +148,7 @@ const chartOpts = (color) => ({
     maintainAspectRatio: false,
     plugins: {
         legend: { display: false },
-        tooltip: { mode: 'index', intersect: false }
+        tooltip: false
     },
     scales: {
         x: {
@@ -119,7 +177,7 @@ function makeGradient(ctx, color) {
 function createChart(id, key, color) {
     const canvas = document.getElementById(id);
     const ctx = canvas.getContext('2d');
-    new Chart(ctx, {
+    const chart = new Chart(ctx, {
         type: 'line',
         data: {
             labels: labels,
@@ -130,8 +188,12 @@ function createChart(id, key, color) {
                 fill: true
             }]
         },
-        options: chartOpts(color)
+        options: Object.assign(chartOpts(color), {
+            onHover: function() { syncCharts(this); }
+        })
     });
+    charts.push(chart);
+    canvas.addEventListener('mouseleave', clearAll);
 }
 
 createChart('chartGuilds', 'total_guilds', 'rgba(132, 56, 252, 1)');
