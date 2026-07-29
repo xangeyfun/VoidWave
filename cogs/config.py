@@ -1,7 +1,17 @@
+import datetime
+
 from discord import app_commands
 from discord.ext import commands
 import discord
 from utils import get_db, date, level_autocomplete
+
+
+def _next_qotd_timestamp() -> str:
+    now = datetime.datetime.now(datetime.timezone.utc)
+    target = now.replace(hour=16, minute=0, second=0, microsecond=0)
+    if now >= target:
+        target += datetime.timedelta(days=1)
+    return f"<t:{int(target.timestamp())}:R>"
 
 
 class ConfigCog(commands.Cog):
@@ -42,7 +52,10 @@ class ConfigCog(commands.Cog):
         if qotd_channel:
             channel = interaction.guild.get_channel(qotd_channel[0])
             channel_name = channel.mention if channel else "`No Channel Set`"
-            embed.add_field(name="QOTD Channel", value=f"{channel_name} ({'Enabled' if qotd_channel[1] else 'Disabled'})", inline=False)
+            qotd_status = f"{channel_name} ({'Enabled' if qotd_channel[1] else 'Disabled'})"
+            if qotd_channel[1]:
+                qotd_status += f"\nNext QOTD: {_next_qotd_timestamp()}"
+            embed.add_field(name="QOTD Channel", value=qotd_status, inline=False)
             embed.add_field(name="Delete Old QOTD", value=f"{'Enabled' if qotd_channel[2] else 'Disabled'}", inline=False)
         else:
             embed.add_field(name="QOTD Channel", value="Not set", inline=False)
@@ -260,10 +273,10 @@ class ConfigCog(commands.Cog):
                 )
         else:
             items_text = "\n".join(created_items)
-            await interaction.followup.send(
-                f"### All set up!\n**Created:**\n{items_text}\n\nBoth features are now enabled. Customize further with `/config help`.",
-                ephemeral=True
-            )
+            msg = f"### All set up!\n**Created:**\n{items_text}\n\nBoth features are now enabled. Customize further with `/config help`."
+            if qotd:
+                msg += f"\n\nNext QOTD: {_next_qotd_timestamp()}"
+            await interaction.followup.send(msg, ephemeral=True)
 
     @discord.app_commands.allowed_installs(guilds=True, users=False)
     @discord.app_commands.allowed_contexts(guilds=True, dms=False, private_channels=False)
@@ -427,7 +440,10 @@ class ConfigCog(commands.Cog):
         finally:
             conn.close()
 
-        await interaction.response.send_message(f"QOTD has been {'enabled' if enabled else 'disabled'}", ephemeral=True)
+        msg = f"QOTD has been {'enabled' if enabled else 'disabled'}"
+        if enabled:
+            msg += f"\n\nNext QOTD: {_next_qotd_timestamp()}"
+        await interaction.response.send_message(msg, ephemeral=True)
 
     @discord.app_commands.allowed_installs(guilds=True, users=False)
     @discord.app_commands.allowed_contexts(guilds=True, dms=False, private_channels=False)
