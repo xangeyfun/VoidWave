@@ -78,8 +78,29 @@
 </div>
 
 <script src="/static/js/chart.umd.min.js"></script>
+<script src="/static/js/chartjs-adapter-date-fns.bundle.min.js"></script>
+<script src="/static/js/chartjs-plugin-zoom.min.js"></script>
 <script>
 const charts = [];
+
+function syncZoom(chart) {
+    const xScale = chart.scales.x;
+    charts.forEach(c => {
+        if (c === chart) return;
+        c.options.scales.x.min = xScale.min;
+        c.options.scales.x.max = xScale.max;
+        c.update('none');
+    });
+}
+
+function resetAllZoom() {
+    charts.forEach(c => {
+        c.options.scales.x.min = undefined;
+        c.options.scales.x.max = undefined;
+        c.resetZoom();
+        c.update('none');
+    });
+}
 
 const crosshairPlugin = {
     id: 'crosshair',
@@ -96,9 +117,14 @@ const crosshairPlugin = {
         ctx.beginPath(); ctx.moveTo(el.x, ca.top); ctx.lineTo(el.x, ca.bottom); ctx.stroke();
         ctx.beginPath(); ctx.moveTo(ca.left, el.y); ctx.lineTo(ca.right, el.y); ctx.stroke();
 
-        const rawVal = data.datasets[0].data[active[0].index];
-        const val = typeof rawVal === 'number' ? rawVal.toLocaleString() : rawVal;
-        const text = data.labels[active[0].index] + '  ' + val;
+        const point = data.datasets[0].data[active[0].index];
+        const val = typeof point.y === 'number' ? point.y.toLocaleString() : point.y;
+        const d = new Date(point.x);
+        const range = chart.scales.x.max - chart.scales.x.min;
+        const dateStr = range < 86400000
+            ? d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+            : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        const text = dateStr + '  ' + val;
         ctx.font = 'bold 13px system-ui, sans-serif';
         const tw = ctx.measureText(text).width;
         const pad = 8, bh = 26, bw = tw + pad * 2;
@@ -138,20 +164,48 @@ function clearAll() {
 }
 
 const raw = {{ history | tojson }};
-const labels = raw.map(d => {
-    const dt = new Date(d.timestamp);
-    return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-});
 
-const chartOpts = (color) => ({
+const chartOpts = () => ({
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
         legend: { display: false },
-        tooltip: false
+        tooltip: false,
+        zoom: {
+            pan: {
+                enabled: true,
+                mode: 'x',
+                threshold: 5
+            },
+            zoom: {
+                wheel: { enabled: true, speed: 0.1 },
+                drag: {
+                    enabled: true,
+                    backgroundColor: 'rgba(255,255,255,0.05)',
+                    borderColor: 'rgba(255,255,255,0.3)',
+                    borderWidth: 1
+                },
+                pinch: { enabled: true },
+                mode: 'x'
+            }
+        }
     },
     scales: {
         x: {
+            type: 'time',
+            time: {
+                displayFormats: {
+                    millisecond: 'HH:mm:ss.SSS',
+                    second: 'HH:mm:ss',
+                    minute: 'HH:mm',
+                    hour: 'MMM d HH:mm',
+                    day: 'MMM d',
+                    week: 'MMM d',
+                    month: 'MMM yyyy',
+                    quarter: '[Q]Q yyyy',
+                    year: 'yyyy'
+                }
+            },
             ticks: { color: '#606070', maxTicksLimit: 10, font: { size: 11 } },
             grid: { color: 'rgba(255,255,255,0.03)' }
         },
@@ -180,9 +234,8 @@ function createChart(id, key, color) {
     const chart = new Chart(ctx, {
         type: 'line',
         data: {
-            labels: labels,
             datasets: [{
-                data: raw.map(d => d[key]),
+                data: raw.map(d => ({ x: new Date(d.timestamp).getTime(), y: d[key] })),
                 borderColor: color,
                 backgroundColor: makeGradient(ctx, color.replace('1)', '0.25)')),
                 fill: true
@@ -192,8 +245,10 @@ function createChart(id, key, color) {
             onHover: function() { syncCharts(this); }
         })
     });
+    chart.options.plugins.zoom.onZoomComplete = function({chart}) { syncZoom(chart); };
     charts.push(chart);
     canvas.addEventListener('mouseleave', clearAll);
+    canvas.addEventListener('dblclick', resetAllZoom);
 }
 
 createChart('chartGuilds', 'total_guilds', 'rgba(132, 56, 252, 1)');
