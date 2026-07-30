@@ -89,11 +89,6 @@ class EventsCog(commands.Cog):
         print(f"{date()} MESSAGE  from {message.author} in {message.guild.name if message.guild else 'DM'}{'/' + message.channel.name if message.guild else ''}: {message.content} [{message.attachments[0].url if message.attachments else ''}] [{message.embeds[0].url if message.embeds else ''}] [{message.stickers[0].url if message.stickers else ''}]")
 
         if isinstance(message.channel, discord.DMChannel):
-            await message.channel.send(
-                "## 👋 Hi! I'm **VoidWave**!\n\n"
-                "Most of my features are available through slash commands (`/`).\n"
-                "Some commands also work in DMs, so try typing `/` to see what's available! 🤖"
-            )
             return
 
         message_reference = False
