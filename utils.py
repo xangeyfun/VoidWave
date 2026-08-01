@@ -13,6 +13,7 @@ import sqlite3
 XP_COOLDOWN = 30
 VC_COOLDOWN = 600
 LLM_COOLDOWN = 15
+SLOW_RESPONSE_THRESHOLD = 30
 STATS_LOG_FILE = "stats_history.json"
 TOPGG_TOKEN = os.getenv("TOPGG_TOKEN")
 DBL_TOKEN = os.getenv("DBL_TOKEN")
@@ -128,10 +129,14 @@ def log_stats(bot):
 
 
 async def get_llm_response(msg, display_name, user_id, reply_info=None):
+    start = time.time()
     for attempt in range(5):
         reply, info = await asyncio.to_thread(ask_llm, msg, display_name, user_id, reply_info)
 
         if reply and reply.strip() and isinstance(reply, str):
+            if time.time() - start >= SLOW_RESPONSE_THRESHOLD:
+                reply += ("\n\n> This was a bit slow because the model was still starting up.\n"
+                          "> This might be the first response, next ones should be much faster!")
             return reply, info + f", Attemps: {attempt + 1}"
 
         print(f"{date()} WARN  LLM empty response, retrying ({attempt + 1}/5)")
