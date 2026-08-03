@@ -7,7 +7,7 @@ from utils import get_db, date, level_autocomplete
 
 
 def _next_qotd_timestamp() -> str:
-    now = datetime.datetime.now(datetime.timezone.utc)
+    now = datetime.datetime.now()
     target = now.replace(hour=16, minute=0, second=0, microsecond=0)
     if now >= target:
         target += datetime.timedelta(days=1)
