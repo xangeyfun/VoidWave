@@ -207,11 +207,6 @@ class EventsCog(commands.Cog):
         embed.add_field(name="Total Guilds", value=f"`{total_guilds}`", inline=True)
         await channel.send(embed=embed)
 
-    @commands.Cog.listener()
-    async def on_app_command_error(self, interaction, error):
-        if isinstance(error, discord.app_commands.MissingPermissions):
-            return await interaction.response.send_message("> You do not have permission to use this command.", ephemeral=True)
-
     @tasks.loop(minutes=1)
     async def qotd_loop(self):
         now = datetime.datetime.now()

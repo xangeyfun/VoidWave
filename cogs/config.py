@@ -22,6 +22,14 @@ class ConfigCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
+    async def cog_app_command_error(self, interaction: discord.Interaction, error: discord.app_commands.AppCommandError):
+        if isinstance(error, discord.app_commands.MissingPermissions):
+            msg = "> You need **Administrator** permissions to use this command."
+            if interaction.response.is_done():
+                await interaction.followup.send(msg, ephemeral=True)
+            else:
+                await interaction.response.send_message(msg, ephemeral=True)
+
     @discord.app_commands.allowed_installs(guilds=True, users=False)
     @discord.app_commands.allowed_contexts(guilds=True, dms=False, private_channels=False)
     @discord.app_commands.checks.has_permissions(administrator=True)
