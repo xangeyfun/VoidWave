@@ -2,7 +2,7 @@ from discord import app_commands
 from discord.ext import commands
 import discord
 import time
-from utils import startup
+from utils import startup, get_db
 
 
 class GeneralCog(commands.Cog):
@@ -130,9 +130,32 @@ class GeneralCog(commands.Cog):
 
     @discord.app_commands.allowed_installs(guilds=True, users=True)
     @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
-    @discord.app_commands.command(name="vote", description="Vote for VoidWave on Top.gg!")
+    @discord.app_commands.command(name="vote", description="Vote for VoidWave!")
     async def vote(self, interaction: discord.Interaction):
-        await interaction.response.send_message("🗳️ **Vote for VoidWave!**\n> <https://top.gg/bot/1442229230384709752/vote>\n> <https://discordbotlist.com/bots/voidwave/upvote>", ephemeral=True)
+        boost = None
+        conn = get_db()
+        try:
+            cur = conn.cursor()
+            boost = cur.execute("SELECT multiplier, expires_at FROM vote_boosts WHERE user_id=? AND expires_at > ?", (interaction.user.id, int(time.time()))).fetchone()
+        finally:
+            conn.close()
+
+        if boost:
+            minutes = int((boost["expires_at"] - time.time()) // 60)
+            msg = (
+                "🗳️ **Vote for VoidWave!**\n"
+                f"> <https://top.gg/bot/1442229230384709752/vote>\n"
+                f"> <https://discordbotlist.com/bots/voidwave/upvote>\n\n"
+                f"⚡ Your **{boost['multiplier']:.1f}x XP boost** is active for another **{minutes} minute{'s' if minutes != 1 else ''}**!"
+            )
+        else:
+            msg = (
+                "🗳️ **Vote for VoidWave!**\n"
+                f"> <https://top.gg/bot/1442229230384709752/vote>\n"
+                f"> <https://discordbotlist.com/bots/voidwave/upvote>\n\n"
+                "⚡ **Vote now to get 2x XP for 2 hours!** (3 hours on weekends)"
+            )
+        await interaction.response.send_message(msg, ephemeral=True)
 
 
 async def setup(bot):
