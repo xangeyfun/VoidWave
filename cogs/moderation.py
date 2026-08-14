@@ -19,13 +19,19 @@ class ModerationCog(commands.Cog):
         self.bot = bot
 
     async def cog_app_command_error(self, interaction: discord.Interaction, error: discord.app_commands.AppCommandError):
-        if isinstance(error, discord.app_commands.MissingPermissions):
+        if isinstance(error, discord.app_commands.BotMissingPermissions):
+            perms = ", ".join(f"**{p.replace('_', ' ').title()}**" for p in error.missing_permissions)
+            msg = f"> I need {perms} permission to do that. Ask a server admin to grant it to me."
+        elif isinstance(error, discord.app_commands.MissingPermissions):
             perms = ", ".join(f"**{p.replace('_', ' ').title()}**" for p in error.missing_permissions)
             msg = f"> You need {perms} permission to use this command."
-            if interaction.response.is_done():
-                await interaction.followup.send(msg, ephemeral=True)
-            else:
-                await interaction.response.send_message(msg, ephemeral=True)
+        else:
+            return
+
+        if interaction.response.is_done():
+            await interaction.followup.send(msg, ephemeral=True)
+        else:
+            await interaction.response.send_message(msg, ephemeral=True)
 
     def _hierarchy_error(self, interaction: discord.Interaction, member: discord.Member, action: str) -> str | None:
         if member == interaction.guild.owner:
@@ -47,6 +53,7 @@ class ModerationCog(commands.Cog):
             return f"You can't {action} {role.mention} because it's equal to or above your highest role."
         return None
 
+    @discord.app_commands.checks.bot_has_permissions(manage_messages=True)
     @discord.app_commands.checks.has_permissions(manage_messages=True)
     @moderation.command(name="purge", description="Bulk delete messages")
     @app_commands.describe(amount="Number of messages to delete (1-100)", user="Only delete this user's messages", hidden="Hide the command from others")
@@ -68,6 +75,7 @@ class ModerationCog(commands.Cog):
         except Exception as e:
             await interaction.followup.send(f"Something went wrong...\n> {e}", ephemeral=True)
 
+    @discord.app_commands.checks.bot_has_permissions(kick_members=True)
     @discord.app_commands.checks.has_permissions(kick_members=True)
     @moderation.command(name="kick", description="Kick a member from the server")
     @app_commands.describe(member="The member to kick", reason="Reason for the kick", hidden="Hide the command from others")
@@ -81,6 +89,7 @@ class ModerationCog(commands.Cog):
         await member.kick(reason=reason)
         await interaction.followup.send(f"Kicked **{member}**.{f' Reason: {reason}' if reason else ''}", ephemeral=True)
 
+    @discord.app_commands.checks.bot_has_permissions(ban_members=True)
     @discord.app_commands.checks.has_permissions(ban_members=True)
     @moderation.command(name="ban", description="Ban a member from the server")
     @app_commands.describe(member="The member to ban", delete_days="Delete recent messages (0-7)", reason="Reason for the ban", hidden="Hide the command from others")
@@ -95,6 +104,7 @@ class ModerationCog(commands.Cog):
         await member.ban(reason=reason, delete_message_seconds=delete_days * 86400)
         await interaction.followup.send(f"Banned **{member}**.{f' Reason: {reason}' if reason else ''}", ephemeral=True)
 
+    @discord.app_commands.checks.bot_has_permissions(ban_members=True)
     @discord.app_commands.checks.has_permissions(ban_members=True)
     @moderation.command(name="unban", description="Unban a user by ID")
     @app_commands.describe(user="The user to unban", reason="Reason for the unban", hidden="Hide the command from others")
@@ -108,6 +118,7 @@ class ModerationCog(commands.Cog):
         except discord.Forbidden:
             await interaction.followup.send("I don't have permission to unban members.", ephemeral=True)
 
+    @discord.app_commands.checks.bot_has_permissions(moderate_members=True)
     @discord.app_commands.checks.has_permissions(moderate_members=True)
     @moderation.command(name="timeout", description="Timeout a member for a set duration")
     @app_commands.describe(member="The member to timeout", amount="How long the timeout lasts", unit="Unit for the timeout duration", reason="Reason for the timeout", hidden="Hide the command from others")
@@ -128,6 +139,7 @@ class ModerationCog(commands.Cog):
         await member.timeout(datetime.timedelta(minutes=minutes), reason=reason)
         await interaction.followup.send(f"Timed out **{member}** for **{amount} {unit}**.{f' Reason: {reason}' if reason else ''}", ephemeral=True)
 
+    @discord.app_commands.checks.bot_has_permissions(manage_channels=True)
     @discord.app_commands.checks.has_permissions(manage_channels=True)
     @moderation.command(name="slowmode", description="Set or clear slowmode on a channel")
     @app_commands.describe(seconds="Slowmode in seconds (0 to clear, max 21600)", channel="The channel to change (defaults to this one)", hidden="Hide the command from others")
@@ -141,6 +153,7 @@ class ModerationCog(commands.Cog):
         else:
             await interaction.followup.send(f"Cleared slowmode in {channel.mention}.", ephemeral=True)
 
+    @discord.app_commands.checks.bot_has_permissions(manage_channels=True)
     @discord.app_commands.checks.has_permissions(manage_channels=True)
     @moderation.command(name="lock", description="Lock a channel so members can't send messages")
     @app_commands.describe(channel="The channel to lock (defaults to this one)", reason="Reason for locking", hidden="Hide the command from others")
@@ -150,6 +163,7 @@ class ModerationCog(commands.Cog):
         await channel.set_permissions(interaction.guild.default_role, send_messages=False)  # type: ignore
         await interaction.followup.send(f"Locked {channel.mention}.{f' Reason: {reason}' if reason else ''}", ephemeral=True)
 
+    @discord.app_commands.checks.bot_has_permissions(manage_channels=True)
     @discord.app_commands.checks.has_permissions(manage_channels=True)
     @moderation.command(name="unlock", description="Unlock a previously locked channel")
     @app_commands.describe(channel="The channel to unlock (defaults to this one)", hidden="Hide the command from others")
@@ -159,6 +173,7 @@ class ModerationCog(commands.Cog):
         await channel.set_permissions(interaction.guild.default_role, send_messages=None)  # type: ignore
         await interaction.followup.send(f"Unlocked {channel.mention}.", ephemeral=True)
 
+    @discord.app_commands.checks.bot_has_permissions(manage_roles=True)
     @discord.app_commands.checks.has_permissions(manage_roles=True)
     @role.command(name="add", description="Add a role to a member")
     @app_commands.describe(member="The member to give the role to", role="The role to add", hidden="Hide the command from others")
@@ -175,6 +190,7 @@ class ModerationCog(commands.Cog):
         await member.add_roles(role, reason=f"Added by {interaction.user}")
         await interaction.followup.send(f"Gave {role.mention} to **{member}**.", ephemeral=True)
 
+    @discord.app_commands.checks.bot_has_permissions(manage_roles=True)
     @discord.app_commands.checks.has_permissions(manage_roles=True)
     @role.command(name="remove", description="Remove a role from a member")
     @app_commands.describe(member="The member to remove the role from", role="The role to remove", hidden="Hide the command from others")
