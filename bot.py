@@ -3,6 +3,7 @@ from dotenv import load_dotenv
 import discord
 import sqlite3
 import os
+import traceback
 from datetime import datetime
 
 load_dotenv()
@@ -30,10 +31,11 @@ def date():
 
 @bot.tree.error
 async def on_app_command_error(interaction: discord.Interaction, error: discord.app_commands.AppCommandError):
+    print(f"{date()} ERROR  Command error in '/{getattr(interaction.command, 'qualified_name', '?')}' used by {interaction.user}: {error!r}")
     if interaction.response.is_done():
         return
 
-    print(f"{date()} ERROR  Unhandled command error in '/{getattr(interaction.command, 'qualified_name', '?')}' used by {interaction.user}: {error}")
+    traceback.print_exc()
     try:
         await interaction.response.send_message(f"Something went wrong while running that command. Please try again later.\n> {error}", ephemeral=True)
     except discord.HTTPException:
