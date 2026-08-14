@@ -2,6 +2,8 @@
 data/
 qotd.json
 database.db
+database.db-wal
+database.db-shm
 banned_ids.json
 .venv
 __pycache__/

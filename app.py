@@ -36,6 +36,8 @@ def remove_trailing_slash():
 def get_db():
     conn = sqlite3.connect('database.db')
     conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA busy_timeout=5000")
     return conn
 
 def get_user_stats(user_id: int, guild_id: int):
