@@ -96,8 +96,11 @@ class EventsCog(commands.Cog):
         message_reference = False
 
         if message.reference and message.reference.message_id:
-            ref_msg = await message.channel.fetch_message(message.reference.message_id)
-            message_reference = ref_msg.author.id == 1442229230384709752
+            try:
+                ref_msg = await message.channel.fetch_message(message.reference.message_id)
+            except (discord.NotFound, discord.HTTPException):
+                ref_msg = None
+            message_reference = ref_msg.author.id == 1442229230384709752 if ref_msg else False
 
         if message.content.startswith("<@1442229230384709752>") or message_reference or message.channel.id == 1494361038420709466:
             if message.author.id in last_llm and time.time() - last_llm[message.author.id] < LLM_COOLDOWN and message.author.id != 996771607630585856:
@@ -123,11 +126,15 @@ class EventsCog(commands.Cog):
 
             reply_info = None
             if message.reference and message.reference.message_id:
-                replied_msg = await message.channel.fetch_message(message.reference.message_id)
-                reply_info = {
-                    "author": replied_msg.author.name,
-                    "content": replied_msg.content
-                }
+                try:
+                    replied_msg = await message.channel.fetch_message(message.reference.message_id)
+                except (discord.NotFound, discord.HTTPException):
+                    replied_msg = None
+                if replied_msg:
+                    reply_info = {
+                        "author": replied_msg.author.name,
+                        "content": replied_msg.content
+                    }
 
             req = LLMRequest(msg, message, reply_info)
 
