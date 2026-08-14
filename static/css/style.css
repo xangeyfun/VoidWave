@@ -1072,6 +1072,17 @@ a:hover {
     text-align: center;
 }
 
+.setup-vote {
+    opacity: 1 !important;
+    transform: none !important;
+    animation: none !important;
+}
+
+.setup-vote .setup-step-content {
+    background: linear-gradient(135deg, var(--bg-card) 0%, rgba(132, 56, 252, 0.05) 100%);
+    border-color: rgba(132, 56, 252, 0.2);
+}
+
 /* Command grid */
 .command-grid {
     display: grid;
