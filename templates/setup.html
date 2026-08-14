@@ -28,6 +28,7 @@
     <div class="setup-progress-dot" data-target="3" data-label="Leveling System"></div>
     <div class="setup-progress-dot" data-target="4" data-label="Question of the Day"></div>
     <div class="setup-progress-dot" data-target="5" data-label="Admin Info"></div>
+    <div class="setup-progress-dot" data-target="6" data-label="Moderation"></div>
 </div>
 
 <section class="setup-steps">
@@ -138,6 +139,31 @@
             <div class="setup-step-body">
                 <p>All configuration is done through slash commands. Use <code>/config view</code> to see current settings or <code>/config help</code> for a full list of commands.</p>
                 <p>The bot also includes AI chat, fun commands, and more. Type <code>/help</code> to see everything available.</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="setup-block" data-step="6">
+        <div class="setup-step-badge">
+            <span class="step-badge" style="--step-color: #ef4444">6</span>
+        </div>
+        <div class="setup-step-content">
+            <div class="setup-step-header">
+                <div>
+                    <h2>Moderation</h2>
+                    <span class="step-tag">admins only</span>
+                </div>
+            </div>
+            <div class="setup-step-body">
+                <p>All moderation commands live under <code>/moderation</code>. Anyone with <strong>Manage Messages</strong> can see the group; each command also checks for the specific permission it needs.</p>
+                <ul>
+                    <li><strong>Delete messages</strong> - <code>/moderation purge</code> bulk deletes up to 100 messages. Filter with <code>target:humans</code> or <code>target:bots</code>, or pass a <code>user</code> to only purge one person.</li>
+                    <li><strong>Remove members</strong> - <code>/moderation kick</code> and <code>/moderation ban</code> (with <code>/moderation unban</code> to reverse).</li>
+                    <li><strong>Timeout</strong> - <code>/moderation timeout</code> silences a member for minutes, hours, or days.</li>
+                    <li><strong>Channel control</strong> - <code>/moderation slowmode</code>, <code>/moderation lock</code>, and <code>/moderation unlock</code>.</li>
+                    <li><strong>Roles</strong> - <code>/moderation role add</code> and <code>/moderation role remove</code>.</li>
+                </ul>
+                <p>For moderation to work, the bot needs <strong>Manage Messages</strong>, <strong>Kick Members</strong>, <strong>Ban Members</strong>, <strong>Moderate Members</strong>, <strong>Manage Channels</strong>, and <strong>Manage Roles</strong>. If it's missing one, the bot will tell you exactly which one to grant.</p>
             </div>
         </div>
     </div>
