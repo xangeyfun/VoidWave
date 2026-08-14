@@ -92,6 +92,11 @@ class GeneralCog(commands.Cog):
                 inline=True
             )
             embed.add_field(
+                name="🛡️ Moderation",
+                value="`/moderation purge`",
+                inline=True
+            )
+            embed.add_field(
                 name="⚙️ Configuration",
                 value="`/config auto`, `/config view`, `/config help`",
                 inline=True
