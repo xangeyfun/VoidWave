@@ -15,7 +15,7 @@ def _next_qotd_timestamp() -> str:
 
 
 class ConfigCog(commands.Cog):
-    config = discord.app_commands.Group(name="config", description="Admin commands for configuring the bot", allowed_installs=discord.app_commands.AppInstallationType(guild=True, user=False), allowed_contexts=discord.app_commands.AppCommandContext(guild=True, dm_channel=False, private_channel=False))
+    config = discord.app_commands.Group(name="config", description="Admin commands for configuring the bot", default_permissions=discord.Permissions(administrator=True), allowed_installs=discord.app_commands.AppInstallationType(guild=True, user=False), allowed_contexts=discord.app_commands.AppCommandContext(guild=True, dm_channel=False, private_channel=False))
     level = discord.app_commands.Group(name="level", description="Configure level system settings", parent=config)
     qotd = discord.app_commands.Group(name="qotd", description="Configure QOTD settings", parent=config)
 
