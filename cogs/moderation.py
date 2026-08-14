@@ -80,11 +80,11 @@ class ModerationCog(commands.Cog):
 
         try:
             deleted = await interaction.channel.purge(limit=amount + 1, check=check)  # type: ignore
-            await interaction.followup.send(f"Deleted **{len(deleted)}** message{'s' if len(deleted) != 1 else ''}.", ephemeral=True, delete_after=5)
+            await interaction.followup.send(f"Deleted **{len(deleted)}** message{'s' if len(deleted) != 1 else ''}.", ephemeral=hidden, delete_after=5)
         except discord.Forbidden:
-            await interaction.followup.send("I don't have permission to delete messages here.", ephemeral=True, delete_after=5)
+            await interaction.followup.send("I don't have permission to delete messages here.", ephemeral=hidden, delete_after=5)
         except Exception as e:
-            await interaction.followup.send(f"Something went wrong...\n> {e}", ephemeral=True, delete_after=5)
+            await interaction.followup.send(f"Something went wrong...\n> {e}", ephemeral=hidden, delete_after=5)
 
     @discord.app_commands.checks.bot_has_permissions(kick_members=True)
     @discord.app_commands.checks.has_permissions(kick_members=True)
@@ -98,7 +98,7 @@ class ModerationCog(commands.Cog):
 
         await interaction.response.defer(ephemeral=hidden)
         await member.kick(reason=reason)
-        await interaction.followup.send(f"Kicked **{member}**.{f' Reason: {reason}' if reason else ''}", ephemeral=True)
+        await interaction.followup.send(f"Kicked **{member}**.{f' Reason: {reason}' if reason else ''}", ephemeral=hidden)
 
     @discord.app_commands.checks.bot_has_permissions(ban_members=True)
     @discord.app_commands.checks.has_permissions(ban_members=True)
@@ -113,7 +113,7 @@ class ModerationCog(commands.Cog):
         delete_days = max(0, min(delete_days, 7))
         await interaction.response.defer(ephemeral=hidden)
         await member.ban(reason=reason, delete_message_seconds=delete_days * 86400)
-        await interaction.followup.send(f"Banned **{member}**.{f' Reason: {reason}' if reason else ''}", ephemeral=True)
+        await interaction.followup.send(f"Banned **{member}**.{f' Reason: {reason}' if reason else ''}", ephemeral=hidden)
 
     @discord.app_commands.checks.bot_has_permissions(ban_members=True)
     @discord.app_commands.checks.has_permissions(ban_members=True)
@@ -123,11 +123,11 @@ class ModerationCog(commands.Cog):
         await interaction.response.defer(ephemeral=hidden)
         try:
             await interaction.guild.unban(user, reason=reason)  # type: ignore
-            await interaction.followup.send(f"Unbanned **{user}**.{f' Reason: {reason}' if reason else ''}", ephemeral=True)
+            await interaction.followup.send(f"Unbanned **{user}**.{f' Reason: {reason}' if reason else ''}", ephemeral=hidden)
         except discord.NotFound:
-            await interaction.followup.send(f"**{user}** is not banned.", ephemeral=True)
+            await interaction.followup.send(f"**{user}** is not banned.", ephemeral=hidden)
         except discord.Forbidden:
-            await interaction.followup.send("I don't have permission to unban members.", ephemeral=True)
+            await interaction.followup.send("I don't have permission to unban members.", ephemeral=hidden)
 
     @discord.app_commands.checks.bot_has_permissions(moderate_members=True)
     @discord.app_commands.checks.has_permissions(moderate_members=True)
@@ -148,7 +148,7 @@ class ModerationCog(commands.Cog):
         minutes = max(1, min(amount * factors[unit], 40320))
         await interaction.response.defer(ephemeral=hidden)
         await member.timeout(datetime.timedelta(minutes=minutes), reason=reason)
-        await interaction.followup.send(f"Timed out **{member}** for **{amount} {unit}**.{f' Reason: {reason}' if reason else ''}", ephemeral=True)
+        await interaction.followup.send(f"Timed out **{member}** for **{amount} {unit}**.{f' Reason: {reason}' if reason else ''}", ephemeral=hidden)
 
     @discord.app_commands.checks.bot_has_permissions(manage_channels=True)
     @discord.app_commands.checks.has_permissions(manage_channels=True)
@@ -160,9 +160,9 @@ class ModerationCog(commands.Cog):
         await interaction.response.defer(ephemeral=hidden)
         await channel.edit(slowmode_delay=seconds)
         if seconds:
-            await interaction.followup.send(f"Set slowmode to **{seconds} seconds** in {channel.mention}.", ephemeral=True)
+            await interaction.followup.send(f"Set slowmode to **{seconds} seconds** in {channel.mention}.", ephemeral=hidden)
         else:
-            await interaction.followup.send(f"Cleared slowmode in {channel.mention}.", ephemeral=True)
+            await interaction.followup.send(f"Cleared slowmode in {channel.mention}.", ephemeral=hidden)
 
     @discord.app_commands.checks.bot_has_permissions(manage_channels=True)
     @discord.app_commands.checks.has_permissions(manage_channels=True)
@@ -172,7 +172,7 @@ class ModerationCog(commands.Cog):
         channel = channel or interaction.channel  # type: ignore
         await interaction.response.defer(ephemeral=hidden)
         await channel.set_permissions(interaction.guild.default_role, send_messages=False)  # type: ignore
-        await interaction.followup.send(f"Locked {channel.mention}.{f' Reason: {reason}' if reason else ''}", ephemeral=True)
+        await interaction.followup.send(f"Locked {channel.mention}.{f' Reason: {reason}' if reason else ''}", ephemeral=hidden)
 
     @discord.app_commands.checks.bot_has_permissions(manage_channels=True)
     @discord.app_commands.checks.has_permissions(manage_channels=True)
@@ -182,7 +182,7 @@ class ModerationCog(commands.Cog):
         channel = channel or interaction.channel  # type: ignore
         await interaction.response.defer(ephemeral=hidden)
         await channel.set_permissions(interaction.guild.default_role, send_messages=None)  # type: ignore
-        await interaction.followup.send(f"Unlocked {channel.mention}.", ephemeral=True)
+        await interaction.followup.send(f"Unlocked {channel.mention}.", ephemeral=hidden)
 
     @discord.app_commands.checks.bot_has_permissions(manage_roles=True)
     @discord.app_commands.checks.has_permissions(manage_roles=True)
@@ -196,10 +196,10 @@ class ModerationCog(commands.Cog):
 
         await interaction.response.defer(ephemeral=hidden)
         if role in member.roles:
-            await interaction.followup.send(f"{member.mention} already has {role.mention}.", ephemeral=True)
+            await interaction.followup.send(f"{member.mention} already has {role.mention}.", ephemeral=hidden)
             return
         await member.add_roles(role, reason=f"Added by {interaction.user}")
-        await interaction.followup.send(f"Gave {role.mention} to **{member}**.", ephemeral=True)
+        await interaction.followup.send(f"Gave {role.mention} to **{member}**.", ephemeral=hidden)
 
     @discord.app_commands.checks.bot_has_permissions(manage_roles=True)
     @discord.app_commands.checks.has_permissions(manage_roles=True)
@@ -213,10 +213,10 @@ class ModerationCog(commands.Cog):
 
         await interaction.response.defer(ephemeral=hidden)
         if role not in member.roles:
-            await interaction.followup.send(f"{member.mention} doesn't have {role.mention}.", ephemeral=True)
+            await interaction.followup.send(f"{member.mention} doesn't have {role.mention}.", ephemeral=hidden)
             return
         await member.remove_roles(role, reason=f"Removed by {interaction.user}")
-        await interaction.followup.send(f"Removed {role.mention} from **{member}**.", ephemeral=True)
+        await interaction.followup.send(f"Removed {role.mention} from **{member}**.", ephemeral=hidden)
 
 
 async def setup(bot):
