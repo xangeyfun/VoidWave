@@ -4,6 +4,8 @@ import sqlite3
 import time
 import os
 import json
+import hmac
+import hashlib
 
 load_dotenv()
 
@@ -313,6 +315,73 @@ def api_stats():
         'total_messages': r[2] or 0,
         'total_vc_minutes': r[3] or 0
     })
+
+@app.route('/webhooks/topgg', methods=['POST'])
+def topgg_webhook():
+    secret = os.getenv("TOPGG_WEBHOOK_AUTH")
+    if not secret:
+        return 'Not configured', 500
+
+    raw_body = request.get_data(as_text=True)
+    signature = request.headers.get('x-topgg-signature', '')
+
+    if not signature or not raw_body:
+        return 'Unauthorized', 401
+
+    try:
+        t_part, v1_part = signature.split(',')
+        timestamp = t_part.split('=')[1]
+        received_sig = v1_part.split('=')[1]
+    except (ValueError, IndexError):
+        return 'Unauthorized', 401
+
+    expected = hmac.new(secret.encode(), f"{timestamp}.{raw_body}".encode(), hashlib.sha256).hexdigest()
+
+    if not hmac.compare_digest(expected, received_sig):
+        return 'Unauthorized', 401
+
+    try:
+        if abs(int(timestamp) - int(time.time())) > 300:
+            return 'Unauthorized', 401
+    except ValueError:
+        return 'Unauthorized', 401
+
+    data = request.get_json(silent=True) or {}
+
+    if data.get('type') == 'vote.create':
+        vote_data = data.get('data') or {}
+        user_id = (vote_data.get('user') or {}).get('platform_id')
+
+        if not user_id:
+            print(f"{time.strftime('%Y-%m-%d %H:%M:%S')} WARN  Top.gg vote.create without a Discord user id")
+            return 'OK', 200
+
+        weight = vote_data.get('weight', 1)
+        duration = 10800 if weight == 2 else 7200
+
+        conn = get_db()
+        try:
+            cur = conn.cursor()
+            cur.execute("""
+            CREATE TABLE IF NOT EXISTS vote_boosts (
+                user_id INTEGER PRIMARY KEY,
+                multiplier REAL DEFAULT 2.0,
+                expires_at INTEGER
+            )
+            """)
+            cur.execute("""
+            INSERT INTO vote_boosts (user_id, multiplier, expires_at) VALUES (?, 2.0, ?)
+            ON CONFLICT(user_id) DO UPDATE SET multiplier = excluded.multiplier, expires_at = excluded.expires_at
+            """, (int(user_id), int(time.time()) + duration))
+            conn.commit()
+            print(f"{time.strftime('%Y-%m-%d %H:%M:%S')} WEBHOOK  Top.gg vote from discord user {user_id} ({'3h weekend' if weight == 2 else '2h'} boost)")
+        except Exception as e:
+            print(f"Top.gg webhook error: {e}")
+            return 'Internal Server Error', 500
+        finally:
+            conn.close()
+
+    return 'OK', 200
 
 @app.errorhandler(404)
 def page_not_found(e):
