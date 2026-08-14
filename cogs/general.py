@@ -93,7 +93,7 @@ class GeneralCog(commands.Cog):
             )
             embed.add_field(
                 name="🛡️ Moderation",
-                value="`/moderation purge`",
+                value="`/moderation purge, kick, ban, unban, timeout, slowmode, lock, unlock, role`",
                 inline=True
             )
             embed.add_field(
