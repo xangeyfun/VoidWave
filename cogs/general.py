@@ -17,6 +17,7 @@ class GeneralCog(commands.Cog):
         app_commands.Choice(name="Leveling", value="leveling"),
         app_commands.Choice(name="Utilities", value="utilities"),
         app_commands.Choice(name="Fun", value="fun"),
+        app_commands.Choice(name="Moderation", value="moderation"),
         app_commands.Choice(name="Configuration", value="configuration"),
     ])
     async def help_command(self, interaction: discord.Interaction, topic: str = None):
@@ -38,6 +39,7 @@ class GeneralCog(commands.Cog):
                 value=(
                     "`/ping` - Test the bot's latency\n"
                     "`/uptime` - Check the bot's uptime and useful links\n"
+                    "`/github` - View the source code and report issues\n"
                     "`/vote` - Vote for the bot on Top.gg\n"
                     "`/calc <expression>` - Simple calculator\n"
                     "`/ai <message> [stats] [hidden]` - Chat with the bot's AI\n"
@@ -58,6 +60,24 @@ class GeneralCog(commands.Cog):
                 ),
                 inline=False
             )
+        elif topic == "moderation":
+            embed = discord.Embed(title="🛡️ Moderation Commands", color=discord.Color(0x7128fc))
+            embed.add_field(
+                name="Commands",
+                value=(
+                    "`/moderation purge <amount> [target] [user]` - Bulk delete messages\n"
+                    "`/moderation kick <member> [reason]` - Kick a member\n"
+                    "`/moderation ban <member> [delete_days] [reason]` - Ban a member\n"
+                    "`/moderation unban <user> [reason]` - Unban a user by ID\n"
+                    "`/moderation timeout <member> <amount> [unit] [reason]` - Timeout a member\n"
+                    "`/moderation slowmode <seconds> [channel]` - Set or clear slowmode\n"
+                    "`/moderation lock [channel] [reason]` - Lock a channel\n"
+                    "`/moderation unlock [channel]` - Unlock a channel\n"
+                    "`/moderation role add/remove <member> <role>` - Manage a member's roles"
+                ),
+                inline=False
+            )
+            embed.set_footer(text="Requires the matching permission, granted to moderators")
         elif topic == "configuration":
             embed = discord.Embed(title="⚙️ Configuration Commands", color=discord.Color(0x7128fc))
             embed.add_field(
