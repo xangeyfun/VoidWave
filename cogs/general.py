@@ -65,7 +65,6 @@ class GeneralCog(commands.Cog):
             embed.add_field(
                 name="Commands",
                 value=(
-                    "`/moderation purge <amount> [target] [user]` - Bulk delete messages\n"
                     "`/moderation kick <member> [reason]` - Kick a member\n"
                     "`/moderation ban <member> [delete_days] [reason]` - Ban a member\n"
                     "`/moderation unban <user> [reason]` - Unban a user by ID\n"
@@ -113,7 +112,7 @@ class GeneralCog(commands.Cog):
             )
             embed.add_field(
                 name="🛡️ Moderation",
-                value="`/moderation purge, kick, ban, unban, timeout, slowmode, lock, unlock, role`",
+                value="`/moderation kick, ban, unban, timeout, slowmode, lock, unlock, role`",
                 inline=True
             )
             embed.add_field(

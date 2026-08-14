@@ -53,39 +53,6 @@ class ModerationCog(commands.Cog):
             return f"You can't {action} {role.mention} because it's equal to or above your highest role."
         return None
 
-    @discord.app_commands.checks.bot_has_permissions(manage_messages=True)
-    @discord.app_commands.checks.has_permissions(manage_messages=True)
-    @moderation.command(name="purge", description="Bulk delete messages")
-    @app_commands.describe(amount="Number of messages to delete (1-100)", target="Only delete messages from this type of author", user="Only delete this user's messages", hidden="Hide the command from others")
-    @app_commands.choices(target=[
-        app_commands.Choice(name="everyone", value="everyone"),
-        app_commands.Choice(name="humans", value="humans"),
-        app_commands.Choice(name="bots", value="bots"),
-    ])
-    async def purge(self, interaction: discord.Interaction, amount: int, target: str = "everyone", user: discord.Member | None = None, hidden: bool = False):
-        await interaction.response.defer(ephemeral=hidden)
-
-        amount = max(1, min(amount, 100))
-
-        def check(msg):
-            if msg.interaction_metadata is not None and msg.interaction_metadata.id == interaction.id:
-                return False
-            if target == "humans" and msg.author.bot:
-                return False
-            if target == "bots" and not msg.author.bot:
-                return False
-            if user is not None:
-                return msg.author.id == user.id
-            return True
-
-        try:
-            deleted = await interaction.channel.purge(limit=amount + 1, check=check)  # type: ignore
-            await interaction.followup.send(f"Deleted **{len(deleted)}** message{'s' if len(deleted) != 1 else ''}.", ephemeral=hidden, delete_after=5)
-        except discord.Forbidden:
-            await interaction.followup.send("I don't have permission to delete messages here.", ephemeral=hidden, delete_after=5)
-        except Exception as e:
-            await interaction.followup.send(f"Something went wrong...\n> {e}", ephemeral=hidden, delete_after=5)
-
     @discord.app_commands.checks.bot_has_permissions(kick_members=True)
     @discord.app_commands.checks.has_permissions(kick_members=True)
     @moderation.command(name="kick", description="Kick a member from the server")

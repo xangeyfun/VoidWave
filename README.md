@@ -30,7 +30,7 @@
 * Shareable web profiles with OpenGraph embeds
 * Auto role rewards at level milestones
 * Daily Question of the Day with auto-threads
-* Moderation commands (purge, kick, ban, timeout, slowmode, lock, role management)
+* Moderation commands (kick, ban, timeout, slowmode, lock, role management)
 * Vote for 2x XP boosts, 3 hours on weekends
 * Fun commands (animal pics, quotes, facts, calculator)
 * All slash commands, no prefix needed
