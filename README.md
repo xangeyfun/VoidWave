@@ -2,7 +2,7 @@
 
 # VoidWave
 
-**A Discord bot that respects your server. No data collection, no spam, no paywalls, just works.**
+**Leveling, AI chat, Question of the Day, and moderation. No data collection, no paywalls, just works.**
 
 ![VoidWave Stats](https://voidwave.xangey.dev/static/images/stats.png)
 
@@ -30,6 +30,8 @@
 * Shareable web profiles with OpenGraph embeds
 * Auto role rewards at level milestones
 * Daily Question of the Day with auto-threads
+* Moderation commands (purge, kick, ban, timeout, slowmode, lock, role management)
+* Vote for 2x XP boosts, 3 hours on weekends
 * Fun commands (animal pics, quotes, facts, calculator)
 * All slash commands, no prefix needed
 

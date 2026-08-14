@@ -234,6 +234,8 @@ document.addEventListener('DOMContentLoaded', () => {
             'Clean, fast, slightly chaotic.',
             'Level up your server.',
             'AI chat, built in.',
+            'Moderation, built in.',
+            'Vote for 2x XP.',
             'Open source, privacy friendly.',
             'No paywalls. No data collection. Just works.',
             'Your server, your data.',

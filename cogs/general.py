@@ -83,7 +83,7 @@ class GeneralCog(commands.Cog):
             )
             embed.add_field(
                 name="🔧 Utilities",
-                value="`/ping`, `/uptime`, `/calc`, `/ai`, `/userinfo`",
+                value="`/ping`, `/uptime`, `/github`, `/calc`, `/ai`, `/userinfo`",
                 inline=True
             )
             embed.add_field(
@@ -131,6 +131,16 @@ class GeneralCog(commands.Cog):
             f"> Vote on DiscordBotList: <https://discordbotlist.com/bots/voidwave/upvote>",
             ephemeral=True,
             allowed_mentions=discord.AllowedMentions(users=False)
+        )
+
+    @discord.app_commands.allowed_installs(guilds=True, users=True)
+    @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
+    @discord.app_commands.command(name="github", description="View the source code and report issues")
+    async def github(self, interaction: discord.Interaction):
+        await interaction.response.send_message(
+            "> **GitHub** <https://github.com/xangeyfun/VoidWave>\n\n"
+            "Open an issue to report a bug or request a feature, or submit a pull request to contribute.",
+            ephemeral=True
         )
 
     @discord.app_commands.allowed_installs(guilds=True, users=True)
