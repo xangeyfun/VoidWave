@@ -3,6 +3,7 @@ from dotenv import load_dotenv
 import discord
 import sqlite3
 import os
+from datetime import datetime
 
 load_dotenv()
 
@@ -23,6 +24,20 @@ async def setup_hook():
     await bot.load_extension("cogs.moderation")
 
 bot.setup_hook = setup_hook
+
+def date():
+    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+@bot.tree.error
+async def on_app_command_error(interaction: discord.Interaction, error: discord.app_commands.AppCommandError):
+    if interaction.response.is_done():
+        return
+
+    print(f"{date()} ERROR  Unhandled command error in '/{getattr(interaction.command, 'qualified_name', '?')}' used by {interaction.user}: {error}")
+    try:
+        await interaction.response.send_message(f"Something went wrong while running that command. Please try again later.\n> {error}", ephemeral=True)
+    except discord.HTTPException:
+        pass
 
 if __name__ == "__main__":
     # Setup DB
