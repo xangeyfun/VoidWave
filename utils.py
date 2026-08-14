@@ -17,6 +17,9 @@ SLOW_RESPONSE_THRESHOLD = 30
 STATS_LOG_FILE = "stats_history.json"
 TOPGG_TOKEN = os.getenv("TOPGG_TOKEN")
 DBL_TOKEN = os.getenv("DBL_TOKEN")
+VOTE_BOOST_MULTIPLIER = 2.0
+VOTE_BOOST_DURATION = 7200
+VOTE_BOOST_WEEKEND_DURATION = 10800
 
 # Shared state
 startup = time.time()
@@ -33,6 +36,21 @@ def get_db():
     conn = sqlite3.connect("database.db")
     conn.row_factory = sqlite3.Row
     return conn
+
+
+def get_vote_boost(user_id):
+    conn = get_db()
+    try:
+        cur = conn.cursor()
+        row = cur.execute(
+            "SELECT multiplier FROM vote_boosts WHERE user_id=? AND expires_at > ?",
+            (user_id, int(time.time()))
+        ).fetchone()
+        return row["multiplier"] if row else 1.0
+    except sqlite3.OperationalError:
+        return 1.0
+    finally:
+        conn.close()
 
 
 def date():
@@ -236,6 +254,9 @@ async def add_message_xp(bot, message):
             return
 
         xp = random.randint(1, 15)
+        multiplier = get_vote_boost(user_id)
+        if multiplier > 1:
+            xp = int(xp * multiplier)
         last_xp[user_id] = now
 
         cur.execute("""
