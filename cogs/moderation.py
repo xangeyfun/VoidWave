@@ -68,7 +68,7 @@ class ModerationCog(commands.Cog):
         amount = max(1, min(amount, 100))
 
         def check(msg):
-            if msg.interaction is not None and msg.interaction.id == interaction.id:
+            if msg.interaction_metadata is not None and msg.interaction_metadata.id == interaction.id:
                 return False
             if target == "humans" and msg.author.bot:
                 return False
