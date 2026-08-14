@@ -23,12 +23,18 @@ class ConfigCog(commands.Cog):
         self.bot = bot
 
     async def cog_app_command_error(self, interaction: discord.Interaction, error: discord.app_commands.AppCommandError):
-        if isinstance(error, discord.app_commands.MissingPermissions):
+        if isinstance(error, discord.app_commands.BotMissingPermissions):
+            perms = ", ".join(f"**{p.replace('_', ' ').title()}**" for p in error.missing_permissions)
+            msg = f"> I need {perms} permission to do that. Ask a server admin to grant it to me."
+        elif isinstance(error, discord.app_commands.MissingPermissions):
             msg = "> You need **Administrator** permissions to use this command."
-            if interaction.response.is_done():
-                await interaction.followup.send(msg, ephemeral=True)
-            else:
-                await interaction.response.send_message(msg, ephemeral=True)
+        else:
+            return
+
+        if interaction.response.is_done():
+            await interaction.followup.send(msg, ephemeral=True)
+        else:
+            await interaction.response.send_message(msg, ephemeral=True)
 
     @discord.app_commands.allowed_installs(guilds=True, users=False)
     @discord.app_commands.allowed_contexts(guilds=True, dms=False, private_channels=False)
@@ -339,6 +345,7 @@ class ConfigCog(commands.Cog):
     @discord.app_commands.allowed_installs(guilds=True, users=False)
     @discord.app_commands.allowed_contexts(guilds=True, dms=False, private_channels=False)
     @discord.app_commands.checks.has_permissions(administrator=True)
+    @discord.app_commands.checks.bot_has_permissions(manage_roles=True)
     @level.command(name="add_role", description="Add a role to be given on level up")
     @app_commands.describe(level="The level to give the role at", role="The role to give")
     async def add_level_role(self, interaction: discord.Interaction, level: int, role: discord.Role):
