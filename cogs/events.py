@@ -6,6 +6,7 @@ import datetime
 import aiohttp
 import asyncio
 import time
+import os
 from utils import (
     get_db, date, log_stats, add_message_xp, send_qotd, llm_worker,
     LLMRequest, get_command_path, extract_options, startup,
@@ -86,7 +87,8 @@ class EventsCog(commands.Cog):
         if message.author.bot:
             return
 
-        print(f"{date()} MESSAGE  from {message.author} in {message.guild.name if message.guild else 'DM'}{'/' + message.channel.name if message.guild else ''}: {message.content} [{message.attachments[0].url if message.attachments else ''}] [{message.embeds[0].url if message.embeds else ''}] [{message.stickers[0].url if message.stickers else ''}]")
+        if os.getenv("DEBUG") == "true":
+            print(f"{date()} MESSAGE  from {message.author} in {message.guild.name if message.guild else 'DM'}{'/' + message.channel.name if message.guild else ''}: {message.content} [{message.attachments[0].url if message.attachments else ''}] [{message.embeds[0].url if message.embeds else ''}] [{message.stickers[0].url if message.stickers else ''}]")
 
         if isinstance(message.channel, discord.DMChannel):
             return
@@ -177,18 +179,22 @@ class EventsCog(commands.Cog):
             title="Hey! Thanks for adding VoidWave!",
             description=(
                 "I'm here to make your server more fun with **levels**, **questions of the day**, and more.\n\n"
-                "**Leveling works automatically** - members earn XP by chatting and hanging out in voice channels. No setup needed.\n\n"
-                "To get started, just run:\n"
-                "`/config auto` to set everything up in one command.\n"
-                "`/config help` to see all configuration options.\n"
-                "`/help` to see all available commands.\n\n"
+                "**Love VoidWave? Help it grow!**\n"
+                "Voting is free and takes 5 seconds. You'll get **2x XP for 2 hours** (3h on weekends) and it helps VoidWave reach more servers.\n"
+                "Run `/vote` in any channel to claim your boost!\n\n"
+                "**Leveling works automatically**\n"
+                "Members earn XP just by chatting and hanging out in voice channels. No setup needed.\n\n"
+                "**Getting started**\n"
+                "`/config auto` sets everything up in one command.\n"
+                "`/config help` shows all configuration options.\n"
+                "`/help` lists all available commands.\n\n"
                 "Need help? Visit [voidwave.xangey.dev/setup](https://voidwave.xangey.dev/setup) for the full guide."
             ),
             color=0x5865F2,
             timestamp=datetime.datetime.now(datetime.timezone.utc)
         )
         welcome_embed.set_thumbnail(url=self.bot.user.display_avatar.url)
-        welcome_embed.set_footer(text="Vote for the bot! /vote")
+        welcome_embed.set_footer(text="Vote for 2x XP and help VoidWave grow! /vote")
         await welcome_channel.send(embed=welcome_embed)
 
     @commands.Cog.listener()
