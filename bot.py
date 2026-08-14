@@ -91,6 +91,15 @@ if __name__ == "__main__":
     except sqlite3.OperationalError:
         pass
 
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS vote_boosts (
+        user_id INTEGER PRIMARY KEY,
+        multiplier REAL DEFAULT 2.0,
+        expires_at INTEGER
+    )
+    """)
+    conn.commit()
+
     conn.close()
 
     # Run the bot
