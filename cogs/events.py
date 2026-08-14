@@ -76,6 +76,8 @@ class EventsCog(commands.Cog):
             else:
                 guild_id = ""
 
+            if interaction.command and interaction.command.name == "ai" and "message" in command_options:
+                command_options["message"] = "***"
             options_str = " ".join(f"{k}:{v}" for k, v in command_options.items())
 
             print(f"{date()} COMMAND '{command_name} {options_str}' used by '{user_name}' in '{guild_name}{channel_name}' (user_id: {user_id}{guild_id})")

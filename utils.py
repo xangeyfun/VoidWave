@@ -473,7 +473,8 @@ async def llm_worker(bot):
                 await ctx.reply(reply, allowed_mentions=discord.AllowedMentions.none())
             except discord.errors.HTTPException:
                 pass
-            print(f"{date()} INFO  LLM response to {ctx.author} (ID: {ctx.author.id}): {reply} ({info})")
+            if os.getenv("DEBUG") == "true":
+                print(f"{date()} INFO  LLM response to {ctx.author} (ID: {ctx.author.id}): {reply} ({info})")
             await asyncio.sleep(1)
             llm_queue_size.pop(0)
             llm_queue.task_done()

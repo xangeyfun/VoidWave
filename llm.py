@@ -73,7 +73,8 @@ def ask_llm(prompt, username, user_id, reply_info=None):
         reply = f"Something went wrong...\n> {e}\n> Response content: {r.text}"
         data = {}
 
-    print(f"{date()} INFO  LLM raw response: '{reply}'")
+    if os.getenv("DEBUG") == "true":
+        print(f"{date()} INFO  LLM raw response: '{reply}'")
     reply = reply.strip()
     if reply.startswith(f"{username}:"):
         reply = reply.split(":", 1)[1].strip()
