@@ -2,7 +2,7 @@ from discord import app_commands
 from discord.ext import commands, tasks
 import discord
 import time
-from utils import get_db, date, format_minutes, last_vc, VC_COOLDOWN
+from utils import get_db, date, format_minutes, last_vc, VC_COOLDOWN, get_vote_boost
 
 
 class LevelingCog(commands.Cog):
@@ -36,6 +36,8 @@ class LevelingCog(commands.Cog):
 
             global_rank = cur.execute("SELECT COUNT(*) + 1 FROM users WHERE total_xp > ?", (data["total_xp"],)).fetchone()[0]
 
+            boost = cur.execute("SELECT multiplier, expires_at FROM vote_boosts WHERE user_id=? AND expires_at > ?", (user.id, int(time.time()))).fetchone()
+
         except Exception as e:
             await interaction.followup.send(f"Something went wrong... Please DM <@996771607630585856> about this\n> {e}", ephemeral=hidden, allowed_mentions=discord.AllowedMentions(users=False))
             return
@@ -50,6 +52,12 @@ class LevelingCog(commands.Cog):
         filled_blocks = round(percent / 100 * 10)
         bar = f"{'▰'*filled_blocks}{'▱'*(10-filled_blocks)}"
 
+        if boost:
+            minutes = int((boost["expires_at"] - time.time()) // 60)
+            boost_line = f"\n⚡ **{boost['multiplier']:.1f}x XP boost** active for **{minutes} min**!"
+        else:
+            boost_line = "\n⚡ Vote for **2x XP** for **2 hours**! `/vote`"
+
         embed = discord.Embed(
             title=f"{user.display_name}'s Level", # type: ignore
             color=discord.Color(0x7128fc)
@@ -58,7 +66,7 @@ class LevelingCog(commands.Cog):
         embed.description = (
             f"**Level {data['level']}** • `#{rank}`{global_rank}\n"
             f"`{progress:,} / {out_of:,} XP` • {percent:.1f}%\n"
-            f"[{bar}]"
+            f"[{bar}]{boost_line}"
         )
 
         embed.add_field(
@@ -88,7 +96,7 @@ class LevelingCog(commands.Cog):
         embed.set_thumbnail(url=user.display_avatar.url) # type: ignore
 
         embed.set_footer(
-            text=f"{interaction.guild.name} • Vote for the bot! /vote",
+            text=f"{interaction.guild.name} • Vote for 2x XP! /vote",
             icon_url=interaction.guild.icon.url if interaction.guild.icon else None
         )
 
@@ -170,7 +178,7 @@ class LevelingCog(commands.Cog):
         embed.description = "\n".join(lines) + "\n\n**View online:** [Leaderboard](https://voidwave.xangey.dev/leaderboard)" if lines else "no data yet :("
 
         embed.set_footer(
-            text=f"{interaction.guild.name if interaction.guild and not global_lb else 'Global'} Leaderboard • Vote for the bot! /vote",
+            text=f"{interaction.guild.name if interaction.guild and not global_lb else 'Global'} Leaderboard • Vote for 2x XP! /vote",
             icon_url=interaction.guild.icon.url if interaction.guild and interaction.guild.icon and not global_lb else None
         )
 
@@ -243,7 +251,7 @@ class LevelingCog(commands.Cog):
         embed.set_thumbnail(url=user.display_avatar.url)
 
         embed.set_footer(
-            text=f"user id: {user.id} • Vote for the bot! /vote",
+            text=f"user id: {user.id} • Vote for 2x XP! /vote",
             icon_url=user.display_avatar.url
         )
 
@@ -299,6 +307,9 @@ class LevelingCog(commands.Cog):
                         try:
                             import random
                             xp = random.randint(1, 8)
+                            multiplier = get_vote_boost(member.id)
+                            if multiplier > 1:
+                                xp = int(xp * multiplier)
                             last_vc[member.id] = time.time()
                             cur.execute("""
                             UPDATE users
