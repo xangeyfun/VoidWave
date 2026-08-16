@@ -39,7 +39,8 @@ class LevelingCog(commands.Cog):
             boost = cur.execute("SELECT multiplier, expires_at FROM vote_boosts WHERE user_id=? AND expires_at > ?", (user.id, int(time.time()))).fetchone()
 
         except Exception as e:
-            await interaction.followup.send(f"Something went wrong... Please DM <@996771607630585856> about this\n> {e}", ephemeral=hidden, allowed_mentions=discord.AllowedMentions(users=False))
+            print(f"{date()} ERROR  Failed to fetch level data for {user} in guild {interaction.guild.id}: {e}")
+            await interaction.followup.send("Something went wrong while fetching your level data. Please try again later.", ephemeral=hidden, allowed_mentions=discord.AllowedMentions(users=False))
             return
         finally:
             conn.close()
@@ -148,7 +149,8 @@ class LevelingCog(commands.Cog):
                     leaderboard_data = cur.execute("SELECT username, vc_minutes, guild_id FROM users ORDER BY vc_minutes DESC LIMIT 10").fetchall()
 
         except Exception as e:
-            await interaction.followup.send(f"Something went wrong... Please DM <@996771607630585856> about this\n> {e}", ephemeral=hidden, allowed_mentions=discord.AllowedMentions(users=False))
+            print(f"{date()} ERROR  Failed to fetch leaderboard for guild {interaction.guild.id}: {e}")
+            await interaction.followup.send("Something went wrong while fetching the leaderboard. Please try again later.", ephemeral=hidden, allowed_mentions=discord.AllowedMentions(users=False))
             return
         finally:
             conn.close()
@@ -201,7 +203,8 @@ class LevelingCog(commands.Cog):
             total_vc_minutes = cur.execute("SELECT SUM(vc_minutes) FROM users WHERE user_id=?", (user.id,)).fetchone()[0] or 0
 
         except Exception as e:
-            await interaction.followup.send(f"Something went wrong... Please DM <@996771607630585856> about this\n> {e}", ephemeral=hidden, allowed_mentions=discord.AllowedMentions(users=False))
+            print(f"{date()} ERROR  Failed to fetch profile for {user} (ID: {user.id}): {e}")
+            await interaction.followup.send("Something went wrong while fetching your profile. Please try again later.", ephemeral=hidden, allowed_mentions=discord.AllowedMentions(users=False))
             return
 
         finally:
@@ -362,7 +365,6 @@ class LevelingCog(commands.Cog):
                             conn.commit()
                         except Exception as e:
                             print(f"{date()} ERROR  Failed to update VC XP for {member} in {guild}: {e}")
-                            await member.send(f"Something went wrong while updating your voice channel XP. Please DM <@996771607630585856> about this.\n> {e}")
         finally:
             conn.close()
 

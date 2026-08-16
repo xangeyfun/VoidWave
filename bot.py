@@ -37,7 +37,7 @@ async def on_app_command_error(interaction: discord.Interaction, error: discord.
 
     traceback.print_exc()
     try:
-        await interaction.response.send_message(f"Something went wrong while running that command. Please try again later.\n> {error}", ephemeral=True)
+        await interaction.response.send_message(f"Something went wrong while running that command. Please try again later.", ephemeral=True)
     except discord.HTTPException:
         pass
 

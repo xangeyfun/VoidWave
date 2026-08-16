@@ -156,7 +156,7 @@ class EventsCog(commands.Cog):
             e = str(e)
             trace = traceback.format_exc()
             print(f"{date()} ERROR  Failed to process message for leveling: {e}\n```\n{trace}```")
-            await message.reply(f"Something went wrong... Please DM <@996771607630585856> about this\n> {e}\n> {trace}", allowed_mentions=discord.AllowedMentions(users=False))
+            await message.reply(f"Something went wrong while processing that message. The developers have been notified.", allowed_mentions=discord.AllowedMentions(users=False))
             return
 
     @commands.Cog.listener()

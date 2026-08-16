@@ -49,7 +49,7 @@ class ConfigCog(commands.Cog):
             qotd_channel = cur.execute("SELECT qotd_channel, qotd_enabled, delete_old_qotd FROM guild_settings WHERE guild_id = ?", (interaction.guild.id,)).fetchone() # type: ignore
         except Exception as e:
             print(f"{date()} ERROR  Failed to fetch config: {e}")
-            await interaction.response.send_message(f"Failed to fetch config. Please try again later.\n> {e}", ephemeral=True)
+            await interaction.response.send_message(f"Failed to fetch config. Please try again later.", ephemeral=True)
             return
         finally:
             conn.close()
@@ -335,7 +335,7 @@ class ConfigCog(commands.Cog):
 
         except Exception as e:
             print(f"{date()} ERROR  Failed to toggle level channel: {e}")
-            await interaction.response.send_message(f"Failed to update level up message setting. Please try again later.\n> {e}", ephemeral=True)
+            await interaction.response.send_message(f"Failed to update level up message setting. Please try again later.", ephemeral=True)
             return
         finally:
             conn.close()
@@ -407,7 +407,7 @@ class ConfigCog(commands.Cog):
 
         except Exception as e:
             print(f"{date()} ERROR  Failed to set QOTD channel: {e}")
-            await interaction.response.send_message(f"Failed to set QOTD channel. Please try again later.\n> {e}", ephemeral=True)
+            await interaction.response.send_message(f"Failed to set QOTD channel. Please try again later.", ephemeral=True)
             return
         finally:
             conn.close()
@@ -450,7 +450,7 @@ class ConfigCog(commands.Cog):
 
         except Exception as e:
             print(f"{date()} ERROR  Failed to set QOTD enabled: {e}")
-            await interaction.response.send_message(f"Failed to update QOTD setting. Please try again later.\n> {e}", ephemeral=True)
+            await interaction.response.send_message(f"Failed to update QOTD setting. Please try again later.", ephemeral=True)
             return
         finally:
             conn.close()
@@ -478,7 +478,7 @@ class ConfigCog(commands.Cog):
 
         except Exception as e:
             print(f"{date()} ERROR  Failed to set QOTD role: {e}")
-            await interaction.response.send_message(f"Failed to set QOTD role. Please try again later.\n> {e}", ephemeral=True)
+            await interaction.response.send_message(f"Failed to set QOTD role. Please try again later.", ephemeral=True)
             return
         finally:
             conn.close()
@@ -521,7 +521,7 @@ class ConfigCog(commands.Cog):
 
         except Exception as e:
             print(f"{date()} ERROR  Failed to set delete old QOTD: {e}")
-            await interaction.response.send_message(f"Failed to update delete old QOTD setting. Please try again later.\n> {e}", ephemeral=True)
+            await interaction.response.send_message(f"Failed to update delete old QOTD setting. Please try again later.", ephemeral=True)
             return
         finally:
             conn.close()
