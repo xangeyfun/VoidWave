@@ -2,6 +2,7 @@ from discord import app_commands
 from discord.ext import commands
 import discord
 import time
+import datetime
 from utils import startup, get_db
 
 
@@ -32,6 +33,7 @@ class GeneralCog(commands.Cog):
                 ),
                 inline=False
             )
+            embed.set_footer(text="Vote for 2x XP! /vote")
         elif topic == "utilities":
             embed = discord.Embed(title="🔧 Utility Commands", color=discord.Color(0x7128fc))
             embed.add_field(
@@ -47,6 +49,7 @@ class GeneralCog(commands.Cog):
                 ),
                 inline=False
             )
+            embed.set_footer(text="Vote for 2x XP! /vote")
         elif topic == "fun":
             embed = discord.Embed(title="🎉 Fun Commands", color=discord.Color(0x7128fc))
             embed.add_field(
@@ -60,6 +63,7 @@ class GeneralCog(commands.Cog):
                 ),
                 inline=False
             )
+            embed.set_footer(text="Vote for 2x XP! /vote")
         elif topic == "moderation":
             embed = discord.Embed(title="🛡️ Moderation Commands", color=discord.Color(0x7128fc))
             embed.add_field(
@@ -76,7 +80,7 @@ class GeneralCog(commands.Cog):
                 ),
                 inline=False
             )
-            embed.set_footer(text="Requires the matching permission, granted to moderators")
+            embed.set_footer(text="Requires the matching permission, granted to moderators • Vote for 2x XP! /vote")
         elif topic == "configuration":
             embed = discord.Embed(title="⚙️ Configuration Commands", color=discord.Color(0x7128fc))
             embed.add_field(
@@ -88,7 +92,7 @@ class GeneralCog(commands.Cog):
                 ),
                 inline=False
             )
-            embed.set_footer(text="Only available to server admins")
+            embed.set_footer(text="Only available to server admins • Vote for 2x XP! /vote")
         else:
             embed = discord.Embed(
                 title="VoidWave Help",
@@ -120,7 +124,7 @@ class GeneralCog(commands.Cog):
                 value="`/config auto`, `/config view`, `/config help`",
                 inline=True
             )
-            embed.set_footer(text="Use /help topic:<category> for details • Vote for the bot! /vote")
+            embed.set_footer(text="Use /help topic:<category> for details • Vote for 2x XP! /vote")
 
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
@@ -176,20 +180,30 @@ class GeneralCog(commands.Cog):
 
         if boost:
             minutes = int((boost["expires_at"] - time.time()) // 60)
-            msg = (
-                "🗳️ **Vote for VoidWave!**\n"
-                f"> <https://top.gg/bot/1442229230384709752/vote>\n"
-                f"> <https://discordbotlist.com/bots/voidwave/upvote>\n\n"
-                f"⚡ Your **{boost['multiplier']:.1f}x XP boost** is active for another **{minutes} minute{'s' if minutes != 1 else ''}**!"
-            )
+            boost_line = f"> ⚡ Your **{boost['multiplier']:.1f}x XP boost** is active for another **{minutes} minute{'s' if minutes != 1 else ''}**!"
         else:
-            msg = (
-                "🗳️ **Vote for VoidWave!**\n"
-                f"> <https://top.gg/bot/1442229230384709752/vote>\n"
-                f"> <https://discordbotlist.com/bots/voidwave/upvote>\n\n"
-                "⚡ **Vote now to get 2x XP for 2 hours!** (3 hours on weekends)"
-            )
-        await interaction.response.send_message(msg, ephemeral=True)
+            boost_line = "> ⚡ **Vote now to get 2x XP for 2 hours!** (3 hours on weekends)"
+
+        embed = discord.Embed(
+            title="🗳️ Vote for VoidWave!",
+            description=(
+                "Voting is free, takes 5 seconds, and helps VoidWave reach more servers. 🚀\n\n"
+                f"{boost_line}"
+            ),
+            color=0x7128fc,
+        )
+        embed.add_field(
+            name="Vote Links",
+            value=(
+                "> <https://top.gg/bot/1442229230384709752/vote>\n"
+                "> <https://discordbotlist.com/bots/voidwave/upvote>"
+            ),
+            inline=False,
+        )
+        embed.set_thumbnail(url=self.bot.user.display_avatar.url)
+        embed.set_footer(text="Vote for 2x XP! /vote")
+        embed.timestamp = datetime.datetime.now(datetime.timezone.utc)
+        await interaction.response.send_message(embed=embed, ephemeral=True)
 
 
 async def setup(bot):

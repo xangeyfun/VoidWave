@@ -158,7 +158,8 @@ class LevelingCog(commands.Cog):
 
         embed = discord.Embed(
             title=f"🏆 {'Global' if global_lb else 'Server'} {sort} Leaderboard",
-            color=discord.Color(0x7128fc)
+            color=discord.Color(0x7128fc),
+            timestamp=discord.utils.utcnow()
         )
 
         lines = []
@@ -179,6 +180,10 @@ class LevelingCog(commands.Cog):
             lines.append(line)
 
         embed.description = "\n".join(lines) + "\n\n**View online:** [Leaderboard](https://voidwave.xangey.dev/leaderboard)" if lines else "no data yet :("
+
+        embed.set_thumbnail(
+            url=interaction.guild.icon.url if interaction.guild and interaction.guild.icon and not global_lb else self.bot.user.display_avatar.url
+        )
 
         embed.set_footer(
             text=f"{interaction.guild.name if interaction.guild and not global_lb else 'Global'} Leaderboard • Vote for 2x XP! /vote",
@@ -214,18 +219,11 @@ class LevelingCog(commands.Cog):
         embed = discord.Embed(
             title=f"{user.display_name}'s Profile",
             description=(
-                f"### 🌌 Global Profile\n"
-                f"> hey {user.mention}!"
+                f"> {user.mention} • your global profile, combining stats across all servers.\n"
+                f"> Keep chatting and hanging out in voice channels to earn XP!"
             ),
-            color=discord.Color(0x7128fc)
-        )
-
-        embed.add_field(
-            name="",
-            value=(
-                "Hey there! This is your global profile, showing your combined stats across all servers that use the bot. Keep chatting and hanging out in voice channels to level up and earn XP! :D\n"
-            ),
-            inline=False
+            color=discord.Color(0x7128fc),
+            timestamp=discord.utils.utcnow()
         )
 
         embed.add_field(
@@ -258,8 +256,6 @@ class LevelingCog(commands.Cog):
             text=f"user id: {user.id} • Vote for 2x XP! /vote",
             icon_url=user.display_avatar.url
         )
-
-        embed.timestamp = discord.utils.utcnow()
 
         await interaction.followup.send(embed=embed, ephemeral=hidden, allowed_mentions=discord.AllowedMentions(users=False))
 

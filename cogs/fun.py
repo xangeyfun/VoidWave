@@ -85,9 +85,9 @@ class FunCog(commands.Cog):
             return
 
         image_url = data[key]["gif"] if key == "media" else data[key]
-        embed = discord.Embed(title=title, color=discord.Color.orange())
+        embed = discord.Embed(title=title, color=discord.Color(0x7128fc), timestamp=discord.utils.utcnow())
         embed.set_image(url=image_url)
-        embed.set_footer(text="Vote for the bot! /vote")
+        embed.set_footer(text="Vote for 2x XP! /vote")
         await interaction.followup.send(embed=embed, ephemeral=hidden)
 
     @discord.app_commands.allowed_installs(guilds=True, users=True)
@@ -137,7 +137,8 @@ class FunCog(commands.Cog):
 
         embed = discord.Embed(
             title=user.name,
-            color=discord.Color.blue()
+            color=discord.Color(0x7128fc),
+            timestamp=discord.utils.utcnow()
         )
 
         embed.add_field(name="ID", value=user.id)
@@ -151,7 +152,7 @@ class FunCog(commands.Cog):
             embed.add_field(name="Roles", value=", ".join(roles) or "None")
 
         embed.set_thumbnail(url=user.display_avatar.url)
-        embed.set_footer(text=f"Requested by {interaction.user.name} • Vote for the bot! /vote")
+        embed.set_footer(text=f"Requested by {interaction.user.name} • Vote for 2x XP! /vote")
 
         await interaction.response.send_message(embed=embed, ephemeral=hidden)
 

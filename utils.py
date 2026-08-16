@@ -450,10 +450,10 @@ async def send_qotd(bot, channel_id, role_id, guild_id):
             f"**{question}**\n\n"
             "> reply in the thread below 👀"
         ),
-        color=0x5865F2,
+        color=0x7128fc,
         timestamp=datetime.datetime.now(datetime.timezone.utc)
     )
-    embed.set_footer(text="New question every day • Powered by VoidWave • Vote for the bot! /vote")
+    embed.set_footer(text="New question every day • Powered by VoidWave • Vote for 2x XP! /vote")
 
     msg = None
     try:

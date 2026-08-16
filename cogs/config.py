@@ -54,7 +54,7 @@ class ConfigCog(commands.Cog):
         finally:
             conn.close()
 
-        embed = discord.Embed(title="⚙️ Current Configuration", color=discord.Color(0x7128fc))
+        embed = discord.Embed(title="⚙️ Current Configuration", color=discord.Color(0x7128fc), timestamp=datetime.datetime.now(datetime.timezone.utc))
 
         if level_channel:
             channel = interaction.guild.get_channel(level_channel[0])
@@ -80,6 +80,7 @@ class ConfigCog(commands.Cog):
         else:
             embed.add_field(name="Level Roles", value="No level roles set", inline=False)
 
+        embed.set_footer(text="Vote for 2x XP! /vote")
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
     @discord.app_commands.allowed_installs(guilds=True, users=False)
@@ -119,6 +120,7 @@ class ConfigCog(commands.Cog):
                 ),
                 inline=False
             )
+            embed.set_footer(text="Vote for 2x XP! /vote")
         elif topic == "qotd":
             embed = discord.Embed(
                 title="⚙️ QOTD Configuration",
@@ -140,6 +142,7 @@ class ConfigCog(commands.Cog):
                 ),
                 inline=False
             )
+            embed.set_footer(text="Vote for 2x XP! /vote")
         else:
             embed = discord.Embed(
                 title="⚙️ Configuration Help",
@@ -166,6 +169,7 @@ class ConfigCog(commands.Cog):
                 ),
                 inline=False
             )
+            embed.set_footer(text="Vote for 2x XP! /vote")
 
         await interaction.response.send_message(embed=embed, ephemeral=True)
 

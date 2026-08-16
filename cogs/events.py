@@ -166,13 +166,14 @@ class EventsCog(commands.Cog):
         total_members = sum(g.member_count or 0 for g in self.bot.guilds)
         total_guilds = len(self.bot.guilds)
         embed = discord.Embed(
-            title=" Joined a new guild!",
+            title="🎉 Joined a new guild!",
             color=discord.Color.green(),
             timestamp=datetime.datetime.now(datetime.timezone.utc)
         )
         embed.add_field(name="Guild Members", value=f"`{guild.member_count or 0}`", inline=True)
         embed.add_field(name="Total Members", value=f"`{total_members}`", inline=True)
         embed.add_field(name="Total Guilds", value=f"`{total_guilds}`", inline=True)
+        embed.set_footer(text="VoidWave • Vote for 2x XP! /vote")
         await log_channel.send(embed=embed)
 
         welcome_channel = guild.system_channel
@@ -199,11 +200,11 @@ class EventsCog(commands.Cog):
                 "`/help` lists all available commands.\n\n"
                 "Need help? Visit [voidwave.xangey.dev/setup](https://voidwave.xangey.dev/setup) for the full guide."
             ),
-            color=0x5865F2,
+            color=0x7128fc,
             timestamp=datetime.datetime.now(datetime.timezone.utc)
         )
         welcome_embed.set_thumbnail(url=self.bot.user.display_avatar.url)
-        welcome_embed.set_footer(text="Vote for 2x XP and help VoidWave grow! /vote")
+        welcome_embed.set_footer(text="Vote for 2x XP! /vote")
         await welcome_channel.send(embed=welcome_embed)
 
     @commands.Cog.listener()
@@ -213,13 +214,14 @@ class EventsCog(commands.Cog):
         total_members = sum(g.member_count or 0 for g in self.bot.guilds)
         total_guilds = len(self.bot.guilds)
         embed = discord.Embed(
-            title=" Removed from a guild!",
+            title="👋 Removed from a guild!",
             color=discord.Color.red(),
             timestamp=datetime.datetime.now(datetime.timezone.utc)
         )
         embed.add_field(name="Guild Members", value=f"`{guild.member_count or 0}`", inline=True)
         embed.add_field(name="Total Members", value=f"`{total_members}`", inline=True)
         embed.add_field(name="Total Guilds", value=f"`{total_guilds}`", inline=True)
+        embed.set_footer(text="VoidWave • Vote for 2x XP! /vote")
         await channel.send(embed=embed)
 
     @tasks.loop(minutes=1)
