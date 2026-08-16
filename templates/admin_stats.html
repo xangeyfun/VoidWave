@@ -1,0 +1,286 @@
+{% extends "admin_base.html" %}
+{% block title %}Statistics{% endblock %}
+{% block heading %}Statistics{% endblock %}
+{% block subheading %}Every stat worth knowing about the whole user base{% endblock %}
+{% block actions %}
+    <a href="{{ url_for('admin.stats') }}" class="btn btn-secondary btn-sm">&#128260; Refresh</a>
+{% endblock %}
+
+{% block content %}
+<!-- Overview Cards -->
+<div class="admin-grid cols-4">
+    <div class="stat-card">
+        <div class="stat-icon">&#128101;</div>
+        <div class="stat-value">{{ "{:,}".format(agg.users) }}</div>
+        <div class="stat-label">Users</div>
+        <div class="stat-hint">{{ "{:,}".format(agg.guilds) }} guilds</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon">&#127775;</div>
+        <div class="stat-value">{{ "{:,}".format(agg.total_xp) }}</div>
+        <div class="stat-label">Total XP</div>
+        <div class="stat-hint">{{ "{:,}".format(agg.xp_per_user) }} avg/user</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon">&#128172;</div>
+        <div class="stat-value">{{ "{:,}".format(agg.total_messages) }}</div>
+        <div class="stat-label">Total Messages</div>
+        <div class="stat-hint">{{ "{:,}".format(agg.total_messages_xp) }} granted XP</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon">&#127908;</div>
+        <div class="stat-value">{{ "{:,}".format(agg.vc_minutes) }}m</div>
+        <div class="stat-label">Voice Time</div>
+        <div class="stat-hint">{{ "{:,}".format(agg.vc_xp_minutes) }}m earned XP</div>
+    </div>
+</div>
+
+<div class="admin-grid cols-4" style="margin-top:1rem;">
+    <div class="stat-card">
+        <div class="stat-value">{{ agg.avg_level }}</div>
+        <div class="stat-label">Avg Level</div>
+        <div class="stat-hint">median {{ agg.median_level }} &middot; p90 {{ agg.p90_level }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ agg.max_level }}</div>
+        <div class="stat-label">Max Level</div>
+        <div class="stat-hint">{{ "{:,}".format(agg.level_100) }} at 100+ &middot; {{ "{:,}".format(agg.level_50) }} at 50+</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ "{:,}".format(agg.msgs_per_user) }}</div>
+        <div class="stat-label">Messages / user</div>
+        <div class="stat-hint">max {{ "{:,}".format(agg.max_messages) }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ "{:,}".format(agg.xp_per_user) }}</div>
+        <div class="stat-label">XP / user</div>
+        <div class="stat-hint">max {{ "{:,}".format(agg.max_xp) }}</div>
+    </div>
+</div>
+
+<!-- Growth & Activity -->
+<div class="admin-grid cols-2" style="margin-top:1.5rem;">
+    <div class="admin-card">
+        <h2>Activity Windows</h2>
+        <p class="card-sub">Users with recent messages.</p>
+        <div class="admin-table-wrap">
+            <table class="admin-table compact">
+                <thead><tr><th>Window</th><th class="num">Active Users</th><th>Share</th></tr></thead>
+                <tbody>
+                    {% for label, count in active.items() %}
+                    <tr>
+                        <td>Last {{ label }}</td>
+                        <td class="num">{{ "{:,}".format(count) }}</td>
+                        <td style="min-width:120px;">
+                            {% set pct = (count / agg.users * 100)|round(1) if agg.users else 0 %}
+                            <div class="progress-track"><div class="progress-fill" style="width: {{ pct }}%;"></div></div>
+                            <span class="muted" style="font-size:0.7rem;">{{ pct }}%</span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="admin-card">
+        <h2>Level Distribution</h2>
+        <p class="card-sub">Users per level band.</p>
+        <div class="admin-table-wrap">
+            <table class="admin-table compact">
+                <thead><tr><th>Levels</th><th class="num">Users</th><th>Share</th></tr></thead>
+                <tbody>
+                    {% for b in level_buckets %}
+                    <tr>
+                        <td>{{ b.range }}</td>
+                        <td class="num">{{ "{:,}".format(b.count) }}</td>
+                        <td style="min-width:120px;">
+                            {% set pct = (b.count / agg.users * 100)|round(1) if agg.users else 0 %}
+                            <div class="progress-track"><div class="progress-fill" style="width: {{ pct }}%;"></div></div>
+                            <span class="muted" style="font-size:0.7rem;">{{ pct }}%</span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Vote Boosts & Per-Guild -->
+<div class="admin-grid cols-2" style="margin-top:1.5rem;">
+    <div class="admin-card">
+        <h2>Vote Boosts</h2>
+        <p class="card-sub">Top.gg vote boost state.</p>
+        <div class="admin-grid cols-3">
+            <div class="stat-card"><div class="stat-value">{{ boost_rows.active }}</div><div class="stat-label">Active</div></div>
+            <div class="stat-card"><div class="stat-value">{{ boost_rows.expired }}</div><div class="stat-label">Expired</div></div>
+            <div class="stat-card"><div class="stat-value">{{ boost_rows.c }}</div><div class="stat-label">Total</div></div>
+        </div>
+    </div>
+
+    <div class="admin-card">
+        <h2>Top Guilds</h2>
+        <p class="card-sub">By user count (top 10).</p>
+        <div class="admin-table-wrap">
+            <table class="admin-table compact">
+                <thead>
+                    <tr><th>Guild</th><th class="num">Users</th><th class="num">XP</th><th class="num">Msgs</th><th class="num">Avg Lvl</th></tr>
+                </thead>
+                <tbody>
+                    {% for g in guild_rows[:10] %}
+                    <tr>
+                        <td class="mono" data-copy="{{ g['guild_id'] }}" style="cursor:pointer;">{{ g['guild_id'] }}</td>
+                        <td class="num">{{ "{:,}".format(g['users']) }}</td>
+                        <td class="num">{{ "{:,}".format(g['xp']) }}</td>
+                        <td class="num">{{ "{:,}".format(g['msgs']) }}</td>
+                        <td class="num">{{ g['avg_level']|round(1) }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Top Users (compact) -->
+<div class="admin-grid cols-4" style="margin-top:1.5rem;">
+    <div class="admin-card compact-list">
+        <h2>Top by XP</h2>
+        <div class="admin-table-wrap">
+            <table class="admin-table compact">
+                <tbody>
+                    {% for u in top_xp[:5] %}
+                    <tr>
+                        <td class="num">{{ loop.index }}</td>
+                        <td>{{ u['display_name'] or u['username'] }}</td>
+                        <td class="num">{{ "{:,}".format(u['total_xp']) }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div class="admin-card compact-list">
+        <h2>Top by Messages</h2>
+        <div class="admin-table-wrap">
+            <table class="admin-table compact">
+                <tbody>
+                    {% for u in top_messages[:5] %}
+                    <tr>
+                        <td class="num">{{ loop.index }}</td>
+                        <td>{{ u['display_name'] or u['username'] }}</td>
+                        <td class="num">{{ "{:,}".format(u['total_messages']) }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div class="admin-card compact-list">
+        <h2>Top by Voice</h2>
+        <div class="admin-table-wrap">
+            <table class="admin-table compact">
+                <tbody>
+                    {% for u in top_vc[:5] %}
+                    <tr>
+                        <td class="num">{{ loop.index }}</td>
+                        <td>{{ u['display_name'] or u['username'] }}</td>
+                        <td class="num">{{ "{:,}".format(u['vc_minutes']) }}m</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div class="admin-card compact-list">
+        <h2>Top by Level</h2>
+        <div class="admin-table-wrap">
+            <table class="admin-table compact">
+                <tbody>
+                    {% for u in top_level[:5] %}
+                    <tr>
+                        <td class="num">{{ loop.index }}</td>
+                        <td>{{ u['display_name'] or u['username'] }}</td>
+                        <td class="num">{{ u['level'] }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Snapshot History -->
+<div class="admin-card" style="margin-top:1.5rem;">
+    <h2>Snapshot History</h2>
+    <p class="card-sub">Last {{ snap_deltas|length }} hourly snapshots from <span class="mono">stats_history.json</span> with deltas.</p>
+    <div class="admin-table-wrap">
+        <table class="admin-table compact">
+            <thead>
+                <tr>
+                    <th>Timestamp</th>
+                    <th class="num">Guilds</th>
+                    <th class="num">Users (&Delta;)</th>
+                    <th class="num">XP (&Delta;)</th>
+                    <th class="num">Messages (&Delta;)</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for s in snap_deltas|reverse %}
+                <tr>
+                    <td class="mono">{{ s.ts }}</td>
+                    <td class="num">{{ "{:,}".format(s.guilds or 0) }}</td>
+                    <td class="num">
+                        {{ "{:,}".format(s.users or 0) }}
+                        {% if s.d_users is not none %}
+                            <span class="muted" style="font-size:0.7rem;">{% if s.d_users >= 0 %}+{% endif %}{{ s.d_users }}</span>
+                        {% endif %}
+                    </td>
+                    <td class="num">
+                        {{ "{:,}".format(s.xp or 0) }}
+                        {% if s.d_xp is not none %}
+                            <span class="muted" style="font-size:0.7rem;">{% if s.d_xp >= 0 %}+{% endif %}{{ "{:,}".format(s.d_xp) }}</span>
+                        {% endif %}
+                    </td>
+                    <td class="num">
+                        {{ "{:,}".format(s.messages or 0) }}
+                        {% if s.d_messages is not none %}
+                            <span class="muted" style="font-size:0.7rem;">{% if s.d_messages >= 0 %}+{% endif %}{{ "{:,}".format(s.d_messages) }}</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Files & Storage -->
+<div class="admin-grid cols-2" style="margin-top:1.5rem;">
+    <div class="admin-card">
+        <h2>Database Files</h2>
+        <p class="card-sub">On-disk state.</p>
+        <table class="admin-table compact">
+            <tbody>
+                <tr><td class="mono">database.db</td><td class="text-right num">{{ (db_size / 1024)|round(1) }} KB</td></tr>
+                <tr><td class="mono">database.db-wal</td><td class="text-right num">{{ (wal_size / 1024)|round(1) }} KB</td></tr>
+            </tbody>
+        </table>
+    </div>
+    <div class="admin-card">
+        <h2>Bot Stats Row</h2>
+        <p class="card-sub">Last recorded totals from the bot.</p>
+        {% if bot_rows %}
+            <table class="admin-table compact">
+                <tbody>
+                    <tr><td>Total guilds</td><td class="text-right num">{{ bot_rows[0].get('total_guilds', '-') }}</td></tr>
+                    <tr><td>Total members</td><td class="text-right num">{{ bot_rows[0].get('total_members', '-') }}</td></tr>
+                </tbody>
+            </table>
+        {% else %}
+            <div class="empty-state">No bot_stats row.</div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

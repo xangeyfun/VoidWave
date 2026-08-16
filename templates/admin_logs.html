@@ -1,0 +1,67 @@
+{% extends "admin_base.html" %}
+{% block title %}Audit Log{% endblock %}
+{% block heading %}Audit Log{% endblock %}
+{% block subheading %}Every admin action: logins, edits, deletions, restores{% endblock %}
+
+{% block content %}
+<div class="admin-card">
+    <form method="GET" action="{{ url_for('admin.logs') }}" class="form-grid">
+        <div class="form-field">
+            <label>Filter</label>
+            <input type="text" name="q" value="{{ q }}" placeholder="e.g. LOGIN OK, USER EDIT, FORGET, RESTORE, BACKUP, IP..." autofocus>
+        </div>
+        <div class="form-field">
+            <label>&nbsp;</label>
+            <button class="btn btn-primary" type="submit">Filter</button>
+            {% if q %}<a href="{{ url_for('admin.logs') }}" class="btn btn-secondary">Clear</a>{% endif %}
+        </div>
+    </form>
+</div>
+
+<div class="admin-card">
+    <p class="card-sub">{{ total }} log line(s){% if q %} matching &ldquo;{{ q }}&rdquo;{% endif %}.</p>
+    <div class="admin-table-wrap">
+        <table class="admin-table">
+            <thead>
+                <tr><th style="width:160px;">Time</th><th style="width:150px;">Action</th><th style="width:170px;">IP</th><th>Details</th></tr>
+            </thead>
+            <tbody>
+                {% for line in lines %}
+                    {% set parts = line.split(' ', 2) %}
+                    {% set ts = parts[0] + ' ' + parts[1] if parts|length > 1 else '' %}
+                    {% set rest = parts[2] if parts|length > 2 else '' %}
+                    {% set action = rest.split(' ')[0] if rest else '' %}
+                    {% set ip = rest.split(' ')[1] if rest.split(' ')|length > 1 else '' %}
+                    {% set detail = rest.split(' ', 2)[2] if rest.split(' ', 2)|length > 2 else '' %}
+                    <tr>
+                        <td class="mono">{{ ts }}</td>
+                        <td>
+                            <span class="badge {% if action.startswith('LOGIN') %}info{% elif action.startswith('USER EDIT') or action.startswith('USER ADD') or action.startswith('CHECK FIX') %}warn{% elif 'FAIL' in action or action.startswith('FORGET') or action.startswith('DELETE') or action.startswith('RESTORE') or action.startswith('RESET') %}fail{% else %}muted{% endif %}">{{ action }}</span>
+                        </td>
+                        <td class="mono">{{ ip }}</td>
+                        <td style="word-break:break-word;">{{ detail }}</td>
+                    </tr>
+                {% else %}
+                <tr><td colspan="4"><div class="empty-state">No log entries.</div></td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if total_pages > 1 %}
+    <div class="pagination">
+        {% if page > 1 %}<a href="?q={{ q }}&page={{ page - 1 }}">&#x2190;</a>{% endif %}
+        {% for p in range(1, total_pages + 1) %}
+            {% if p == page %}
+                <span class="active">{{ p }}</span>
+            {% elif p <= 3 or p > total_pages - 2 or (p >= page - 2 and p <= page + 2) %}
+                <a href="?q={{ q }}&page={{ p }}">{{ p }}</a>
+            {% elif p == 4 or p == total_pages - 3 %}
+                <span class="dots">...</span>
+            {% endif %}
+        {% endfor %}
+        {% if page < total_pages %}<a href="?q={{ q }}&page={{ page + 1 }}">&#x2192;</a>{% endif %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

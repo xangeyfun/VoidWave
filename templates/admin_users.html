@@ -1,0 +1,143 @@
+{% extends "admin_base.html" %}
+{% block title %}Users{% endblock %}
+{% block heading %}Users{% endblock %}
+{% block subheading %}Search, edit and manage every user's statistics{% endblock %}
+
+{% block content %}
+<div class="admin-card">
+    <form method="GET" action="{{ url_for('admin.users') }}" class="form-grid">
+        <div class="form-field">
+            <label>Search</label>
+            <input type="text" name="q" value="{{ q }}" placeholder="User ID, guild ID, or username..." autofocus>
+        </div>
+        <div class="form-field">
+            <label>Sort by</label>
+            <select name="sort">
+                {% for opt in ('total_xp', 'level', 'total_messages', 'vc_minutes', 'username', 'guild_id') %}
+                    <option value="{{ opt }}" {% if sort == opt %}selected{% endif %}>{{ opt|replace('_', ' ') }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-field">
+            <label>Order</label>
+            <select name="order">
+                <option value="desc" {% if order == 'desc' %}selected{% endif %}>Descending</option>
+                <option value="asc" {% if order == 'asc' %}selected{% endif %}>Ascending</option>
+            </select>
+        </div>
+        <div class="form-field">
+            <label>&nbsp;</label>
+            <button class="btn btn-primary" type="submit">Search</button>
+        </div>
+    </form>
+</div>
+
+<div class="admin-card">
+    <h2>Add User Manually</h2>
+    <p class="card-sub">Insert a fresh user row (level 0, 0 XP) for a Discord user.</p>
+    <form method="POST" action="{{ url_for('admin.user_add') }}" class="form-grid">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="form-field">
+            <label>User ID</label>
+            <input type="text" name="user_id" required placeholder="e.g. 123456789012345678">
+        </div>
+        <div class="form-field">
+            <label>Guild ID</label>
+            <input type="text" name="guild_id" required placeholder="e.g. 123456789012345678">
+        </div>
+        <div class="form-field">
+            <label>Username</label>
+            <input type="text" name="username" required placeholder="display name">
+        </div>
+        <div class="form-field">
+            <label>&nbsp;</label>
+            <button class="btn btn-secondary" type="submit">Add User</button>
+        </div>
+    </form>
+</div>
+
+<div class="admin-table-wrap">
+    <table class="admin-table">
+        <thead>
+            <tr>
+                <th>User</th>
+                <th>Guild</th>
+                <th class="num">Level</th>
+                <th class="num">XP</th>
+                <th class="num">Messages</th>
+                <th class="num">VC (min)</th>
+                <th>Boost</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for r in rows %}
+            <tr>
+                <td>
+                    <div class="flex items-center gap-1">
+                        <img class="avatar" src="{% if r['avatar_hash'] %}https://cdn.discordapp.com/avatars/{{ r['user_id'] }}/{{ r['avatar_hash'] }}.png?size=64{% else %}https://cdn.discordapp.com/embed/avatars/0.png{% endif %}" onerror="this.onerror=null;this.src='https://cdn.discordapp.com/embed/avatars/0.png'">
+                        <div>
+                            <div>{{ r['display_name'] or r['username'] or 'unknown' }}</div>
+                            <span class="mono" data-copy="{{ r['user_id'] }}" style="cursor:pointer;" title="Click to copy">{{ r['user_id'] }}</span>
+                        </div>
+                    </div>
+                </td>
+                <td>
+                    <span class="mono" data-copy="{{ r['guild_id'] }}" style="cursor:pointer;" title="Click to copy">{{ r['guild_id'] }}</span>
+                </td>
+                <td class="num">{{ r['level'] }}</td>
+                <td class="num">{{ "{:,}".format(r['total_xp']) }}</td>
+                <td class="num">{{ "{:,}".format(r['total_messages']) }}</td>
+                <td class="num">{{ "{:,}".format(r['vc_minutes']) }}</td>
+                <td>
+                    {% set boost = boost_map.get(r['user_id']) %}
+                    {% if boost %}
+                        {% if boost['expires_at'] > now %}
+                            <span class="badge ok">active {{ boost['multiplier'] }}x</span>
+                        {% else %}
+                            <span class="badge muted">expired</span>
+                        {% endif %}
+                    {% else %}
+                        <span class="badge muted">none</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <div class="flex gap-1 flex-wrap">
+                        <a href="{{ url_for('admin.user_edit', guild_id=r['guild_id'], user_id=r['user_id']) }}" class="btn btn-secondary btn-sm">Edit</a>
+                    </div>
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="8"><div class="empty-state">No users found{% if q %} for &ldquo;{{ q }}&rdquo;{% endif %}.</div></td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<div class="flex items-center justify-between flex-wrap" style="margin-top:1rem;">
+    <span class="muted" style="font-size:0.88rem;">{{ total }} user row(s)</span>
+    {% if total_pages > 1 %}
+    <div class="pagination">
+        {% if page > 1 %}
+            <a href="?q={{ q }}&sort={{ sort }}&order={{ order }}&page={{ page - 1 }}">&#x2190;</a>
+        {% endif %}
+        {% set start = [1, page - 2] | max %}
+        {% set end = [total_pages, page + 2] | min %}
+        {% if start > 1 %}
+            <a href="?q={{ q }}&sort={{ sort }}&order={{ order }}&page=1">1</a>
+            {% if start > 2 %}<span class="dots">...</span>{% endif %}
+        {% endif %}
+        {% for p in range(start, end + 1) %}
+            <a href="?q={{ q }}&sort={{ sort }}&order={{ order }}&page={{ p }}" class="{% if p == page %}active{% endif %}">{{ p }}</a>
+        {% endfor %}
+        {% if end < total_pages %}
+            {% if end < total_pages - 1 %}<span class="dots">...</span>{% endif %}
+            <a href="?q={{ q }}&sort={{ sort }}&order={{ order }}&page={{ total_pages }}">{{ total_pages }}</a>
+        {% endif %}
+        {% if page < total_pages %}
+            <a href="?q={{ q }}&sort={{ sort }}&order={{ order }}&page={{ page + 1 }}">&#x2192;</a>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

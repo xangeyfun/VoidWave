@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <meta name="robots" content="noindex, nofollow">
+        <title>{% block title %}Admin{% endblock %} | VoidWave Admin</title>
+        <link rel="icon" href="{{ url_for('static', filename='images/favicon.png') }}" type="image/png">
+        <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+        <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    </head>
+    <body class="admin-body">
+        <aside class="admin-sidebar">
+            <div class="admin-brand">
+                <img src="/static/images/favicon.png" alt="VoidWave">
+                <div>
+                    <span>VoidWave</span>
+                    <small>Admin Panel</small>
+                </div>
+            </div>
+
+            <nav class="admin-nav">
+                <a href="{{ url_for('admin.dashboard') }}" class="{% if request.endpoint == 'admin.dashboard' %}active{% endif %}">&#128202; Dashboard</a>
+                <a href="{{ url_for('admin.users') }}" class="{% if request.endpoint in ('admin.users', 'admin.user_edit') %}active{% endif %}">&#128101; Users</a>
+                <a href="{{ url_for('admin.forget') }}" class="{% if request.endpoint in ('admin.forget', 'admin.forget_confirm') %}active{% endif %}">&#128274; Privacy / Forget</a>
+                <a href="{{ url_for('admin.check') }}" class="{% if request.endpoint == 'admin.check' %}active{% endif %}">&#128269; Health Check</a>
+                <a href="{{ url_for('admin.backups') }}" class="{% if request.endpoint in ('admin.backups', 'admin.backup_restore') %}active{% endif %}">&#128190; Backups</a>
+                <a href="{{ url_for('admin.stats') }}" class="{% if request.endpoint == 'admin.stats' %}active{% endif %}">&#128200; Statistics</a>
+                <a href="{{ url_for('admin.logs') }}" class="{% if request.endpoint == 'admin.logs' %}active{% endif %}">&#128221; Audit Log</a>
+
+                <div class="admin-nav-sep">Site</div>
+                <a href="/" target="_blank">&#128279; View Website</a>
+                <a href="https://voidwave.xangey.dev" target="_blank">&#127760; voidwave.xangey.dev</a>
+
+                <div class="admin-nav-sep">Session</div>
+                <a href="{{ url_for('admin.logout') }}" class="danger">&#128682; Logout</a>
+            </nav>
+        </aside>
+
+        <main class="admin-main">
+            <div class="admin-topbar">
+                <div>
+                    <h1>{% block heading %}Admin{% endblock %}</h1>
+                    <p>{% block subheading %}Signed in as owner &middot; IP {{ client_ip() }}{% endblock %}</p>
+                </div>
+                <div class="admin-actions">
+                    {% block actions %}{% endblock %}
+                </div>
+            </div>
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }}" data-auto-dismiss>{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            {% if request.args.get('msg') %}
+                <div class="alert alert-success" data-auto-dismiss>{{ request.args.get('msg') }}</div>
+            {% endif %}
+            {% if request.args.get('err') %}
+                <div class="alert alert-error" data-auto-dismiss>{{ request.args.get('err') }}</div>
+            {% endif %}
+            {% if request.args.get('fixed') %}
+                <div class="alert alert-success" data-auto-dismiss>Auto-fix applied ({{ request.args.get('fixed') }}).</div>
+            {% endif %}
+
+            {% block content %}{% endblock %}
+        </main>
+
+        <script src="{{ url_for('static', filename='js/admin.js') }}"></script>
+        {% block scripts %}{% endblock %}
+    </body>
+</html>

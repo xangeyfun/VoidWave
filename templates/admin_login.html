@@ -1,0 +1,41 @@
+{% extends "admin_standalone.html" %}
+{% block title %}{% if twofa %}Two-Factor Authentication{% else %}Login{% endif %}{% endblock %}
+{% block content %}
+<div class="admin-login-wrap">
+    <div class="admin-login-card">
+        <div class="admin-login-logo">
+            <img src="/static/images/favicon.png" alt="VoidWave">
+        </div>
+        <h1>{% if twofa %}Two-Factor Authentication{% else %}Admin Access{% endif %}</h1>
+        {% if twofa %}
+            <p class="login-sub">An 8-digit code was sent to the private Discord webhook. It expires in 2 minutes.</p>
+            {% if error %}<div class="alert alert-error">{{ error }}</div>{% endif %}
+            <form method="POST" action="{{ url_for('admin.verify_2fa') }}" class="admin-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="form-field">
+                    <label>Authentication code</label>
+                    <input class="code-input" type="text" name="code" inputmode="numeric" maxlength="8" pattern="\d{8}" autocomplete="one-time-code" autofocus required placeholder="00000000">
+                </div>
+                <button class="btn btn-primary btn-block" type="submit">Verify &amp; Log In</button>
+                <a href="{{ url_for('admin.login') }}" class="muted" style="text-align:center; font-size:0.85rem;">Restart login</a>
+            </form>
+        {% else %}
+            <p class="login-sub">Restricted area. Only the bot owner may access this panel.</p>
+            {% if config_error %}
+                <div class="alert alert-error">{{ config_error }}</div>
+            {% elif error %}
+                <div class="alert alert-error">{{ error }}</div>
+            {% endif %}
+            <form method="POST" action="{{ url_for('admin.login') }}" class="admin-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="form-field">
+                    <label>Password</label>
+                    <input type="password" name="password" autocomplete="current-password" autofocus required placeholder="••••••••">
+                </div>
+                <button class="btn btn-primary btn-block" type="submit">Continue</button>
+            </form>
+        {% endif %}
+        <p class="login-foot">VoidWave Admin &middot; brute-force attempts are rate-limited and logged</p>
+    </div>
+</div>
+{% endblock %}

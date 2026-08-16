@@ -1,0 +1,122 @@
+{% extends "admin_base.html" %}
+{% block title %}Backups{% endblock %}
+{% block heading %}Backups{% endblock %}
+{% block subheading %}Hourly snapshots in <span class="mono">~/Backups/VoidWave</span> &middot; latest {{ backups|length }} kept{% endblock %}
+{% block actions %}
+    <form method="POST" action="{{ url_for('admin.backup_create') }}" style="display:inline;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="btn btn-primary btn-sm" type="submit">&#128190; Back up now</button>
+    </form>
+{% endblock %}
+
+{% block content %}
+{% if restore_done %}
+    <div class="alert alert-success">{{ restore_done }}</div>
+{% endif %}
+{% if restart_msg %}
+    <div class="alert alert-warn">{{ restart_msg }}</div>
+{% endif %}
+{% if not restore_target and bot_active == true %}
+    <div class="alert alert-warn">
+        The Discord bot service is <strong>running</strong>. Restoring while it runs can corrupt the database (WAL replay).
+        Stop it before restoring &mdash; or use the automatic stop option.
+    </div>
+{% endif %}
+
+{% if restore_target %}
+<div class="admin-card" style="border-color: rgba(239,68,68,0.5);">
+    <h2 style="color:var(--error);">Restore {{ restore_target }}</h2>
+    <p class="card-sub">
+        The current database will first be saved as <span class="mono">database_&lt;timestamp&gt;_prerestore.db</span> as a safety net.
+        <strong>This is destructive and cannot be undone.</strong>
+    </p>
+
+    <div class="admin-table-wrap" style="margin-bottom:1rem;">
+        <table class="admin-table">
+            <tbody>
+                <tr><td>Bot service (voidwave.service)</td><td class="text-right">
+                    {% if bot_active == true %}<span class="badge fail">running</span>
+                    {% elif bot_active == false %}<span class="badge ok">stopped</span>
+                    {% else %}<span class="badge muted">unknown</span>{% endif %}
+                </td></tr>
+                <tr><td>Website service (voidwave_website.service)</td><td class="text-right">
+                    {% if site_active == true %}<span class="badge warn">running</span>
+                    {% elif site_active == false %}<span class="badge ok">stopped</span>
+                    {% else %}<span class="badge muted">unknown</span>{% endif %}
+                </td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <form method="POST" action="{{ url_for('admin.backup_restore', name=restore_target) }}" class="admin-form" data-confirm-check="RESTORE">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <label class="checkbox-field">
+            <input type="checkbox" name="stop_bot" id="stopBotChk">
+            <div>
+                <strong>Stop the bot automatically</strong>
+                <div class="hint">Runs <span class="mono">systemctl stop voidwave.service</span> (and tries <span class="mono">sudo -n</span>), restarts it after restoring. Needs permission.</div>
+            </div>
+        </label>
+        <label class="checkbox-field">
+            <input type="checkbox" name="bot_stopped" id="botStoppedChk">
+            <div>
+                <strong>I have already stopped the bot</strong>
+                <div class="hint">Choose this if you stopped it manually.</div>
+            </div>
+        </label>
+
+        <div class="form-field">
+            <label>Type exactly <span class="mono">RESTORE</span></label>
+            <input type="text" name="confirm" data-confirm-input placeholder="RESTORE" autocomplete="off" autofocus>
+        </div>
+        <div class="checkbox-field"><span data-confirm-hint class="muted">Type RESTORE to enable</span></div>
+        <button class="btn btn-danger" type="submit" data-confirm-submit disabled>&#128190; Restore from {{ restore_target }}</button>
+    </form>
+</div>
+{% endif %}
+
+<div class="admin-card">
+    <h2>Available backups</h2>
+    <p class="card-sub">{{ backups|length }} backup(s). Click restore on any row.</p>
+    {% if backups %}
+    <div class="admin-table-wrap">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>Backup</th>
+                    <th>Date</th>
+                    <th class="num">Size</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for b in backups %}
+                <tr>
+                    <td class="mono">{{ b.name }}</td>
+                    <td>{{ b.mtime.strftime('%Y-%m-%d %H:%M') }}</td>
+                    <td class="num">{{ (b.size / 1024)|round(1) }} KB</td>
+                    <td>
+                        <div class="flex gap-1 flex-wrap">
+                            <a href="{{ url_for('admin.backup_restore', name=b.name) }}" class="btn btn-danger btn-sm">Restore</a>
+                            <form method="POST" action="{{ url_for('admin.backup_delete', name=b.name) }}" data-confirm-check="DELETE">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <input type="text" name="confirm" data-confirm-input placeholder="DELETE" style="width:90px; background:var(--bg-tertiary); border:1px solid var(--border); border-radius:8px; padding:0.35rem 0.6rem; color:var(--text-primary); font-size:0.8rem;" autocomplete="off">
+                                <button class="btn btn-secondary btn-sm" type="submit" data-confirm-submit disabled>Delete</button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">No backups found. The hourly cron should create them automatically.</div>
+    {% endif %}
+</div>
+
+<p class="muted" style="margin-top:1rem; font-size:0.85rem;">
+    Backups are created hourly by the root cron <span class="mono">/usr/local/bin/backup-db.sh</span> and kept for 48 snapshots.
+    The prune-on-create here matches that behaviour.
+</p>
+{% endblock %}

@@ -1,0 +1,60 @@
+{% extends "admin_base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block heading %}Dashboard{% endblock %}
+{% block subheading %}Signed in as owner &middot; IP {{ client_ip() }}{% endblock %}
+{% block actions %}
+    <a href="{{ url_for('admin.check') }}" class="btn btn-secondary btn-sm">&#128269; Health Check</a>
+    <a href="{{ url_for('admin.backups') }}" class="btn btn-primary btn-sm">&#128190; Backups</a>
+    <a href="{{ url_for('admin.stats') }}" class="btn btn-secondary btn-sm">&#128200; Full Statistics</a>
+{% endblock %}
+
+{% block content %}
+<!-- Quick Status -->
+<div class="admin-grid cols-4" style="margin-bottom:1.5rem;">
+    <div class="stat-card status-card {% if bot_alive is not none %}{% if bot_alive %}status-up{% else %}status-down{% endif %}{% else %}status-unknown{% endif %}">
+        <div class="stat-icon">&#128465;</div>
+        <div class="stat-value">
+            {% if bot_alive is not none %}{% if bot_alive %}Online{% else %}Offline{% endif %}{% else %}Unknown{% endif %}
+        </div>
+        <div class="stat-label">Bot Status</div>
+        <div class="stat-hint">{% if bot_alive is not none %}{% if bot_alive %}voidwave.service active{% else %}inactive{% endif %}{% else %}check failed{% endif %}</div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-icon">&#128101;</div>
+        <div class="stat-value">{{ "{:,}".format(data.users) }}</div>
+        <div class="stat-label">Total Users</div>
+        <div class="stat-hint">{{ "{:,}".format(data.guilds) }} guilds</div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-icon">&#127775;</div>
+        <div class="stat-value">{{ "{:,}".format(data.total_xp) }}</div>
+        <div class="stat-label">Total XP</div>
+        <div class="stat-hint">{{ "{:,}".format((data.total_xp / data.users)|round if data.users else 0) }} avg/user</div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-icon">&#128250;</div>
+        <div class="stat-value">{{ data.avg_level }}</div>
+        <div class="stat-label">Avg Level</div>
+        <div class="stat-hint">max {{ data.max_level }} &middot; {{ "{:,}".format(data.level_100) }} at 100+</div>
+    </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="admin-card">
+    <div class="card-head">
+        <h2>Quick Actions</h2>
+    </div>
+    <p class="card-sub">Jump to common admin tasks.</p>
+    <div class="admin-grid cols-3" style="margin-top:0.5rem;">
+        <a href="{{ url_for('admin.users') }}" class="btn btn-secondary btn-block">&#128101; Manage Users</a>
+        <a href="{{ url_for('admin.forget') }}" class="btn btn-warning btn-block">&#128274; Privacy / Forget</a>
+        <a href="{{ url_for('admin.check') }}" class="btn btn-secondary btn-block">&#128269; Health Check</a>
+        <a href="{{ url_for('admin.backups') }}" class="btn btn-primary btn-block">&#128190; Backups</a>
+        <a href="{{ url_for('admin.stats') }}" class="btn btn-secondary btn-block">&#128200; Full Statistics</a>
+        <a href="{{ url_for('admin.logs') }}" class="btn btn-secondary btn-block">&#128221; Audit Log</a>
+    </div>
+</div>
+{% endblock %}

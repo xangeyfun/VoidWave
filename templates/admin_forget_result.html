@@ -1,0 +1,44 @@
+{% extends "admin_base.html" %}
+{% block title %}Deletion Complete{% endblock %}
+{% block heading %}Deletion Complete{% endblock %}
+{% block subheading %}The erasure ran successfully{% endblock %}
+{% block actions %}
+    <a href="{{ url_for('admin.forget') }}" class="btn btn-secondary btn-sm">&#x2190; New erasure</a>
+{% endblock %}
+
+{% block content %}
+<div class="alert alert-success">Deletion completed successfully. All changes were logged to the audit log.</div>
+
+<div class="admin-card">
+    <h2>Summary</h2>
+    <p class="card-sub">Rows affected:</p>
+    <div class="admin-table-wrap">
+        <table class="admin-table">
+            <tbody>
+                {% if spec.type == 'user_all' %}
+                    <tr><td>Users erased (all guilds)</td><td class="num">{{ counts['_total'] }}</td></tr>
+                {% elif spec.type == 'user_guild' %}
+                    <tr><td>Users erased (one guild)</td><td class="num">{{ counts['_total'] }}</td></tr>
+                {% elif spec.type == 'guild_users' %}
+                    <tr><td>Users erased (guild)</td><td class="num">{{ counts['_total'] }}</td></tr>
+                {% elif spec.type == 'guild_full' %}
+                    <tr><td>Total rows erased (guild)</td><td class="num">{{ counts['_total'] }}</td></tr>
+                {% elif spec.type == 'boost' %}
+                    <tr><td>Vote boosts erased</td><td class="num">{{ counts['_total'] }}</td></tr>
+                {% elif spec.type == 'expired_boosts' %}
+                    <tr><td>Expired boosts purged</td><td class="num">{{ counts['_total'] }}</td></tr>
+                {% elif spec.type == 'stale_users' %}
+                    <tr><td>Stale users deleted</td><td class="num">{{ counts['_total'] }}</td></tr>
+                {% elif spec.type == 'reset_all' %}
+                    <tr><td>All user data reset</td><td class="num">{{ counts['_total'] }} rows</td></tr>
+                {% elif spec.type == 'reset_table' %}
+                    <tr><td>Table {{ spec.table }} reset</td><td class="num">{{ counts['_total'] }} rows</td></tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+    <p class="muted" style="margin-top:1rem; font-size:0.85rem;">
+        Note: cached leaderboard data clears within a few seconds automatically.
+    </p>
+</div>
+{% endblock %}

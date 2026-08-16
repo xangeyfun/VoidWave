@@ -1,0 +1,76 @@
+{% extends "admin_base.html" %}
+{% block title %}Health Check{% endblock %}
+{% block heading %}Database Health Check{% endblock %}
+{% block subheading %}Full fault scan: schema, integrity and data anomalies{% endblock %}
+{% block actions %}
+    <a href="{{ url_for('admin.check') }}" class="btn btn-secondary btn-sm">&#128260; Re-run check</a>
+{% endblock %}
+
+{% block content %}
+{% set fails = results | selectattr('ok', 'equalto', false) | selectattr('fix', 'equalto', none) | list %}
+{% set fixable = results | selectattr('ok', 'equalto', false) | selectattr('fix', 'ne', none) | list %}
+
+<div class="admin-grid cols-4">
+    <div class="stat-card">
+        <div class="stat-icon">&#9989;</div>
+        <div class="stat-value">{{ results | selectattr('ok', 'equalto', true) | list | length }}</div>
+        <div class="stat-label">Passed</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon">&#10060;</div>
+        <div class="stat-value" style="color: var(--error);">{{ results | selectattr('ok', 'equalto', false) | list | length }}</div>
+        <div class="stat-label">Failed</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon">&#128295;</div>
+        <div class="stat-value" style="color: var(--secondary);">{{ fixable | length }}</div>
+        <div class="stat-label">Auto-fixable</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon">&#128269;</div>
+        <div class="stat-value">{{ results | selectattr('category', 'equalto', 'Info') | list | length }}</div>
+        <div class="stat-label">Info checks</div>
+    </div>
+</div>
+
+{% if fixable %}
+<div class="alert alert-warn">
+    <strong>{{ fixable|length }} issue(s)</strong> can be fixed automatically. Each fix runs inside a transaction and is logged.
+</div>
+{% endif %}
+
+<div class="admin-card">
+    <h2>Results</h2>
+    <p class="card-sub">Checks that fail are exactly the kind of thing a stray <span class="mono">SELECT ... WHERE progress >= out_of</span> would hide.</p>
+
+    {% for group in ['Structure', 'Data', 'Info'] %}
+        {% set gresults = results | selectattr('category', 'equalto', group) | list %}
+        {% if gresults %}
+        <div style="margin-top:1.2rem;">
+            <span class="badge muted" style="margin-bottom:0.5rem;">{{ group }}</span>
+            <div class="check-row" style="display:block;">
+                {% for c in gresults %}
+                <div class="check-row">
+                    <span class="badge {% if c.ok %}ok{% else %}fail{% endif %}">
+                        {% if c.ok %}&#10003;{% else %}&#10007;{% endif %}
+                    </span>
+                    <div class="check-info">
+                        <div class="check-name">{{ c.name }}</div>
+                        <div class="check-detail">{{ c.detail }}</div>
+                    </div>
+                    <div style="flex-shrink:0;">
+                        {% if c.fix %}
+                            <form method="POST" action="{{ url_for('admin.check_fix', kind=c.fix) }}" style="display:inline;">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button class="btn btn-primary btn-sm" type="submit">Fix ({{ c.fix }})</button>
+                            </form>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    {% endfor %}
+</div>
+{% endblock %}

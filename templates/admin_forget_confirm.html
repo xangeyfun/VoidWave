@@ -1,0 +1,78 @@
+{% extends "admin_base.html" %}
+{% block title %}Confirm Deletion{% endblock %}
+{% block heading %}Confirm Deletion{% endblock %}
+{% block subheading %}Review exactly what will be erased before confirming{% endblock %}
+{% block actions %}
+    <a href="{{ url_for('admin.forget') }}" class="btn btn-secondary btn-sm">&#x2190; Change selection</a>
+{% endblock %}
+
+{% block content %}
+{% if error %}<div class="alert alert-error">{{ error }}</div>{% endif %}
+<div class="alert alert-warn">
+    This operation is <strong>permanent and cannot be undone</strong>. A backup is not taken automatically &mdash; if you need one,
+    create one on the <a href="{{ url_for('admin.backups') }}">Backups</a> page first.
+</div>
+
+<div class="admin-card">
+    <h2>What will be deleted</h2>
+    <p class="card-sub">Target summary:</p>
+    <div class="admin-table-wrap">
+        <table class="admin-table">
+            <tbody>
+                {% if spec.type == 'user_all' %}
+                    <tr><td>Action</td><td>Erase {{ spec.user_ids|length }} user(s) everywhere</td></tr>
+                    <tr><td>User rows removed</td><td class="num">{{ preview.users_rows }}</td></tr>
+                    <tr><td>Distinct guilds affected</td><td class="num">{{ preview.distinct_guilds }}</td></tr>
+                    <tr><td>Vote boosts removed</td><td class="num">{{ preview.boost_rows }}</td></tr>
+                {% elif spec.type == 'user_guild' %}
+                    <tr><td>Action</td><td>Erase {{ spec.user_ids|length }} user(s) in one guild</td></tr>
+                    <tr><td>Guild</td><td class="mono">{{ spec.guild_id }}</td></tr>
+                    <tr><td>User rows removed</td><td class="num">{{ preview.users_rows }}</td></tr>
+                {% elif spec.type == 'guild_users' %}
+                    <tr><td>Action</td><td>Delete all users of a guild</td></tr>
+                    <tr><td>Guild</td><td class="mono">{{ spec.guild_id }}</td></tr>
+                    <tr><td>User rows removed</td><td class="num">{{ preview.users_rows }}</td></tr>
+                {% elif spec.type == 'guild_full' %}
+                    <tr><td>Action</td><td>Delete entire guild</td></tr>
+                    <tr><td>Guild</td><td class="mono">{{ spec.guild_id }}</td></tr>
+                    <tr><td>Users removed</td><td class="num">{{ preview.users_rows }}</td></tr>
+                    <tr><td>Guild settings removed</td><td class="num">{{ preview.guild_settings_rows }}</td></tr>
+                    <tr><td>Level roles removed</td><td class="num">{{ preview.level_roles_rows }}</td></tr>
+                    <tr><td>Starboard entries removed</td><td class="num">{{ preview.starboard_rows }}</td></tr>
+                {% elif spec.type == 'boost' %}
+                    <tr><td>Action</td><td>Delete vote boost(s)</td></tr>
+                    <tr><td>Boosts removed</td><td class="num">{{ preview.boost_rows }}</td></tr>
+                {% elif spec.type == 'expired_boosts' %}
+                    <tr><td>Action</td><td>Purge expired vote boosts</td></tr>
+                    <tr><td>Boosts removed</td><td class="num">{{ preview.boost_rows }}</td></tr>
+                {% elif spec.type == 'stale_users' %}
+                    <tr><td>Action</td><td>Delete stale users (idle &gt; {{ spec.days }} days)</td></tr>
+                    <tr><td>Users removed</td><td class="num">{{ preview.users_rows }}</td></tr>
+                    <tr><td>Distinct guilds affected</td><td class="num">{{ preview.distinct_guilds }}</td></tr>
+                {% elif spec.type == 'reset_all' %}
+                    <tr><td>Action</td><td style="color:var(--error);">RESET ALL USER DATA</td></tr>
+                    <tr><td>Users removed</td><td class="num">{{ preview.users_rows }}</td></tr>
+                    <tr><td>Vote boosts removed</td><td class="num">{{ preview.boost_rows }}</td></tr>
+                {% elif spec.type == 'reset_table' %}
+                    <tr><td>Action</td><td style="color:var(--error);">Reset table {{ spec.table }}</td></tr>
+                    <tr><td>Rows removed</td><td class="num">{{ preview.get(spec.table ~ '_rows', 0) }}</td></tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="admin-card" style="border-color: rgba(239,68,68,0.4);">
+    <h2 style="color:var(--error);">Type {{ word }} to confirm</h2>
+    <form method="POST" action="{{ url_for('admin.forget_confirm') }}" class="admin-form" data-confirm-check="{{ word }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+        <div class="form-field">
+            <label>Type exactly <span class="mono">{{ word }}</span></label>
+            <input type="text" name="confirm" data-confirm-input placeholder="{{ word }}" autocomplete="off" autofocus>
+        </div>
+        <div class="checkbox-field"><span data-confirm-hint class="muted">Type {{ word }} to enable</span></div>
+        <button class="btn btn-danger" type="submit" data-confirm-submit disabled>&#128465; Execute deletion</button>
+    </form>
+</div>
+{% endblock %}

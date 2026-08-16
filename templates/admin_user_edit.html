@@ -1,0 +1,150 @@
+{% extends "admin_base.html" %}
+{% block title %}Edit User{% endblock %}
+{% block heading %}Edit User{% endblock %}
+{% block subheading %}
+    {{ user['display_name'] or user['username'] or 'unknown' }} &middot;
+    <span class="mono" data-copy="{{ user['user_id'] }}" style="cursor:pointer;">{{ user['user_id'] }}</span>
+    in guild <span class="mono" data-copy="{{ user['guild_id'] }}" style="cursor:pointer;">{{ user['guild_id'] }}</span>
+{% endblock %}
+{% block actions %}
+    <a href="{{ url_for('admin.users', q=user['user_id']) }}" class="btn btn-secondary btn-sm">&#x2190; Back</a>
+{% endblock %}
+
+{% block content %}
+{% if error %}<div class="alert alert-error">{{ error }}</div>{% endif %}
+{% if flash_msg %}<div class="alert alert-success" data-auto-dismiss>{{ flash_msg }}</div>{% endif %}
+
+<div class="admin-grid cols-3">
+    <div class="stat-card">
+        <div class="stat-icon">&#127942;</div>
+        <div class="stat-value">{{ user['level'] }}</div>
+        <div class="stat-label">Level</div>
+        <div class="stat-hint">#{{ rank }} in guild &middot; #{{ global_rank }} global</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon">&#127775;</div>
+        <div class="stat-value">{{ "{:,}".format(user['total_xp']) }}</div>
+        <div class="stat-label">Total XP</div>
+        <div class="stat-hint">{{ "{:,}".format(user['total_messages']) }} messages</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon">&#127908;</div>
+        <div class="stat-value">{{ "{:,}".format(user['vc_minutes']) }}m</div>
+        <div class="stat-label">Voice Time</div>
+        <div class="stat-hint">{{ "{:,}".format(user['vc_xp_minutes']) }}m with XP</div>
+    </div>
+</div>
+
+<div class="admin-grid cols-2">
+    <div class="admin-card">
+        <h2>Statistics</h2>
+        <p class="card-sub">Progress must stay below <span class="mono">out_of</span>, or enable auto-fix.</p>
+        <form method="POST" action="{{ url_for('admin.user_edit', guild_id=user['guild_id'], user_id=user['user_id']) }}" class="admin-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="form-grid">
+                <div class="form-field">
+                    <label>Level</label>
+                    <input type="number" name="level" min="0" value="{{ user['level'] }}" required>
+                </div>
+                <div class="form-field">
+                    <label>Progress</label>
+                    <input type="number" name="progress" min="0" value="{{ user['progress'] }}" required>
+                </div>
+                <div class="form-field">
+                    <label>Out Of</label>
+                    <input type="number" name="out_of" min="1" value="{{ user['out_of'] }}" required>
+                </div>
+                <div class="form-field">
+                    <label>Total XP</label>
+                    <input type="number" name="total_xp" min="0" value="{{ user['total_xp'] }}" required>
+                </div>
+                <div class="form-field">
+                    <label>Total Messages</label>
+                    <input type="number" name="total_messages" min="0" value="{{ user['total_messages'] }}" required>
+                </div>
+                <div class="form-field">
+                    <label>Messages (XP)</label>
+                    <input type="number" name="total_messages_xp" min="0" value="{{ user['total_messages_xp'] }}" required>
+                </div>
+                <div class="form-field">
+                    <label>VC Minutes</label>
+                    <input type="number" name="vc_minutes" min="0" value="{{ user['vc_minutes'] }}" required>
+                </div>
+                <div class="form-field">
+                    <label>VC XP Minutes</label>
+                    <input type="number" name="vc_xp_minutes" min="0" value="{{ user['vc_xp_minutes'] }}" required>
+                </div>
+                <div class="form-field">
+                    <label>Display Name</label>
+                    <input type="text" name="display_name" value="{{ user['display_name'] or '' }}">
+                </div>
+                <div class="form-field">
+                    <label>Username</label>
+                    <input type="text" name="username" value="{{ user['username'] or '' }}">
+                </div>
+            </div>
+
+            <label class="checkbox-field">
+                <input type="checkbox" name="auto_fix" checked>
+                <div>
+                    <strong>Auto-fix</strong>
+                    <div class="hint">If progress &ge; out_of, level up repeatedly (progress -= out_of; level += 1; out_of = 100 + level*20).</div>
+                </div>
+            </label>
+
+            <button class="btn btn-primary" type="submit">&#128190; Save Changes</button>
+        </form>
+    </div>
+
+    <div>
+        <div class="admin-card">
+            <h2>Voice / Vote Boost</h2>
+            <p class="card-sub">Global per-user boost from top.gg votes.</p>
+            {% if boost %}
+                <table class="admin-table">
+                    <tbody>
+                        <tr><td>Multiplier</td><td class="text-right num">{{ boost['multiplier'] }}x</td></tr>
+                        <tr><td>Expires</td><td class="text-right">
+                            {% if boost['expires_at'] > now %}
+                                <span class="badge ok">{{ boost['expires_at'] - now }}s left</span>
+                            {% else %}
+                                <span class="badge muted">expired</span>
+                            {% endif %}
+                        </td></tr>
+                    </tbody>
+                </table>
+            {% else %}
+                <div class="empty-state">No vote boost on record.</div>
+            {% endif %}
+        </div>
+
+        <div class="admin-card">
+            <h2>Other Guilds</h2>
+            <p class="card-sub">This user appears in {{ guild_rows|length }} guild(s) total.</p>
+            <div class="flex gap-1 flex-wrap">
+                {% for g in guild_rows %}
+                    {% if g['guild_id'] == user['guild_id'] %}
+                        <span class="badge ok">this guild</span>
+                    {% else %}
+                        <a class="badge info" href="{{ url_for('admin.user_edit', guild_id=g['guild_id'], user_id=user['user_id']) }}">guild {{ g['guild_id'] }}</a>
+                    {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="admin-card" style="border-color: rgba(239,68,68,0.4);">
+            <h2 style="color:var(--error);">Danger Zone</h2>
+            <p class="card-sub">Remove this user from <strong>this guild only</strong>. For full privacy erasure use the <a href="{{ url_for('admin.forget') }}">Privacy / Forget</a> page.</p>
+            <form method="POST" action="{{ url_for('admin.user_delete', guild_id=user['guild_id'], user_id=user['user_id']) }}" class="admin-form" data-confirm-check="DELETE">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="form-field">
+                    <label>Type DELETE to confirm</label>
+                    <input type="text" name="confirm" data-confirm-input placeholder="DELETE" autocomplete="off">
+                </div>
+                <div class="checkbox-field"><span data-confirm-hint class="muted">Type DELETE to enable</span></div>
+                <button class="btn btn-danger" type="submit" data-confirm-submit disabled>Delete this row</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
