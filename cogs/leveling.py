@@ -179,7 +179,9 @@ class LevelingCog(commands.Cog):
             line = f"{rank} **{username}** | `{format_minutes(level) if sort == 'Total Voice' else f'{level:,}'}`"
             lines.append(line)
 
-        embed.description = "\n".join(lines) + "\n\n**View online:** [Leaderboard](https://voidwave.xangey.dev/leaderboard)" if lines else "no data yet :("
+        link = f"https://voidwave.xangey.dev/leaderboard?guild={interaction.guild.id}" if not global_lb else "https://voidwave.xangey.dev/leaderboard"
+
+        embed.description = "\n".join(lines) + f"\n\n**View online:** [Leaderboard]({link})" if lines else "no data yet :("
 
         embed.set_thumbnail(
             url=interaction.guild.icon.url if interaction.guild and interaction.guild.icon and not global_lb else self.bot.user.display_avatar.url
