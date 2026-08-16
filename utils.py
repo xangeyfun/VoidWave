@@ -386,7 +386,7 @@ async def add_message_xp(bot, message):
                     new_roles=new_roles or None,
                 )
                 try:
-                    await channel.send(embed=embed)
+                    await channel.send(content=f"{message.author.mention} reached Level {level}!", embed=embed)
                 except discord.Forbidden:
                     print(f"{date()} WARN  Missing permissions to send level-up message in {channel.id} for guild {guild_id}")
                 except Exception as e:

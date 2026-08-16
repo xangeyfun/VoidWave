@@ -220,8 +220,8 @@ class LevelingCog(commands.Cog):
         embed = discord.Embed(
             title=f"{user.display_name}'s Profile",
             description=(
-                f"> {user.mention} • your global profile, combining stats across all servers.\n"
-                f"> Keep chatting and hanging out in voice channels to earn XP!"
+                f"{user.mention} this is your global profile, combining stats across all servers.\n"
+                f"Keep chatting and hanging out in voice channels to earn XP!"
             ),
             color=discord.Color(0x7128fc),
             timestamp=discord.utils.utcnow()
@@ -368,7 +368,7 @@ class LevelingCog(commands.Cog):
                                         new_roles=new_roles or None,
                                     )
                                     try:
-                                        await channel.send(embed=embed)
+                                        await channel.send(content=f"{member.mention} reached Level {level}!", embed=embed)
                                     except discord.Forbidden:
                                         print(f"{date()} WARN  Missing permissions to send level-up message in {channel.id} for guild {guild.id}")
                                     except Exception as e:
