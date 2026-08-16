@@ -224,7 +224,7 @@ async def get_llm_response(msg, display_name, user_id, reply_info=None):
             if time.time() - start >= SLOW_RESPONSE_THRESHOLD:
                 reply += ("\n\n> This was a bit slow because the model was still starting up.\n"
                           "> This might be the first response, next ones should be much faster!")
-            return reply, info + f", Attemps: {attempt + 1}"
+            return reply, info + f", Attempts: {attempt + 1}"
 
         print(f"{date()} WARN  LLM empty response, retrying ({attempt + 1}/5)")
         await asyncio.sleep(0.5)

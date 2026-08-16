@@ -267,7 +267,7 @@ def api_leaderboard():
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 25, type=int)
     
-    per_page = min(per_page, 100)
+    per_page = max(1, min(per_page, 100))
     
     entries, total = get_leaderboard(guild_id=guild_id, sort_by=sort_by, direction=direction, page=page, per_page=per_page)
     

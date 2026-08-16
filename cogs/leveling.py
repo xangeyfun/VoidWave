@@ -15,11 +15,10 @@ class LevelingCog(commands.Cog):
     @discord.app_commands.command(name="level", description="Check your server level")
     @app_commands.describe(hidden="Hide the command from others", user='Select a user to view their level')
     async def level(self, interaction: discord.Interaction, hidden: bool = False, user: discord.Member | None = None):
+        await interaction.response.defer(ephemeral=hidden)
         if not interaction.guild:
             await interaction.followup.send("This command only works in servers.", ephemeral=True)
             return
-
-        await interaction.response.defer(ephemeral=hidden)
 
         user = user or interaction.user # type: ignore
 

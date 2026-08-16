@@ -118,7 +118,7 @@ class FunCog(commands.Cog):
     @app_commands.describe(a="Lowest number", b="Highest number", hidden="Hide the command from others")
     async def random_number(self, interaction: Interaction, a: int, b: int, hidden: bool = False):
         if a >= b:
-            await interaction.response.send_message("> First number must be less than the second", ephemeral=True)
+            await interaction.response.send_message("> First number must be less than the second", ephemeral=hidden)
             return
         result = random.randint(a, b)
         await interaction.response.send_message(f"Result: {result}", ephemeral=hidden)
