@@ -1,5 +1,7 @@
 from flask import Flask, render_template, request, redirect, jsonify
+from datetime import timedelta
 from dotenv import load_dotenv
+from admin import admin_bp
 import sqlite3
 import time
 import os
@@ -11,6 +13,14 @@ load_dotenv()
 
 app = Flask(__name__, template_folder='templates', static_folder='static')
 app.secret_key = os.getenv('SECRET_KEY')
+
+# Session hardening for the /admin panel
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['SESSION_COOKIE_SECURE'] = True
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=8)
+
+app.register_blueprint(admin_bp)
 
 cache = {}
 CACHE_TTL = 10
@@ -30,7 +40,7 @@ def cached_query(key, query, params=(), ttl=CACHE_TTL):
 
 @app.before_request
 def remove_trailing_slash():
-    if request.path != '/' and request.path.endswith('/'):
+    if request.path != '/' and request.path.endswith('/') and not request.path.startswith('/admin'):
         return redirect(request.path[:-1])
 
 def get_db():
