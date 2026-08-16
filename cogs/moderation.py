@@ -142,7 +142,12 @@ class ModerationCog(commands.Cog):
         if isinstance(channel, discord.Thread):
             channel = channel.parent
         await interaction.response.defer(ephemeral=hidden)
-        await channel.set_permissions(interaction.guild.default_role, send_messages=False)  # type: ignore
+        overwrites = dict(channel.overwrites)
+        everyone = interaction.guild.default_role
+        overwrite = overwrites.get(everyone, discord.PermissionOverwrite())
+        overwrite.update(send_messages=False)
+        overwrites[everyone] = overwrite
+        await channel.edit(overwrites=overwrites)
         await interaction.followup.send(f"Locked {channel.mention}.{f' Reason: {reason}' if reason else ''}", ephemeral=hidden)
 
     @discord.app_commands.checks.bot_has_permissions(manage_channels=True)
@@ -154,7 +159,14 @@ class ModerationCog(commands.Cog):
         if isinstance(channel, discord.Thread):
             channel = channel.parent
         await interaction.response.defer(ephemeral=hidden)
-        await channel.set_permissions(interaction.guild.default_role, send_messages=None)  # type: ignore
+        overwrites = dict(channel.overwrites)
+        everyone = interaction.guild.default_role
+        overwrite = overwrites.get(everyone)
+        if overwrite:
+            overwrite.update(send_messages=None)
+            if overwrite.is_empty():
+                overwrites.pop(everyone, None)
+            await channel.edit(overwrites=overwrites)
         await interaction.followup.send(f"Unlocked {channel.mention}.", ephemeral=hidden)
 
     @discord.app_commands.checks.bot_has_permissions(manage_roles=True)
