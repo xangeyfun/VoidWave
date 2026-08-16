@@ -25,8 +25,7 @@ RATE_LIMIT_WINDOW = 900
 TWOFA_TTL = 120
 KEEP_BACKUPS = 48
 TABLES = {
-    "users", "bot_stats", "guild_settings", "level_roles",
-    "starboard_messages", "vote_boosts",
+    "users", "bot_stats", "guild_settings", "level_roles", "vote_boosts",
 }
 REQUIRED_USERS_COLUMNS = {
     "guild_id", "user_id", "display_name", "username", "level",
@@ -848,10 +847,8 @@ def _forget_preview(spec):
             ur = rows("SELECT * FROM users WHERE guild_id=?", (gid,))
             gr = rows("SELECT * FROM guild_settings WHERE guild_id=?", (gid,))
             lr = rows("SELECT * FROM level_roles WHERE guild_id=?", (gid,))
-            sr = rows("SELECT * FROM starboard_messages WHERE guild_id=?", (gid,))
             return {
-                "users_rows": len(ur), "guild_settings_rows": len(gr),
-                "level_roles_rows": len(lr), "starboard_rows": len(sr),
+                "users_rows": len(ur), "guild_settings_rows": len(gr), "level_roles_rows": len(lr)
             }
         if spec["type"] == "boost":
             marks = ",".join("?" * len(spec["user_ids"]))
@@ -902,7 +899,6 @@ def _forget_execute(spec):
             run("DELETE FROM users WHERE guild_id=?", (gid,))
             run("DELETE FROM guild_settings WHERE guild_id=?", (gid,))
             run("DELETE FROM level_roles WHERE guild_id=?", (gid,))
-            run("DELETE FROM starboard_messages WHERE guild_id=?", (gid,))
         elif spec["type"] == "boost":
             marks = ",".join("?" * len(spec["user_ids"]))
             run(f"DELETE FROM vote_boosts WHERE user_id IN ({marks})", spec["user_ids"])
