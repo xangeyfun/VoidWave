@@ -431,7 +431,7 @@ async def send_qotd(bot, channel_id, role_id, guild_id):
             print(f"{date()} ERROR  Failed to send QOTD ping: {e}")
 
     try:
-        cur.execute("UPDATE guild_settings SET last_qotd_id=?, last_qotd_thread_id=?, qotd_queue=? WHERE guild_id=?", (msg.id, thread.id, json.dumps(queue), guild_id))
+        cur.execute("UPDATE guild_settings SET last_qotd_id=?, last_qotd_thread_id=?, qotd_queue=? WHERE guild_id=?", (msg.id, thread.id if thread else None, json.dumps(queue), guild_id))
         conn.commit()
 
     except Exception as e:
