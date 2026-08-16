@@ -1,6 +1,7 @@
 from discord import app_commands
 from discord.ext import commands, tasks
 import discord
+import random
 import time
 from utils import get_db, date, format_minutes, last_vc, VC_COOLDOWN, get_vote_boost
 
@@ -308,7 +309,6 @@ class LevelingCog(commands.Cog):
                             continue
 
                         try:
-                            import random
                             xp = random.randint(1, 8)
                             multiplier = get_vote_boost(member.id)
                             if multiplier > 1:

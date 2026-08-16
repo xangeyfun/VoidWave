@@ -24,8 +24,6 @@ def sanitize(text):
     return (text.replace("<|", "").replace("|>", "").strip())
 
 def ask_llm(prompt, username, user_id, reply_info=None):
-    global total_tokens
-
     start = time.time()
     max_tokens = 250
 
