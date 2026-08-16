@@ -59,6 +59,73 @@ def date():
     return datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
 
+LEVEL_TIERS = [
+    (1, "✨", "Stardust", 0x95A5A6),
+    (5, "☄️", "Nova", 0xE67E22),
+    (10, "🪐", "Orbit", 0xF1C40F),
+    (15, "🌠", "Comet", 0x00BCD4),
+    (20, "🌀", "Pulsar", 0x9B59B6),
+    (25, "🌫️", "Nebula", 0x3498DB),
+    (30, "🌒", "Eclipse", 0x2ECC71),
+    (40, "💫", "Supernova", 0xE74C3C),
+    (50, "🔆", "Quasar", 0xF39C12),
+    (60, "🕳️", "Singularity", 0xE84393),
+    (80, "🌌", "Cosmic", 0x8E44AD),
+    (100, "🌑", "Voidborne", 0x16A085),
+]
+LEVEL_RANK_UP_LEVELS = {tier[0] for tier in LEVEL_TIERS} - {1}
+
+
+def build_level_up_embed(member, level, progress, out_of, boost=None, new_roles=None):
+    idx = 0
+    for i, tier in enumerate(LEVEL_TIERS):
+        if level >= tier[0]:
+            idx = i
+    icon, rank, color = LEVEL_TIERS[idx][1:]
+    is_rank_up = level in LEVEL_RANK_UP_LEVELS
+    percent = (progress / out_of) * 100 if out_of else 0
+    filled_blocks = round(percent / 100 * 10)
+    bar = f"{'▰' * filled_blocks}{'▱' * (10 - filled_blocks)}"
+
+    embed = discord.Embed(
+        title=f"{icon} {'Rank Up!' if is_rank_up else 'Level Up!'}",
+        description=f"{member.mention} reached **Level {level}** and {'ascended to' if is_rank_up else 'is now a'} **{rank}**!",
+        color=color,
+    )
+
+    if idx + 1 < len(LEVEL_TIERS):
+        next_min, next_icon, next_name, _ = LEVEL_TIERS[idx + 1]
+        levels_left = next_min - level
+        embed.description += f"\n{next_icon} **{levels_left}** level{'s' if levels_left != 1 else ''} until **{next_name}**!"
+
+    embed.set_thumbnail(url=member.display_avatar.url)
+
+    embed.add_field(
+        name=f"Progress to Level {level + 1}",
+        value=(
+            f"[{bar}] `{progress:,} / {out_of:,} XP` • {percent:.1f}%\n"
+            + (
+                f"⚡ **{boost['multiplier']:.1f}x XP boost** active for **{int((boost['expires_at'] - time.time()) // 60)} min**!"
+                if boost
+                else "⚡ Vote for **2x XP** for **2 hours**! `/vote`"
+            )
+        ),
+        inline=False,
+    )
+
+    if new_roles:
+        roles = " ".join(role.mention for role in new_roles)
+        embed.add_field(
+            name="🏅 New Role" if len(new_roles) == 1 else "🏅 New Roles",
+            value=f"You've earned the **{roles}** role{'s' if len(new_roles) > 1 else ''}!",
+            inline=False,
+        )
+
+    embed.set_footer(text="VoidWave • Vote for 2x XP! /vote")
+    embed.timestamp = datetime.datetime.now(datetime.timezone.utc)
+    return embed
+
+
 def format_seconds(seconds):
     hours, remainder = divmod(seconds, 3600)
     minutes, seconds = divmod(remainder, 60)
@@ -287,44 +354,43 @@ async def add_message_xp(bot, message):
             level_channel = dict(level_channel) if level_channel else None
 
             channel = bot.get_channel(level_channel["level_channel_id"]) if level_channel and level_channel["level_channel_id"] and level_channel["level_channel_enabled"] else None
+            has_channel = bool(channel and isinstance(channel, discord.TextChannel))
 
-            if channel and isinstance(channel, discord.TextChannel) and level_channel and level_channel["level_channel_enabled"]:
-                emojis = ['⭐', '🔥', '🌟', '💎', '⚡', '🛡️', '🏹', '🎯', '👑', '🌈']
-                index = min((level - 1) // 10, len(emojis) - 1)
-                emoji = emojis[index]
-                count = min((level - 1) % 10 + 1, 10)
+            boost = cur.execute("SELECT multiplier, expires_at FROM vote_boosts WHERE user_id=? AND expires_at > ?", (user_id, int(time.time()))).fetchone()
+
+            level_roles = (cur.execute("SELECT level, role_id FROM level_roles WHERE guild_id = ?", (guild_id,)).fetchall())
+            level_roles = dict(level_roles) if level_roles else None
+
+            new_roles = []
+            if level_roles:
+                for req_level, role_id in level_roles.items():
+                    if level >= req_level:
+                        role = message.guild.get_role(role_id)
+
+                        if role and role not in message.author.roles:
+                            try:
+                                await message.author.add_roles(role)
+                                new_roles.append(role)
+                            except discord.Forbidden:
+                                print(f"{date()} WARN  Missing permissions to assign role {role_id} in guild {guild_id}")
+                            except Exception as e:
+                                print(f"{date()} ERROR  Failed to assign role: {e}")
+
+            if has_channel:
+                embed = build_level_up_embed(
+                    member=message.author,
+                    level=level,
+                    progress=progress,
+                    out_of=out_of,
+                    boost=dict(boost) if boost else None,
+                    new_roles=new_roles or None,
+                )
                 try:
-                    await channel.send(f"🎊 {message.author.mention} reached **Level {level}**! {emoji*count}")
+                    await channel.send(embed=embed)
                 except discord.Forbidden:
                     print(f"{date()} WARN  Missing permissions to send level-up message in {channel.id} for guild {guild_id}")
                 except Exception as e:
                     print(f"{date()} ERROR  Failed to send level-up message: {e}")
-
-            level_roles = (cur.execute("SELECT level, role_id FROM level_roles WHERE guild_id = ?", (guild_id,)).fetchall())
-            level_roles = dict(level_roles) if level_roles else None
-            if not level_roles:
-                cur.execute("UPDATE users SET level=?, progress=?, out_of=? WHERE guild_id=? AND user_id=?", (level, progress, out_of, guild_id, user_id))
-                conn.commit()
-                return
-            for req_level, role_id in level_roles.items():
-                if level >= req_level:
-                    role = message.guild.get_role(role_id)
-
-                    if role and role not in message.author.roles:
-                        try:
-                            await message.author.add_roles(role)
-                        except discord.Forbidden:
-                            print(f"{date()} WARN  Missing permissions to assign role {role_id} in guild {guild_id}")
-                        except Exception as e:
-                            print(f"{date()} ERROR  Failed to assign role: {e}")
-
-                        if channel and isinstance(channel, discord.TextChannel):
-                            try:
-                                await channel.send(f"🎖️ Congrats {message.author.mention}! You've earned the **`{role.name}`** role!")
-                            except discord.Forbidden:
-                                print(f"{date()} WARN  Missing permissions to send role message in {channel.id} for guild {guild_id}")
-                            except Exception as e:
-                                print(f"{date()} ERROR  Failed to send role message: {e}")
 
         cur.execute("UPDATE users SET level=?, progress=?, out_of=? WHERE guild_id=? AND user_id=?", (level, progress, out_of, guild_id, user_id))
         conn.commit()

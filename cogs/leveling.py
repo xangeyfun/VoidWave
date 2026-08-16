@@ -3,7 +3,7 @@ from discord.ext import commands, tasks
 import discord
 import random
 import time
-from utils import get_db, date, format_minutes, last_vc, VC_COOLDOWN, get_vote_boost
+from utils import get_db, date, format_minutes, last_vc, VC_COOLDOWN, get_vote_boost, build_level_up_embed
 
 
 class LevelingCog(commands.Cog):
@@ -339,30 +339,45 @@ class LevelingCog(commands.Cog):
                                 level_channel = dict(level_channel) if level_channel else None
 
                                 channel = self.bot.get_channel(level_channel["level_channel_id"]) if level_channel and level_channel["level_channel_id"] and level_channel["level_channel_enabled"] else None
+                                has_channel = bool(channel and isinstance(channel, discord.TextChannel))
 
-                                if channel and isinstance(channel, discord.TextChannel) and level_channel["level_channel_enabled"]:
-                                    emojis = ['⭐', '🔥', '🌟', '💎', '⚡', '🏆', '🚀', '💫', '🐉', '👸']
-                                    index = min((level - 1) // 10, len(emojis) - 1)
-                                    emoji = emojis[index]
-                                    count = min((level - 1) % 10 + 1, 10)
-                                    await channel.send(f"🎊 {member.mention} reached **Level {level}**! {emoji*count}")
+                                boost = cur.execute("SELECT multiplier, expires_at FROM vote_boosts WHERE user_id=? AND expires_at > ?", (member.id, int(time.time()))).fetchone()
 
                                 level_roles = (cur.execute("SELECT level, role_id FROM level_roles WHERE guild_id = ?", (guild.id,)).fetchall())
                                 level_roles = dict(level_roles) if level_roles else None
-                                if not level_roles:
-                                    cur.execute("UPDATE users SET level=?, progress=?, out_of=? WHERE guild_id=? AND user_id=?", (level, progress, out_of, guild.id, member.id))
-                                    conn.commit()
-                                    continue
-                                for req_level, role_id in level_roles.items():
-                                    if level >= req_level:
-                                        role = guild.get_role(role_id)
 
-                                        if role and role not in member.roles:
-                                            await member.add_roles(role)
+                                new_roles = []
+                                if level_roles:
+                                    for req_level, role_id in level_roles.items():
+                                        if level >= req_level:
+                                            role = guild.get_role(role_id)
 
-                                            if channel and isinstance(channel, discord.TextChannel):
-                                                await channel.send(f"🎖️ Congrats {member.mention}! You've earned the **`{role.name}`** role!")
-                            conn.commit()
+                                            if role and role not in member.roles:
+                                                try:
+                                                    await member.add_roles(role)
+                                                    new_roles.append(role)
+                                                except discord.Forbidden:
+                                                    print(f"{date()} WARN  Missing permissions to assign role {role_id} in guild {guild.id}")
+                                                except Exception as e:
+                                                    print(f"{date()} ERROR  Failed to assign role: {e}")
+
+                                if has_channel:
+                                    embed = build_level_up_embed(
+                                        member=member,
+                                        level=level,
+                                        progress=progress,
+                                        out_of=out_of,
+                                        boost=dict(boost) if boost else None,
+                                        new_roles=new_roles or None,
+                                    )
+                                    try:
+                                        await channel.send(embed=embed)
+                                    except discord.Forbidden:
+                                        print(f"{date()} WARN  Missing permissions to send level-up message in {channel.id} for guild {guild.id}")
+                                    except Exception as e:
+                                        print(f"{date()} ERROR  Failed to send level-up message: {e}")
+                                cur.execute("UPDATE users SET level=?, progress=?, out_of=? WHERE guild_id=? AND user_id=?", (level, progress, out_of, guild.id, member.id))
+                                conn.commit()
                         except Exception as e:
                             print(f"{date()} ERROR  Failed to update VC XP for {member} in {guild}: {e}")
         finally:
