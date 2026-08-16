@@ -123,6 +123,8 @@ class ModerationCog(commands.Cog):
     @app_commands.describe(seconds="Slowmode in seconds (0 to clear, max 21600)", channel="The channel to change (defaults to this one)", hidden="Hide the command from others")
     async def slowmode(self, interaction: discord.Interaction, seconds: int, channel: discord.TextChannel | None = None, hidden: bool = False):
         channel = channel or interaction.channel  # type: ignore
+        if isinstance(channel, discord.Thread):
+            channel = channel.parent
         seconds = max(0, min(seconds, 21600))
         await interaction.response.defer(ephemeral=hidden)
         await channel.edit(slowmode_delay=seconds)
@@ -137,6 +139,8 @@ class ModerationCog(commands.Cog):
     @app_commands.describe(channel="The channel to lock (defaults to this one)", reason="Reason for locking", hidden="Hide the command from others")
     async def lock(self, interaction: discord.Interaction, channel: discord.TextChannel | None = None, reason: str | None = None, hidden: bool = False):
         channel = channel or interaction.channel  # type: ignore
+        if isinstance(channel, discord.Thread):
+            channel = channel.parent
         await interaction.response.defer(ephemeral=hidden)
         await channel.set_permissions(interaction.guild.default_role, send_messages=False)  # type: ignore
         await interaction.followup.send(f"Locked {channel.mention}.{f' Reason: {reason}' if reason else ''}", ephemeral=hidden)
@@ -147,6 +151,8 @@ class ModerationCog(commands.Cog):
     @app_commands.describe(channel="The channel to unlock (defaults to this one)", hidden="Hide the command from others")
     async def unlock(self, interaction: discord.Interaction, channel: discord.TextChannel | None = None, hidden: bool = False):
         channel = channel or interaction.channel  # type: ignore
+        if isinstance(channel, discord.Thread):
+            channel = channel.parent
         await interaction.response.defer(ephemeral=hidden)
         await channel.set_permissions(interaction.guild.default_role, send_messages=None)  # type: ignore
         await interaction.followup.send(f"Unlocked {channel.mention}.", ephemeral=hidden)
