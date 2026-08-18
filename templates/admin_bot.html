@@ -1,0 +1,143 @@
+{% extends "admin_base.html" %}
+{% block title %}Bot Status{% endblock %}
+{% block heading %}Bot Status{% endblock %}
+{% block subheading %}Service control and live logs for {{ service }}{% endblock %}
+
+{% block content %}
+<div class="admin-grid cols-4">
+    <div class="stat-card">
+        <div class="stat-icon">{% if status.active %}&#9989;{% else %}&#10060;{% endif %}</div>
+        <div class="stat-value" style="color:{% if status.active %}#4ade80{% else %}#f87171{% endif %};">
+            {% if status.active %}Running{% elif status.state == 'failed' %}Failed{% else %}Stopped{% endif %}
+        </div>
+        <div class="stat-label">Service State</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon">&#128196;</div>
+        <div class="stat-value">{{ status.pid }}</div>
+        <div class="stat-label">Main PID</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon">&#128200;</div>
+        <div class="stat-value">{% if status.restarts != '?' %}{{ status.restarts }}{% else %}N/A{% endif %}</div>
+        <div class="stat-label">Restarts</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon">&#128187;</div>
+        <div class="stat-value">
+            {% if status.memory and status.memory != '?' %}
+                {{ (status.memory | int // 1048576) }} MB
+            {% else %}N/A{% endif %}
+        </div>
+        <div class="stat-label">Memory</div>
+    </div>
+</div>
+
+{% if status.uptime %}
+<div class="alert alert-info">Started at: <strong>{{ status.uptime }}</strong></div>
+{% endif %}
+
+<div class="admin-grid cols-3" style="margin-top:24px;">
+    <div class="admin-card">
+        <div class="card-head"><h3>Controls</h3></div>
+        <div style="display:flex;flex-direction:column;gap:12px;padding:16px 0;">
+            {% if not status.active %}
+            <form method="POST" action="{{ url_for('admin.bot_action', action='start') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button class="btn btn-primary" type="submit" style="width:100%;">&#9654; Start Bot</button>
+            </form>
+            {% endif %}
+
+            {% if status.active %}
+            <a href="{{ url_for('admin.bot_confirm', action='restart') }}" class="btn btn-secondary" style="width:100%;text-align:center;">&#128260; Restart Bot</a>
+            <a href="{{ url_for('admin.bot_confirm', action='stop') }}" class="btn btn-danger" style="width:100%;text-align:center;">&#9724; Stop Bot</a>
+            {% endif %}
+
+            <a href="{{ url_for('admin.bot_status') }}" class="btn btn-secondary btn-sm" style="width:100%;text-align:center;">&#128260; Refresh Status</a>
+        </div>
+    </div>
+
+    <div class="admin-card" style="grid-column: span 2;">
+        <div class="card-head">
+            <h3>Service Info</h3>
+        </div>
+        <table class="admin-table" style="margin:0;">
+            <tr><td style="width:160px;color:var(--muted);">Service</td><td><code>{{ service }}</code></td></tr>
+            <tr><td style="color:var(--muted);">State</td><td><span class="badge {% if status.active %}ok{% elif status.state == 'failed' %}fail{% else %}warn{% endif %}">{{ status.state }}</span></td></tr>
+            <tr><td style="color:var(--muted);">PID</td><td>{{ status.pid }}</td></tr>
+            <tr><td style="color:var(--muted);">Restarts</td><td>{{ status.restarts }}</td></tr>
+            <tr><td style="color:var(--muted);">Memory</td><td>{% if status.memory and status.memory != '?' %}{{ (status.memory | int // 1048576) }} MB{% else %}N/A{% endif %}</td></tr>
+            <tr><td style="color:var(--muted);">Since</td><td>{{ status.uptime or 'N/A' }}</td></tr>
+        </table>
+    </div>
+</div>
+
+<div class="admin-card" style="margin-top:24px;">
+    <div class="card-head">
+        <h3>Live Logs</h3>
+        <div style="display:flex;gap:8px;">
+            <button class="btn btn-secondary btn-sm" onclick="refreshLogs()">&#128260; Refresh</button>
+            <button class="btn btn-secondary btn-sm" onclick="copyLogs()">&#128203; Copy</button>
+        </div>
+    </div>
+    <div id="bot-logs" class="log-output">
+        {% for line in logs %}
+        <div class="log-line">{{ line }}</div>
+        {% endfor %}
+        {% if not logs %}
+        <div class="log-line" style="color:var(--muted);">No logs available.</div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+function refreshLogs() {
+    fetch("{{ url_for('admin.bot_logs') }}")
+        .then(r => r.json())
+        .then(data => {
+            const el = document.getElementById('bot-logs');
+            el.innerHTML = data.lines.map(l => '<div class="log-line">' + escapeHtml(l) + '</div>').join('');
+            if (data.lines.length === 0) {
+                el.innerHTML = '<div class="log-line" style="color:var(--muted);">No logs available.</div>';
+            }
+        });
+}
+
+function escapeHtml(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function copyLogs() {
+    const lines = document.querySelectorAll('#bot-logs .log-line');
+    const text = Array.from(lines).map(l => l.textContent).join('\n');
+    navigator.clipboard.writeText(text).then(() => {
+        const btn = event.target;
+        const orig = btn.innerHTML;
+        btn.innerHTML = '&#10003; Copied';
+        setTimeout(() => btn.innerHTML = orig, 1500);
+    });
+}
+</script>
+
+<style>
+.log-output {
+    background: #0d1117;
+    border: 1px solid #30363d;
+    border-radius: 6px;
+    padding: 12px;
+    max-height: 500px;
+    overflow-y: auto;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    line-height: 1.6;
+}
+.log-line {
+    color: #c9d1d9;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+.log-line:hover {
+    background: rgba(255,255,255,0.03);
+}
+</style>
+{% endblock %}

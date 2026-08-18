@@ -1,0 +1,117 @@
+{% extends "admin_base.html" %}
+{% block title %}Guild Settings{% endblock %}
+{% block heading %}Guild Settings{% endblock %}
+{% block subheading %}View and edit configuration for every guild{% endblock %}
+
+{% block content %}
+<div class="admin-card">
+    <form method="GET" action="{{ url_for('admin.guilds') }}" class="form-grid">
+        <div class="form-field">
+            <label>Search</label>
+            <input type="text" name="q" value="{{ q }}" placeholder="Guild ID..." autofocus>
+        </div>
+        <div class="form-field">
+            <label>Sort by</label>
+            <select name="sort">
+                {% for opt in ('users', 'xp', 'avg_level', 'guild_id', 'settings') %}
+                    <option value="{{ opt }}" {% if sort == opt %}selected{% endif %}>{{ opt|replace('_', ' ') }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-field">
+            <label>Order</label>
+            <select name="order">
+                <option value="desc" {% if order == 'desc' %}selected{% endif %}>Descending</option>
+                <option value="asc" {% if order == 'asc' %}selected{% endif %}>Ascending</option>
+            </select>
+        </div>
+        <div class="form-field">
+            <label>&nbsp;</label>
+            <button class="btn btn-primary" type="submit">Search</button>
+        </div>
+    </form>
+</div>
+
+<div class="admin-table-wrap">
+    <table class="admin-table">
+        <thead>
+            <tr>
+                <th>Guild ID</th>
+                <th class="num">Users</th>
+                <th class="num">XP</th>
+                <th class="num">Messages</th>
+                <th class="num">Avg Level</th>
+                <th class="num">Max Level</th>
+                <th>Settings</th>
+                <th>QOTD</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for r in rows %}
+            <tr>
+                <td>
+                    <div class="flex items-center gap-1">
+                        <div class="guild-icon">{{ (r['guild_id']|string)[-2:] }}</div>
+                        <span class="mono" data-copy="{{ r['guild_id'] }}" style="cursor:pointer;" title="Click to copy">{{ r['guild_id'] }}</span>
+                    </div>
+                </td>
+                <td class="num">{{ "{:,}".format(r['users']) }}</td>
+                <td class="num">{{ "{:,}".format(r['xp']) }}</td>
+                <td class="num">{{ "{:,}".format(r['msgs']) }}</td>
+                <td class="num">{{ r['avg_level'] }}</td>
+                <td class="num">{{ r['max_level'] }}</td>
+                <td>
+                    {% if r['has_settings'] %}
+                        <span class="badge ok">configured</span>
+                    {% else %}
+                        <span class="badge muted">none</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if r['qotd_enabled'] %}
+                        <span class="badge info">enabled</span>
+                    {% else %}
+                        <span class="badge muted">off</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <div class="flex gap-1 flex-wrap">
+                        <a href="{{ url_for('admin.guild_edit', guild_id=r['guild_id']) }}" class="btn btn-secondary btn-sm">Edit</a>
+                    </div>
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="9"><div class="empty-state">No guilds found{% if q %} for &ldquo;{{ q }}&rdquo;{% endif %}.</div></td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<div class="flex items-center justify-between flex-wrap" style="margin-top:1rem;">
+    <span class="muted" style="font-size:0.88rem;">{{ total }} guild(s)</span>
+    {% if total_pages > 1 %}
+    <div class="pagination">
+        {% if page > 1 %}
+            <a href="?q={{ q }}&sort={{ sort }}&order={{ order }}&page={{ page - 1 }}">&#x2190;</a>
+        {% endif %}
+        {% set start = [1, page - 2] | max %}
+        {% set end = [total_pages, page + 2] | min %}
+        {% if start > 1 %}
+            <a href="?q={{ q }}&sort={{ sort }}&order={{ order }}&page=1">1</a>
+            {% if start > 2 %}<span class="dots">...</span>{% endif %}
+        {% endif %}
+        {% for p in range(start, end + 1) %}
+            <a href="?q={{ q }}&sort={{ sort }}&order={{ order }}&page={{ p }}" class="{% if p == page %}active{% endif %}">{{ p }}</a>
+        {% endfor %}
+        {% if end < total_pages %}
+            {% if end < total_pages - 1 %}<span class="dots">...</span>{% endif %}
+            <a href="?q={{ q }}&sort={{ sort }}&order={{ order }}&page={{ total_pages }}">{{ total_pages }}</a>
+        {% endif %}
+        {% if page < total_pages %}
+            <a href="?q={{ q }}&sort={{ sort }}&order={{ order }}&page={{ page + 1 }}">&#x2192;</a>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

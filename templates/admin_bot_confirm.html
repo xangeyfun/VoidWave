@@ -1,0 +1,38 @@
+{% extends "admin_base.html" %}
+{% block title %}Confirm {{ action | capitalize }} Bot{% endblock %}
+{% block heading %}{{ action | capitalize }} Bot{% endblock %}
+{% block subheading %}This will {{ action }} the {{ service }} service{% endblock %}
+
+{% block content %}
+<div style="max-width:700px;">
+    <div class="admin-card">
+        <div class="card-head"><h3>Confirm {{ action | capitalize }}</h3></div>
+        <div class="alert alert-warn" style="margin:16px 0 0;">
+            {% if action == 'stop' %}
+                The bot service is currently <strong>{% if status.active %}running{% else %}{{ status.state }}{% endif %}</strong>.
+                Stopping the bot will disconnect it from all Discord servers.
+                Users will not be tracked until it is started again.
+            {% else %}
+                The bot service is currently <strong>{% if status.active %}running{% else %}{{ status.state }}{% endif %}</strong>.
+                Restarting will briefly disconnect the bot from all Discord servers.
+            {% endif %}
+        </div>
+
+        <form method="POST" action="{{ url_for('admin.bot_action', action=action) }}" style="margin-top:20px;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <label for="confirm" style="display:block;margin-bottom:8px;font-weight:600;">
+                Type <code>{{ action | upper }}</code> to confirm:
+            </label>
+            <input type="text" id="confirm" name="confirm" class="form-input"
+                   placeholder="{{ action | upper }}" autocomplete="off"
+                   style="max-width:300px;margin-bottom:16px;">
+            <div style="display:flex;gap:12px;">
+                <button class="btn btn-{% if action == 'stop' %}danger{% else %}primary{% endif %}" type="submit">
+                    {% if action == 'stop' %}&#9724; Stop Bot{% else %}&#128260; Restart Bot{% endif %}
+                </button>
+                <a href="{{ url_for('admin.bot_status') }}" class="btn btn-secondary">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

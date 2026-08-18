@@ -1,0 +1,161 @@
+{% extends "admin_base.html" %}
+{% block title %}Edit Guild{% endblock %}
+{% block heading %}Edit Guild{% endblock %}
+{% block subheading %}
+    <span class="mono" data-copy="{{ guild_id }}" style="cursor:pointer;">{{ guild_id }}</span>
+    &middot; {{ user_count }} user(s) &middot; {{ "{:,}".format(total_xp) }} XP &middot; {{ "{:,}".format(total_msgs) }} messages
+{% endblock %}
+{% block actions %}
+    <a href="{{ url_for('admin.guilds') }}" class="btn btn-secondary btn-sm">&#x2190; Back</a>
+{% endblock %}
+
+{% block content %}
+{% if error %}<div class="alert alert-error">{{ error }}</div>{% endif %}
+{% if flash_msg %}<div class="alert alert-success" data-auto-dismiss>{{ flash_msg }}</div>{% endif %}
+
+<!-- Guild Overview Cards -->
+<div class="admin-grid cols-4" style="margin-bottom:1.25rem;">
+    <div class="stat-card">
+        <div class="stat-icon">&#128101;</div>
+        <div class="stat-value">{{ "{:,}".format(user_count) }}</div>
+        <div class="stat-label">Users</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon">&#127775;</div>
+        <div class="stat-value">{{ "{:,}".format(total_xp) }}</div>
+        <div class="stat-label">Total XP</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon">&#128172;</div>
+        <div class="stat-value">{{ "{:,}".format(total_msgs) }}</div>
+        <div class="stat-label">Messages</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon">&#127970;</div>
+        <div class="stat-value">{{ level_roles|length }}</div>
+        <div class="stat-label">Level Roles</div>
+    </div>
+</div>
+
+<div class="admin-grid cols-2">
+    <!-- Settings Form -->
+    <div class="admin-card">
+        <h2>Guild Configuration</h2>
+        <p class="card-sub">Edit this guild's settings. Changes take effect immediately.</p>
+        <form method="POST" action="{{ url_for('admin.guild_edit', guild_id=guild_id) }}" class="admin-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="action" value="save_settings">
+
+            <div class="form-grid">
+                <div class="form-field">
+                    <label>Level Channel ID</label>
+                    <input type="text" name="level_channel_id" value="{{ settings['level_channel_id'] if settings and settings['level_channel_id'] else '' }}" placeholder="Discord channel ID">
+                    <div class="hint">Channel for level-up announcements</div>
+                </div>
+                <div class="form-field">
+                    <label>Level Channel Enabled</label>
+                    <select name="level_channel_enabled">
+                        <option value="on" {% if settings and settings['level_channel_enabled'] %}selected{% endif %}>Enabled</option>
+                        <option value="" {% if not settings or not settings['level_channel_enabled'] %}selected{% endif %}>Disabled</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-grid">
+                <div class="form-field">
+                    <label>QOTD Enabled</label>
+                    <select name="qotd_enabled">
+                        <option value="on" {% if settings and settings['qotd_enabled'] %}selected{% endif %}>Enabled</option>
+                        <option value="" {% if not settings or not settings['qotd_enabled'] %}selected{% endif %}>Disabled</option>
+                    </select>
+                </div>
+                <div class="form-field">
+                    <label>QOTD Channel ID</label>
+                    <input type="text" name="qotd_channel" value="{{ settings['qotd_channel'] if settings and settings['qotd_channel'] else '' }}" placeholder="Discord channel ID">
+                </div>
+            </div>
+
+            <div class="form-grid">
+                <div class="form-field">
+                    <label>QOTD Role ID</label>
+                    <input type="text" name="qotd_role_id" value="{{ settings['qotd_role_id'] if settings and settings['qotd_role_id'] else '' }}" placeholder="Discord role ID">
+                    <div class="hint">Role to ping for QOTD</div>
+                </div>
+                <div class="form-field">
+                    <label>Delete Old QOTD</label>
+                    <select name="delete_old_qotd">
+                        <option value="on" {% if settings and settings['delete_old_qotd'] %}selected{% endif %}>Enabled</option>
+                        <option value="" {% if not settings or not settings['delete_old_qotd'] %}selected{% endif %}>Disabled</option>
+                    </select>
+                </div>
+            </div>
+
+            <button class="btn btn-primary" type="submit">&#128190; Save Settings</button>
+        </form>
+    </div>
+
+    <!-- Level Roles -->
+    <div>
+        <div class="admin-card">
+            <h2>Level Roles</h2>
+            <p class="card-sub">Auto-assigned roles when users reach specific levels.</p>
+
+            {% if level_roles %}
+            <div class="admin-table-wrap" style="margin-bottom:1rem;">
+                <table class="admin-table compact">
+                    <thead>
+                        <tr><th class="num">Level</th><th>Role ID</th><th>Action</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for lr in level_roles %}
+                        <tr>
+                            <td class="num">{{ lr['level'] }}</td>
+                            <td><span class="mono" data-copy="{{ lr['role_id'] }}" style="cursor:pointer;">{{ lr['role_id'] }}</span></td>
+                            <td>
+                                <form method="POST" action="{{ url_for('admin.guild_edit', guild_id=guild_id) }}" style="display:inline;">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <input type="hidden" name="action" value="delete_role">
+                                    <input type="hidden" name="level" value="{{ lr['level'] }}">
+                                    <button class="btn btn-danger btn-sm" type="submit" data-armed>Remove</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="empty-state" style="padding:1rem;">No level roles configured.</div>
+            {% endif %}
+
+            <form method="POST" action="{{ url_for('admin.guild_edit', guild_id=guild_id) }}" class="admin-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="action" value="add_role">
+                <div class="form-grid">
+                    <div class="form-field">
+                        <label>Level</label>
+                        <input type="number" name="level" min="0" required placeholder="e.g. 10">
+                    </div>
+                    <div class="form-field">
+                        <label>Role ID</label>
+                        <input type="text" name="role_id" required placeholder="Discord role ID">
+                    </div>
+                </div>
+                <button class="btn btn-secondary" type="submit">Add Level Role</button>
+            </form>
+        </div>
+
+        <div class="admin-card" style="margin-top:1rem;">
+            <h2>Quick Info</h2>
+            <p class="card-sub">Useful references for this guild.</p>
+            <table class="admin-table compact">
+                <tbody>
+                    <tr><td>QOTD Last Post ID</td><td class="text-right"><span class="mono">{{ settings['last_qotd_id'] if settings and settings['last_qotd_id'] else 'none' }}</span></td></tr>
+                    <tr><td>QOTD Thread ID</td><td class="text-right"><span class="mono">{{ settings['last_qotd_thread_id'] if settings and settings['last_qotd_thread_id'] else 'none' }}</span></td></tr>
+                    <tr><td>QOTD Queue</td><td class="text-right"><span class="mono">{{ (settings['qotd_queue']|length if settings and settings['qotd_queue'] else 0) }} items</span></td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
