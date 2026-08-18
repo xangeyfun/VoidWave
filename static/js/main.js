@@ -503,7 +503,7 @@ document.addEventListener('DOMContentLoaded', () => {
         setInterval(updateStats, 10000);
     }
 
-    // Setup page — timeline scroll reveal
+    // Setup page: timeline scroll reveal
     const setupBlocks = document.querySelectorAll('.setup-block[data-step]');
     const setupTimeline = document.querySelector('.setup-steps');
     if (setupBlocks.length && setupTimeline) {
@@ -540,7 +540,7 @@ document.addEventListener('DOMContentLoaded', () => {
         setupBlocks.forEach(block => setupObserver.observe(block));
     }
 
-    // Setup page — command grid stagger reveal
+    // Setup page: command grid stagger reveal
     const commandItems = document.querySelectorAll('.command-item');
     if (commandItems.length) {
         const cmdGridObserver = new IntersectionObserver((entries) => {
@@ -555,7 +555,7 @@ document.addEventListener('DOMContentLoaded', () => {
         commandItems.forEach(item => cmdGridObserver.observe(item));
     }
 
-    // Setup page — scroll progress dots
+    // Setup page: scroll progress dots
     const setupProgress = document.getElementById('setupProgress');
     const progressDots = setupProgress ? setupProgress.querySelectorAll('.setup-progress-dot') : [];
     if (setupProgress && setupBlocks.length) {
@@ -596,7 +596,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Commands page — category stagger reveal
+    // Commands page: category stagger reveal
     const cmdCategories = document.querySelectorAll('.commands-category');
     if (cmdCategories.length) {
         const catObserver = new IntersectionObserver((entries) => {

@@ -13,7 +13,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const match = val === required;
             submit.disabled = !match;
             if (hint) {
-                hint.textContent = match ? '✔ Matches' : `Type ${required} to enable`;
+                hint.textContent = match ? 'Matches' : `Type ${required} to enable`;
                 hint.style.color = match ? 'var(--success)' : 'var(--text-muted)';
             }
         };
@@ -28,7 +28,11 @@ document.addEventListener('DOMContentLoaded', () => {
             navigator.clipboard?.writeText(text).then(() => {
                 const old = el.textContent;
                 el.textContent = 'Copied!';
-                setTimeout(() => { el.textContent = old; }, 1200);
+                el.style.color = 'var(--success)';
+                setTimeout(() => {
+                    el.textContent = old;
+                    el.style.color = '';
+                }, 1200);
             }).catch(() => {});
         });
     });
@@ -60,5 +64,44 @@ document.addEventListener('DOMContentLoaded', () => {
             al.style.opacity = '0';
             setTimeout(() => al.remove(), 500);
         }, 6000);
+    });
+
+    // Keyboard shortcut: Ctrl+K or Cmd+K to focus search inputs
+    document.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+            e.preventDefault();
+            const searchInput = document.querySelector('.admin-main input[type="text"][autofocus]')
+                || document.querySelector('.admin-main input[type="text"][name="q"]')
+                || document.querySelector('.admin-main input[type="text"][name="search"]');
+            if (searchInput) searchInput.focus();
+        }
+    });
+
+    // Smooth number counting animation for stat values
+    document.querySelectorAll('.stat-value').forEach(el => {
+        const text = el.textContent.trim();
+        const num = parseFloat(text.replace(/[,]/g, ''));
+        if (isNaN(num) || text.includes('m') || text.includes('h') || text.includes('%')) return;
+
+        const formatted = text;
+        const duration = 600;
+        const start = performance.now();
+
+        const animate = (now) => {
+            const elapsed = now - start;
+            const progress = Math.min(elapsed / duration, 1);
+            const eased = 1 - Math.pow(1 - progress, 3);
+            const current = Math.round(num * eased);
+
+            el.textContent = current.toLocaleString();
+
+            if (progress < 1) {
+                requestAnimationFrame(animate);
+            } else {
+                el.textContent = formatted;
+            }
+        };
+
+        requestAnimationFrame(animate);
     });
 });
