@@ -6,102 +6,162 @@
 {% block content %}
 {% if error %}<div class="alert alert-error">{{ error }}</div>{% endif %}
 
-<div class="admin-card">
-    <h2>&#128101; User Erasure</h2>
-    <p class="card-sub">Delete one or more users. IDs go one per line (multiple supported).</p>
-    <form method="POST" action="{{ url_for('admin.forget') }}" class="admin-form">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <div class="form-grid">
-            <div class="form-field">
-                <label>Discord user IDs (one per line)</label>
-                <textarea name="user_ids" placeholder="123456789012345678&#10;987654321098765432"></textarea>
-            </div>
-            <div class="form-field">
-                <label>Scope</label>
-                <select name="mode">
-                    <option value="user_all">Everywhere (all guilds + vote boosts)</option>
-                    <option value="user_guild">Only in one guild (enter guild below)</option>
-                    <option value="boost">Only the vote boost (keep stats)</option>
-                </select>
-                <div class="hint">&ldquo;Everywhere&rdquo; fully erases the person. &ldquo;One guild&rdquo; keeps their other guilds + boost.</div>
-                <label style="margin-top:0.8rem;">Guild ID (for single-guild scope)</label>
-                <input type="text" name="guild_id" placeholder="123456789012345678">
-            </div>
+<div class="admin-grid cols-2" style="margin-bottom:24px;">
+    <div class="admin-card" style="border-color:rgba(74,222,128,0.3);">
+        <div class="card-head"><h3>&#129505; Quick Cleanup</h3></div>
+        <p class="card-sub" style="margin:12px 0 0;">Common maintenance operations.</p>
+        <div style="display:flex;flex-direction:column;gap:10px;margin-top:16px;">
+            <form method="POST" action="{{ url_for('admin.forget') }}" style="display:flex;gap:8px;align-items:center;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="mode" value="expired_boosts">
+                <button class="btn btn-secondary btn-sm" type="submit">&#128176; Purge expired boosts</button>
+            </form>
+            <form method="POST" action="{{ url_for('admin.forget') }}" style="display:flex;gap:8px;align-items:center;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="mode" value="stale_users">
+                <input type="hidden" name="days" value="30">
+                <button class="btn btn-secondary btn-sm" type="submit">&#128164; Purge stale users (30+ days)</button>
+            </form>
         </div>
-        <button class="btn btn-primary" type="submit">Preview deletion</button>
-    </form>
+    </div>
+
+    <div class="admin-card">
+        <div class="card-head"><h3>&#128101; User Erasure</h3></div>
+        <p class="card-sub" style="margin:12px 0 0;">Delete one or more users by Discord ID. Supports multiple IDs, one per line.</p>
+        <form method="POST" action="{{ url_for('admin.forget') }}" style="margin-top:16px;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="form-field" style="margin-bottom:12px;">
+                <label>Discord user IDs</label>
+                <textarea name="user_ids" rows="3" placeholder="123456789012345678&#10;987654321098765432" style="width:100%;"></textarea>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                <div class="form-field">
+                    <label>Scope</label>
+                    <select name="mode">
+                        <option value="user_all">Everywhere (all guilds)</option>
+                        <option value="user_guild">Only in one guild</option>
+                        <option value="boost">Vote boost only</option>
+                    </select>
+                </div>
+                <div class="form-field">
+                    <label>Guild ID (for single-guild scope)</label>
+                    <input type="text" name="guild_id" placeholder="123456789012345678">
+                </div>
+            </div>
+            <button class="btn btn-primary btn-sm" type="submit" style="margin-top:12px;">Preview deletion</button>
+        </form>
+    </div>
 </div>
 
-<div class="admin-card">
-    <h2>&#127757; Guild Erasure</h2>
-    <p class="card-sub">Remove everything tied to one server.</p>
-    <form method="POST" action="{{ url_for('admin.forget') }}" class="admin-form">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <div class="form-grid">
-            <div class="form-field">
+<div class="admin-grid cols-2" style="margin-bottom:24px;">
+    <div class="admin-card">
+        <div class="card-head"><h3>&#127757; Guild Erasure</h3></div>
+        <p class="card-sub" style="margin:12px 0 0;">Remove everything tied to one server.</p>
+        <form method="POST" action="{{ url_for('admin.forget') }}" style="margin-top:16px;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="form-field" style="margin-bottom:12px;">
                 <label>Guild ID</label>
-                <input type="text" name="guild_id" placeholder="123456789012345678" required>
+                <input type="text" name="guild_id" placeholder="123456789012345678" required style="width:100%;">
             </div>
-            <div class="form-field">
+            <div class="form-field" style="margin-bottom:12px;">
                 <label>Scope</label>
                 <select name="mode">
-                    <option value="guild_users">All users in guild (keep settings)</option>
+                    <option value="guild_users">All users only (keep settings)</option>
                     <option value="guild_full">Everything: users + settings + level roles</option>
                 </select>
-                <div class="hint">Guild settings are QOTD config, channel, etc. Vote boosts are per-user and are kept.</div>
             </div>
-        </div>
-        <button class="btn btn-primary" type="submit">Preview deletion</button>
-    </form>
+            <button class="btn btn-primary btn-sm" type="submit">Preview deletion</button>
+        </form>
+    </div>
+
+    <div class="admin-card" style="border-color:rgba(239,68,68,0.35);">
+        <div class="card-head"><h3 style="color:var(--error);">&#9888; Danger Zone</h3></div>
+        <p class="card-sub" style="margin:12px 0 0;">Destructive operations that affect all data. Each requires a typed confirmation word.</p>
+        <form method="POST" action="{{ url_for('admin.forget') }}" style="margin-top:16px;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                <div class="form-field">
+                    <label>Operation</label>
+                    <select name="mode">
+                        <option value="reset_all">Reset ALL user data</option>
+                        <option value="reset_table">Reset one table</option>
+                    </select>
+                </div>
+                <div class="form-field">
+                    <label>Table (for reset one table)</label>
+                    <select name="table">
+                        <option value="users">users</option>
+                        <option value="vote_boosts">vote_boosts</option>
+                        <option value="guild_settings">guild_settings</option>
+                        <option value="level_roles">level_roles</option>
+                    </select>
+                </div>
+            </div>
+            <div class="hint" style="margin-top:8px;">Reset-all requires typing RESET. Table reset requires typing the table name.</div>
+            <button class="btn btn-danger btn-sm" type="submit" style="margin-top:12px;">Preview destructive reset</button>
+        </form>
+    </div>
 </div>
 
+{% if recent %}
 <div class="admin-card">
-    <h2>&#129505; Maintenance</h2>
-    <p class="card-sub">Regular cleanup operations.</p>
-    <form method="POST" action="{{ url_for('admin.forget') }}" class="admin-form">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <div class="form-grid">
-            <div class="form-field">
-                <label>Operation</label>
-                <select name="mode">
-                    <option value="expired_boosts">Purge expired vote boosts</option>
-                    <option value="stale_users">Delete stale users (0 XP, 0 messages, untouched for N days)</option>
-                </select>
-            </div>
-            <div class="form-field">
-                <label>Days (stale users)</label>
-                <input type="number" name="days" value="30" min="1" max="365">
-            </div>
-        </div>
-        <button class="btn btn-primary" type="submit">Preview cleanup</button>
-    </form>
+    <div class="card-head">
+        <h3>&#128221; Recent Deletions</h3>
+        <a href="{{ url_for('admin.logs') }}" class="btn btn-secondary btn-sm">View full audit log</a>
+    </div>
+    <div class="admin-table-wrap">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>Time</th>
+                    <th>Action</th>
+                    <th>Details</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for op in recent %}
+                <tr>
+                    <td style="white-space:nowrap;color:var(--muted);">{{ op.timestamp }}</td>
+                    <td>
+                        {% if op.spec.type %}
+                            <span class="badge {% if 'reset' in op.spec.type %}fail{% else %}warn{% endif %}">
+                                {{ op.spec.type | replace('_', ' ') | title }}
+                            </span>
+                        {% else %}
+                            <span class="badge ok">Unknown</span>
+                        {% endif %}
+                    </td>
+                    <td style="font-size:0.85rem;">
+                        {% if op.spec.type == 'user_all' %}
+                            {{ op.spec.user_ids | length }} user(s) erased everywhere
+                        {% elif op.spec.type == 'user_guild' %}
+                            {{ op.spec.user_ids | length }} user(s) in guild {{ op.spec.guild_id }}
+                        {% elif op.spec.type == 'guild_users' %}
+                            All users in guild {{ op.spec.guild_id }}
+                        {% elif op.spec.type == 'guild_full' %}
+                            Entire guild {{ op.spec.guild_id }}
+                        {% elif op.spec.type == 'boost' %}
+                            {{ op.spec.user_ids | length }} vote boost(s)
+                        {% elif op.spec.type == 'expired_boosts' %}
+                            Expired vote boosts
+                        {% elif op.spec.type == 'stale_users' %}
+                            Stale users ({{ op.spec.days }}+ days)
+                        {% elif op.spec.type == 'reset_all' %}
+                            All user data
+                        {% elif op.spec.type == 'reset_table' %}
+                            Table {{ op.spec.table }}
+                        {% else %}
+                            {{ op.raw | default('--', true) }}
+                        {% endif %}
+                        {% if op.counts._total is defined %}
+                            <span style="color:var(--muted);"> &middot; {{ op.counts._total }} row(s)</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
 </div>
-
-<div class="admin-card" style="border-color: rgba(239,68,68,0.4);">
-    <h2 style="color:var(--error);">&#9888; Danger Zone</h2>
-    <p class="card-sub">Destructive operations. A confirmation word other than DELETE is required.</p>
-    <form method="POST" action="{{ url_for('admin.forget') }}" class="admin-form">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <div class="form-grid">
-            <div class="form-field">
-                <label>Operation</label>
-                <select name="mode">
-                    <option value="reset_all">Reset ALL user data (users + vote boosts)</option>
-                    <option value="reset_table">Reset one table</option>
-                </select>
-            </div>
-            <div class="form-field">
-                <label>Table (for reset one table)</label>
-                <select name="table">
-                    <option value="users">users</option>
-                    <option value="vote_boosts">vote_boosts</option>
-                    <option value="guild_settings">guild_settings</option>
-                    <option value="level_roles">level_roles</option>
-                </select>
-                <div class="hint">Reset-all requires typing RESET. Table reset requires typing the table name.</div>
-            </div>
-        </div>
-        <button class="btn btn-danger" type="submit">Preview destructive reset</button>
-    </form>
-</div>
+{% endif %}
 {% endblock %}

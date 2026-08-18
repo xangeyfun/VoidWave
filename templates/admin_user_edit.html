@@ -14,7 +14,7 @@
 {% if error %}<div class="alert alert-error">{{ error }}</div>{% endif %}
 {% if flash_msg %}<div class="alert alert-success" data-auto-dismiss>{{ flash_msg }}</div>{% endif %}
 
-<div class="admin-grid cols-3">
+<div class="admin-grid cols-3" style="margin-bottom:1.25rem;">
     <div class="stat-card">
         <div class="stat-icon">&#127942;</div>
         <div class="stat-value">{{ user['level'] }}</div>
@@ -101,7 +101,7 @@
             <h2>Voice / Vote Boost</h2>
             <p class="card-sub">Global per-user boost from top.gg votes.</p>
             {% if boost %}
-                <table class="admin-table">
+                <table class="admin-table compact">
                     <tbody>
                         <tr><td>Multiplier</td><td class="text-right num">{{ boost['multiplier'] }}x</td></tr>
                         <tr><td>Expires</td><td class="text-right">
@@ -114,11 +114,11 @@
                     </tbody>
                 </table>
             {% else %}
-                <div class="empty-state">No vote boost on record.</div>
+                <div class="empty-state" style="padding:1rem;">No vote boost on record.</div>
             {% endif %}
         </div>
 
-        <div class="admin-card">
+        <div class="admin-card" style="margin-top:1rem;">
             <h2>Other Guilds</h2>
             <p class="card-sub">This user appears in {{ guild_rows|length }} guild(s) total.</p>
             <div class="flex gap-1 flex-wrap">
@@ -126,14 +126,14 @@
                     {% if g['guild_id'] == user['guild_id'] %}
                         <span class="badge ok">this guild</span>
                     {% else %}
-                        <a class="badge info" href="{{ url_for('admin.user_edit', guild_id=g['guild_id'], user_id=user['user_id']) }}">guild {{ g['guild_id'] }}</a>
+                        <a class="badge info" href="{{ url_for('admin.user_edit', guild_id=g['guild_id'], user_id=user['user_id']) }}" style="text-decoration:none;">guild {{ g['guild_id'] }}</a>
                     {% endif %}
                 {% endfor %}
             </div>
         </div>
 
-        <div class="admin-card" style="border-color: rgba(239,68,68,0.4);">
-            <h2 style="color:var(--error);">Danger Zone</h2>
+        <div class="admin-card" style="margin-top:1rem; border-color: rgba(239,68,68,0.35);">
+            <h2 style="color:var(--error);">&#9888; Danger Zone</h2>
             <p class="card-sub">Remove this user from <strong>this guild only</strong>. For full privacy erasure use the <a href="{{ url_for('admin.forget') }}">Privacy / Forget</a> page.</p>
             <form method="POST" action="{{ url_for('admin.user_delete', guild_id=user['guild_id'], user_id=user['user_id']) }}" class="admin-form" data-confirm-check="DELETE">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

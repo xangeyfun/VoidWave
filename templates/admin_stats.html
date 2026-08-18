@@ -1,13 +1,13 @@
 {% extends "admin_base.html" %}
 {% block title %}Statistics{% endblock %}
 {% block heading %}Statistics{% endblock %}
-{% block subheading %}Every stat worth knowing about the whole user base{% endblock %}
+{% block subheading %}Comprehensive analytics across the entire user base{% endblock %}
 {% block actions %}
     <a href="{{ url_for('admin.stats') }}" class="btn btn-secondary btn-sm">&#128260; Refresh</a>
 {% endblock %}
 
 {% block content %}
-<!-- Overview Cards -->
+<!-- Overview Cards - Row 1 -->
 <div class="admin-grid cols-4">
     <div class="stat-card">
         <div class="stat-icon">&#128101;</div>
@@ -29,36 +29,69 @@
     </div>
     <div class="stat-card">
         <div class="stat-icon">&#127908;</div>
-        <div class="stat-value">{{ "{:,}".format(agg.vc_minutes) }}m</div>
+        <div class="stat-value">{{ "{:,}".format(agg.total_vc_hours) }}h</div>
         <div class="stat-label">Voice Time</div>
         <div class="stat-hint">{{ "{:,}".format(agg.vc_xp_minutes) }}m earned XP</div>
     </div>
 </div>
 
-<div class="admin-grid cols-4" style="margin-top:1rem;">
+<!-- Overview Cards - Row 2 -->
+<div class="admin-grid cols-4" style="margin-top:0.75rem;">
     <div class="stat-card">
+        <div class="stat-icon">&#128200;</div>
         <div class="stat-value">{{ agg.avg_level }}</div>
         <div class="stat-label">Avg Level</div>
         <div class="stat-hint">median {{ agg.median_level }} &middot; p90 {{ agg.p90_level }}</div>
     </div>
     <div class="stat-card">
+        <div class="stat-icon">&#127942;</div>
         <div class="stat-value">{{ agg.max_level }}</div>
         <div class="stat-label">Max Level</div>
         <div class="stat-hint">{{ "{:,}".format(agg.level_100) }} at 100+ &middot; {{ "{:,}".format(agg.level_50) }} at 50+</div>
     </div>
     <div class="stat-card">
+        <div class="stat-icon">&#128100;</div>
         <div class="stat-value">{{ "{:,}".format(agg.msgs_per_user) }}</div>
-        <div class="stat-label">Messages / user</div>
+        <div class="stat-label">Messages / User</div>
         <div class="stat-hint">max {{ "{:,}".format(agg.max_messages) }}</div>
     </div>
     <div class="stat-card">
+        <div class="stat-icon">&#128176;</div>
         <div class="stat-value">{{ "{:,}".format(agg.xp_per_user) }}</div>
-        <div class="stat-label">XP / user</div>
+        <div class="stat-label">XP / User</div>
         <div class="stat-hint">max {{ "{:,}".format(agg.max_xp) }}</div>
     </div>
 </div>
 
-<!-- Growth & Activity -->
+<!-- Overview Cards - Row 3 (New Stats) -->
+<div class="admin-grid cols-4" style="margin-top:0.75rem;">
+    <div class="stat-card">
+        <div class="stat-icon">&#128202;</div>
+        <div class="stat-value">{{ "{:,}".format(agg.p10_level) }}</div>
+        <div class="stat-label">P10 Level</div>
+        <div class="stat-hint">bottom 10% threshold</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon">&#127941;</div>
+        <div class="stat-value">{{ "{:,}".format(agg.level_20) }}</div>
+        <div class="stat-label">Level 20+</div>
+        <div class="stat-hint">{{ "{:,}".format(agg.level_10) }} at 10+ &middot; {{ "{:,}".format(agg.level_5) }} at 5+</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon">&#128164;</div>
+        <div class="stat-value">{{ "{:,}".format(agg.zero_level) }}</div>
+        <div class="stat-label">Level 0</div>
+        <div class="stat-hint">{{ ((agg.zero_level / agg.users * 100)|round(1) if agg.users else 0) }}% of users</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon">&#128197;</div>
+        <div class="stat-value">{{ "{:,}".format(agg.avg_vc) }}m</div>
+        <div class="stat-label">Avg Voice / User</div>
+        <div class="stat-hint">max {{ "{:,}".format(agg.max_vc) }}m</div>
+    </div>
+</div>
+
+<!-- Activity & Level Distribution -->
 <div class="admin-grid cols-2" style="margin-top:1.5rem;">
     <div class="admin-card">
         <h2>Activity Windows</h2>
@@ -71,7 +104,7 @@
                     <tr>
                         <td>Last {{ label }}</td>
                         <td class="num">{{ "{:,}".format(count) }}</td>
-                        <td style="min-width:120px;">
+                        <td style="min-width:140px;">
                             {% set pct = (count / agg.users * 100)|round(1) if agg.users else 0 %}
                             <div class="progress-track"><div class="progress-fill" style="width: {{ pct }}%;"></div></div>
                             <span class="muted" style="font-size:0.7rem;">{{ pct }}%</span>
@@ -94,7 +127,7 @@
                     <tr>
                         <td>{{ b.range }}</td>
                         <td class="num">{{ "{:,}".format(b.count) }}</td>
-                        <td style="min-width:120px;">
+                        <td style="min-width:140px;">
                             {% set pct = (b.count / agg.users * 100)|round(1) if agg.users else 0 %}
                             <div class="progress-track"><div class="progress-fill" style="width: {{ pct }}%;"></div></div>
                             <span class="muted" style="font-size:0.7rem;">{{ pct }}%</span>
@@ -107,48 +140,81 @@
     </div>
 </div>
 
-<!-- Vote Boosts & Per-Guild -->
-<div class="admin-grid cols-2" style="margin-top:1.5rem;">
+<!-- XP Distribution & Vote Boosts -->
+<div class="admin-grid cols-2" style="margin-top:1rem;">
     <div class="admin-card">
-        <h2>Vote Boosts</h2>
-        <p class="card-sub">Top.gg vote boost state.</p>
-        <div class="admin-grid cols-3">
-            <div class="stat-card"><div class="stat-value">{{ boost_rows.active }}</div><div class="stat-label">Active</div></div>
-            <div class="stat-card"><div class="stat-value">{{ boost_rows.expired }}</div><div class="stat-label">Expired</div></div>
-            <div class="stat-card"><div class="stat-value">{{ boost_rows.c }}</div><div class="stat-label">Total</div></div>
-        </div>
-    </div>
-
-    <div class="admin-card">
-        <h2>Top Guilds</h2>
-        <p class="card-sub">By user count (top 10).</p>
+        <h2>XP Distribution</h2>
+        <p class="card-sub">Users per XP range.</p>
         <div class="admin-table-wrap">
             <table class="admin-table compact">
-                <thead>
-                    <tr><th>Guild</th><th class="num">Users</th><th class="num">XP</th><th class="num">Msgs</th><th class="num">Avg Lvl</th></tr>
-                </thead>
+                <thead><tr><th>XP Range</th><th class="num">Users</th><th>Share</th></tr></thead>
                 <tbody>
-                    {% for g in guild_rows[:10] %}
+                    {% for b in xp_distribution %}
                     <tr>
-                        <td class="mono" data-copy="{{ g['guild_id'] }}" style="cursor:pointer;">{{ g['guild_id'] }}</td>
-                        <td class="num">{{ "{:,}".format(g['users']) }}</td>
-                        <td class="num">{{ "{:,}".format(g['xp']) }}</td>
-                        <td class="num">{{ "{:,}".format(g['msgs']) }}</td>
-                        <td class="num">{{ g['avg_level']|round(1) }}</td>
+                        <td>{{ b.range }}</td>
+                        <td class="num">{{ "{:,}".format(b.count) }}</td>
+                        <td style="min-width:140px;">
+                            {% set pct = (b.count / agg.users * 100)|round(1) if agg.users else 0 %}
+                            <div class="progress-track"><div class="progress-fill" style="width: {{ pct }}%;"></div></div>
+                            <span class="muted" style="font-size:0.7rem;">{{ pct }}%</span>
+                        </td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
     </div>
+
+    <div class="admin-card">
+        <h2>Vote Boosts</h2>
+        <p class="card-sub">Top.gg vote boost state.</p>
+        <div class="admin-grid cols-3" style="margin-bottom:1rem;">
+            <div class="stat-card"><div class="stat-value" style="color:#4ade80;">{{ boost_rows.active }}</div><div class="stat-label">Active</div></div>
+            <div class="stat-card"><div class="stat-value" style="color:#fbbf24;">{{ boost_rows.expired }}</div><div class="stat-label">Expired</div></div>
+            <div class="stat-card"><div class="stat-value">{{ boost_rows.c }}</div><div class="stat-label">Total</div></div>
+        </div>
+
+        <h2 style="margin-top:1rem;">Config Summary</h2>
+        <p class="card-sub">Guild configuration overview.</p>
+        <div class="admin-grid cols-2">
+            <div class="stat-card"><div class="stat-value">{{ guild_settings_count }}</div><div class="stat-label">Guilds Configured</div></div>
+            <div class="stat-card"><div class="stat-value">{{ level_roles_count }}</div><div class="stat-label">Level Roles</div></div>
+        </div>
+    </div>
 </div>
 
-<!-- Top Users (compact) -->
-<div class="admin-grid cols-4" style="margin-top:1.5rem;">
+<!-- Top Guilds -->
+<div class="admin-card" style="margin-top:1rem;">
+    <h2>Top Guilds</h2>
+    <p class="card-sub">By user count (top 10).</p>
+    <div class="admin-table-wrap">
+        <table class="admin-table compact">
+            <thead>
+                <tr><th>Guild</th><th class="num">Users</th><th class="num">XP</th><th class="num">Msgs</th><th class="num">Avg Lvl</th><th class="num">Max Lvl</th></tr>
+            </thead>
+            <tbody>
+                {% for g in guild_rows[:10] %}
+                <tr>
+                    <td class="mono" data-copy="{{ g['guild_id'] }}" style="cursor:pointer;">{{ g['guild_id'] }}</td>
+                    <td class="num">{{ "{:,}".format(g['users']) }}</td>
+                    <td class="num">{{ "{:,}".format(g['xp']) }}</td>
+                    <td class="num">{{ "{:,}".format(g['msgs']) }}</td>
+                    <td class="num">{{ g['avg_level']|round(1) }}</td>
+                    <td class="num">{{ g['max_level'] }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Top Users -->
+<div class="admin-grid cols-4" style="margin-top:1.25rem;">
     <div class="admin-card compact-list">
-        <h2>Top by XP</h2>
+        <h2>&#127775; Top by XP</h2>
         <div class="admin-table-wrap">
             <table class="admin-table compact">
+                <thead><tr><th>#</th><th>User</th><th class="num">XP</th></tr></thead>
                 <tbody>
                     {% for u in top_xp[:5] %}
                     <tr>
@@ -162,9 +228,10 @@
         </div>
     </div>
     <div class="admin-card compact-list">
-        <h2>Top by Messages</h2>
+        <h2>&#128172; Top by Messages</h2>
         <div class="admin-table-wrap">
             <table class="admin-table compact">
+                <thead><tr><th>#</th><th>User</th><th class="num">Msgs</th></tr></thead>
                 <tbody>
                     {% for u in top_messages[:5] %}
                     <tr>
@@ -178,9 +245,10 @@
         </div>
     </div>
     <div class="admin-card compact-list">
-        <h2>Top by Voice</h2>
+        <h2>&#127908; Top by Voice</h2>
         <div class="admin-table-wrap">
             <table class="admin-table compact">
+                <thead><tr><th>#</th><th>User</th><th class="num">VC</th></tr></thead>
                 <tbody>
                     {% for u in top_vc[:5] %}
                     <tr>
@@ -194,9 +262,10 @@
         </div>
     </div>
     <div class="admin-card compact-list">
-        <h2>Top by Level</h2>
+        <h2>&#127942; Top by Level</h2>
         <div class="admin-table-wrap">
             <table class="admin-table compact">
+                <thead><tr><th>#</th><th>User</th><th class="num">Level</th></tr></thead>
                 <tbody>
                     {% for u in top_level[:5] %}
                     <tr>
@@ -212,9 +281,12 @@
 </div>
 
 <!-- Snapshot History -->
-<div class="admin-card" style="margin-top:1.5rem;">
-    <h2>Snapshot History</h2>
-    <p class="card-sub">Last {{ snap_deltas|length }} hourly snapshots from <span class="mono">stats_history.json</span> with deltas.</p>
+<div class="admin-card" style="margin-top:1.25rem;">
+    <div class="card-head">
+        <h2>Snapshot History</h2>
+        <span class="badge muted">{{ snap_deltas|length }} snapshots</span>
+    </div>
+    <p class="card-sub">Hourly snapshots from <span class="mono">stats_history.json</span> with deltas.</p>
     <div class="admin-table-wrap">
         <table class="admin-table compact">
             <thead>
@@ -224,6 +296,7 @@
                     <th class="num">Users (&Delta;)</th>
                     <th class="num">XP (&Delta;)</th>
                     <th class="num">Messages (&Delta;)</th>
+                    <th class="num">VC (&Delta;)</th>
                 </tr>
             </thead>
             <tbody>
@@ -249,6 +322,12 @@
                             <span class="muted" style="font-size:0.7rem;">{% if s.d_messages >= 0 %}+{% endif %}{{ "{:,}".format(s.d_messages) }}</span>
                         {% endif %}
                     </td>
+                    <td class="num">
+                        {{ "{:,}".format(s.vc or 0) }}m
+                        {% if s.d_vc is not none %}
+                            <span class="muted" style="font-size:0.7rem;">{% if s.d_vc >= 0 %}+{% endif %}{{ "{:,}".format(s.d_vc) }}</span>
+                        {% endif %}
+                    </td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -256,26 +335,27 @@
     </div>
 </div>
 
-<!-- Files & Storage -->
-<div class="admin-grid cols-2" style="margin-top:1.5rem;">
+<!-- Files & Bot Stats -->
+<div class="admin-grid cols-2" style="margin-top:1.25rem;">
     <div class="admin-card">
         <h2>Database Files</h2>
-        <p class="card-sub">On-disk state.</p>
+        <p class="card-sub">On-disk storage state.</p>
         <table class="admin-table compact">
             <tbody>
-                <tr><td class="mono">database.db</td><td class="text-right num">{{ (db_size / 1024)|round(1) }} KB</td></tr>
-                <tr><td class="mono">database.db-wal</td><td class="text-right num">{{ (wal_size / 1024)|round(1) }} KB</td></tr>
+                <tr><td class="mono">database.db</td><td class="text-right num">{{ "%.1f"|format(db_size / 1024) }} KB</td></tr>
+                <tr><td class="mono">database.db-wal</td><td class="text-right num">{{ "%.1f"|format(wal_size / 1024) }} KB</td></tr>
+                <tr><td class="mono">Total</td><td class="text-right num">{{ "%.1f"|format((db_size + wal_size) / 1024) }} KB</td></tr>
             </tbody>
         </table>
     </div>
     <div class="admin-card">
         <h2>Bot Stats Row</h2>
-        <p class="card-sub">Last recorded totals from the bot.</p>
+        <p class="card-sub">Last recorded totals from the bot process.</p>
         {% if bot_rows %}
             <table class="admin-table compact">
                 <tbody>
                     <tr><td>Total guilds</td><td class="text-right num">{{ bot_rows[0].get('total_guilds', '-') }}</td></tr>
-                    <tr><td>Total members</td><td class="text-right num">{{ bot_rows[0].get('total_members', '-') }}</td></tr>
+                    <tr><td>Total members</td><td class="text-right num">{{ "{:,}".format(bot_rows[0].get('total_members', 0)) }}</td></tr>
                 </tbody>
             </table>
         {% else %}

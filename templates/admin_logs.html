@@ -12,14 +12,19 @@
         </div>
         <div class="form-field">
             <label>&nbsp;</label>
-            <button class="btn btn-primary" type="submit">Filter</button>
-            {% if q %}<a href="{{ url_for('admin.logs') }}" class="btn btn-secondary">Clear</a>{% endif %}
+            <div class="flex gap-1">
+                <button class="btn btn-primary" type="submit">Filter</button>
+                {% if q %}<a href="{{ url_for('admin.logs') }}" class="btn btn-secondary">Clear</a>{% endif %}
+            </div>
         </div>
     </form>
 </div>
 
 <div class="admin-card">
-    <p class="card-sub">{{ total }} log line(s){% if q %} matching &ldquo;{{ q }}&rdquo;{% endif %}.</p>
+    <div class="card-head">
+        <h2>Log Entries</h2>
+        <span class="badge muted">{{ total }} entries{% if q %} matching &ldquo;{{ q }}&rdquo;{% endif %}</span>
+    </div>
     <div class="admin-table-wrap">
         <table class="admin-table">
             <thead>
@@ -34,12 +39,12 @@
                     {% set ip = rest.split(' ')[1] if rest.split(' ')|length > 1 else '' %}
                     {% set detail = rest.split(' ', 2)[2] if rest.split(' ', 2)|length > 2 else '' %}
                     <tr>
-                        <td class="mono">{{ ts }}</td>
+                        <td class="mono" style="font-size:0.78rem;">{{ ts }}</td>
                         <td>
-                            <span class="badge {% if action.startswith('LOGIN') %}info{% elif action.startswith('USER EDIT') or action.startswith('USER ADD') or action.startswith('CHECK FIX') %}warn{% elif 'FAIL' in action or action.startswith('FORGET') or action.startswith('DELETE') or action.startswith('RESTORE') or action.startswith('RESET') %}fail{% else %}muted{% endif %}">{{ action }}</span>
+                            <span class="badge {% if action.startswith('LOGIN') and 'FAIL' not in action %}info{% elif action.startswith('USER EDIT') or action.startswith('USER ADD') or action.startswith('CHECK FIX') or action.startswith('GUILD') %}warn{% elif 'FAIL' in action or action.startswith('FORGET') or action.startswith('DELETE') or action.startswith('RESTORE') or action.startswith('RESET') %}fail{% else %}muted{% endif %}">{{ action }}</span>
                         </td>
-                        <td class="mono">{{ ip }}</td>
-                        <td style="word-break:break-word;">{{ detail }}</td>
+                        <td class="mono" style="font-size:0.78rem;">{{ ip }}</td>
+                        <td style="word-break:break-word; font-size:0.88rem;">{{ detail }}</td>
                     </tr>
                 {% else %}
                 <tr><td colspan="4"><div class="empty-state">No log entries.</div></td></tr>

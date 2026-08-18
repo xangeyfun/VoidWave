@@ -1,76 +1,184 @@
 {% extends "admin_base.html" %}
 {% block title %}Health Check{% endblock %}
 {% block heading %}Database Health Check{% endblock %}
-{% block subheading %}Full fault scan: schema, integrity and data anomalies{% endblock %}
+{% block subheading %}Full fault scan: schema, integrity, data anomalies, and system status{% endblock %}
 {% block actions %}
     <a href="{{ url_for('admin.check') }}" class="btn btn-secondary btn-sm">&#128260; Re-run check</a>
 {% endblock %}
 
 {% block content %}
+{% set passed = results | selectattr('ok', 'equalto', true) | list | length %}
+{% set failed = results | selectattr('ok', 'equalto', false) | list | length %}
 {% set fails = results | selectattr('ok', 'equalto', false) | selectattr('fix', 'equalto', none) | list %}
 {% set fixable = results | selectattr('ok', 'equalto', false) | selectattr('fix', 'ne', none) | list %}
 
 <div class="admin-grid cols-4">
     <div class="stat-card">
         <div class="stat-icon">&#9989;</div>
-        <div class="stat-value">{{ results | selectattr('ok', 'equalto', true) | list | length }}</div>
+        <div class="stat-value" style="color:#4ade80;">{{ passed }}</div>
         <div class="stat-label">Passed</div>
     </div>
     <div class="stat-card">
         <div class="stat-icon">&#10060;</div>
-        <div class="stat-value" style="color: var(--error);">{{ results | selectattr('ok', 'equalto', false) | list | length }}</div>
+        <div class="stat-value" style="color:#f87171;">{{ failed }}</div>
         <div class="stat-label">Failed</div>
     </div>
     <div class="stat-card">
         <div class="stat-icon">&#128295;</div>
-        <div class="stat-value" style="color: var(--secondary);">{{ fixable | length }}</div>
+        <div class="stat-value" style="color:#fbbf24;">{{ fixable | length }}</div>
         <div class="stat-label">Auto-fixable</div>
     </div>
     <div class="stat-card">
         <div class="stat-icon">&#128269;</div>
         <div class="stat-value">{{ results | selectattr('category', 'equalto', 'Info') | list | length }}</div>
-        <div class="stat-label">Info checks</div>
+        <div class="stat-label">Info Checks</div>
     </div>
 </div>
 
-{% if fixable %}
+{% if failed == 0 %}
+<div class="alert alert-success" data-auto-dismiss>All checks passed. Database is healthy.</div>
+{% elif fixable %}
 <div class="alert alert-warn">
     <strong>{{ fixable|length }} issue(s)</strong> can be fixed automatically. Each fix runs inside a transaction and is logged.
+</div>
+{% else %}
+<div class="alert alert-error">
+    <strong>{{ fails|length }} issue(s)</strong> failed and require manual investigation.
+</div>
+{% endif %}
+
+{% if request.args.get('fixed') %}
+{% set fixed_parts = request.args.get('fixed').split(':') %}
+<div class="alert alert-success" id="fix-result-banner">
+    Fixed <strong>{{ fixed_parts[0] }}</strong>. {{ fixed_parts[1] }} row(s) affected.
+    <button class="btn btn-secondary btn-sm" style="margin-left:12px;" onclick="loadFixSQL()">Show executed SQL</button>
+</div>
+<div id="fix-sql-panel" style="display:none;margin-top:12px;" class="admin-card">
+    <div class="card-head"><h3>Executed SQL</h3></div>
+    <div class="fix-sql-actions" style="display:flex;gap:8px;margin-bottom:8px;">
+        <button class="btn btn-secondary btn-sm" onclick="copyFixSQL()">&#128203; Copy SQL</button>
+    </div>
+    <pre id="fix-sql-content" class="sql-block"></pre>
 </div>
 {% endif %}
 
 <div class="admin-card">
-    <h2>Results</h2>
-    <p class="card-sub">Checks that fail are exactly the kind of thing a stray <span class="mono">SELECT ... WHERE progress >= out_of</span> would hide.</p>
+    <div class="card-head">
+        <h2>Check Results</h2>
+        <span class="badge {% if failed == 0 %}ok{% elif fixable %}warn{% else %}fail{% endif %}">{{ passed }}/{{ results|length }} passed</span>
+    </div>
+    <p class="card-sub">Checks grouped by category. Failures indicate data integrity issues.</p>
 
     {% for group in ['Structure', 'Data', 'Info'] %}
         {% set gresults = results | selectattr('category', 'equalto', group) | list %}
         {% if gresults %}
-        <div style="margin-top:1.2rem;">
-            <span class="badge muted" style="margin-bottom:0.5rem;">{{ group }}</span>
-            <div class="check-row" style="display:block;">
-                {% for c in gresults %}
-                <div class="check-row">
-                    <span class="badge {% if c.ok %}ok{% else %}fail{% endif %}">
-                        {% if c.ok %}&#10003;{% else %}&#10007;{% endif %}
-                    </span>
-                    <div class="check-info">
-                        <div class="check-name">{{ c.name }}</div>
-                        <div class="check-detail">{{ c.detail }}</div>
-                    </div>
-                    <div style="flex-shrink:0;">
-                        {% if c.fix %}
-                            <form method="POST" action="{{ url_for('admin.check_fix', kind=c.fix) }}" style="display:inline;">
-                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                <button class="btn btn-primary btn-sm" type="submit">Fix ({{ c.fix }})</button>
-                            </form>
-                        {% endif %}
-                    </div>
+        <div class="section-divider">
+            <h3>{{ group }}</h3>
+        </div>
+        <div>
+            {% for c in gresults %}
+            <div class="check-row">
+                <span class="badge {% if c.ok %}ok{% else %}fail{% endif %}" style="flex-shrink:0;">
+                    {% if c.ok %}&#10003;{% else %}&#10007;{% endif %}
+                </span>
+                <div class="check-info">
+                    <div class="check-name">{{ c.name }}</div>
+                    <div class="check-detail">{{ c.detail }}</div>
                 </div>
-                {% endfor %}
+                <div style="flex-shrink:0;display:flex;gap:6px;align-items:center;">
+                    {% if c.sql %}
+                    <button class="btn btn-secondary btn-sm sql-toggle-btn"
+                            onclick="toggleCheckSQL(this)" title="Show SQL">&#128196;</button>
+                    {% endif %}
+                    {% if c.fix %}
+                        <form method="POST" action="{{ url_for('admin.check_fix', kind=c.fix) }}" style="display:inline;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button class="btn btn-primary btn-sm" type="submit">Fix ({{ c.fix }})</button>
+                        </form>
+                    {% endif %}
+                </div>
             </div>
+            {% if c.sql %}
+            <div class="check-sql-panel" style="display:none;margin:4px 0 12px 42px;">
+                <div style="display:flex;gap:6px;align-items:center;margin-bottom:4px;">
+                    <button class="btn btn-secondary btn-sm" onclick="copyEl(this)" title="Copy SQL">&#128203; Copy</button>
+                    <span class="check-sql-label">{{ c.name }}</span>
+                </div>
+                <pre class="sql-block">{{ c.sql }}</pre>
+            </div>
+            {% endif %}
+            {% endfor %}
         </div>
         {% endif %}
     {% endfor %}
 </div>
+
+<script>
+function toggleCheckSQL(btn) {
+    const panel = btn.closest('.check-row').nextElementSibling;
+    if (!panel || !panel.classList.contains('check-sql-panel')) return;
+    const visible = panel.style.display !== 'none';
+    panel.style.display = visible ? 'none' : 'block';
+    btn.textContent = visible ? '\u{1F4C4}' : '\u{2716}';
+}
+
+function copyEl(btn) {
+    const pre = btn.closest('.check-sql-panel').querySelector('pre');
+    if (!pre) return;
+    navigator.clipboard.writeText(pre.textContent.trim()).then(() => {
+        btn.textContent = '\u{2714} Copied';
+        setTimeout(() => btn.textContent = '\u{1F4CB} Copy', 1500);
+    });
+}
+
+let fixSQLData = '';
+function loadFixSQL() {
+    fetch("{{ url_for('admin.check_fix_sql') }}")
+        .then(r => r.json())
+        .then(data => {
+            fixSQLData = data.sql;
+            document.getElementById('fix-sql-content').textContent = data.sql;
+            document.getElementById('fix-sql-panel').style.display = 'block';
+        });
+}
+
+function copyFixSQL() {
+    navigator.clipboard.writeText(fixSQLData).then(() => {
+        const btn = event.target;
+        btn.textContent = '\u{2714} Copied';
+        setTimeout(() => btn.textContent = '\u{1F4CB} Copy SQL', 1500);
+    });
+}
+</script>
+
+<style>
+.sql-block {
+    background: #0d1117;
+    border: 1px solid #30363d;
+    border-radius: 6px;
+    padding: 12px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    line-height: 1.5;
+    color: #c9d1d9;
+    overflow-x: auto;
+    margin: 0;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+.check-sql-label {
+    font-size: 11px;
+    color: #8b949e;
+    font-style: italic;
+}
+.sql-toggle-btn {
+    font-size: 13px !important;
+    padding: 2px 8px !important;
+    opacity: 0.6;
+    transition: opacity 0.15s;
+}
+.sql-toggle-btn:hover {
+    opacity: 1;
+}
+</style>
 {% endblock %}

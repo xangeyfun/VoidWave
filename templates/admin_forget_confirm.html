@@ -9,69 +9,185 @@
 {% block content %}
 {% if error %}<div class="alert alert-error">{{ error }}</div>{% endif %}
 <div class="alert alert-warn">
-    This operation is <strong>permanent and cannot be undone</strong>. A backup is not taken automatically &mdash; if you need one,
+    This operation is <strong>permanent and cannot be undone</strong>. A backup is not taken automatically. If you need one,
     create one on the <a href="{{ url_for('admin.backups') }}">Backups</a> page first.
 </div>
 
 <div class="admin-card">
-    <h2>What will be deleted</h2>
-    <p class="card-sub">Target summary:</p>
-    <div class="admin-table-wrap">
+    <div class="card-head">
+        <h3>What will be deleted</h3>
+        {% if spec.type == 'reset_all' or spec.type == 'reset_table' %}
+            <span class="badge fail">Destructive</span>
+        {% else %}
+            <span class="badge warn">Erasure</span>
+        {% endif %}
+    </div>
+
+    <div class="admin-table-wrap" style="margin-top:12px;">
         <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>Target</th>
+                    <th>Value</th>
+                </tr>
+            </thead>
             <tbody>
                 {% if spec.type == 'user_all' %}
                     <tr><td>Action</td><td>Erase {{ spec.user_ids|length }} user(s) everywhere</td></tr>
-                    <tr><td>User rows removed</td><td class="num">{{ preview.users_rows }}</td></tr>
-                    <tr><td>Distinct guilds affected</td><td class="num">{{ preview.distinct_guilds }}</td></tr>
-                    <tr><td>Vote boosts removed</td><td class="num">{{ preview.boost_rows }}</td></tr>
+                    <tr><td>User rows</td><td class="num">{{ preview.users_rows }}</td></tr>
+                    <tr><td>Distinct guilds</td><td class="num">{{ preview.distinct_guilds }}</td></tr>
+                    <tr><td>Vote boosts</td><td class="num">{{ preview.boost_rows }}</td></tr>
                 {% elif spec.type == 'user_guild' %}
                     <tr><td>Action</td><td>Erase {{ spec.user_ids|length }} user(s) in one guild</td></tr>
                     <tr><td>Guild</td><td class="mono">{{ spec.guild_id }}</td></tr>
-                    <tr><td>User rows removed</td><td class="num">{{ preview.users_rows }}</td></tr>
+                    <tr><td>User rows</td><td class="num">{{ preview.users_rows }}</td></tr>
                 {% elif spec.type == 'guild_users' %}
                     <tr><td>Action</td><td>Delete all users of a guild</td></tr>
                     <tr><td>Guild</td><td class="mono">{{ spec.guild_id }}</td></tr>
-                    <tr><td>User rows removed</td><td class="num">{{ preview.users_rows }}</td></tr>
+                    <tr><td>User rows</td><td class="num">{{ preview.users_rows }}</td></tr>
                 {% elif spec.type == 'guild_full' %}
                     <tr><td>Action</td><td>Delete entire guild</td></tr>
                     <tr><td>Guild</td><td class="mono">{{ spec.guild_id }}</td></tr>
-                    <tr><td>Users removed</td><td class="num">{{ preview.users_rows }}</td></tr>
-                    <tr><td>Guild settings removed</td><td class="num">{{ preview.guild_settings_rows }}</td></tr>
-                    <tr><td>Level roles removed</td><td class="num">{{ preview.level_roles_rows }}</td></tr>
+                    <tr><td>Users</td><td class="num">{{ preview.users_rows }}</td></tr>
+                    <tr><td>Guild settings</td><td class="num">{{ preview.guild_settings_rows }}</td></tr>
+                    <tr><td>Level roles</td><td class="num">{{ preview.level_roles_rows }}</td></tr>
                 {% elif spec.type == 'boost' %}
                     <tr><td>Action</td><td>Delete vote boost(s)</td></tr>
-                    <tr><td>Boosts removed</td><td class="num">{{ preview.boost_rows }}</td></tr>
+                    <tr><td>Boosts</td><td class="num">{{ preview.boost_rows }}</td></tr>
                 {% elif spec.type == 'expired_boosts' %}
                     <tr><td>Action</td><td>Purge expired vote boosts</td></tr>
-                    <tr><td>Boosts removed</td><td class="num">{{ preview.boost_rows }}</td></tr>
+                    <tr><td>Boosts</td><td class="num">{{ preview.boost_rows }}</td></tr>
                 {% elif spec.type == 'stale_users' %}
                     <tr><td>Action</td><td>Delete stale users (idle &gt; {{ spec.days }} days)</td></tr>
-                    <tr><td>Users removed</td><td class="num">{{ preview.users_rows }}</td></tr>
-                    <tr><td>Distinct guilds affected</td><td class="num">{{ preview.distinct_guilds }}</td></tr>
+                    <tr><td>Users</td><td class="num">{{ preview.users_rows }}</td></tr>
+                    <tr><td>Distinct guilds</td><td class="num">{{ preview.distinct_guilds }}</td></tr>
                 {% elif spec.type == 'reset_all' %}
-                    <tr><td>Action</td><td style="color:var(--error);">RESET ALL USER DATA</td></tr>
-                    <tr><td>Users removed</td><td class="num">{{ preview.users_rows }}</td></tr>
-                    <tr><td>Vote boosts removed</td><td class="num">{{ preview.boost_rows }}</td></tr>
+                    <tr><td style="color:var(--error);font-weight:600;">RESET ALL USER DATA</td><td></td></tr>
+                    <tr><td>Users</td><td class="num">{{ preview.users_rows }}</td></tr>
+                    <tr><td>Vote boosts</td><td class="num">{{ preview.boost_rows }}</td></tr>
                 {% elif spec.type == 'reset_table' %}
-                    <tr><td>Action</td><td style="color:var(--error);">Reset table {{ spec.table }}</td></tr>
-                    <tr><td>Rows removed</td><td class="num">{{ preview.get(spec.table ~ '_rows', 0) }}</td></tr>
+                    <tr><td style="color:var(--error);font-weight:600;">Reset table {{ spec.table }}</td><td></td></tr>
+                    <tr><td>Rows</td><td class="num">{{ preview.get(spec.table ~ '_rows', 0) }}</td></tr>
                 {% endif %}
             </tbody>
         </table>
     </div>
 </div>
 
-<div class="admin-card" style="border-color: rgba(239,68,68,0.4);">
-    <h2 style="color:var(--error);">Type {{ word }} to confirm</h2>
-    <form method="POST" action="{{ url_for('admin.forget_confirm') }}" class="admin-form" data-confirm-check="{{ word }}">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+{% if preview.user_details is defined and preview.user_details %}
+<div class="admin-card">
+    <div class="card-head"><h3>Users affected</h3></div>
+    <div class="admin-table-wrap" style="margin-top:12px;">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>User</th>
+                    <th>Guild</th>
+                    <th>Level</th>
+                    <th>XP</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for u in preview.user_details %}
+                <tr>
+                    <td>
+                        <span class="mono">{{ u.user_id }}</span>
+                        {% if u.username %}<span style="color:var(--muted);margin-left:6px;">{{ u.username }}</span>{% endif %}
+                        {% if u.display_name %}<span style="margin-left:4px;">({{ u.display_name }})</span>{% endif %}
+                    </td>
+                    <td class="mono">{{ u.guild_id }}</td>
+                    <td class="num">{{ u.level }}</td>
+                    <td class="num">{{ u.total_xp }}</td>
+                </tr>
+                {% endfor %}
+                {% if preview.users_rows > 50 %}
+                <tr><td colspan="4" style="color:var(--muted);text-align:center;font-style:italic;">... and {{ preview.users_rows - 50 }} more</td></tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
 
-        <div class="form-field">
-            <label>Type exactly <span class="mono">{{ word }}</span></label>
-            <input type="text" name="confirm" data-confirm-input placeholder="{{ word }}" autocomplete="off" autofocus>
+{% if preview.boost_details is defined and preview.boost_details %}
+<div class="admin-card">
+    <div class="card-head"><h3>Vote boosts affected</h3></div>
+    <div class="admin-table-wrap" style="margin-top:12px;">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>User</th>
+                    <th>Guild</th>
+                    <th>Expires</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for b in preview.boost_details %}
+                <tr>
+                    <td class="mono">{{ b.user_id }}</td>
+                    <td class="mono">{{ b.guild_id }}</td>
+                    <td style="color:var(--muted);">{{ b.expires_at }}</td>
+                </tr>
+                {% endfor %}
+                {% if preview.boost_rows > 50 %}
+                <tr><td colspan="3" style="color:var(--muted);text-align:center;font-style:italic;">... and {{ preview.boost_rows - 50 }} more</td></tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+{% if preview.level_role_details is defined and preview.level_role_details %}
+<div class="admin-card">
+    <div class="card-head"><h3>Level roles affected</h3></div>
+    <div class="admin-table-wrap" style="margin-top:12px;">
+        <table class="admin-table">
+            <thead>
+                <tr><th>Level</th><th>Role ID</th></tr>
+            </thead>
+            <tbody>
+                {% for lr in preview.level_role_details %}
+                <tr>
+                    <td class="num">{{ lr.level }}</td>
+                    <td class="mono">{{ lr.role_id }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<div class="admin-card" style="border-color: rgba(239,68,68,0.4);">
+    <div class="card-head"><h3 style="color:var(--error);">Type {{ word }} to confirm</h3></div>
+    <form method="POST" action="{{ url_for('admin.forget_confirm') }}" style="margin-top:16px;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="form-field" style="max-width:400px;">
+            <label>Type exactly <code>{{ word }}</code></label>
+            <input type="text" name="confirm" placeholder="{{ word }}" autocomplete="off" autofocus
+                   id="confirm-input" style="width:100%;">
         </div>
-        <div class="checkbox-field"><span data-confirm-hint class="muted">Type {{ word }} to enable</span></div>
-        <button class="btn btn-danger" type="submit" data-confirm-submit disabled>&#128465; Execute deletion</button>
+        <div style="margin-top:12px;display:flex;gap:12px;align-items:center;">
+            <button class="btn btn-danger" type="submit" id="confirm-btn" disabled>&#128465; Execute deletion</button>
+            <a href="{{ url_for('admin.forget') }}" class="btn btn-secondary">Cancel</a>
+            <span id="confirm-hint" style="color:var(--muted);font-size:0.85rem;">Type {{ word }} to enable</span>
+        </div>
     </form>
 </div>
+
+<script>
+(function() {
+    const input = document.getElementById('confirm-input');
+    const btn = document.getElementById('confirm-btn');
+    const hint = document.getElementById('confirm-hint');
+    const word = {{ word | tojson }};
+    input.addEventListener('input', function() {
+        const match = input.value === word;
+        btn.disabled = !match;
+        hint.textContent = match ? 'Ready to execute' : 'Type ' + word + ' to enable';
+        hint.style.color = match ? '#4ade80' : 'var(--muted)';
+    });
+})();
+</script>
 {% endblock %}

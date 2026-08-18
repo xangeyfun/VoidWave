@@ -33,7 +33,9 @@
 </div>
 
 <div class="admin-card">
-    <h2>Add User Manually</h2>
+    <div class="card-head">
+        <h2>Add User Manually</h2>
+    </div>
     <p class="card-sub">Insert a fresh user row (level 0, 0 XP) for a Discord user.</p>
     <form method="POST" action="{{ url_for('admin.user_add') }}" class="form-grid">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -77,7 +79,7 @@
                     <div class="flex items-center gap-1">
                         <img class="avatar" src="{% if r['avatar_hash'] %}https://cdn.discordapp.com/avatars/{{ r['user_id'] }}/{{ r['avatar_hash'] }}.png?size=64{% else %}https://cdn.discordapp.com/embed/avatars/0.png{% endif %}" onerror="this.onerror=null;this.src='https://cdn.discordapp.com/embed/avatars/0.png'">
                         <div>
-                            <div>{{ r['display_name'] or r['username'] or 'unknown' }}</div>
+                            <div style="font-weight:600;">{{ r['display_name'] or r['username'] or 'unknown' }}</div>
                             <span class="mono" data-copy="{{ r['user_id'] }}" style="cursor:pointer;" title="Click to copy">{{ r['user_id'] }}</span>
                         </div>
                     </div>
@@ -93,18 +95,16 @@
                     {% set boost = boost_map.get(r['user_id']) %}
                     {% if boost %}
                         {% if boost['expires_at'] > now %}
-                            <span class="badge ok">active {{ boost['multiplier'] }}x</span>
+                            <span class="badge ok">{{ boost['multiplier'] }}x</span>
                         {% else %}
                             <span class="badge muted">expired</span>
                         {% endif %}
                     {% else %}
-                        <span class="badge muted">none</span>
+                        <span class="badge muted">-</span>
                     {% endif %}
                 </td>
                 <td>
-                    <div class="flex gap-1 flex-wrap">
-                        <a href="{{ url_for('admin.user_edit', guild_id=r['guild_id'], user_id=r['user_id']) }}" class="btn btn-secondary btn-sm">Edit</a>
-                    </div>
+                    <a href="{{ url_for('admin.user_edit', guild_id=r['guild_id'], user_id=r['user_id']) }}" class="btn btn-secondary btn-sm">Edit</a>
                 </td>
             </tr>
             {% else %}

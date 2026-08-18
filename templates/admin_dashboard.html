@@ -9,15 +9,15 @@
 {% endblock %}
 
 {% block content %}
-<!-- Quick Status -->
-<div class="admin-grid cols-4" style="margin-bottom:1.5rem;">
+<!-- Status Row -->
+<div class="admin-grid cols-4" style="margin-bottom:1.25rem;">
     <div class="stat-card status-card {% if bot_alive is not none %}{% if bot_alive %}status-up{% else %}status-down{% endif %}{% else %}status-unknown{% endif %}">
-        <div class="stat-icon">&#128465;</div>
+        <div class="stat-icon">&#9679;</div>
         <div class="stat-value">
             {% if bot_alive is not none %}{% if bot_alive %}Online{% else %}Offline{% endif %}{% else %}Unknown{% endif %}
         </div>
         <div class="stat-label">Bot Status</div>
-        <div class="stat-hint">{% if bot_alive is not none %}{% if bot_alive %}voidwave.service active{% else %}inactive{% endif %}{% else %}check failed{% endif %}</div>
+        <div class="stat-hint">{% if bot_alive is not none %}{% if bot_alive %}voidwave.service active{% else %}service inactive{% endif %}{% else %}check failed{% endif %}</div>
     </div>
 
     <div class="stat-card">
@@ -42,19 +42,108 @@
     </div>
 </div>
 
+<!-- Activity Row -->
+<div class="admin-grid cols-4" style="margin-bottom:1.25rem;">
+    <div class="stat-card">
+        <div class="stat-icon">&#128172;</div>
+        <div class="stat-value">{{ "{:,}".format(data.total_messages) }}</div>
+        <div class="stat-label">Total Messages</div>
+        <div class="stat-hint">{{ "{:,}".format((data.total_messages / data.users)|round if data.users else 0) }} avg/user</div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-icon">&#127908;</div>
+        <div class="stat-value">{{ "{:,}".format(data.total_vc_hours) }}h</div>
+        <div class="stat-label">Voice Time</div>
+        <div class="stat-hint">{{ "{:,}".format(data.vc_minutes) }} minutes total</div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-icon">&#9889;</div>
+        <div class="stat-value">{{ "{:,}".format(data.active_24h) }}</div>
+        <div class="stat-label">Active (24h)</div>
+        <div class="stat-hint">{{ "{:,}".format(data.active_7d) }} this week</div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-icon">&#128640;</div>
+        <div class="stat-value">{{ "{:,}".format(data.active_boosts) }}</div>
+        <div class="stat-label">Active Boosts</div>
+        <div class="stat-hint">{{ "{:,}".format(data.qotd_enabled) }} QOTD guilds</div>
+    </div>
+</div>
+
+<div class="admin-grid cols-2" style="margin-bottom:1.25rem;">
+    <!-- Health & System -->
+    <div class="admin-card">
+        <div class="card-head">
+            <h2>System Overview</h2>
+            <a href="{{ url_for('admin.check') }}" class="btn btn-secondary btn-sm">Details</a>
+        </div>
+        <div class="admin-grid cols-2" style="margin-top:0.5rem;">
+            <div style="display:flex;align-items:center;gap:0.6rem;padding:0.5rem 0;">
+                <span class="badge {% if fail_count == 0 %}ok{% else %}fail{% endif %}">{{ checks_ok }}/{{ check_count }}</span>
+                <span style="font-size:0.88rem;">Health checks</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:0.6rem;padding:0.5rem 0;">
+                <span class="badge {% if backup_count > 0 %}ok{% else %}warn{% endif %}">{{ backup_count }}</span>
+                <span style="font-size:0.88rem;">Backups</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:0.6rem;padding:0.5rem 0;">
+                <span class="badge info">{{ "{:,}".format(data.settings) }}</span>
+                <span style="font-size:0.88rem;">Guild configs</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:0.6rem;padding:0.5rem 0;">
+                <span class="badge info">{{ "{:,}".format(data.level_roles) }}</span>
+                <span style="font-size:0.88rem;">Level roles</span>
+            </div>
+        </div>
+        <div style="margin-top:0.75rem;padding-top:0.6rem;border-top:1px solid var(--border-light);display:flex;justify-content:space-between;font-size:0.82rem;">
+            <span class="muted">DB: {{ "%.1f"|format(db_size / 1024) }} KB</span>
+            <span class="muted">WAL: {{ "%.1f"|format(wal_size / 1024) }} KB</span>
+            {% if latest_backup %}
+            <span class="muted">Latest: {{ latest_backup.mtime.strftime('%m-%d %H:%M') }}</span>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Recent Activity -->
+    <div class="admin-card">
+        <div class="card-head">
+            <h2>Recent Activity</h2>
+            <a href="{{ url_for('admin.logs') }}" class="btn btn-secondary btn-sm">All Logs</a>
+        </div>
+        <div class="dashboard-activity">
+            {% for a in recent_actions %}
+            <div class="activity-item">
+                <span class="activity-action">
+                    <span class="badge {% if 'FAIL' in a.action or 'DELETE' in a.action %}fail{% elif 'EDIT' in a.action or 'ADD' in a.action %}warn{% elif 'LOGIN' in a.action %}info{% else %}muted{% endif %}">{{ a.action }}</span>
+                </span>
+                <span class="activity-detail">{{ a.detail }}</span>
+                <span class="activity-time">{{ a.ts.split(' ')[1] if ' ' in a.ts else '' }}</span>
+            </div>
+            {% else %}
+            <div class="empty-state" style="padding:1rem;">No recent activity.</div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
 <!-- Quick Actions -->
 <div class="admin-card">
     <div class="card-head">
         <h2>Quick Actions</h2>
     </div>
     <p class="card-sub">Jump to common admin tasks.</p>
-    <div class="admin-grid cols-3" style="margin-top:0.5rem;">
+    <div class="admin-grid cols-4" style="margin-top:0.5rem;">
         <a href="{{ url_for('admin.users') }}" class="btn btn-secondary btn-block">&#128101; Manage Users</a>
-        <a href="{{ url_for('admin.forget') }}" class="btn btn-warning btn-block">&#128274; Privacy / Forget</a>
+        <a href="{{ url_for('admin.guilds') }}" class="btn btn-secondary btn-block">&#127970; Guild Settings</a>
+        <a href="{{ url_for('admin.stats') }}" class="btn btn-secondary btn-block">&#128200; Full Statistics</a>
         <a href="{{ url_for('admin.check') }}" class="btn btn-secondary btn-block">&#128269; Health Check</a>
         <a href="{{ url_for('admin.backups') }}" class="btn btn-primary btn-block">&#128190; Backups</a>
-        <a href="{{ url_for('admin.stats') }}" class="btn btn-secondary btn-block">&#128200; Full Statistics</a>
+        <a href="{{ url_for('admin.forget') }}" class="btn btn-warning btn-block">&#128274; Privacy / Forget</a>
         <a href="{{ url_for('admin.logs') }}" class="btn btn-secondary btn-block">&#128221; Audit Log</a>
+        <a href="/" target="_blank" class="btn btn-secondary btn-block">&#127760; View Website</a>
     </div>
 </div>
 {% endblock %}
