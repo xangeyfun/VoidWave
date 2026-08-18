@@ -11,23 +11,23 @@
 
 {% block content %}
 {% if restore_done %}
-    <div class="alert alert-success">{{ restore_done }}</div>
+    <div class="alert alert-success" data-auto-dismiss>{{ restore_done }}</div>
 {% endif %}
 {% if restart_msg %}
-    <div class="alert alert-warn">{{ restart_msg }}</div>
+    <div class="alert alert-warn" data-auto-dismiss>{{ restart_msg }}</div>
 {% endif %}
 {% if not restore_target and bot_active == true %}
     <div class="alert alert-warn">
         The Discord bot service is <strong>running</strong>. Restoring while it runs can corrupt the database (WAL replay).
-        Stop it before restoring &mdash; or use the automatic stop option.
+        Stop it before restoring, or use the automatic stop option.
     </div>
 {% endif %}
 
 {% if restore_target %}
-<div class="admin-card" style="border-color: rgba(239,68,68,0.5);">
-    <h2 style="color:var(--error);">Restore {{ restore_target }}</h2>
+<div class="admin-card" style="border-color: rgba(239,68,68,0.4);">
+    <h2 style="color:var(--error);">&#9888; Restore {{ restore_target }}</h2>
     <p class="card-sub">
-        The current database will first be saved as <span class="mono">database_&lt;timestamp&gt;_prerestore.db</span> as a safety net.
+        The current database will first be saved as a safety backup.
         <strong>This is destructive and cannot be undone.</strong>
     </p>
 
@@ -54,7 +54,7 @@
             <input type="checkbox" name="stop_bot" id="stopBotChk">
             <div>
                 <strong>Stop the bot automatically</strong>
-                <div class="hint">Runs <span class="mono">systemctl stop voidwave.service</span> (and tries <span class="mono">sudo -n</span>), restarts it after restoring. Needs permission.</div>
+                <div class="hint">Runs <span class="mono">systemctl stop voidwave.service</span> (and tries <span class="mono">sudo -n</span>), restarts it after restoring.</div>
             </div>
         </label>
         <label class="checkbox-field">
@@ -76,8 +76,11 @@
 {% endif %}
 
 <div class="admin-card">
-    <h2>Available backups</h2>
-    <p class="card-sub">{{ backups|length }} backup(s). Click restore on any row.</p>
+    <div class="card-head">
+        <h2>Available Backups</h2>
+        <span class="badge muted">{{ backups|length }} backup(s)</span>
+    </div>
+    <p class="card-sub">Click restore on any row to recover from that snapshot.</p>
     {% if backups %}
     <div class="admin-table-wrap">
         <table class="admin-table">
@@ -96,11 +99,11 @@
                     <td>{{ b.mtime.strftime('%Y-%m-%d %H:%M') }}</td>
                     <td class="num">{{ (b.size / 1024)|round(1) }} KB</td>
                     <td>
-                        <div class="flex gap-1 flex-wrap">
+                        <div class="flex gap-1 flex-wrap items-center">
                             <a href="{{ url_for('admin.backup_restore', name=b.name) }}" class="btn btn-danger btn-sm">Restore</a>
-                            <form method="POST" action="{{ url_for('admin.backup_delete', name=b.name) }}" data-confirm-check="DELETE">
+                            <form method="POST" action="{{ url_for('admin.backup_delete', name=b.name) }}" data-confirm-check="DELETE" style="display:flex;align-items:center;gap:0.4rem;">
                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                <input type="text" name="confirm" data-confirm-input placeholder="DELETE" style="width:90px; background:var(--bg-tertiary); border:1px solid var(--border); border-radius:8px; padding:0.35rem 0.6rem; color:var(--text-primary); font-size:0.8rem;" autocomplete="off">
+                                <input type="text" name="confirm" data-confirm-input placeholder="DELETE" style="width:80px; background:var(--bg-tertiary); border:1px solid var(--border); border-radius:8px; padding:0.35rem 0.6rem; color:var(--text-primary); font-size:0.8rem;" autocomplete="off">
                                 <button class="btn btn-secondary btn-sm" type="submit" data-confirm-submit disabled>Delete</button>
                             </form>
                         </div>
@@ -115,8 +118,7 @@
     {% endif %}
 </div>
 
-<p class="muted" style="margin-top:1rem; font-size:0.85rem;">
+<p class="muted" style="margin-top:1rem; font-size:0.82rem;">
     Backups are created hourly by the root cron <span class="mono">/usr/local/bin/backup-db.sh</span> and kept for 48 snapshots.
-    The prune-on-create here matches that behaviour.
 </p>
 {% endblock %}
