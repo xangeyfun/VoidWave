@@ -11,7 +11,7 @@ from utils import (
     get_db, date, log_stats, add_message_xp, send_qotd, llm_worker,
     LLMRequest, get_command_path, extract_options, startup,
     last_llm, llm_queue, llm_queue_size, LLM_COOLDOWN, TOPGG_TOKEN, DBL_TOKEN,
-    http_session as _http_session
+    http_session as _http_session, log_admin_event,
 )
 import utils
 
@@ -83,6 +83,13 @@ class EventsCog(commands.Cog):
             print(f"{date()} COMMAND '{command_name} {options_str}' used by '{user_name}' in '{guild_name}{channel_name}' (user_id: {user_id}{guild_id})")
             with open("command_logs.txt", "a") as f:
                 f.write(f"{date()} COMMAND '{command_name} {options_str}' used by '{user_name}' in '{guild_name}{channel_name}' (user_id: {user_id}{guild_id})\n")
+
+            log_admin_event(
+                "command",
+                f"/{command_name} {options_str} by {user_name} in {guild_name}",
+                guild_id=interaction.guild.id if interaction.guild else None,
+                user_id=interaction.user.id if interaction.user else None,
+            )
 
     @commands.Cog.listener()
     async def on_message(self, message):
@@ -162,6 +169,7 @@ class EventsCog(commands.Cog):
     @commands.Cog.listener()
     async def on_guild_join(self, guild):
         print(f"{date()} GUILD  Joined guild: {guild.name} | {guild.member_count} members | ID: {guild.id}")
+        log_admin_event("guild_join", f"Joined {guild.name} ({guild.member_count} members)", guild_id=guild.id)
         log_channel = self.bot.get_channel(1475562384860119196)
         total_members = sum(g.member_count or 0 for g in self.bot.guilds)
         total_guilds = len(self.bot.guilds)
@@ -210,6 +218,7 @@ class EventsCog(commands.Cog):
     @commands.Cog.listener()
     async def on_guild_remove(self, guild):
         print(f"{date()} GUILD  Removed from guild: {guild.name} | {guild.member_count} members | ID: {guild.id}")
+        log_admin_event("guild_leave", f"Removed from {guild.name} ({guild.member_count} members)", guild_id=guild.id)
         channel = self.bot.get_channel(1475562384860119196)
         total_members = sum(g.member_count or 0 for g in self.bot.guilds)
         total_guilds = len(self.bot.guilds)

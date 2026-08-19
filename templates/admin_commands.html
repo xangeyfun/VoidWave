@@ -1,0 +1,138 @@
+{% extends "admin_base.html" %}
+{% block title %}Command Analytics{% endblock %}
+{% block heading %}Command Analytics{% endblock %}
+{% block subheading %}{{ stats.total }} total commands logged{% endblock %}
+
+{% block content %}
+<div class="admin-grid cols-3" style="margin-bottom:1.25rem;">
+    <div class="stat-card">
+        <div class="stat-icon">&#128196;</div>
+        <div class="stat-value">{{ stats.total }}</div>
+        <div class="stat-label">Total Uses</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon">&#128101;</div>
+        <div class="stat-value">{{ stats.by_user|length }}</div>
+        <div class="stat-label">Unique Users</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon">&#127970;</div>
+        <div class="stat-value">{{ stats.by_guild|length }}</div>
+        <div class="stat-label">Unique Guilds</div>
+    </div>
+</div>
+
+<div class="admin-grid cols-2" style="margin-bottom:1.25rem;">
+    <div class="admin-card">
+        <h2>Top Commands</h2>
+        <p class="card-sub">Most used slash commands.</p>
+        <div class="admin-table-wrap">
+            <table class="admin-table compact">
+                <thead><tr><th>Command</th><th class="num">Uses</th><th>Share</th></tr></thead>
+                <tbody>
+                    {% for cmd, count in stats.by_command[:15] %}
+                    <tr>
+                        <td><span class="mono">/{{ cmd }}</span></td>
+                        <td class="num">{{ count }}</td>
+                        <td style="min-width:120px;">
+                            {% set pct = (count / stats.total * 100)|round(1) if stats.total else 0 %}
+                            <div class="progress-track"><div class="progress-fill" style="width:{{ pct }}%;"></div></div>
+                            <span class="muted" style="font-size:0.7rem;">{{ pct }}%</span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="admin-card">
+        <h2>Top Users</h2>
+        <p class="card-sub">Most active command users.</p>
+        <div class="admin-table-wrap">
+            <table class="admin-table compact">
+                <thead><tr><th>User</th><th class="num">Uses</th><th>Share</th></tr></thead>
+                <tbody>
+                    {% for user, count in stats.by_user[:15] %}
+                    <tr>
+                        <td>{{ user }}</td>
+                        <td class="num">{{ count }}</td>
+                        <td style="min-width:120px;">
+                            {% set pct = (count / stats.total * 100)|round(1) if stats.total else 0 %}
+                            <div class="progress-track"><div class="progress-fill" style="width:{{ pct }}%;"></div></div>
+                            <span class="muted" style="font-size:0.7rem;">{{ pct }}%</span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="admin-card" style="margin-bottom:1.25rem;">
+    <h2>Top Guilds</h2>
+    <p class="card-sub">Guilds with most command usage.</p>
+    <div class="admin-table-wrap">
+        <table class="admin-table compact">
+            <thead><tr><th>Guild</th><th class="num">Uses</th><th>Share</th></tr></thead>
+            <tbody>
+                {% for guild, count in stats.by_guild[:10] %}
+                <tr>
+                    <td>{{ guild }}</td>
+                    <td class="num">{{ count }}</td>
+                    <td style="min-width:120px;">
+                        {% set pct = (count / stats.total * 100)|round(1) if stats.total else 0 %}
+                        <div class="progress-track"><div class="progress-fill" style="width:{{ pct }}%;"></div></div>
+                        <span class="muted" style="font-size:0.7rem;">{{ pct }}%</span>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="admin-card">
+    <div class="card-head">
+        <h2>Recent Commands</h2>
+        <span class="badge muted">page {{ page }}/{{ total_pages }}</span>
+    </div>
+    <div class="admin-table-wrap">
+        <table class="admin-table compact">
+            <thead><tr><th>Time</th><th>Command</th><th>User</th><th>Guild</th></tr></thead>
+            <tbody>
+                {% for e in entries %}
+                <tr>
+                    <td class="mono" style="font-size:0.78rem;">{{ e.ts }}</td>
+                    <td><span class="mono">/{{ e.command }}</span> <span class="muted" style="font-size:0.78rem;">{{ e.options }}</span></td>
+                    <td>{{ e.username }}</td>
+                    <td>{{ e.guild_name }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="4"><div class="empty-state">No command entries found.</div></td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% if total_pages > 1 %}
+    <div class="pagination" style="margin-top:1rem;">
+        {% if page > 1 %}<a href="?page={{ page - 1 }}">&#x2190;</a>{% endif %}
+        {% set start = [1, page - 2] | max %}
+        {% set end = [total_pages, page + 2] | min %}
+        {% if start > 1 %}
+            <a href="?page=1">1</a>
+            {% if start > 2 %}<span class="dots">...</span>{% endif %}
+        {% endif %}
+        {% for p in range(start, end + 1) %}
+            <a href="?page={{ p }}" class="{% if p == page %}active{% endif %}">{{ p }}</a>
+        {% endfor %}
+        {% if end < total_pages %}
+            {% if end < total_pages - 1 %}<span class="dots">...</span>{% endif %}
+            <a href="?page={{ total_pages }}">{{ total_pages }}</a>
+        {% endif %}
+        {% if page < total_pages %}<a href="?page={{ page + 1 }}">&#x2192;</a>{% endif %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

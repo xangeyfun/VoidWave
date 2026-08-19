@@ -40,6 +40,19 @@ def get_db():
     return conn
 
 
+def log_admin_event(event_type, detail="", guild_id=None, user_id=None):
+    try:
+        conn = get_db()
+        conn.execute(
+            "INSERT INTO admin_events (ts, event_type, detail, guild_id, user_id) VALUES (?, ?, ?, ?, ?)",
+            (int(time.time()), event_type, detail, guild_id, user_id)
+        )
+        conn.commit()
+        conn.close()
+    except Exception:
+        pass
+
+
 def get_vote_boost(user_id):
     conn = get_db()
     try:
@@ -391,6 +404,13 @@ async def add_message_xp(bot, message):
                     print(f"{date()} WARN  Missing permissions to send level-up message in {channel.id} for guild {guild_id}")
                 except Exception as e:
                     print(f"{date()} ERROR  Failed to send level-up message: {e}")
+
+                log_admin_event(
+                    "level_up",
+                    f"{message.author.display_name} reached level {level}",
+                    guild_id=guild_id,
+                    user_id=user_id,
+                )
 
         cur.execute("UPDATE users SET level=?, progress=?, out_of=? WHERE guild_id=? AND user_id=?", (level, progress, out_of, guild_id, user_id))
         conn.commit()

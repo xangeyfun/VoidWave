@@ -5,7 +5,7 @@ from flask import jsonify, render_template
 
 from . import admin_bp
 from .helpers import (
-    _db, _read_log_lines, _list_backups, _bot_status,
+    _db, _read_log_lines, _list_backups, _bot_status, _stale_users,
 )
 from .health import _run_checks
 
@@ -74,6 +74,8 @@ def dashboard():
 
     bot_alive = _bot_status()
 
+    stale = _stale_users(30)
+
     return render_template(
         "admin_dashboard.html",
         data=data,
@@ -87,6 +89,7 @@ def dashboard():
         wal_size=wal_size,
         bot_alive=bot_alive,
         recent_actions=recent_actions,
+        stale_users=stale,
     )
 
 

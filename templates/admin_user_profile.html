@@ -1,0 +1,105 @@
+{% extends "admin_base.html" %}
+{% block title %}User Profile{% endblock %}
+{% block heading %}User Profile{% endblock %}
+{% block subheading %}{{ user_id }}{% endblock %}
+{% block actions %}
+    <a href="{{ url_for('admin.users', q=user_id) }}" class="btn btn-secondary btn-sm">&#x2190; Back to Users</a>
+{% endblock %}
+
+{% block content %}
+{% if not_found %}
+<div class="alert alert-error">No user found with ID {{ user_id }}.</div>
+{% else %}
+
+<div class="admin-grid cols-4" style="margin-bottom:1.25rem;">
+    <div class="stat-card">
+        <div class="stat-icon">&#127775;</div>
+        <div class="stat-value">{{ "{:,}".format(total_xp) }}</div>
+        <div class="stat-label">Total XP</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon">&#127942;</div>
+        <div class="stat-value">{{ max_level }}</div>
+        <div class="stat-label">Max Level</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon">&#128172;</div>
+        <div class="stat-value">{{ "{:,}".format(total_messages) }}</div>
+        <div class="stat-label">Total Messages</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon">&#127908;</div>
+        <div class="stat-value">{{ "{:,}".format(total_vc) }}m</div>
+        <div class="stat-label">Voice Time</div>
+    </div>
+</div>
+
+{% if boost %}
+<div class="admin-card" style="margin-bottom:1rem;">
+    <h2>&#9889; Vote Boost</h2>
+    <div class="admin-grid cols-2">
+        <div class="stat-card">
+            <div class="stat-value" style="color:#4ade80;">{{ boost.multiplier }}x</div>
+            <div class="stat-label">Multiplier</div>
+        </div>
+        <div class="stat-card">
+            {% if boost.expires_at > now_ts %}
+                <div class="stat-value" style="color:#4ade80;">Active</div>
+                <div class="stat-label">{{ ((boost.expires_at - now_ts) / 3600)|round(1) }}h left</div>
+            {% else %}
+                <div class="stat-value" style="color:var(--text-muted);">Expired</div>
+                <div class="stat-label">Boost ended</div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<div class="admin-card">
+    <div class="card-head">
+        <h2>Guild Data</h2>
+        <span class="badge info">{{ guilds|length }} guild(s)</span>
+    </div>
+    <p class="card-sub">All records for <span class="mono">{{ user_id }}</span> across every server.</p>
+    <div class="admin-table-wrap">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>Guild</th>
+                    <th class="num">Level</th>
+                    <th class="num">XP</th>
+                    <th class="num">Messages</th>
+                    <th class="num">VC (min)</th>
+                    <th>Last Active</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for g in guilds %}
+                <tr>
+                    <td>
+                        <span class="mono" data-copy="{{ g.guild_id }}" style="cursor:pointer;">{{ g.guild_id }}</span>
+                        {% if g.display_name %}<span class="muted" style="margin-left:6px;">{{ g.display_name }}</span>{% endif %}
+                    </td>
+                    <td class="num">{{ g.level }}</td>
+                    <td class="num">{{ "{:,}".format(g.total_xp) }}</td>
+                    <td class="num">{{ "{:,}".format(g.total_messages) }}</td>
+                    <td class="num">{{ "{:,}".format(g.vc_minutes) }}</td>
+                    <td style="font-size:0.82rem;">
+                        {% if g.last_message %}
+                            {{ g.last_message }}
+                        {% else %}
+                            <span class="muted">never</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a href="{{ url_for('admin.user_edit', guild_id=g.guild_id, user_id=user_id) }}" class="btn btn-secondary btn-sm">Edit</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

@@ -9,6 +9,30 @@
 {% endblock %}
 
 {% block content %}
+<!-- Quick User Lookup -->
+<div class="admin-card" style="margin-bottom:1.25rem;">
+    <form id="quickLookup" onsubmit="return quickLookupGo(event)" class="form-grid" style="grid-template-columns:1fr auto;">
+        <div class="form-field" style="margin-bottom:0;">
+            <label>Quick User Lookup</label>
+            <input type="text" id="quickLookupInput" placeholder="Enter user ID to view full profile..." autofocus>
+        </div>
+        <div class="form-field" style="margin-bottom:0;">
+            <label>&nbsp;</label>
+            <button class="btn btn-primary" type="submit">Go</button>
+        </div>
+    </form>
+    <script>
+    function quickLookupGo(e) {
+        e.preventDefault();
+        var v = document.getElementById('quickLookupInput').value.trim();
+        if (/^\d{17,20}$/.test(v)) {
+            window.location.href = '{{ url_for("admin.user_profile", user_id=0) }}'.replace('/0/', '/' + v + '/');
+        }
+        return false;
+    }
+    </script>
+</div>
+
 <!-- Status Row -->
 <div class="admin-grid cols-4" style="margin-bottom:1.25rem;">
     <div class="stat-card status-card {% if bot_alive is not none %}{% if bot_alive %}status-up{% else %}status-down{% endif %}{% else %}status-unknown{% endif %}">
@@ -146,6 +170,52 @@
         <a href="/" target="_blank" class="btn btn-secondary btn-block">&#127760; View Website</a>
     </div>
 </div>
+
+<!-- Stale Data Warnings -->
+{% if stale_users %}
+<div class="admin-card" style="border-color:rgba(245,158,11,0.3);">
+    <div class="card-head">
+        <h2>&#9888; Stale Users (30+ days inactive)</h2>
+        <span class="badge warn">{{ stale_users|length }} shown</span>
+    </div>
+    <p class="card-sub">Users who haven't sent a message in over 30 days. Consider purging from the <a href="{{ url_for('admin.forget') }}">Privacy / Forget</a> page.</p>
+    <div class="admin-table-wrap">
+        <table class="admin-table compact">
+            <thead>
+                <tr>
+                    <th>User</th>
+                    <th>Guild</th>
+                    <th class="num">Level</th>
+                    <th class="num">XP</th>
+                    <th>Last Active</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for u in stale_users %}
+                <tr>
+                    <td>
+                        <a href="{{ url_for('admin.user_profile', user_id=u.user_id) }}" style="text-decoration:none;">
+                            {{ u.display_name or u.username or 'unknown' }}
+                        </a>
+                        <span class="mono" style="margin-left:6px;font-size:0.78rem;">{{ u.user_id }}</span>
+                    </td>
+                    <td class="mono" style="font-size:0.82rem;">{{ u.guild_id }}</td>
+                    <td class="num">{{ u.level }}</td>
+                    <td class="num">{{ "{:,}".format(u.total_xp) }}</td>
+                    <td style="font-size:0.82rem;">
+                        {% if u.last_message %}{{ u.last_message }}{% else %}<span class="muted">never</span>{% endif %}
+                    </td>
+                    <td>
+                        <a href="{{ url_for('admin.user_edit', guild_id=u.guild_id, user_id=u.user_id) }}" class="btn btn-secondary btn-sm">Edit</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
 {% endblock %}
 
 {% block scripts %}

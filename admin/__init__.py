@@ -55,3 +55,6 @@ from . import stats  # noqa: E402, F401
 from . import guilds  # noqa: E402, F401
 from . import logs  # noqa: E402, F401
 from . import api  # noqa: E402, F401
+from . import events  # noqa: E402, F401
+from . import commands  # noqa: E402, F401
+from . import user_profile  # noqa: E402, F401

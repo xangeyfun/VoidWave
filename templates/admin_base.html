@@ -29,16 +29,18 @@
                 <a href="{{ url_for('admin.dashboard') }}" class="{% if request.endpoint == 'admin.dashboard' %}active{% endif %}">&#128202; Dashboard</a>
                 <a href="{{ url_for('admin.users') }}" class="{% if request.endpoint in ('admin.users', 'admin.user_edit') %}active{% endif %}">&#128101; Users</a>
                 <a href="{{ url_for('admin.guilds') }}" class="{% if request.endpoint in ('admin.guilds', 'admin.guild_edit') %}active{% endif %}">&#127970; Guilds</a>
+                <a href="{{ url_for('admin.events_page') }}" class="{% if request.endpoint == 'admin.events_page' %}active{% endif %}">&#9889; Live Events</a>
+                <a href="{{ url_for('admin.commands_page') }}" class="{% if request.endpoint == 'admin.commands_page' %}active{% endif %}">&#128196; Commands</a>
+                <a href="{{ url_for('admin.stats') }}" class="{% if request.endpoint == 'admin.stats' %}active{% endif %}">&#128200; Statistics</a>
                 <a href="{{ url_for('admin.forget') }}" class="{% if request.endpoint in ('admin.forget', 'admin.forget_confirm') %}active{% endif %}">&#128274; Privacy / Forget</a>
                 <a href="{{ url_for('admin.check') }}" class="{% if request.endpoint == 'admin.check' %}active{% endif %}">&#128269; Health Check</a>
                 <a href="{{ url_for('admin.backups') }}" class="{% if request.endpoint in ('admin.backups', 'admin.backup_restore') %}active{% endif %}">&#128190; Backups</a>
-                <a href="{{ url_for('admin.stats') }}" class="{% if request.endpoint == 'admin.stats' %}active{% endif %}">&#128200; Statistics</a>
                 <a href="{{ url_for('admin.bot_status') }}" class="{% if request.endpoint in ('admin.bot_status', 'admin.bot_confirm') %}active{% endif %}">&#128225; Bot Status</a>
                 <a href="{{ url_for('admin.logs') }}" class="{% if request.endpoint == 'admin.logs' %}active{% endif %}">&#128221; Audit Log</a>
 
                 <div class="admin-nav-sep">Site</div>
                 <a href="/" target="_blank">&#128279; View Website</a>
-                <a href="https://voidwave.xangey.dev" target="_blank">&#127760; voidwave.xangey.dev</a>
+                <a href="https://top.gg/bot/1442229230384709752" target="_blank">&#11088; Vote on top.gg</a>
 
                 <div class="admin-nav-sep">Session</div>
                 <a href="{{ url_for('admin.logout') }}" class="danger">&#128682; Logout</a>

@@ -50,6 +50,18 @@ def _ensure_admin_tables():
             window_start INTEGER
         )
         """)
+        conn.execute("""
+        CREATE TABLE IF NOT EXISTS admin_events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            ts INTEGER NOT NULL,
+            event_type TEXT NOT NULL,
+            detail TEXT DEFAULT '',
+            guild_id INTEGER,
+            user_id INTEGER
+        )
+        """)
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_admin_events_ts ON admin_events(ts)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_admin_events_type ON admin_events(event_type)")
         conn.commit()
     finally:
         conn.close()
@@ -404,3 +416,128 @@ def _list_backups():
             "mtime": datetime.fromtimestamp(st.st_mtime),
         })
     return out
+
+
+# ---------------------------------------------------------------------------
+# Events helpers
+# ---------------------------------------------------------------------------
+
+def _log_event(event_type, detail="", guild_id=None, user_id=None):
+    conn = _db()
+    try:
+        conn.execute(
+            "INSERT INTO admin_events (ts, event_type, detail, guild_id, user_id) VALUES (?, ?, ?, ?, ?)",
+            (int(time.time()), event_type, detail, guild_id, user_id)
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def _recent_events(limit=50, since_id=0):
+    conn = _db()
+    try:
+        if since_id:
+            rows = conn.execute(
+                "SELECT id, ts, event_type, detail, guild_id, user_id "
+                "FROM admin_events WHERE id > ? ORDER BY id DESC LIMIT ?",
+                (since_id, limit)
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT id, ts, event_type, detail, guild_id, user_id "
+                "FROM admin_events ORDER BY id DESC LIMIT ?",
+                (limit,)
+            ).fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        conn.close()
+
+
+# ---------------------------------------------------------------------------
+# Command logs helpers
+# ---------------------------------------------------------------------------
+
+COMMAND_LOG_FILE = "command_logs.txt"
+
+
+def _parse_command_logs():
+    if not os.path.exists(COMMAND_LOG_FILE):
+        return []
+    entries = []
+    try:
+        with open(COMMAND_LOG_FILE, "r") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                parts = line.split(" ", 3)
+                ts = f"{parts[0]} {parts[1]}" if len(parts) > 1 else ""
+                rest = parts[2] if len(parts) > 2 else ""
+                cmd_part = rest.split("'", 2)
+                cmd_name = cmd_part[1] if len(cmd_part) > 1 else ""
+                after_cmd = cmd_part[2] if len(cmd_part) > 2 else ""
+                user_part = after_cmd.split("used by '")
+                username = user_part[1].split("'")[0] if len(user_part) > 1 else ""
+                guild_part = user_part[1].split("in '")[1] if len(user_part) > 1 and "in '" in user_part[1] else ""
+                guild_name = guild_part.split("'")[0] if guild_part else ""
+                uid_part = after_cmd.split("user_id: ")
+                user_id = uid_part[1].split(",")[0].split(")")[0] if len(uid_part) > 1 else ""
+                gid_part = after_cmd.split("guild_id: ")
+                guild_id = gid_part[1].split(")")[0] if len(gid_part) > 1 else ""
+                entries.append({
+                    "ts": ts,
+                    "command": cmd_name.split(" ")[0] if cmd_name else "",
+                    "options": " ".join(cmd_name.split(" ")[1:]) if cmd_name else "",
+                    "username": username,
+                    "guild_name": guild_name,
+                    "user_id": user_id,
+                    "guild_id": guild_id,
+                })
+    except OSError:
+        pass
+    return entries
+
+
+def _command_stats():
+    entries = _parse_command_logs()
+    cmd_counts = {}
+    user_counts = {}
+    guild_counts = {}
+    for e in entries:
+        cmd = e["command"]
+        if cmd:
+            cmd_counts[cmd] = cmd_counts.get(cmd, 0) + 1
+        user = e["username"]
+        if user:
+            user_counts[user] = user_counts.get(user, 0) + 1
+        guild = e["guild_name"]
+        if guild:
+            guild_counts[guild] = guild_counts.get(guild, 0) + 1
+    return {
+        "total": len(entries),
+        "by_command": sorted(cmd_counts.items(), key=lambda x: -x[1]),
+        "by_user": sorted(user_counts.items(), key=lambda x: -x[1])[:20],
+        "by_guild": sorted(guild_counts.items(), key=lambda x: -x[1])[:20],
+        "recent": entries[-50:][::-1],
+    }
+
+
+# ---------------------------------------------------------------------------
+# Stale data helpers
+# ---------------------------------------------------------------------------
+
+def _stale_users(days=30):
+    conn = _db()
+    try:
+        cutoff = int(time.time()) - (days * 86400)
+        rows = conn.execute(
+            "SELECT guild_id, user_id, display_name, username, level, total_xp, last_message "
+            "FROM users WHERE last_message = '' OR last_message IS NULL "
+            "OR datetime(last_message) < datetime(?, 'unixepoch') "
+            "ORDER BY last_message ASC LIMIT 50",
+            (cutoff,)
+        ).fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        conn.close()

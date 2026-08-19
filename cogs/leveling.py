@@ -3,7 +3,7 @@ from discord.ext import commands, tasks
 import discord
 import random
 import time
-from utils import get_db, date, format_minutes, last_vc, VC_COOLDOWN, get_vote_boost, build_level_up_embed
+from utils import get_db, date, format_minutes, last_vc, VC_COOLDOWN, get_vote_boost, build_level_up_embed, log_admin_event
 
 
 class LevelingCog(commands.Cog):
@@ -373,6 +373,12 @@ class LevelingCog(commands.Cog):
                                         print(f"{date()} WARN  Missing permissions to send level-up message in {channel.id} for guild {guild.id}")
                                     except Exception as e:
                                         print(f"{date()} ERROR  Failed to send level-up message: {e}")
+                                    log_admin_event(
+                                        "level_up",
+                                        f"{member.display_name} reached level {level}",
+                                        guild_id=guild.id,
+                                        user_id=member.id,
+                                    )
                                 cur.execute("UPDATE users SET level=?, progress=?, out_of=? WHERE guild_id=? AND user_id=?", (level, progress, out_of, guild.id, member.id))
                                 conn.commit()
                         except Exception as e:
