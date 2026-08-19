@@ -107,6 +107,109 @@ def backup_restore(name):
     )
 
 
+@admin_bp.route("/backups/<name>/restore-user", methods=["GET", "POST"])
+def backup_restore_user(name):
+    import sqlite3
+    from .constants import BACKUP_DIR
+
+    path = BACKUP_DIR / name
+    if not path.exists() or not path.is_file():
+        abort(404)
+
+    user_id = request.args.get("user_id", "").strip()
+    guild_id = request.args.get("guild_id", "").strip()
+
+    if request.method == "POST":
+        action = request.form.get("action", "preview")
+        user_id = request.form.get("user_id", "").strip()
+        guild_id = request.form.get("guild_id", "").strip()
+
+        if not user_id or not guild_id or not user_id.isdigit() or not guild_id.isdigit():
+            flash("Please enter valid user ID and guild ID.", "error")
+            return redirect(url_for("admin.backup_restore_user", name=name))
+
+        user_id = int(user_id)
+        guild_id = int(guild_id)
+
+        backup_conn = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
+        backup_conn.row_factory = sqlite3.Row
+        try:
+            backup_user = backup_conn.execute(
+                "SELECT * FROM users WHERE guild_id=? AND user_id=?",
+                (guild_id, user_id),
+            ).fetchone()
+        finally:
+            backup_conn.close()
+
+        if not backup_user:
+            flash(f"User {user_id} in guild {guild_id} not found in backup.", "error")
+            return redirect(url_for("admin.backup_restore_user", name=name))
+
+        if action == "preview":
+            conn = _db()
+            try:
+                current_user = conn.execute(
+                    "SELECT * FROM users WHERE guild_id=? AND user_id=?",
+                    (guild_id, user_id),
+                ).fetchone()
+            finally:
+                conn.close()
+
+            return render_template(
+                "admin_backup_restore_user.html",
+                backup_user=dict(backup_user),
+                current_user=dict(current_user) if current_user else None,
+                backup_name=name,
+                user_id=user_id,
+                guild_id=guild_id,
+            )
+
+        if action == "confirm":
+            confirm = request.form.get("confirm", "").strip()
+            if confirm != "RESTORE":
+                flash("Type RESTORE to confirm.", "error")
+                return redirect(url_for(
+                    "admin.backup_restore_user", name=name,
+                    user_id=user_id, guild_id=guild_id,
+                ))
+
+            dst, err = _backup_current(suffix="_prerestore_user")
+            if err:
+                _log("RESTORE USER FAIL", f"no safety backup: {err}")
+                flash(err, "error")
+                return redirect(url_for(
+                    "admin.backup_restore_user", name=name,
+                    user_id=user_id, guild_id=guild_id,
+                ))
+
+            conn = _db()
+            try:
+                col_info = conn.execute("PRAGMA table_info(users)").fetchall()
+                col_names = [c[1] for c in col_info]
+                placeholders = ", ".join("?" * len(col_names))
+                col_list = ", ".join(col_names)
+                values = [backup_user[c] for c in col_names]
+                conn.execute(
+                    f"INSERT OR REPLACE INTO users ({col_list}) VALUES ({placeholders})",
+                    values,
+                )
+                conn.commit()
+                _clear_cache()
+            finally:
+                conn.close()
+
+            _log("RESTORE USER", f"from {name} user={user_id} guild={guild_id} (safety {dst.name})")
+            flash(f"Restored user {user_id} in guild {guild_id} from {name}.", "success")
+            return redirect(url_for("admin.backups"))
+
+    return render_template(
+        "admin_backup_restore_user.html",
+        backup_name=name,
+        user_id=user_id,
+        guild_id=guild_id,
+    )
+
+
 @admin_bp.route("/backups/<name>/delete", methods=["POST"])
 def backup_delete(name):
     from .constants import BACKUP_DIR

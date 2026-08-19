@@ -1,12 +1,26 @@
 import time
 import json
-from flask import render_template, request, redirect, url_for, session, abort, flash
+import io
+import csv
+from flask import render_template, request, redirect, url_for, session, abort, flash, Response
 
 from . import admin_bp
 from .helpers import (
     _db, _log, _clear_cache, _parse_int, _normalize_progress,
 )
 from .constants import USER_FIELDS
+
+
+def _parse_bulk_targets(raw):
+    targets = []
+    for line in (raw or "").strip().splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        parts = line.split()
+        if len(parts) == 2 and parts[0].isdigit() and parts[1].isdigit():
+            targets.append((int(parts[0]), int(parts[1])))
+    return targets
 
 
 @admin_bp.route("/users")
@@ -61,6 +75,60 @@ def users():
         total_pages=total_pages,
         boost_map=boost_map,
         now=int(time.time()),
+    )
+
+
+@admin_bp.route("/users/export")
+def users_export():
+    q = (request.args.get("q") or "").strip()
+    sort = request.args.get("sort", "total_xp")
+    order = request.args.get("order", "desc")
+
+    valid_sorts = {"level", "total_xp", "total_messages", "vc_minutes", "username", "user_id", "guild_id"}
+    if sort not in valid_sorts:
+        sort = "total_xp"
+    dir_sql = "ASC" if order == "asc" else "DESC"
+
+    conn = _db()
+    try:
+        where = []
+        params = []
+        if q.isdigit() and len(q) >= 8:
+            where.append("(user_id=? OR guild_id=?)")
+            params += [int(q), int(q)]
+        elif q:
+            like = f"%{q}%"
+            where.append("(username LIKE ? OR display_name LIKE ?)")
+            params += [like, like]
+
+        wsql = ("WHERE " + " AND ".join(where)) if where else ""
+        rows = conn.execute(
+            f"SELECT * FROM users {wsql} ORDER BY {sort} {dir_sql}, user_id",
+            params
+        ).fetchall()
+    finally:
+        conn.close()
+
+    columns = [
+        "user_id", "guild_id", "username", "display_name",
+        "level", "progress", "out_of",
+        "total_xp", "total_messages", "total_messages_xp",
+        "vc_minutes", "vc_xp_minutes", "last_message",
+    ]
+
+    buf = io.StringIO()
+    writer = csv.writer(buf)
+    writer.writerow(columns)
+    for r in rows:
+        writer.writerow([r[c] for c in columns])
+
+    output = buf.getvalue()
+    buf.close()
+
+    return Response(
+        output,
+        mimetype="text/csv",
+        headers={"Content-Disposition": "attachment; filename=users_export.csv"},
     )
 
 
@@ -206,4 +274,69 @@ def user_delete(guild_id, user_id):
 
     _log("USER DELETE", f"guild={guild_id} user={user_id} rows={removed}")
     flash(f"Deleted {removed} row(s).", "success")
+    return redirect(url_for("admin.users"))
+
+
+@admin_bp.route("/users/bulk/reset", methods=["POST"])
+def user_bulk_reset():
+    confirm = (request.form.get("confirm") or "").strip()
+    if confirm != "RESET":
+        flash("Confirmation must be RESET", "error")
+        return redirect(url_for("admin.users"))
+
+    targets = _parse_bulk_targets(request.form.get("targets", ""))
+    if not targets:
+        flash("No valid user targets provided.", "error")
+        return redirect(url_for("admin.users"))
+
+    conn = _db()
+    try:
+        count = 0
+        for guild_id, user_id in targets:
+            cur = conn.execute("""
+                UPDATE users SET
+                    level=0, progress=0, out_of=100,
+                    total_xp=0, total_messages=0, total_messages_xp=0,
+                    vc_minutes=0, vc_xp_minutes=0
+                WHERE guild_id=? AND user_id=?
+            """, (guild_id, user_id))
+            count += cur.rowcount
+        conn.commit()
+        _clear_cache()
+    finally:
+        conn.close()
+
+    _log("USER BULK RESET", f"count={count} ids={[(g, u) for g, u in targets[:20]]}")
+    flash(f"Reset {count} user(s).", "success")
+    return redirect(url_for("admin.users"))
+
+
+@admin_bp.route("/users/bulk/delete", methods=["POST"])
+def user_bulk_delete():
+    confirm = (request.form.get("confirm") or "").strip()
+    if confirm != "DELETE":
+        flash("Confirmation must be DELETE", "error")
+        return redirect(url_for("admin.users"))
+
+    targets = _parse_bulk_targets(request.form.get("targets", ""))
+    if not targets:
+        flash("No valid user targets provided.", "error")
+        return redirect(url_for("admin.users"))
+
+    conn = _db()
+    try:
+        count = 0
+        for guild_id, user_id in targets:
+            cur = conn.execute(
+                "DELETE FROM users WHERE guild_id=? AND user_id=?",
+                (guild_id, user_id)
+            )
+            count += cur.rowcount
+        conn.commit()
+        _clear_cache()
+    finally:
+        conn.close()
+
+    _log("USER BULK DELETE", f"count={count} ids={[(g, u) for g, u in targets[:20]]}")
+    flash(f"Deleted {count} user(s).", "success")
     return redirect(url_for("admin.users"))

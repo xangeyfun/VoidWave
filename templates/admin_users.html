@@ -58,10 +58,35 @@
     </form>
 </div>
 
+<div id="bulkBar" class="admin-card" style="display:none; border-color: rgba(132,56,252,0.35);">
+    <div class="flex items-center gap-1 flex-wrap" style="gap:0.75rem;">
+        <span class="muted" style="font-size:0.88rem;"><span id="bulkCount">0</span> selected</span>
+
+        <button type="button" class="btn btn-warning btn-sm" onclick="openBulkModal('reset')">Reset Selected</button>
+        <button type="button" class="btn btn-danger btn-sm" onclick="openBulkModal('delete')">Delete Selected</button>
+    </div>
+</div>
+
+<div id="bulkModal" class="admin-card" style="display:none; border-color: rgba(239,68,68,0.35); margin-top:0.75rem;">
+    <h2 id="bulkModalTitle" style="font-size:1rem;">Confirm</h2>
+    <p class="card-sub" id="bulkModalDesc"></p>
+    <div class="flex items-center gap-1" style="gap:0.75rem; flex-wrap:wrap;">
+        <div class="form-field" style="margin-bottom:0; min-width:160px;">
+            <input type="text" id="bulkConfirmInput" data-confirm-input autocomplete="off" placeholder="">
+        </div>
+        <span id="bulkConfirmHint" data-confirm-hint class="muted" style="font-size:0.82rem;"></span>
+        <button type="button" class="btn btn-sm" id="bulkCancelBtn" onclick="closeBulkModal()">Cancel</button>
+        <button type="button" class="btn btn-sm" id="bulkSubmitBtn" data-confirm-submit disabled onclick="submitBulkForm()">Confirm</button>
+    </div>
+</div>
+
 <div class="admin-table-wrap">
     <table class="admin-table">
         <thead>
             <tr>
+                <th style="width:40px; text-align:center;">
+                    <input type="checkbox" id="selectAll" style="accent-color: var(--primary); width:16px; height:16px;">
+                </th>
                 <th>User</th>
                 <th>Guild</th>
                 <th class="num">Level</th>
@@ -75,6 +100,9 @@
         <tbody>
             {% for r in rows %}
             <tr>
+                <td style="text-align:center;">
+                    <input type="checkbox" class="user-check" data-guild="{{ r['guild_id'] }}" data-user="{{ r['user_id'] }}" style="accent-color: var(--primary); width:16px; height:16px;">
+                </td>
                 <td>
                     <div class="flex items-center gap-1">
                         <img class="avatar" src="{% if r['avatar_hash'] %}https://cdn.discordapp.com/avatars/{{ r['user_id'] }}/{{ r['avatar_hash'] }}.png?size=64{% else %}https://cdn.discordapp.com/embed/avatars/0.png{% endif %}" onerror="this.onerror=null;this.src='https://cdn.discordapp.com/embed/avatars/0.png'">
@@ -108,7 +136,7 @@
                 </td>
             </tr>
             {% else %}
-            <tr><td colspan="8"><div class="empty-state">No users found{% if q %} for &ldquo;{{ q }}&rdquo;{% endif %}.</div></td></tr>
+            <tr><td colspan="9"><div class="empty-state">No users found{% if q %} for &ldquo;{{ q }}&rdquo;{% endif %}.</div></td></tr>
             {% endfor %}
         </tbody>
     </table>
@@ -140,4 +168,104 @@
     </div>
     {% endif %}
 </div>
+
+<form id="bulkForm" method="POST" style="display:none;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="targets" id="bulkTargets">
+    <input type="hidden" name="confirm" id="bulkConfirm">
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+    const selectAll = document.getElementById('selectAll');
+    const checks = () => document.querySelectorAll('.user-check');
+    const bar = document.getElementById('bulkBar');
+    const countEl = document.getElementById('bulkCount');
+    const modal = document.getElementById('bulkModal');
+    const modalTitle = document.getElementById('bulkModalTitle');
+    const modalDesc = document.getElementById('bulkModalDesc');
+    const confirmInput = document.getElementById('bulkConfirmInput');
+    const confirmHint = document.getElementById('bulkConfirmHint');
+    const submitBtn = document.getElementById('bulkSubmitBtn');
+    const form = document.getElementById('bulkForm');
+    const targetsInput = document.getElementById('bulkTargets');
+    const confirmInputHidden = document.getElementById('bulkConfirm');
+
+    let pendingAction = '';
+
+    function updateBar() {
+        const n = document.querySelectorAll('.user-check:checked').length;
+        countEl.textContent = n;
+        bar.style.display = n > 0 ? '' : 'none';
+    }
+
+    selectAll.addEventListener('change', function() {
+        checks().forEach(c => { c.checked = selectAll.checked; });
+        updateBar();
+    });
+
+    document.addEventListener('change', function(e) {
+        if (e.target.classList.contains('user-check')) {
+            const all = checks();
+            const checked = document.querySelectorAll('.user-check:checked');
+            selectAll.checked = all.length > 0 && all.length === checked.length;
+            updateBar();
+        }
+    });
+
+    function getTargets() {
+        const lines = [];
+        document.querySelectorAll('.user-check:checked').forEach(c => {
+            lines.push(c.dataset.guild + ' ' + c.dataset.user);
+        });
+        return lines.join('\n');
+    }
+
+    window.openBulkModal = function(action) {
+        pendingAction = action;
+        modalTitle.textContent = action === 'reset' ? 'Reset Selected Users' : 'Delete Selected Users';
+        modalDesc.textContent = action === 'reset'
+            ? 'This will reset level, XP, messages, and voice time to zero for all selected users.'
+            : 'This will permanently delete all selected user rows from the database.';
+        confirmInput.value = '';
+        confirmHint.textContent = '';
+        submitBtn.disabled = true;
+        submitBtn.className = 'btn btn-sm ' + (action === 'delete' ? 'btn-danger' : 'btn-warning');
+        const required = action === 'reset' ? 'RESET' : 'DELETE';
+        submitBtn.textContent = required;
+
+        const sync = () => {
+            const val = confirmInput.value.trim().toUpperCase();
+            const match = val === required;
+            submitBtn.disabled = !match;
+            confirmHint.textContent = match ? 'Matches' : 'Type ' + required + ' to enable';
+            confirmHint.style.color = match ? 'var(--success)' : 'var(--text-muted)';
+        };
+        confirmInput.removeEventListener('input', sync);
+        confirmInput.addEventListener('input', sync);
+        sync();
+
+        modal.style.display = '';
+        confirmInput.focus();
+    };
+
+    window.closeBulkModal = function() {
+        modal.style.display = 'none';
+        pendingAction = '';
+    };
+
+    window.submitBulkForm = function() {
+        const required = pendingAction === 'reset' ? 'RESET' : 'DELETE';
+        if (confirmInput.value.trim().toUpperCase() !== required) return;
+        targetsInput.value = getTargets();
+        confirmInputHidden.value = required;
+        form.action = pendingAction === 'reset'
+            ? '{{ url_for("admin.user_bulk_reset") }}'
+            : '{{ url_for("admin.user_bulk_delete") }}';
+        form.submit();
+    };
+})();
+</script>
 {% endblock %}

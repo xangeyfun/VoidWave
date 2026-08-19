@@ -3,7 +3,9 @@ import json
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from flask import render_template, redirect, url_for, request
+import io
+import csv
+from flask import render_template, redirect, url_for, request, Response
 
 from . import admin_bp
 from .helpers import _db, _log, _clear_cache, _parse_int
@@ -73,6 +75,62 @@ def guilds():
         order=order,
         page=page,
         total_pages=total_pages,
+    )
+
+
+@admin_bp.route("/guilds/export")
+def guilds_export():
+    q = (request.args.get("q") or "").strip()
+    sort = request.args.get("sort", "users")
+    order = request.args.get("order", "desc")
+
+    valid_sorts = {"guild_id", "users", "xp", "avg_level", "settings"}
+    if sort not in valid_sorts:
+        sort = "users"
+
+    conn = _db()
+    try:
+        rows = conn.execute("""
+            SELECT
+                u.guild_id,
+                COUNT(DISTINCT u.user_id) AS users,
+                COALESCE(SUM(u.total_xp), 0) AS xp,
+                COALESCE(SUM(u.total_messages), 0) AS msgs,
+                ROUND(COALESCE(AVG(u.level), 0), 1) AS avg_level,
+                COALESCE(MAX(u.level), 0) AS max_level,
+                CASE WHEN gs.guild_id IS NOT NULL THEN 1 ELSE 0 END AS has_settings
+            FROM (SELECT DISTINCT guild_id, user_id, total_xp, total_messages, level FROM users) u
+            LEFT JOIN guild_settings gs ON gs.guild_id = u.guild_id
+            GROUP BY u.guild_id
+        """).fetchall()
+
+        if q and q.isdigit() and len(q) >= 8:
+            rows = [r for r in rows if str(r["guild_id"]) == q]
+        elif q:
+            rows = [r for r in rows if q in str(r["guild_id"])]
+
+        sort_map = {"guild_id": "guild_id", "users": "users", "xp": "xp",
+                    "avg_level": "avg_level", "settings": "has_settings"}
+        rows = sorted(rows, key=lambda r: r.get(sort_map.get(sort, "users"), 0),
+                      reverse=(order == "desc"))
+    finally:
+        conn.close()
+
+    columns = ["guild_id", "users", "xp", "msgs", "avg_level", "max_level", "has_settings"]
+
+    buf = io.StringIO()
+    writer = csv.writer(buf)
+    writer.writerow(columns)
+    for r in rows:
+        writer.writerow([r[c] for c in columns])
+
+    output = buf.getvalue()
+    buf.close()
+
+    return Response(
+        output,
+        mimetype="text/csv",
+        headers={"Content-Disposition": "attachment; filename=guilds_export.csv"},
     )
 
 

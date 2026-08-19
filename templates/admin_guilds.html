@@ -27,7 +27,10 @@
         </div>
         <div class="form-field">
             <label>&nbsp;</label>
-            <button class="btn btn-primary" type="submit">Search</button>
+            <div class="flex gap-1">
+                <button class="btn btn-primary" type="submit">Search</button>
+                <a href="{{ url_for('admin.guilds_export', q=q, sort=sort, order=order) }}" class="btn btn-secondary btn-sm">&#128229; Export CSV</a>
+            </div>
         </div>
     </form>
 </div>

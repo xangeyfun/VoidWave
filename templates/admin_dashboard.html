@@ -147,3 +147,63 @@
     </div>
 </div>
 {% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+    const map = {
+        'Total Users': 'users',
+        'Total XP': 'total_xp',
+        'Avg Level': 'avg_level',
+        'Total Messages': 'total_messages',
+        'Voice Time': 'total_vc_hours',
+        'Active (24h)': 'active_24h',
+        'Active Boosts': 'active_boosts',
+    };
+
+    function updateDashboard() {
+        fetch("{{ url_for('admin.api_dashboard') }}")
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                var cards = document.querySelectorAll('.stat-card');
+                cards.forEach(function(card) {
+                    var label = card.querySelector('.stat-label');
+                    var value = card.querySelector('.stat-value');
+                    if (!label || !value) return;
+
+                    var key = label.textContent.trim();
+
+                    if (key === 'Bot Status') {
+                        var alive = data.bot_alive;
+                        var text = alive ? 'Online' : 'Offline';
+                        if (value.textContent.trim() !== text) {
+                            value.textContent = text;
+                        }
+                        card.className = card.className.replace(/status-(up|down|unknown)/g, '').trim();
+                        card.classList.add(alive ? 'status-up' : 'status-down');
+                        return;
+                    }
+
+                    if (key in map) {
+                        var raw = data[map[key]];
+                        var formatted;
+                        if (key === 'Voice Time') {
+                            formatted = Number(raw).toLocaleString() + 'h';
+                        } else if (key === 'Avg Level') {
+                            formatted = String(raw);
+                        } else {
+                            formatted = Number(raw).toLocaleString();
+                        }
+                        if (value.textContent.trim() !== formatted) {
+                            value.textContent = formatted;
+                        }
+                    }
+                });
+            })
+            .catch(function() {});
+    }
+
+    setInterval(updateDashboard, 30000);
+})();
+</script>
+{% endblock %}

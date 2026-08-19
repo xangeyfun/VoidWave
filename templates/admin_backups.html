@@ -101,6 +101,7 @@
                     <td>
                         <div class="flex gap-1 flex-wrap items-center">
                             <a href="{{ url_for('admin.backup_restore', name=b.name) }}" class="btn btn-danger btn-sm">Restore</a>
+                            <a href="{{ url_for('admin.backup_restore_user', name=b.name) }}" class="btn btn-secondary btn-sm">Restore User</a>
                             <form method="POST" action="{{ url_for('admin.backup_delete', name=b.name) }}" data-confirm-check="DELETE" style="display:flex;align-items:center;gap:0.4rem;">
                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                 <input type="text" name="confirm" data-confirm-input placeholder="DELETE" style="width:80px; background:var(--bg-tertiary); border:1px solid var(--border); border-radius:8px; padding:0.35rem 0.6rem; color:var(--text-primary); font-size:0.8rem;" autocomplete="off">

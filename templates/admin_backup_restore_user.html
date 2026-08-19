@@ -1,0 +1,77 @@
+{% extends "admin_base.html" %}
+{% block title %}Restore User from Backup{% endblock %}
+{% block heading %}Restore User from Backup{% endblock %}
+{% block subheading %}Restore a single user's data from {{ backup_name }}{% endblock %}
+{% block actions %}
+    <a href="{{ url_for('admin.backups') }}" class="btn btn-secondary btn-sm">&#x2190; Back</a>
+{% endblock %}
+
+{% block content %}
+{% if backup_user is defined and backup_user %}
+<div class="admin-grid cols-2" style="margin-bottom:1.25rem;">
+    <div class="admin-card">
+        <h2>Current User</h2>
+        {% if current_user %}
+        <table class="admin-table compact">
+            <tbody>
+                <tr><td>Level</td><td class="num">{{ current_user.level }}</td></tr>
+                <tr><td>XP</td><td class="num">{{ "{:,}".format(current_user.total_xp) }}</td></tr>
+                <tr><td>Messages</td><td class="num">{{ "{:,}".format(current_user.total_messages) }}</td></tr>
+                <tr><td>VC Minutes</td><td class="num">{{ "{:,}".format(current_user.vc_minutes) }}</td></tr>
+            </tbody>
+        </table>
+        {% else %}
+        <div class="empty-state">User does not exist in current database.</div>
+        {% endif %}
+    </div>
+    <div class="admin-card">
+        <h2>Backup User</h2>
+        <table class="admin-table compact">
+            <tbody>
+                <tr><td>Level</td><td class="num">{{ backup_user.level }}</td></tr>
+                <tr><td>XP</td><td class="num">{{ "{:,}".format(backup_user.total_xp) }}</td></tr>
+                <tr><td>Messages</td><td class="num">{{ "{:,}".format(backup_user.total_messages) }}</td></tr>
+                <tr><td>VC Minutes</td><td class="num">{{ "{:,}".format(backup_user.vc_minutes) }}</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="admin-card" style="border-color: rgba(239,68,68,0.4);">
+    <h2 style="color:var(--error);">&#9888; Confirm Restore</h2>
+    <p class="card-sub">This will replace the current user data with the backup version. A safety backup of the current database will be saved first.</p>
+    <form method="POST" action="{{ url_for('admin.backup_restore_user', name=backup_name) }}" class="admin-form" data-confirm-check="RESTORE">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="action" value="confirm">
+        <input type="hidden" name="user_id" value="{{ user_id }}">
+        <input type="hidden" name="guild_id" value="{{ guild_id }}">
+        <div class="form-field">
+            <label>Type exactly <span class="mono">RESTORE</span></label>
+            <input type="text" name="confirm" data-confirm-input placeholder="RESTORE" autocomplete="off" autofocus>
+        </div>
+        <div class="checkbox-field"><span data-confirm-hint class="muted">Type RESTORE to enable</span></div>
+        <button class="btn btn-danger" type="submit" data-confirm-submit disabled>&#128190; Restore user from backup</button>
+    </form>
+</div>
+{% else %}
+<div class="admin-card">
+    <h2>Select User to Restore</h2>
+    <p class="card-sub">Enter the Discord user ID and guild ID to restore from {{ backup_name }}.</p>
+    <form method="POST" action="{{ url_for('admin.backup_restore_user', name=backup_name) }}" class="admin-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="action" value="preview">
+        <div class="form-grid">
+            <div class="form-field">
+                <label>User ID</label>
+                <input type="text" name="user_id" value="{{ user_id or '' }}" required placeholder="123456789012345678">
+            </div>
+            <div class="form-field">
+                <label>Guild ID</label>
+                <input type="text" name="guild_id" value="{{ guild_id or '' }}" required placeholder="123456789012345678">
+            </div>
+        </div>
+        <button class="btn btn-primary" type="submit">Preview</button>
+    </form>
+</div>
+{% endif %}
+{% endblock %}
