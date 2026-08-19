@@ -1,19 +1,19 @@
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', function() {
     // Enable a confirm button only when the typed word matches
-    document.querySelectorAll('[data-confirm-check]').forEach(wrap => {
-        const input = wrap.querySelector('[data-confirm-input]');
-        const required = (wrap.dataset.confirmCheck || '').toUpperCase();
-        const submit = wrap.querySelector('[data-confirm-submit]');
-        const hint = wrap.querySelector('[data-confirm-hint]');
+    document.querySelectorAll('[data-confirm-check]').forEach(function(wrap) {
+        var input = wrap.querySelector('[data-confirm-input]');
+        var required = (wrap.dataset.confirmCheck || '').toUpperCase();
+        var submit = wrap.querySelector('[data-confirm-submit]');
+        var hint = wrap.querySelector('[data-confirm-hint]');
 
         if (!input || !submit) return;
 
-        const sync = () => {
-            const val = input.value.trim().toUpperCase();
-            const match = val === required;
+        var sync = function() {
+            var val = input.value.trim().toUpperCase();
+            var match = val === required;
             submit.disabled = !match;
             if (hint) {
-                hint.textContent = match ? 'Matches' : `Type ${required} to enable`;
+                hint.textContent = match ? 'Matches' : 'Type ' + required + ' to enable';
                 hint.style.color = match ? 'var(--success)' : 'var(--text-muted)';
             }
         };
@@ -22,32 +22,34 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Copy-to-clipboard for elements with data-copy
-    document.querySelectorAll('[data-copy]').forEach(el => {
-        el.addEventListener('click', () => {
-            const text = el.getAttribute('data-copy');
-            navigator.clipboard?.writeText(text).then(() => {
-                const old = el.textContent;
-                el.textContent = 'Copied!';
-                el.style.color = 'var(--success)';
-                setTimeout(() => {
-                    el.textContent = old;
-                    el.style.color = '';
-                }, 1200);
-            }).catch(() => {});
+    document.querySelectorAll('[data-copy]').forEach(function(el) {
+        el.addEventListener('click', function() {
+            var text = el.getAttribute('data-copy');
+            if (navigator.clipboard) {
+                navigator.clipboard.writeText(text).then(function() {
+                    var old = el.textContent;
+                    el.textContent = 'Copied!';
+                    el.style.color = 'var(--success)';
+                    setTimeout(function() {
+                        el.textContent = old;
+                        el.style.color = '';
+                    }, 1200);
+                }).catch(function() {});
+            }
         });
     });
 
-    // Confirm-on-click destructive buttons (double-click pattern)
-    document.querySelectorAll('[data-armed]').forEach(btn => {
-        let armed = false;
-        btn.addEventListener('click', (e) => {
+    // Confirm-on-click for destructive buttons (double-click pattern)
+    document.querySelectorAll('[data-armed]').forEach(function(btn) {
+        var armed = false;
+        btn.addEventListener('click', function(e) {
             if (!armed) {
                 e.preventDefault();
                 armed = true;
-                const old = btn.textContent;
+                var old = btn.textContent;
                 btn.textContent = 'Click again to confirm';
                 btn.classList.add('btn-danger');
-                setTimeout(() => {
+                setTimeout(function() {
                     armed = false;
                     btn.textContent = old;
                     btn.classList.remove('btn-danger');
@@ -58,19 +60,19 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Auto-dismiss alerts after a few seconds
-    document.querySelectorAll('.alert[data-auto-dismiss]').forEach(al => {
-        setTimeout(() => {
+    document.querySelectorAll('.alert[data-auto-dismiss]').forEach(function(al) {
+        setTimeout(function() {
             al.style.transition = 'opacity 0.5s ease';
             al.style.opacity = '0';
-            setTimeout(() => al.remove(), 500);
+            setTimeout(function() { al.remove(); }, 500);
         }, 6000);
     });
 
     // Keyboard shortcut: Ctrl+K or Cmd+K to focus search inputs
-    document.addEventListener('keydown', (e) => {
+    document.addEventListener('keydown', function(e) {
         if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
             e.preventDefault();
-            const searchInput = document.querySelector('.admin-main input[type="text"][autofocus]')
+            var searchInput = document.querySelector('.admin-main input[type="text"][autofocus]')
                 || document.querySelector('.admin-main input[type="text"][name="q"]')
                 || document.querySelector('.admin-main input[type="text"][name="search"]');
             if (searchInput) searchInput.focus();
@@ -78,20 +80,20 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Smooth number counting animation for stat values
-    document.querySelectorAll('.stat-value').forEach(el => {
-        const text = el.textContent.trim();
-        const num = parseFloat(text.replace(/[,]/g, ''));
-        if (isNaN(num) || text.includes('m') || text.includes('h') || text.includes('%')) return;
+    document.querySelectorAll('.stat-value').forEach(function(el) {
+        var text = el.textContent.trim();
+        var num = parseFloat(text.replace(/[,]/g, ''));
+        if (isNaN(num) || text.indexOf('m') !== -1 || text.indexOf('h') !== -1 || text.indexOf('%') !== -1) return;
 
-        const formatted = text;
-        const duration = 600;
-        const start = performance.now();
+        var formatted = text;
+        var duration = 600;
+        var start = performance.now();
 
-        const animate = (now) => {
-            const elapsed = now - start;
-            const progress = Math.min(elapsed / duration, 1);
-            const eased = 1 - Math.pow(1 - progress, 3);
-            const current = Math.round(num * eased);
+        function animate(now) {
+            var elapsed = now - start;
+            var progress = Math.min(elapsed / duration, 1);
+            var eased = 1 - Math.pow(1 - progress, 3);
+            var current = Math.round(num * eased);
 
             el.textContent = current.toLocaleString();
 
@@ -100,18 +102,19 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 el.textContent = formatted;
             }
-        };
+        }
 
         requestAnimationFrame(animate);
     });
 
-    const hamburger = document.getElementById('adminHamburger');
-    const overlay = document.getElementById('adminNavOverlay');
+    // Hamburger menu toggle
+    var hamburger = document.getElementById('adminHamburger');
+    var overlay = document.getElementById('adminNavOverlay');
     if (hamburger && overlay) {
-        hamburger.addEventListener('click', () => {
+        hamburger.addEventListener('click', function() {
             document.body.classList.toggle('nav-open');
         });
-        overlay.addEventListener('click', () => {
+        overlay.addEventListener('click', function() {
             document.body.classList.remove('nav-open');
         });
     }

@@ -121,23 +121,23 @@ function copyLogs() {
 
 <style>
 .log-output {
-    background: #0d1117;
-    border: 1px solid #30363d;
-    border-radius: 6px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-light);
+    border-radius: 10px;
     padding: 12px;
     max-height: 500px;
     overflow-y: auto;
-    font-family: 'JetBrains Mono', monospace;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
     font-size: 12px;
     line-height: 1.6;
 }
 .log-line {
-    color: #c9d1d9;
+    color: var(--text-secondary);
     white-space: pre-wrap;
     word-break: break-all;
 }
 .log-line:hover {
-    background: rgba(255,255,255,0.03);
+    background: rgba(132, 56, 252, 0.04);
 }
 </style>
 {% endblock %}
