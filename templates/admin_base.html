@@ -29,7 +29,6 @@
                 <a href="{{ url_for('admin.dashboard') }}" class="{% if request.endpoint == 'admin.dashboard' %}active{% endif %}">&#128202; Dashboard</a>
                 <a href="{{ url_for('admin.users') }}" class="{% if request.endpoint in ('admin.users', 'admin.user_edit') %}active{% endif %}">&#128101; Users</a>
                 <a href="{{ url_for('admin.guilds') }}" class="{% if request.endpoint in ('admin.guilds', 'admin.guild_edit') %}active{% endif %}">&#127970; Guilds</a>
-                <a href="{{ url_for('admin.events_page') }}" class="{% if request.endpoint == 'admin.events_page' %}active{% endif %}">&#9889; Live Events</a>
                 <a href="{{ url_for('admin.commands_page') }}" class="{% if request.endpoint == 'admin.commands_page' %}active{% endif %}">&#128196; Commands</a>
                 <a href="{{ url_for('admin.stats') }}" class="{% if request.endpoint == 'admin.stats' %}active{% endif %}">&#128200; Statistics</a>
                 <a href="{{ url_for('admin.forget') }}" class="{% if request.endpoint in ('admin.forget', 'admin.forget_confirm') %}active{% endif %}">&#128274; Privacy / Forget</a>
