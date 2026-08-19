@@ -479,9 +479,13 @@ def _parse_command_logs():
                 after_cmd = cmd_part[2] if len(cmd_part) > 2 else ""
                 user_part = after_cmd.split("used by '")
                 username = user_part[1].split("'")[0] if len(user_part) > 1 else ""
-                guild_part = user_part[1].split("in '")[1] if len(user_part) > 1 and "in '" in user_part[1] else ""
-                guild_name = guild_part.split("'")[0] if guild_part else ""
-                guild_name = guild_name.split("/")[0] if "/" in guild_name else guild_name
+                guild_full = ""
+                guild_name = ""
+                guild_id = ""
+                if len(user_part) > 1 and "in '" in user_part[1]:
+                    after_user = user_part[1].split("in '", 1)[1]
+                    guild_full = after_user.split("' (", 1)[0] if "' (" in after_user else after_user.split("'")[0]
+                    guild_name = guild_full.split("/")[0] if "/" in guild_full else guild_full
                 uid_part = after_cmd.split("user_id: ")
                 user_id = uid_part[1].split(",")[0].split(")")[0] if len(uid_part) > 1 else ""
                 gid_part = after_cmd.split("guild_id: ")
