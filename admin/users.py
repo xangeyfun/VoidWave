@@ -1,6 +1,6 @@
 import time
 import json
-from flask import render_template, request, redirect, url_for, session, abort
+from flask import render_template, request, redirect, url_for, session, abort, flash
 
 from . import admin_bp
 from .helpers import (
@@ -72,7 +72,8 @@ def user_add():
 
     if guild_id < 1000000000000 or user_id < 1000000000000:
         _log("USER ADD FAIL", f"invalid ids guild={guild_id} user={user_id}")
-        return redirect(url_for("admin.users", err="Invalid Discord IDs (must be 13+ digits)"))
+        flash("Invalid Discord IDs (must be 13+ digits)", "error")
+        return redirect(url_for("admin.users"))
 
     conn = _db()
     try:
@@ -189,8 +190,8 @@ def user_edit(guild_id, user_id):
 def user_delete(guild_id, user_id):
     confirm = (request.form.get("confirm") or "").strip()
     if confirm != "DELETE":
-        return redirect(url_for("admin.user_edit", guild_id=guild_id, user_id=user_id,
-                                err="Confirmation must be DELETE"))
+        flash("Confirmation must be DELETE", "error")
+        return redirect(url_for("admin.user_edit", guild_id=guild_id, user_id=user_id))
 
     conn = _db()
     try:
@@ -204,4 +205,5 @@ def user_delete(guild_id, user_id):
         conn.close()
 
     _log("USER DELETE", f"guild={guild_id} user={user_id} rows={removed}")
-    return redirect(url_for("admin.users", msg=f"Deleted {removed} row(s)."))
+    flash(f"Deleted {removed} row(s).", "success")
+    return redirect(url_for("admin.users"))

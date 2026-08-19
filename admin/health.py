@@ -2,7 +2,7 @@ import time
 import subprocess
 from pathlib import Path
 
-from flask import render_template, redirect, url_for, session, jsonify, abort
+from flask import render_template, redirect, url_for, session, jsonify, abort, flash
 
 from . import admin_bp
 from .helpers import _db, _log, _clear_cache, _normalize_progress
@@ -345,7 +345,8 @@ def check_fix(kind):
     session["last_fix_result"] = f"{kind}: {changed} row(s) affected"
 
     _log("CHECK FIX", f"kind={kind} rows={changed}")
-    return redirect(url_for("admin.check", fixed=f"{kind}:{changed}"))
+    flash(f"Fixed {kind}: {changed} row(s) affected", "success")
+    return redirect(url_for("admin.check"))
 
 
 @admin_bp.route("/check/fix-sql")

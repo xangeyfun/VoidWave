@@ -47,21 +47,6 @@
 </div>
 {% endif %}
 
-{% if request.args.get('fixed') %}
-{% set fixed_parts = request.args.get('fixed').split(':') %}
-<div class="alert alert-success" id="fix-result-banner">
-    Fixed <strong>{{ fixed_parts[0] }}</strong>. {{ fixed_parts[1] }} row(s) affected.
-    <button class="btn btn-secondary btn-sm" style="margin-left:12px;" onclick="loadFixSQL()">Show executed SQL</button>
-</div>
-<div id="fix-sql-panel" style="display:none;margin-top:12px;" class="admin-card">
-    <div class="card-head"><h3>Executed SQL</h3></div>
-    <div class="fix-sql-actions" style="display:flex;gap:8px;margin-bottom:8px;">
-        <button class="btn btn-secondary btn-sm" onclick="copyFixSQL()">&#128203; Copy SQL</button>
-    </div>
-    <pre id="fix-sql-content" class="sql-block"></pre>
-</div>
-{% endif %}
-
 <div class="admin-card">
     <div class="card-head">
         <h2>Check Results</h2>

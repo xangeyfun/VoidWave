@@ -1,4 +1,4 @@
-from flask import render_template, redirect, url_for, request, jsonify, abort
+from flask import render_template, redirect, url_for, request, jsonify, abort, flash
 
 from . import admin_bp
 from .helpers import _log, _service_status, _service_logs, _service_stop, _service_start
@@ -27,9 +27,11 @@ def bot_action(action):
 
     confirm_text = request.form.get("confirm", "").strip()
     if action == "stop" and confirm_text.upper() != "STOP":
-        return redirect(url_for("admin.bot_confirm", action="stop", err="Type STOP to confirm"))
+        flash("Type STOP to confirm", "error")
+        return redirect(url_for("admin.bot_confirm", action="stop"))
     if action == "restart" and confirm_text.upper() != "RESTART":
-        return redirect(url_for("admin.bot_confirm", action="restart", err="Type RESTART to confirm"))
+        flash("Type RESTART to confirm", "error")
+        return redirect(url_for("admin.bot_confirm", action="restart"))
 
     if action == "stop":
         ok, msg = _service_stop(BOT_SERVICE)
@@ -44,8 +46,10 @@ def bot_action(action):
 
     _log("BOT ACTION", f"{action} -> {msg}")
     if ok:
-        return redirect(url_for("admin.bot_status", msg=msg))
-    return redirect(url_for("admin.bot_status", err=msg))
+        flash(msg, "success")
+    else:
+        flash(msg, "error")
+    return redirect(url_for("admin.bot_status"))
 
 
 @admin_bp.route("/bot/logs")

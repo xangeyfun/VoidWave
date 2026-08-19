@@ -7,7 +7,7 @@
 {% endblock %}
 
 {% block content %}
-<!-- Overview Cards - Row 1 -->
+<!-- Overview Cards Row 1 -->
 <div class="admin-grid cols-4">
     <div class="stat-card">
         <div class="stat-icon">&#128101;</div>
@@ -35,7 +35,7 @@
     </div>
 </div>
 
-<!-- Overview Cards - Row 2 -->
+<!-- Overview Cards Row 2 -->
 <div class="admin-grid cols-4" style="margin-top:0.75rem;">
     <div class="stat-card">
         <div class="stat-icon">&#128200;</div>
@@ -63,7 +63,7 @@
     </div>
 </div>
 
-<!-- Overview Cards - Row 3 (New Stats) -->
+<!-- Overview Cards Row 3 (New Stats) -->
 <div class="admin-grid cols-4" style="margin-top:0.75rem;">
     <div class="stat-card">
         <div class="stat-icon">&#128202;</div>
@@ -91,77 +91,86 @@
     </div>
 </div>
 
-<!-- Activity & Level Distribution -->
+<!-- Activity and Level Distribution -->
 <div class="admin-grid cols-2" style="margin-top:1.5rem;">
     <div class="admin-card">
         <h2>Activity Windows</h2>
         <p class="card-sub">Users with recent messages.</p>
-        <div class="admin-table-wrap">
-            <table class="admin-table compact">
-                <thead><tr><th>Window</th><th class="num">Active Users</th><th>Share</th></tr></thead>
-                <tbody>
-                    {% for label, count in active.items() %}
-                    <tr>
-                        <td>Last {{ label }}</td>
-                        <td class="num">{{ "{:,}".format(count) }}</td>
-                        <td style="min-width:140px;">
-                            {% set pct = (count / agg.users * 100)|round(1) if agg.users else 0 %}
-                            <div class="progress-track"><div class="progress-fill" style="width: {{ pct }}%;"></div></div>
-                            <span class="muted" style="font-size:0.7rem;">{{ pct }}%</span>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;align-items:start;">
+            <div class="chart-card"><div class="chart-wrap"><canvas id="chartActive"></canvas></div></div>
+            <div class="admin-table-wrap">
+                <table class="admin-table compact">
+                    <thead><tr><th>Window</th><th class="num">Active Users</th><th>Share</th></tr></thead>
+                    <tbody>
+                        {% for label, count in active.items() %}
+                        <tr>
+                            <td>Last {{ label }}</td>
+                            <td class="num">{{ "{:,}".format(count) }}</td>
+                            <td style="min-width:140px;">
+                                {% set pct = (count / agg.users * 100)|round(1) if agg.users else 0 %}
+                                <div class="progress-track"><div class="progress-fill" style="width: {{ pct }}%;"></div></div>
+                                <span class="muted" style="font-size:0.7rem;">{{ pct }}%</span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 
     <div class="admin-card">
         <h2>Level Distribution</h2>
         <p class="card-sub">Users per level band.</p>
-        <div class="admin-table-wrap">
-            <table class="admin-table compact">
-                <thead><tr><th>Levels</th><th class="num">Users</th><th>Share</th></tr></thead>
-                <tbody>
-                    {% for b in level_buckets %}
-                    <tr>
-                        <td>{{ b.range }}</td>
-                        <td class="num">{{ "{:,}".format(b.count) }}</td>
-                        <td style="min-width:140px;">
-                            {% set pct = (b.count / agg.users * 100)|round(1) if agg.users else 0 %}
-                            <div class="progress-track"><div class="progress-fill" style="width: {{ pct }}%;"></div></div>
-                            <span class="muted" style="font-size:0.7rem;">{{ pct }}%</span>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;align-items:start;">
+            <div class="chart-card"><div class="chart-wrap"><canvas id="chartLevels"></canvas></div></div>
+            <div class="admin-table-wrap">
+                <table class="admin-table compact">
+                    <thead><tr><th>Levels</th><th class="num">Users</th><th>Share</th></tr></thead>
+                    <tbody>
+                        {% for b in level_buckets %}
+                        <tr>
+                            <td>{{ b.range }}</td>
+                            <td class="num">{{ "{:,}".format(b.count) }}</td>
+                            <td style="min-width:140px;">
+                                {% set pct = (b.count / agg.users * 100)|round(1) if agg.users else 0 %}
+                                <div class="progress-track"><div class="progress-fill" style="width: {{ pct }}%;"></div></div>
+                                <span class="muted" style="font-size:0.7rem;">{{ pct }}%</span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 </div>
 
-<!-- XP Distribution & Vote Boosts -->
+<!-- XP Distribution and Vote Boosts -->
 <div class="admin-grid cols-2" style="margin-top:1rem;">
     <div class="admin-card">
         <h2>XP Distribution</h2>
         <p class="card-sub">Users per XP range.</p>
-        <div class="admin-table-wrap">
-            <table class="admin-table compact">
-                <thead><tr><th>XP Range</th><th class="num">Users</th><th>Share</th></tr></thead>
-                <tbody>
-                    {% for b in xp_distribution %}
-                    <tr>
-                        <td>{{ b.range }}</td>
-                        <td class="num">{{ "{:,}".format(b.count) }}</td>
-                        <td style="min-width:140px;">
-                            {% set pct = (b.count / agg.users * 100)|round(1) if agg.users else 0 %}
-                            <div class="progress-track"><div class="progress-fill" style="width: {{ pct }}%;"></div></div>
-                            <span class="muted" style="font-size:0.7rem;">{{ pct }}%</span>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;align-items:start;">
+            <div class="chart-card"><div class="chart-wrap"><canvas id="chartXp"></canvas></div></div>
+            <div class="admin-table-wrap">
+                <table class="admin-table compact">
+                    <thead><tr><th>XP Range</th><th class="num">Users</th><th>Share</th></tr></thead>
+                    <tbody>
+                        {% for b in xp_distribution %}
+                        <tr>
+                            <td>{{ b.range }}</td>
+                            <td class="num">{{ "{:,}".format(b.count) }}</td>
+                            <td style="min-width:140px;">
+                                {% set pct = (b.count / agg.users * 100)|round(1) if agg.users else 0 %}
+                                <div class="progress-track"><div class="progress-fill" style="width: {{ pct }}%;"></div></div>
+                                <span class="muted" style="font-size:0.7rem;">{{ pct }}%</span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 
@@ -363,4 +372,102 @@
         {% endif %}
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/chart.umd.min.js') }}"></script>
+<script>
+(function() {
+    var gridColor = 'rgba(255, 255, 255, 0.06)';
+    var tickColor = '#8b949e';
+    var barBg = 'rgba(132, 56, 252, 0.15)';
+    var barBorder = 'rgba(132, 56, 252, 0.7)';
+
+    var commonScaleOpts = {
+        grid: { color: gridColor },
+        ticks: { color: tickColor, font: { size: 11 } }
+    };
+
+    var activeData = {{ active|tojson }};
+    var activeLabels = Object.keys(activeData).map(function(k) { return 'Last ' + k; });
+    var activeValues = Object.values(activeData);
+
+    new Chart(document.getElementById('chartActive'), {
+        type: 'bar',
+        data: {
+            labels: activeLabels,
+            datasets: [{
+                data: activeValues,
+                backgroundColor: barBg,
+                borderColor: barBorder,
+                borderWidth: 1,
+                borderRadius: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                x: Object.assign({}, commonScaleOpts),
+                y: Object.assign({}, commonScaleOpts, { beginAtZero: true })
+            }
+        }
+    });
+
+    var levelData = {{ level_buckets|tojson }};
+    var levelLabels = levelData.map(function(b) { return b.range; });
+    var levelValues = levelData.map(function(b) { return b.count; });
+
+    new Chart(document.getElementById('chartLevels'), {
+        type: 'bar',
+        data: {
+            labels: levelLabels,
+            datasets: [{
+                data: levelValues,
+                backgroundColor: barBg,
+                borderColor: barBorder,
+                borderWidth: 1,
+                borderRadius: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                x: Object.assign({}, commonScaleOpts),
+                y: Object.assign({}, commonScaleOpts, { beginAtZero: true })
+            }
+        }
+    });
+
+    var xpData = {{ xp_distribution|tojson }};
+    var xpLabels = xpData.map(function(b) { return b.range; });
+    var xpValues = xpData.map(function(b) { return b.count; });
+
+    new Chart(document.getElementById('chartXp'), {
+        type: 'bar',
+        data: {
+            labels: xpLabels,
+            datasets: [{
+                data: xpValues,
+                backgroundColor: barBg,
+                borderColor: barBorder,
+                borderWidth: 1,
+                borderRadius: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                x: Object.assign({}, commonScaleOpts),
+                y: Object.assign({}, commonScaleOpts, { beginAtZero: true })
+            }
+        }
+    });
+})();
+</script>
 {% endblock %}

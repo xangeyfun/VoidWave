@@ -13,6 +13,9 @@
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     </head>
     <body class="admin-body">
+        <button class="admin-hamburger" id="adminHamburger" aria-label="Toggle navigation">
+            <span></span><span></span><span></span>
+        </button>
         <aside class="admin-sidebar">
             <div class="admin-brand">
                 <img src="/static/images/favicon.png" alt="VoidWave">
@@ -41,6 +44,7 @@
                 <a href="{{ url_for('admin.logout') }}" class="danger">&#128682; Logout</a>
             </nav>
         </aside>
+        <div class="admin-nav-overlay" id="adminNavOverlay"></div>
 
         <main class="admin-main">
             <div class="admin-topbar">
@@ -60,16 +64,6 @@
                     {% endfor %}
                 {% endif %}
             {% endwith %}
-
-            {% if request.args.get('msg') %}
-                <div class="alert alert-success" data-auto-dismiss>{{ request.args.get('msg') }}</div>
-            {% endif %}
-            {% if request.args.get('err') %}
-                <div class="alert alert-error" data-auto-dismiss>{{ request.args.get('err') }}</div>
-            {% endif %}
-            {% if request.args.get('fixed') %}
-                <div class="alert alert-success" data-auto-dismiss>Auto-fix applied ({{ request.args.get('fixed') }}).</div>
-            {% endif %}
 
             {% block content %}{% endblock %}
         </main>

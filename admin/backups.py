@@ -2,7 +2,7 @@ import hmac
 import shutil
 from pathlib import Path
 
-from flask import render_template, redirect, url_for, request, abort
+from flask import render_template, redirect, url_for, request, abort, flash
 
 from . import admin_bp
 from .helpers import (
@@ -24,7 +24,8 @@ def backup_create():
         abort(500, description=err)
     removed = _prune_backups()
     _log("BACKUP CREATE", dst.name)
-    return redirect(url_for("admin.backups", msg=f"Backup created: {dst.name} ({removed} pruned)"))
+    flash(f"Backup created: {dst.name} ({removed} pruned)", "success")
+    return redirect(url_for("admin.backups"))
 
 
 @admin_bp.route("/backups/<name>/restore", methods=["GET", "POST"])
@@ -41,35 +42,38 @@ def backup_restore(name):
         confirm = (request.form.get("confirm") or "").strip()
         if not hmac.compare_digest(confirm, "RESTORE"):
             _log("RESTORE FAIL", "confirmation mismatch", name)
-            return redirect(url_for("admin.backups", err="Confirmation must be exactly: RESTORE"))
+            flash("Confirmation must be exactly: RESTORE", "error")
+            return redirect(url_for("admin.backups"))
 
         stop_bot = request.form.get("stop_bot") == "on"
         bot_stopped = request.form.get("bot_stopped") == "on"
 
         if not stop_bot and not bot_stopped:
-            return redirect(
-                url_for("admin.backup_restore", name=name,
-                        err="You must either stop the bot or confirm it is already stopped.")
-            )
+            flash("You must either stop the bot or confirm it is already stopped.", "error")
+            return redirect(url_for("admin.backup_restore", name=name))
 
         try:
             if stop_bot:
                 ok, msg = _service_stop("voidwave.service")
                 if not ok:
-                    return redirect(url_for("admin.backup_restore", name=name, err=msg))
+                    flash(msg, "error")
+                    return redirect(url_for("admin.backup_restore", name=name))
         except Exception as e:
-            return redirect(url_for("admin.backup_restore", name=name, err=str(e)))
+            flash(str(e), "error")
+            return redirect(url_for("admin.backup_restore", name=name))
 
         dst, err = _backup_current(suffix="_prerestore")
         if err:
             _log("RESTORE FAIL", f"no safety backup: {err}")
-            return redirect(url_for("admin.backup_restore", name=name, err=err))
+            flash(err, "error")
+            return redirect(url_for("admin.backup_restore", name=name))
 
         try:
             shutil.copy2(path, "database.db")
         except OSError as e:
             _log("RESTORE FAIL", f"copy error: {e}")
-            return redirect(url_for("admin.backup_restore", name=name, err=f"Copy failed: {e}"))
+            flash(f"Copy failed: {e}", "error")
+            return redirect(url_for("admin.backup_restore", name=name))
 
         for suffix in ("-wal", "-shm"):
             p = Path("database.db" + suffix)
@@ -108,14 +112,18 @@ def backup_delete(name):
     from .constants import BACKUP_DIR
     confirm = (request.form.get("confirm") or "").strip()
     if not hmac.compare_digest(confirm, "DELETE"):
-        return redirect(url_for("admin.backups", err="Confirmation must be exactly: DELETE"))
+        flash("Confirmation must be exactly: DELETE", "error")
+        return redirect(url_for("admin.backups"))
 
     path = BACKUP_DIR / name
     if path.exists() and path.is_file():
         try:
             path.unlink()
             _log("BACKUP DELETE", name)
-            return redirect(url_for("admin.backups", msg=f"Deleted backup {name}"))
+            flash(f"Deleted backup {name}", "success")
+            return redirect(url_for("admin.backups"))
         except OSError as e:
-            return redirect(url_for("admin.backups", err=str(e)))
-    return redirect(url_for("admin.backups", err="Backup not found"))
+            flash(str(e), "error")
+            return redirect(url_for("admin.backups"))
+    flash("Backup not found", "error")
+    return redirect(url_for("admin.backups"))

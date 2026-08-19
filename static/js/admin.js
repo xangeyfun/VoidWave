@@ -104,4 +104,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
         requestAnimationFrame(animate);
     });
+
+    const hamburger = document.getElementById('adminHamburger');
+    const overlay = document.getElementById('adminNavOverlay');
+    if (hamburger && overlay) {
+        hamburger.addEventListener('click', () => {
+            document.body.classList.toggle('nav-open');
+        });
+        overlay.addEventListener('click', () => {
+            document.body.classList.remove('nav-open');
+        });
+    }
 });
