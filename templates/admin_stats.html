@@ -91,99 +91,108 @@
     </div>
 </div>
 
-<!-- Activity and Level Distribution -->
-<div class="admin-grid cols-2" style="margin-top:1.5rem;">
+<!-- Charts Row: Activity, Level, XP -->
+<div class="admin-grid cols-3" style="margin-top:1.5rem;">
+    <div class="chart-card">
+        <h3>Activity Windows</h3>
+        <div class="chart-wrap"><canvas id="chartActive"></canvas></div>
+    </div>
+    <div class="chart-card">
+        <h3>Level Distribution</h3>
+        <div class="chart-wrap"><canvas id="chartLevels"></canvas></div>
+    </div>
+    <div class="chart-card">
+        <h3>XP Distribution</h3>
+        <div class="chart-wrap"><canvas id="chartXp"></canvas></div>
+    </div>
+</div>
+
+<!-- Tables Row: Activity, Level, XP -->
+<div class="admin-grid cols-3" style="margin-top:1rem;">
     <div class="admin-card">
         <h2>Activity Windows</h2>
         <p class="card-sub">Users with recent messages.</p>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;align-items:start;">
-            <div class="chart-card"><div class="chart-wrap"><canvas id="chartActive"></canvas></div></div>
-            <div class="admin-table-wrap">
-                <table class="admin-table compact">
-                    <thead><tr><th>Window</th><th class="num">Active Users</th><th>Share</th></tr></thead>
-                    <tbody>
-                        {% for label, count in active.items() %}
-                        <tr>
-                            <td>Last {{ label }}</td>
-                            <td class="num">{{ "{:,}".format(count) }}</td>
-                            <td style="min-width:140px;">
-                                {% set pct = (count / agg.users * 100)|round(1) if agg.users else 0 %}
-                                <div class="progress-track"><div class="progress-fill" style="width: {{ pct }}%;"></div></div>
-                                <span class="muted" style="font-size:0.7rem;">{{ pct }}%</span>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
+        <div class="admin-table-wrap">
+            <table class="admin-table compact">
+                <thead><tr><th>Window</th><th class="num">Active Users</th><th>Share</th></tr></thead>
+                <tbody>
+                    {% for label, count in active.items() %}
+                    <tr>
+                        <td>Last {{ label }}</td>
+                        <td class="num">{{ "{:,}".format(count) }}</td>
+                        <td style="min-width:140px;">
+                            {% set pct = (count / agg.users * 100)|round(1) if agg.users else 0 %}
+                            <div class="progress-track"><div class="progress-fill" style="width: {{ pct }}%;"></div></div>
+                            <span class="muted" style="font-size:0.7rem;">{{ pct }}%</span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
     </div>
 
     <div class="admin-card">
         <h2>Level Distribution</h2>
         <p class="card-sub">Users per level band.</p>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;align-items:start;">
-            <div class="chart-card"><div class="chart-wrap"><canvas id="chartLevels"></canvas></div></div>
-            <div class="admin-table-wrap">
-                <table class="admin-table compact">
-                    <thead><tr><th>Levels</th><th class="num">Users</th><th>Share</th></tr></thead>
-                    <tbody>
-                        {% for b in level_buckets %}
-                        <tr>
-                            <td>{{ b.range }}</td>
-                            <td class="num">{{ "{:,}".format(b.count) }}</td>
-                            <td style="min-width:140px;">
-                                {% set pct = (b.count / agg.users * 100)|round(1) if agg.users else 0 %}
-                                <div class="progress-track"><div class="progress-fill" style="width: {{ pct }}%;"></div></div>
-                                <span class="muted" style="font-size:0.7rem;">{{ pct }}%</span>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
+        <div class="admin-table-wrap">
+            <table class="admin-table compact">
+                <thead><tr><th>Levels</th><th class="num">Users</th><th>Share</th></tr></thead>
+                <tbody>
+                    {% for b in level_buckets %}
+                    <tr>
+                        <td>{{ b.range }}</td>
+                        <td class="num">{{ "{:,}".format(b.count) }}</td>
+                        <td style="min-width:140px;">
+                            {% set pct = (b.count / agg.users * 100)|round(1) if agg.users else 0 %}
+                            <div class="progress-track"><div class="progress-fill" style="width: {{ pct }}%;"></div></div>
+                            <span class="muted" style="font-size:0.7rem;">{{ pct }}%</span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="admin-card">
+        <h2>XP Distribution</h2>
+        <p class="card-sub">Users per XP range.</p>
+        <div class="admin-table-wrap">
+            <table class="admin-table compact">
+                <thead><tr><th>XP Range</th><th class="num">Users</th><th>Share</th></tr></thead>
+                <tbody>
+                    {% for b in xp_distribution %}
+                    <tr>
+                        <td>{{ b.range }}</td>
+                        <td class="num">{{ "{:,}".format(b.count) }}</td>
+                        <td style="min-width:140px;">
+                            {% set pct = (b.count / agg.users * 100)|round(1) if agg.users else 0 %}
+                            <div class="progress-track"><div class="progress-fill" style="width: {{ pct }}%;"></div></div>
+                            <span class="muted" style="font-size:0.7rem;">{{ pct }}%</span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
     </div>
 </div>
 
-<!-- XP Distribution and Vote Boosts -->
+<!-- Vote Boosts and Config Summary -->
 <div class="admin-grid cols-2" style="margin-top:1rem;">
-    <div class="admin-card">
-        <h2>XP Distribution</h2>
-        <p class="card-sub">Users per XP range.</p>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;align-items:start;">
-            <div class="chart-card"><div class="chart-wrap"><canvas id="chartXp"></canvas></div></div>
-            <div class="admin-table-wrap">
-                <table class="admin-table compact">
-                    <thead><tr><th>XP Range</th><th class="num">Users</th><th>Share</th></tr></thead>
-                    <tbody>
-                        {% for b in xp_distribution %}
-                        <tr>
-                            <td>{{ b.range }}</td>
-                            <td class="num">{{ "{:,}".format(b.count) }}</td>
-                            <td style="min-width:140px;">
-                                {% set pct = (b.count / agg.users * 100)|round(1) if agg.users else 0 %}
-                                <div class="progress-track"><div class="progress-fill" style="width: {{ pct }}%;"></div></div>
-                                <span class="muted" style="font-size:0.7rem;">{{ pct }}%</span>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-
     <div class="admin-card">
         <h2>Vote Boosts</h2>
         <p class="card-sub">Top.gg vote boost state.</p>
-        <div class="admin-grid cols-3" style="margin-bottom:1rem;">
+        <div class="admin-grid cols-3">
             <div class="stat-card"><div class="stat-value" style="color:#4ade80;">{{ boost_rows.active }}</div><div class="stat-label">Active</div></div>
             <div class="stat-card"><div class="stat-value" style="color:#fbbf24;">{{ boost_rows.expired }}</div><div class="stat-label">Expired</div></div>
             <div class="stat-card"><div class="stat-value">{{ boost_rows.c }}</div><div class="stat-label">Total</div></div>
         </div>
+    </div>
 
-        <h2 style="margin-top:1rem;">Config Summary</h2>
+    <div class="admin-card">
+        <h2>Config Summary</h2>
         <p class="card-sub">Guild configuration overview.</p>
         <div class="admin-grid cols-2">
             <div class="stat-card"><div class="stat-value">{{ guild_settings_count }}</div><div class="stat-label">Guilds Configured</div></div>
