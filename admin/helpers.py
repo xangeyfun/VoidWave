@@ -473,7 +473,7 @@ def _parse_command_logs():
                     continue
                 parts = line.split(" ", 3)
                 ts = f"{parts[0]} {parts[1]}" if len(parts) > 1 else ""
-                rest = parts[2] if len(parts) > 2 else ""
+                rest = parts[3] if len(parts) > 3 else ""
                 cmd_part = rest.split("'", 2)
                 cmd_name = cmd_part[1] if len(cmd_part) > 1 else ""
                 after_cmd = cmd_part[2] if len(cmd_part) > 2 else ""

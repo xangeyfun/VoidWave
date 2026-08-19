@@ -26,7 +26,7 @@
         e.preventDefault();
         var v = document.getElementById('quickLookupInput').value.trim();
         if (/^\d{17,20}$/.test(v)) {
-            window.location.href = '{{ url_for("admin.user_profile", user_id=0) }}'.replace('/0/', '/' + v + '/');
+            window.location.href = '/admin/user/' + v;
         }
         return false;
     }

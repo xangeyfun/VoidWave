@@ -7,7 +7,7 @@
 <div class="admin-card">
     <div class="card-head">
         <h2>Event Feed</h2>
-        <div class="flex items-center gap-1">
+        <div style="display:flex;align-items:center;gap:8px;">
             <span class="live-dot" id="liveDot"></span>
             <span id="liveStatus" class="muted" style="font-size:0.82rem;">Connecting...</span>
         </div>
@@ -23,6 +23,10 @@
     var empty = document.getElementById('eventEmpty');
     var status = document.getElementById('liveStatus');
     var dot = document.getElementById('liveDot');
+    var lastId = 0;
+    var pollInterval = 3000;
+    var timer = null;
+
     var eventTypes = {
         'message': { icon: '&#128172;', color: 'var(--text-primary)' },
         'level_up': { icon: '&#127775;', color: '#fbbf24' },
@@ -31,8 +35,12 @@
         'command': { icon: '&#128196;', color: 'var(--primary)' },
         'guild_join': { icon: '&#127881;', color: '#4ade80' },
         'guild_leave': { icon: '&#128308;', color: '#f87171' },
-        'vote': { icon: '&#11088;', color: '#fbbf24' },
+        'vote': { icon: '&#11088;', color: '#fbbf24' }
     };
+
+    function escapeHtml(s) {
+        return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
 
     function renderEvent(ev) {
         var meta = eventTypes[ev.event_type] || { icon: '&#9679;', color: 'var(--text-secondary)' };
@@ -43,46 +51,45 @@
         row.style.animation = 'slideUp 0.3s ease-out';
         row.innerHTML =
             '<span style="font-size:1.1rem;flex-shrink:0;">' + meta.icon + '</span>' +
-            '<span class="activity-action"><span class="badge" style="background:rgba(132,56,252,0.12);color:' + meta.color + ';border:1px solid rgba(132,56,252,0.2);">' + ev.event_type + '</span></span>' +
+            '<span class="activity-action"><span class="badge" style="background:rgba(132,56,252,0.12);color:' + meta.color + ';border:1px solid rgba(132,56,252,0.2);">' + escapeHtml(ev.event_type) + '</span></span>' +
             '<span class="activity-detail">' + escapeHtml(ev.detail) + '</span>' +
             '<span class="activity-time">' + time + '</span>';
         return row;
     }
 
-    function escapeHtml(s) {
-        return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-    }
-
     function addEvents(events) {
         if (empty) empty.remove();
         events.forEach(function(ev) {
-            var row = renderEvent(ev);
-            feed.insertBefore(row, feed.firstChild);
+            feed.insertBefore(renderEvent(ev), feed.firstChild);
         });
         while (feed.children.length > 200) {
             feed.removeChild(feed.lastChild);
         }
     }
 
-    function connect() {
-        var es = new EventSource("{{ url_for('admin.events_stream') }}");
-        es.onmessage = function(e) {
-            var data = JSON.parse(e.data);
-            if (data.events && data.events.length > 0) {
-                addEvents(data.events);
-            }
-            status.textContent = 'Live';
-            status.style.color = 'var(--success)';
-            dot.style.background = 'var(--success)';
-        };
-        es.onerror = function() {
-            status.textContent = 'Reconnecting...';
-            status.style.color = 'var(--text-muted)';
-            dot.style.background = 'var(--text-muted)';
-        };
+    function poll() {
+        fetch('/admin/api/events?since=' + lastId)
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                var events = data.events || [];
+                if (events.length > 0) {
+                    lastId = events[0].id;
+                    addEvents(events);
+                }
+                status.textContent = 'Live';
+                status.style.color = 'var(--success)';
+                dot.style.background = 'var(--success)';
+                timer = setTimeout(poll, pollInterval);
+            })
+            .catch(function() {
+                status.textContent = 'Reconnecting...';
+                status.style.color = 'var(--text-muted)';
+                dot.style.background = 'var(--text-muted)';
+                timer = setTimeout(poll, pollInterval * 2);
+            });
     }
 
-    connect();
+    poll();
 })();
 </script>
 {% endblock %}
