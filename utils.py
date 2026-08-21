@@ -64,32 +64,14 @@ def is_blocked(user_id, feature):
     return get_block(user_id, feature) is not None
 
 
-def humanize_remaining(seconds):
-    if seconds >= 86400:
-        value = seconds / 86400
-        unit = "day"
-    elif seconds >= 3600:
-        value = seconds / 3600
-        unit = "hour"
-    else:
-        value = seconds / 60
-        unit = "minute"
-    rounded = max(1, round(value))
-    return f"{rounded} {unit}{'s' if rounded != 1 else ''}"
-
-
 def block_reply(user_id, feature, action):
     block = get_block(user_id, feature)
     lines = [f"You are blocked from {action}."]
     if block:
         if block["expires_at"] is not None:
-            remaining = block["expires_at"] - int(time.time())
-            if remaining > 0:
-                lines.append(f"This block lifts in {humanize_remaining(remaining)}.")
-            else:
-                lines.append("This block has expired.")
+            lines.append(f"> This block lifts in <t:{block['expires_at']}:R>")
         if block.get("note"):
-            lines.append(f"Reason: {block['note']}")
+            lines.append(f"> Reason: {block['note']}")
     return "\n".join(lines)
 
 
