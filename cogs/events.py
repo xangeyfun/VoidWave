@@ -13,7 +13,7 @@ from utils import (
     LLMRequest, get_command_path, extract_options, startup,
     last_llm, llm_queue, llm_queue_size, LLM_COOLDOWN, TOPGG_TOKEN, DBL_TOKEN,
     http_session as _http_session, log_admin_event, qotd_now, qotd_minutes,
-    is_blocked,
+    is_blocked, block_reply,
 )
 import utils
 
@@ -117,7 +117,7 @@ class EventsCog(commands.Cog):
 
         if message.content.startswith(f"<@{self.bot.user.id}>") or message_reference or message.channel.id == 1494361038420709466:
             if is_blocked(message.author.id, "ai"):
-                await message.reply("You are blocked from using VoidWave AI features.")
+                await message.reply(block_reply(message.author.id, "ai", "using VoidWave AI features"))
                 return
 
             if message.author.id in last_llm and time.time() - last_llm[message.author.id] < LLM_COOLDOWN and message.author.id != 996771607630585856:

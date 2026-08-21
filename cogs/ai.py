@@ -2,7 +2,7 @@ from discord import app_commands
 from discord.ext import commands
 import discord
 import time
-from utils import get_llm_response, last_llm, llm_queue_size, ai_processing, LLM_COOLDOWN, is_blocked
+from utils import get_llm_response, last_llm, llm_queue_size, ai_processing, LLM_COOLDOWN, is_blocked, block_reply
 
 
 class AICog(commands.Cog):
@@ -17,7 +17,7 @@ class AICog(commands.Cog):
         global ai_processing
 
         if is_blocked(interaction.user.id, "ai"):
-            await interaction.response.send_message("You are blocked from using VoidWave AI features.", ephemeral=True)
+            await interaction.response.send_message(block_reply(interaction.user.id, "ai", "using VoidWave AI features"), ephemeral=True)
             return
 
         await interaction.response.defer(ephemeral=hidden)

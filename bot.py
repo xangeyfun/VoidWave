@@ -6,7 +6,7 @@ import os
 import traceback
 from datetime import datetime
 
-from utils import is_blocked
+from utils import is_blocked, block_reply
 
 load_dotenv()
 
@@ -21,7 +21,7 @@ async def _command_gate(interaction: discord.Interaction) -> bool:
     if is_blocked(interaction.user.id, "commands"):
         print(f"{date()} BLOCKED '/{getattr(interaction.command, 'qualified_name', '?')}' attempt by {interaction.user} ({interaction.user.id})")
         try:
-            await interaction.response.send_message("You are blocked from using VoidWave commands.", ephemeral=True)
+            await interaction.response.send_message(block_reply(interaction.user.id, "commands", "using VoidWave commands"), ephemeral=True)
         except (discord.HTTPException, RuntimeError):
             pass
         return False
@@ -51,7 +51,7 @@ async def on_app_command_error(interaction: discord.Interaction, error: discord.
 
     if isinstance(error, discord.app_commands.CheckFailure):
         try:
-            await interaction.response.send_message("You are blocked from using VoidWave commands.", ephemeral=True)
+            await interaction.response.send_message(block_reply(interaction.user.id, "commands", "using VoidWave commands"), ephemeral=True)
         except discord.HTTPException:
             pass
         return

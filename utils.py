@@ -44,20 +44,53 @@ def get_db():
 BLOCK_FEATURES = ("ai", "feedback", "leveling", "commands")
 
 
-def is_blocked(user_id, feature):
+def get_block(user_id, feature):
     try:
         conn = get_db()
         try:
             row = conn.execute(
-                "SELECT 1 FROM user_blocks WHERE user_id=? AND feature=? "
+                "SELECT blocked_at, expires_at, note FROM user_blocks WHERE user_id=? AND feature=? "
                 "AND (expires_at IS NULL OR expires_at > ?)",
                 (user_id, feature, int(time.time()))
             ).fetchone()
-            return bool(row)
+            return dict(row) if row else None
         finally:
             conn.close()
     except sqlite3.Error:
-        return False
+        return None
+
+
+def is_blocked(user_id, feature):
+    return get_block(user_id, feature) is not None
+
+
+def humanize_remaining(seconds):
+    if seconds >= 86400:
+        value = seconds / 86400
+        unit = "day"
+    elif seconds >= 3600:
+        value = seconds / 3600
+        unit = "hour"
+    else:
+        value = seconds / 60
+        unit = "minute"
+    rounded = max(1, round(value))
+    return f"{rounded} {unit}{'s' if rounded != 1 else ''}"
+
+
+def block_reply(user_id, feature, action):
+    block = get_block(user_id, feature)
+    lines = [f"You are blocked from {action}."]
+    if block:
+        if block["expires_at"] is not None:
+            remaining = block["expires_at"] - int(time.time())
+            if remaining > 0:
+                lines.append(f"This block lifts in {humanize_remaining(remaining)}.")
+            else:
+                lines.append("This block has expired.")
+        if block.get("note"):
+            lines.append(f"Reason: {block['note']}")
+    return "\n".join(lines)
 
 
 def qotd_now(tz_name=None):
