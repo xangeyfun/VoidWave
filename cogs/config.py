@@ -90,7 +90,7 @@ def _role_issue(role, top_role):
 
 
 def _role_pingable(role, member):
-    if role.is_default() or role.is_mentionable():
+    if role.is_default() or role.mentionable:
         return True
     return member.guild_permissions.mention_everyone
 
