@@ -8,6 +8,7 @@ import time
 import json
 import os
 import sqlite3
+from zoneinfo import ZoneInfo
 
 # Constants
 XP_COOLDOWN = 30
@@ -38,6 +39,38 @@ def get_db():
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA busy_timeout=5000")
     return conn
+
+
+def qotd_now(tz_name=None):
+    if tz_name:
+        try:
+            return datetime.datetime.now(ZoneInfo(tz_name))
+        except Exception:
+            pass
+    return datetime.datetime.now().astimezone()
+
+
+def qotd_tz_label(tz_name=None):
+    """Short timezone name like CEST, JST or UTC."""
+    now = qotd_now(tz_name)
+    label = now.strftime("%Z")
+    if not label:
+        label = now.strftime("%z")
+    return label or "server time"
+
+
+def qotd_minutes(time_str=None):
+    """Parse an HH:MM string into minutes of day, or None when invalid."""
+    if not time_str:
+        return None
+    try:
+        hours, minutes = time_str.split(":")
+        hours, minutes = int(hours), int(minutes)
+        if 0 <= hours <= 23 and 0 <= minutes <= 59:
+            return hours * 60 + minutes
+    except (ValueError, AttributeError):
+        pass
+    return None
 
 
 def log_admin_event(event_type, detail="", guild_id=None, user_id=None):

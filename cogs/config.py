@@ -4,7 +4,7 @@ from zoneinfo import ZoneInfo, available_timezones
 from discord import app_commands
 from discord.ext import commands
 import discord
-from utils import get_db, date, level_autocomplete, qotd_minutes, qotd_now
+from utils import get_db, date, level_autocomplete, qotd_minutes, qotd_now, qotd_tz_label
 
 
 COMMON_TIMEZONES = [
@@ -149,7 +149,7 @@ class ConfigCog(commands.Cog):
             channel_name = channel.mention if channel else "`No Channel Set`"
             qotd_status = f"{channel_name} ({'Enabled' if qotd_channel[1] else 'Disabled'})"
             if qotd_channel[1]:
-                time_display = f"{qotd_channel[3] or '16:00'} ({qotd_channel[4] or 'server time'})"
+                time_display = f"{qotd_channel[3] or '16:00'} ({qotd_tz_label(qotd_channel[4])})"
                 qotd_status += f"\nPosts daily at: `{time_display}`"
                 qotd_status += f"\nNext QOTD: {_next_qotd_timestamp(interaction.guild.id)}"
             embed.add_field(name="QOTD Channel", value=qotd_status, inline=False)
@@ -270,7 +270,7 @@ class ConfigCog(commands.Cog):
             elif tz_issue:
                 qotd_results.append(("fail", tz_issue))
             else:
-                qotd_results.append(("ok", f"Scheduled daily at `{settings['qotd_time'] or '16:00'}` ({settings['qotd_tz'] or 'server time'})"))
+                qotd_results.append(("ok", f"Scheduled daily at `{settings['qotd_time'] or '16:00'}` ({qotd_tz_label(settings['qotd_tz'])})"))
                 qotd_results.append(("ok", f"Next QOTD: {_next_qotd_timestamp(interaction.guild.id)}"))
 
         # Optional live sends
@@ -690,7 +690,7 @@ class ConfigCog(commands.Cog):
         finally:
             conn.close()
 
-        msg = f"QOTD will be posted daily at `{qotd_time}` ({tz_name or 'server time'})"
+        msg = f"QOTD will be posted daily at `{qotd_time}` ({qotd_tz_label(tz_name)})"
         if changed and existing is not None:
             msg += "\n\nThe schedule changed, so the next QOTD posts at this new time even if one already went out today."
         msg += f"\n\nNext QOTD: {_next_qotd_timestamp(interaction.guild.id)}"
