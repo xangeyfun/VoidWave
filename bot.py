@@ -6,6 +6,8 @@ import os
 import traceback
 from datetime import datetime
 
+from utils import is_blocked
+
 load_dotenv()
 
 # create bot with intents
@@ -14,6 +16,14 @@ intents.message_content = True
 intents.members = True
 bot = commands.Bot(command_prefix="%", intents=intents, status=discord.Status.online, activity=discord.Activity(type=discord.ActivityType.watching, name="/help • VoidWave"))
 TOKEN = os.getenv("TOKEN")
+
+async def _command_gate(interaction: discord.Interaction) -> bool:
+    if is_blocked(interaction.user.id, "commands"):
+        print(f"{date()} BLOCKED '/{getattr(interaction.command, 'qualified_name', '?')}' attempt by {interaction.user} ({interaction.user.id})")
+        return False
+    return True
+
+bot.tree.interaction_check = _command_gate
 
 async def setup_hook():
     await bot.load_extension("cogs.general")
@@ -33,6 +43,13 @@ def date():
 async def on_app_command_error(interaction: discord.Interaction, error: discord.app_commands.AppCommandError):
     print(f"{date()} ERROR  Command error in '/{getattr(interaction.command, 'qualified_name', '?')}' used by {interaction.user}: {error!r}")
     if interaction.response.is_done():
+        return
+
+    if isinstance(error, discord.app_commands.CheckFailure):
+        try:
+            await interaction.response.send_message("You are blocked from using VoidWave commands.", ephemeral=True)
+        except discord.HTTPException:
+            pass
         return
 
     traceback.print_exception(type(error), error, error.__traceback__)

@@ -63,15 +63,6 @@ class EventsCog(commands.Cog):
     @commands.Cog.listener()
     async def on_interaction(self, interaction: discord.Interaction):
         if interaction.type == discord.InteractionType.application_command:
-            if is_blocked(interaction.user.id, "commands"):
-                print(f"{date()} BLOCKED '{getattr(interaction.command, 'qualified_name', '?')}' attempt by {interaction.user} ({interaction.user.id})")
-                if not interaction.response.is_done():
-                    try:
-                        await interaction.response.send_message("You are blocked from using VoidWave commands.", ephemeral=True)
-                    except discord.HTTPException:
-                        pass
-                return
-
             guild_name = interaction.guild.name if interaction.guild else "DM"
             channel_name = getattr(interaction.channel, 'name', 'Unknown') if interaction.channel else ""
             if channel_name != "Unknown":
