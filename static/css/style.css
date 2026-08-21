@@ -651,67 +651,90 @@ a:hover {
 
 .home-features-grid {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(3, 1fr);
     gap: 1.25rem;
 }
 
 .home-feature {
+    display: block;
+    position: relative;
     padding: 1.5rem;
     background: var(--bg-card);
     border: 1px solid var(--border-light);
     border-radius: 14px;
     text-align: left;
-    opacity: 0;
-    transform: translateY(30px);
-    transition: border-color 0.2s ease, box-shadow 0.4s ease;
+    color: inherit;
+    transition: border-color 0.2s ease, box-shadow 0.3s ease, translate 0.2s ease;
     will-change: transform;
-    transform-style: preserve-3d;
+}
+
+.home-feature.pre-reveal {
+    opacity: 0;
+}
+
+/* One-time glow pulse on a pseudo-element so border-color/box-shadow stay free for hover */
+.home-feature::after {
+    content: "";
+    position: absolute;
+    inset: -1px;
+    border-radius: inherit;
+    pointer-events: none;
+    opacity: 0;
+    border: 1px solid transparent;
 }
 
 .home-feature.reveal {
-    animation: featureReveal 0.6s ease-out forwards, featureGlow 1.5s ease-out 0.6s forwards;
+    animation: featureReveal 0.6s ease-out calc(var(--i, 0) * 0.1s) backwards;
 }
 
-.home-feature:nth-child(1).reveal { animation-delay: 0s, 0.6s; }
-.home-feature:nth-child(2).reveal { animation-delay: 0.1s, 0.7s; }
-.home-feature:nth-child(3).reveal { animation-delay: 0.2s, 0.8s; }
-.home-feature:nth-child(4).reveal { animation-delay: 0.3s, 0.9s; }
+.home-feature.reveal::after {
+    animation: featureGlowPulse 1.5s ease-out calc(0.6s + var(--i, 0) * 0.1s) forwards;
+}
 
 @keyframes featureReveal {
-    from { opacity: 0; transform: translateY(30px); }
-    to { opacity: 1; transform: translateY(0); }
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
 }
 
-.home-feature.glow-in {
-    animation: featureGlow 1.5s ease-out forwards;
-}
-
-@keyframes featureGlow {
+@keyframes featureGlowPulse {
     0% {
+        opacity: 1;
         border-color: var(--primary);
         box-shadow: 0 0 25px var(--glow), inset 0 0 15px rgba(132, 56, 252, 0.05);
     }
     100% {
-        border-color: var(--border-light);
-        box-shadow: none;
+        opacity: 0;
+        border-color: transparent;
+        box-shadow: 0 0 25px transparent, inset 0 0 15px transparent;
     }
 }
 
 .home-feature:hover {
     border-color: var(--primary);
+    box-shadow: 0 8px 24px var(--glow);
+    translate: 0 -3px;
+}
+
+.home-feature:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 3px;
 }
 
 .home-feature-icon {
-    font-size: 1.5rem;
     display: block;
+    width: fit-content;
     margin-bottom: 0.75rem;
-    animation: iconFloat 3s ease-in-out infinite;
+    color: var(--primary);
+    animation: iconFloat 3s ease-in-out calc(var(--i, 0) * 0.5s) infinite;
 }
 
-.home-feature:nth-child(1) .home-feature-icon { animation-delay: 0s; }
-.home-feature:nth-child(2) .home-feature-icon { animation-delay: 0.5s; }
-.home-feature:nth-child(3) .home-feature-icon { animation-delay: 1s; }
-.home-feature:nth-child(4) .home-feature-icon { animation-delay: 1.5s; }
+.home-feature-icon svg {
+    display: block;
+    width: 1.6rem;
+    height: 1.6rem;
+}
 
 @keyframes iconFloat {
     0%, 100% { transform: translateY(0); }
@@ -735,6 +758,12 @@ a:hover {
     font-size: 0.8rem;
     color: var(--primary);
     opacity: 0.7;
+}
+
+@media (max-width: 1024px) {
+    .home-features-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
 }
 
 /* Home - Bottom */
@@ -2275,11 +2304,6 @@ a:hover {
 
     .home-cmd-list {
         grid-template-columns: 1fr;
-    }
-
-    .home-feature {
-        flex-direction: column;
-        align-items: flex-start;
     }
 
     .setup-hero h1 {

@@ -67,13 +67,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const featureObserver = new IntersectionObserver((entries) => {
         entries.forEach(entry => {
             if (entry.isIntersecting) {
+                entry.target.classList.remove('pre-reveal');
                 entry.target.classList.add('reveal');
                 featureObserver.unobserve(entry.target);
             }
         });
     }, { threshold: 0.2 });
 
-    document.querySelectorAll('.home-feature').forEach(el => featureObserver.observe(el));
+    document.querySelectorAll('.home-feature').forEach(el => {
+        el.classList.add('pre-reveal');
+        featureObserver.observe(el);
+    });
 
     // Hover tilt on stat cards
     document.querySelectorAll('.hero-stat-card').forEach(card => {
