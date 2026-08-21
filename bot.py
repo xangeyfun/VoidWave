@@ -133,6 +133,16 @@ if __name__ == "__main__":
     """)
     conn.commit()
 
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS user_blocks (
+        user_id INTEGER,
+        feature TEXT,
+        blocked_at INTEGER,
+        PRIMARY KEY (user_id, feature)
+    )
+    """)
+    conn.commit()
+
     conn.close()
 
     # Run the bot

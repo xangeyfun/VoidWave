@@ -62,6 +62,14 @@ def _ensure_admin_tables():
         """)
         conn.execute("CREATE INDEX IF NOT EXISTS idx_admin_events_ts ON admin_events(ts)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_admin_events_type ON admin_events(event_type)")
+        conn.execute("""
+        CREATE TABLE IF NOT EXISTS user_blocks (
+            user_id INTEGER,
+            feature TEXT,
+            blocked_at INTEGER,
+            PRIMARY KEY (user_id, feature)
+        )
+        """)
         conn.commit()
     finally:
         conn.close()

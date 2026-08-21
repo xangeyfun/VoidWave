@@ -12,6 +12,13 @@ TABLES = {
     "users", "bot_stats", "guild_settings", "level_roles", "vote_boosts",
 }
 
+BLOCK_FEATURES = {
+    "ai": ("AI features", "/ai command, @mention replies, and DM replies"),
+    "feedback": ("/feedback", "The /feedback command"),
+    "leveling": ("Leveling", "Earning XP from messages and voice channels"),
+    "commands": ("All commands", "Every slash command (nuclear option)"),
+}
+
 REQUIRED_USERS_COLUMNS = {
     "guild_id", "user_id", "display_name", "username", "level",
     "progress", "out_of", "last_message", "total_messages",

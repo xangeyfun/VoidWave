@@ -13,6 +13,7 @@ from utils import (
     LLMRequest, get_command_path, extract_options, startup,
     last_llm, llm_queue, llm_queue_size, LLM_COOLDOWN, TOPGG_TOKEN, DBL_TOKEN,
     http_session as _http_session, log_admin_event, qotd_now, qotd_minutes,
+    is_blocked,
 )
 import utils
 
@@ -62,6 +63,15 @@ class EventsCog(commands.Cog):
     @commands.Cog.listener()
     async def on_interaction(self, interaction: discord.Interaction):
         if interaction.type == discord.InteractionType.application_command:
+            if is_blocked(interaction.user.id, "commands"):
+                print(f"{date()} BLOCKED '{getattr(interaction.command, 'qualified_name', '?')}' attempt by {interaction.user} ({interaction.user.id})")
+                if not interaction.response.is_done():
+                    try:
+                        await interaction.response.send_message("You are blocked from using VoidWave commands.", ephemeral=True)
+                    except discord.HTTPException:
+                        pass
+                return
+
             guild_name = interaction.guild.name if interaction.guild else "DM"
             channel_name = getattr(interaction.channel, 'name', 'Unknown') if interaction.channel else ""
             if channel_name != "Unknown":
@@ -114,7 +124,11 @@ class EventsCog(commands.Cog):
                 ref_msg = None
             message_reference = ref_msg.author.id == 1442229230384709752 if ref_msg else False
 
-        if message.content.startswith("<@1442229230384709752>") or message_reference or message.channel.id == 1494361038420709466:
+        if message.content.startswith(f"<@{self.bot.user.id}>") or message_reference or message.channel.id == 1494361038420709466:
+            if is_blocked(message.author.id, "ai"):
+                await message.reply("You are blocked from using VoidWave AI features.")
+                return
+
             if message.author.id in last_llm and time.time() - last_llm[message.author.id] < LLM_COOLDOWN and message.author.id != 996771607630585856:
                 await message.reply(f"Slow down! VoidWave needs a breather. Try again in `{LLM_COOLDOWN - (time.time() - last_llm[message.author.id]):.1f} seconds.`")
                 return
@@ -170,6 +184,10 @@ class EventsCog(commands.Cog):
             return
 
     async def relay_dm_feedback(self, message):
+        if is_blocked(message.author.id, "feedback"):
+            print(f"{date()} BLOCKED  Not relaying DM from {message.author} ({message.author.id}), feedback blocked")
+            return
+
         channel = self.bot.get_channel(1540471117557403648)
         if not channel:
             print(f"{date()} ERROR  Feedback channel not found, dropped DM from {message.author} ({message.author.id})")

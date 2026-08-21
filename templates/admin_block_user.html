@@ -1,0 +1,88 @@
+{% extends "admin_base.html" %}
+{% block title %}Blocks: {{ user.display_name or user.username or user_id if user else user_id }}{% endblock %}
+{% block heading %}Feature blocks{% endblock %}
+{% block subheading %}Tick everything this user should be blocked from, then save. Unticked features stay available.{% endblock %}
+
+{% block content %}
+<div class="admin-grid cols-2" style="margin-bottom:1rem;">
+    <div class="admin-card">
+        <div class="card-head"><h2>User</h2></div>
+        <div class="flex items-center gap-1">
+            {% if user %}
+            <img class="avatar" src="{{ avatar_url }}" onerror="this.onerror=null;this.src='https://cdn.discordapp.com/embed/avatars/0.png'">
+            <div>
+                <div style="font-weight:600;">{{ user.display_name or user.username or user_id }}</div>
+                <span class="mono">{{ user.username }}</span>
+            </div>
+            {% else %}
+            <img class="avatar" src="https://cdn.discordapp.com/embed/avatars/0.png">
+            <div>
+                <div style="font-weight:600;">Unknown user</div>
+                <span class="muted">No recorded activity yet</span>
+            </div>
+            {% endif %}
+        </div>
+        <p class="card-sub" style="margin-top:0.9rem;">
+            <span class="mono" data-copy="{{ user_id }}" style="cursor:pointer;" title="Click to copy">{{ user_id }}</span>
+            {% if user %}
+            &middot; {{ user.guild_count }} guild(s) &middot; {{ "{:,}".format(user.total_xp or 0) }} total XP
+            {% else %}
+            <br><span class="muted">Blocks still apply as soon as they interact with the bot.</span>
+            {% endif %}
+        </p>
+    </div>
+
+    <div class="admin-card">
+        <div class="card-head">
+            <h2>Active blocks</h2>
+            <a class="btn btn-secondary btn-sm" href="{{ url_for('admin.blocks') }}">Back</a>
+        </div>
+        {% if current_blocks %}
+        <div class="admin-table-wrap">
+            <table class="admin-table compact">
+                <thead>
+                    <tr>
+                        <th>Feature</th>
+                        <th>Since</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for b in current_blocks %}
+                    <tr>
+                        <td><span class="badge fail">{{ b.feature }}</span></td>
+                        <td class="muted">{{ b.since }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">This user is not blocked from anything.</div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="admin-card">
+    <div class="card-head"><h2>Block what?</h2></div>
+    <p class="card-sub">Changes take effect immediately for the bot and dashboard.</p>
+    <form method="POST" action="{{ url_for('admin.block_user', user_id=user_id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="form-grid">
+            {% for key, (label, desc) in features.items() %}
+            <label class="form-field block-toggle" style="display:flex;gap:0.7rem;align-items:flex-start;cursor:pointer;margin-bottom:0;">
+                <input type="checkbox" name="features" value="{{ key }}" {% if current_blocks | selectattr('feature', 'equalto', key) | list %}checked{% endif %} style="accent-color: var(--primary); width:16px; height:16px; margin-top:3px; flex-shrink:0;">
+                <span>
+                    <strong>{{ label }}</strong> <span class="mono muted">({{ key }})</span><br>
+                    <span class="muted" style="font-size:0.84rem;">{{ desc }}</span>
+                </span>
+            </label>
+            {% endfor %}
+        </div>
+        <button class="btn btn-primary" type="submit" style="margin-top:1rem;">Save blocks</button>
+    </form>
+</div>
+
+{% if saved %}
+<div class="alert alert-success" data-auto-dismiss>Blocks saved.</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,125 @@
+{% extends "admin_base.html" %}
+{% block title %}User Blocks{% endblock %}
+{% block heading %}User Blocks{% endblock %}
+{% block subheading %}Block specific users from using specific VoidWave features. Changes apply instantly, no restart needed.{% endblock %}
+
+{% block content %}
+<div class="admin-card">
+    <form method="POST" action="{{ url_for('admin.blocks_lookup') }}" class="form-grid">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="form-field">
+            <label>Open by Discord user ID</label>
+            <input type="text" name="user_id" required placeholder="e.g. 123456789012345678">
+        </div>
+        <div class="form-field">
+            <label>&nbsp;</label>
+            <button class="btn btn-primary" type="submit">Manage blocks</button>
+        </div>
+    </form>
+</div>
+
+<div class="admin-card">
+    <div class="card-head">
+        <h2>Known users</h2>
+        {% if q %}<span class="badge ok">filtered: {{ q }}</span>{% endif %}
+    </div>
+    <p class="card-sub">Pick a user to manage their blocks. Search by name or paste an exact user ID.</p>
+    <form method="GET" action="{{ url_for('admin.blocks') }}" class="form-grid">
+        <div class="form-field">
+            <label>Search</label>
+            <input type="text" name="q" value="{{ q }}" placeholder="Username or user ID...">
+        </div>
+        <div class="form-field">
+            <label>&nbsp;</label>
+            <button class="btn btn-secondary" type="submit">Search</button>
+        </div>
+    </form>
+    {% if known %}
+    <div class="admin-table-wrap">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>User</th>
+                    <th>Guilds</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for u in known %}
+                <tr>
+                    <td>
+                        <div class="flex items-center gap-1">
+                            <img class="avatar" src="https://cdn.discordapp.com/embed/avatars/0.png" onerror="this.style.display='none'">
+                            <div>
+                                <div style="font-weight:600;">{{ u.name }}</div>
+                                <span class="mono" data-copy="{{ u.user_id }}" style="cursor:pointer;" title="Click to copy">{{ u.user_id }}</span>
+                            </div>
+                        </div>
+                    </td>
+                    <td>{{ u.guild_count }}</td>
+                    <td><a class="btn btn-secondary btn-sm" href="{{ url_for('admin.block_user', user_id=u.user_id) }}">Manage blocks</a></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">No known users match{% if q %} &ldquo;{{ q }}&rdquo;{% endif %}. You can still manage any ID directly with the form above.</div>
+    {% endif %}
+</div>
+
+<div class="admin-card">
+    <div class="card-head"><h2>Currently blocked users</h2></div>
+    {% if blocked %}
+    <div class="admin-table-wrap">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>User</th>
+                    <th>Blocked from</th>
+                    <th>Since</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for b in blocked %}
+                <tr>
+                    <td>
+                        <div style="font-weight:600;">{{ b.name }}</div>
+                        <span class="mono" data-copy="{{ b.user_id }}" style="cursor:pointer;" title="Click to copy">{{ b.user_id }}</span>
+                    </td>
+                    <td>{% for f in b.features %}<span class="badge fail">{{ f }}</span> {% endfor %}</td>
+                    <td class="muted" style="white-space:nowrap;">{{ b.since }}</td>
+                    <td><a class="btn btn-secondary btn-sm" href="{{ url_for('admin.block_user', user_id=b.user_id) }}">Edit</a></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">Nobody is blocked right now.</div>
+    {% endif %}
+</div>
+
+<div class="admin-card">
+    <div class="card-head"><h2>What each block does</h2></div>
+    <div class="admin-table-wrap">
+        <table class="admin-table compact">
+            <thead>
+                <tr>
+                    <th>Key</th>
+                    <th>Covers</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for key, (label, desc) in features.items() %}
+                <tr>
+                    <td><span class="badge warn">{{ key }}</span></td>
+                    <td><strong>{{ label }}</strong> <span class="muted">{{ desc }}</span></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

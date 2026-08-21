@@ -3,7 +3,7 @@ from discord.ext import commands, tasks
 import discord
 import random
 import time
-from utils import get_db, date, format_minutes, last_vc, VC_COOLDOWN, get_vote_boost, build_level_up_embed, log_admin_event
+from utils import get_db, date, format_minutes, last_vc, VC_COOLDOWN, get_vote_boost, build_level_up_embed, log_admin_event, is_blocked
 
 
 class LevelingCog(commands.Cog):
@@ -270,6 +270,9 @@ class LevelingCog(commands.Cog):
                     members = [m for m in channel.members if not m.bot]
 
                     for member in members:
+                        if is_blocked(member.id, "leveling"):
+                            continue
+
                         user = cur.execute("SELECT * FROM users WHERE guild_id=? AND user_id=?", (guild.id, member.id)).fetchone()
                         if not user:
                             cur.execute("""

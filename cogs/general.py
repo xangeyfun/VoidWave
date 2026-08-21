@@ -3,7 +3,7 @@ from discord.ext import commands
 import discord
 import time
 import datetime
-from utils import startup, get_db
+from utils import startup, get_db, is_blocked
 
 
 class GeneralCog(commands.Cog):
@@ -214,6 +214,10 @@ class GeneralCog(commands.Cog):
     @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     @discord.app_commands.command(name="feedback", description="Send feedback to the VoidWave developers.")
     async def feedback(self, interaction: discord.Interaction, feedback: str):
+        if is_blocked(interaction.user.id, "feedback"):
+            await interaction.response.send_message("You are blocked from using /feedback.", ephemeral=True)
+            return
+
         remaining = self.feedback_cooldowns.get(interaction.user.id, 0) + 60 - time.time()
         if remaining > 0:
             await interaction.response.send_message(f"Slow down! You can send feedback again in `{remaining:.0f} seconds`.", ephemeral=True)

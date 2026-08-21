@@ -41,6 +41,24 @@ def get_db():
     return conn
 
 
+BLOCK_FEATURES = ("ai", "feedback", "leveling", "commands")
+
+
+def is_blocked(user_id, feature):
+    try:
+        conn = get_db()
+        try:
+            row = conn.execute(
+                "SELECT 1 FROM user_blocks WHERE user_id=? AND feature=?",
+                (user_id, feature)
+            ).fetchone()
+            return bool(row)
+        finally:
+            conn.close()
+    except sqlite3.Error:
+        return False
+
+
 def qotd_now(tz_name=None):
     if tz_name:
         try:
@@ -332,6 +350,9 @@ def extract_options(options):
 async def add_message_xp(bot, message):
     guild_id = message.guild.id
     user_id = message.author.id
+
+    if is_blocked(user_id, "leveling"):
+        return
 
     conn = get_db()
     try:
