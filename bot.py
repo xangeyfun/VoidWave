@@ -159,9 +159,18 @@ if __name__ == "__main__":
         user_id INTEGER,
         feature TEXT,
         blocked_at INTEGER,
+        expires_at INTEGER,
+        note TEXT,
         PRIMARY KEY (user_id, feature)
     )
     """)
+    conn.commit()
+
+    for column in ("expires_at INTEGER", "note TEXT"):
+        try:
+            cur.execute(f"ALTER TABLE user_blocks ADD COLUMN {column}")
+        except sqlite3.OperationalError:
+            pass
     conn.commit()
 
     conn.close()

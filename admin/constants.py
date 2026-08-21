@@ -19,6 +19,20 @@ BLOCK_FEATURES = {
     "commands": ("All commands", "Every slash command (nuclear option)"),
 }
 
+BLOCK_DURATIONS = [
+    ("", "Keep current"),
+    ("perm", "Permanent"),
+    ("3600", "1 hour"),
+    ("21600", "6 hours"),
+    ("43200", "12 hours"),
+    ("86400", "1 day"),
+    ("259200", "3 days"),
+    ("604800", "1 week"),
+    ("2592000", "30 days"),
+]
+
+VALID_BLOCK_DURATIONS = {int(seconds) for seconds, _ in BLOCK_DURATIONS if seconds.isdigit()}
+
 REQUIRED_USERS_COLUMNS = {
     "guild_id", "user_id", "display_name", "username", "level",
     "progress", "out_of", "last_message", "total_messages",

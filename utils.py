@@ -49,8 +49,9 @@ def is_blocked(user_id, feature):
         conn = get_db()
         try:
             row = conn.execute(
-                "SELECT 1 FROM user_blocks WHERE user_id=? AND feature=?",
-                (user_id, feature)
+                "SELECT 1 FROM user_blocks WHERE user_id=? AND feature=? "
+                "AND (expires_at IS NULL OR expires_at > ?)",
+                (user_id, feature, int(time.time()))
             ).fetchone()
             return bool(row)
         finally:

@@ -67,9 +67,16 @@ def _ensure_admin_tables():
             user_id INTEGER,
             feature TEXT,
             blocked_at INTEGER,
+            expires_at INTEGER,
+            note TEXT,
             PRIMARY KEY (user_id, feature)
         )
         """)
+        for column in ("expires_at INTEGER", "note TEXT"):
+            try:
+                conn.execute(f"ALTER TABLE user_blocks ADD COLUMN {column}")
+            except sqlite3.OperationalError:
+                pass
         conn.commit()
     finally:
         conn.close()

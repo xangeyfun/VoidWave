@@ -44,13 +44,17 @@
                     <tr>
                         <th>Feature</th>
                         <th>Since</th>
+                        <th>Expiry</th>
+                        <th>Note</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for b in current_blocks %}
                     <tr>
-                        <td><span class="badge fail">{{ b.feature }}</span></td>
+                        <td><span class="badge fail" {% if b.expired %}style="opacity:.45;"{% endif %}>{{ b.feature }}</span></td>
                         <td class="muted">{{ b.since }}</td>
+                        <td class="{% if b.expired %}muted{% endif %}" style="white-space:nowrap;">{{ b.expires_label }}</td>
+                        <td class="muted">{% if b.note %}<span title="{{ b.note }}">{{ b.note | truncate(40) }}</span>{% else %}none{% endif %}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -64,21 +68,37 @@
 
 <div class="admin-card">
     <div class="card-head"><h2>Block what?</h2></div>
-    <p class="card-sub">Changes take effect immediately for the bot and dashboard.</p>
+    <p class="card-sub">Changes take effect immediately for the bot and dashboard. Duration applies when you save; "Keep current" leaves an existing timer untouched.</p>
     <form method="POST" action="{{ url_for('admin.block_user', user_id=user_id) }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <div class="form-grid">
-            {% for key, (label, desc) in features.items() %}
-            <label class="form-field block-toggle" style="display:flex;gap:0.7rem;align-items:flex-start;cursor:pointer;margin-bottom:0;">
-                <input type="checkbox" name="features" value="{{ key }}" {% if current_blocks | selectattr('feature', 'equalto', key) | list %}checked{% endif %} style="accent-color: var(--primary); width:16px; height:16px; margin-top:3px; flex-shrink:0;">
+        {% for key, (label, desc) in features.items() %}
+        {% set cur = block_map.get(key) %}
+        <div style="{{ '' if loop.first else 'border-top:1px solid var(--border-light);' }}padding:1rem 0;">
+            <label style="display:flex;gap:0.7rem;align-items:flex-start;cursor:pointer;">
+                <input type="checkbox" name="features" value="{{ key }}" {% if cur %}checked{% endif %} style="accent-color: var(--primary); width:16px; height:16px; margin-top:3px; flex-shrink:0;">
                 <span>
-                    <strong>{{ label }}</strong> <span class="mono muted">({{ key }})</span><br>
+                    <strong>{{ label }}</strong> <span class="mono muted">({{ key }})</span>
+                    {% if cur %}<span class="badge fail" {% if cur.expired %}style="opacity:.45;"{% endif %}>{{ 'expired' if cur.expired else 'blocked' }}</span>{% endif %}<br>
                     <span class="muted" style="font-size:0.84rem;">{{ desc }}</span>
                 </span>
             </label>
-            {% endfor %}
+            <div class="form-grid" style="margin-top:0.6rem;">
+                <div class="form-field">
+                    <label>Duration</label>
+                    <select name="duration_{{ key }}">
+                        {% for value, dlabel in durations %}
+                        <option value="{{ value }}">{{ dlabel }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-field">
+                    <label>Note (optional)</label>
+                    <input type="text" name="note_{{ key }}" maxlength="500" value="{{ cur.note if cur else '' }}" placeholder="Why is this user blocked?">
+                </div>
+            </div>
         </div>
-        <button class="btn btn-primary" type="submit" style="margin-top:1rem;">Save blocks</button>
+        {% endfor %}
+        <button class="btn btn-primary" type="submit">Save blocks</button>
     </form>
 </div>
 

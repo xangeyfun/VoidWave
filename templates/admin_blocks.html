@@ -27,7 +27,6 @@
                 <tr>
                     <th>User</th>
                     <th>Blocked from</th>
-                    <th>Since</th>
                     <th>Actions</th>
                 </tr>
             </thead>
@@ -38,8 +37,15 @@
                         <div style="font-weight:600;">{{ b.name }}</div>
                         <span class="mono" data-copy="{{ b.user_id }}" style="cursor:pointer;" title="Click to copy">{{ b.user_id }}</span>
                     </td>
-                    <td>{% for f in b.features %}<span class="badge fail">{{ f }}</span> {% endfor %}</td>
-                    <td class="muted" style="white-space:nowrap;">{{ b.since }}</td>
+                    <td>
+                        {% for item in b.blocks %}
+                        <div style="margin-bottom:0.25rem;">
+                            <span class="badge fail" {% if item.expired %}style="opacity:.45;"{% endif %}>{{ item.feature }}</span>
+                            <span class="muted" style="font-size:0.8rem;">{{ item.expires_label }}</span>
+                            {% if item.note %}<div class="muted" style="font-size:0.78rem;" title="{{ item.note }}">{{ item.note | truncate(60) }}</div>{% endif %}
+                        </div>
+                        {% endfor %}
+                    </td>
                     <td><a class="btn btn-secondary btn-sm" href="{{ url_for('admin.block_user', user_id=b.user_id) }}">Edit</a></td>
                 </tr>
                 {% endfor %}
