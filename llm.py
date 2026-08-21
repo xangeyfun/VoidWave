@@ -53,6 +53,7 @@ def ask_llm(prompt, username, user_id, reply_info=None):
             "model": MODEL,
             "prompt": prompt,
             "stream": False,
+            "keep_alive": -1,
             "options": {
                 "temperature": 0.6,
                 "top_p": 0.9,
