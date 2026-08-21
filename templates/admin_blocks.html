@@ -19,56 +19,6 @@
 </div>
 
 <div class="admin-card">
-    <div class="card-head">
-        <h2>Known users</h2>
-        {% if q %}<span class="badge ok">filtered: {{ q }}</span>{% endif %}
-    </div>
-    <p class="card-sub">Pick a user to manage their blocks. Search by name or paste an exact user ID.</p>
-    <form method="GET" action="{{ url_for('admin.blocks') }}" class="form-grid">
-        <div class="form-field">
-            <label>Search</label>
-            <input type="text" name="q" value="{{ q }}" placeholder="Username or user ID...">
-        </div>
-        <div class="form-field">
-            <label>&nbsp;</label>
-            <button class="btn btn-secondary" type="submit">Search</button>
-        </div>
-    </form>
-    {% if known %}
-    <div class="admin-table-wrap">
-        <table class="admin-table">
-            <thead>
-                <tr>
-                    <th>User</th>
-                    <th>Guilds</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for u in known %}
-                <tr>
-                    <td>
-                        <div class="flex items-center gap-1">
-                            <img class="avatar" src="https://cdn.discordapp.com/embed/avatars/0.png" onerror="this.style.display='none'">
-                            <div>
-                                <div style="font-weight:600;">{{ u.name }}</div>
-                                <span class="mono" data-copy="{{ u.user_id }}" style="cursor:pointer;" title="Click to copy">{{ u.user_id }}</span>
-                            </div>
-                        </div>
-                    </td>
-                    <td>{{ u.guild_count }}</td>
-                    <td><a class="btn btn-secondary btn-sm" href="{{ url_for('admin.block_user', user_id=u.user_id) }}">Manage blocks</a></td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-    {% else %}
-    <div class="empty-state">No known users match{% if q %} &ldquo;{{ q }}&rdquo;{% endif %}. You can still manage any ID directly with the form above.</div>
-    {% endif %}
-</div>
-
-<div class="admin-card">
     <div class="card-head"><h2>Currently blocked users</h2></div>
     {% if blocked %}
     <div class="admin-table-wrap">

@@ -41,26 +41,8 @@ def _format_blocks(raw):
 
 @admin_bp.route("/blocks")
 def blocks():
-    q = (request.args.get("q") or "").strip()
-
     conn = _db()
     try:
-        if q:
-            like = f"%{q}%"
-            known = conn.execute(
-                "SELECT user_id, MAX(COALESCE(NULLIF(display_name,''), NULLIF(username,''), user_id)) AS name, "
-                "COUNT(DISTINCT guild_id) AS guild_count "
-                "FROM users WHERE CAST(user_id AS TEXT)=? OR username LIKE ? OR display_name LIKE ? "
-                "GROUP BY user_id ORDER BY name LIMIT 25",
-                (q, like, like)
-            ).fetchall()
-        else:
-            known = conn.execute(
-                "SELECT user_id, MAX(COALESCE(NULLIF(display_name,''), NULLIF(username,''), user_id)) AS name, "
-                "COUNT(DISTINCT guild_id) AS guild_count "
-                "FROM users GROUP BY user_id ORDER BY SUM(total_xp) DESC LIMIT 100"
-            ).fetchall()
-
         blocked = conn.execute(
             "SELECT ub.user_id, GROUP_CONCAT(ub.feature) AS features, MIN(ub.blocked_at) AS blocked_at, "
             "COALESCE(NULLIF(MAX(u.display_name),''), NULLIF(MAX(u.username),''), CAST(ub.user_id AS TEXT)) AS name "
@@ -82,10 +64,8 @@ def blocks():
 
     return render_template(
         "admin_blocks.html",
-        known=known,
         blocked=blocked_rows,
         features=BLOCK_FEATURES,
-        q=q,
         now=time.time(),
     )
 
