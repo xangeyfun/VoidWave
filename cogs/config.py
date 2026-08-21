@@ -1,17 +1,69 @@
 import datetime
+from zoneinfo import ZoneInfo, available_timezones
 
 from discord import app_commands
 from discord.ext import commands
 import discord
-from utils import get_db, date, level_autocomplete
+from utils import get_db, date, level_autocomplete, qotd_minutes, qotd_now
 
 
-def _next_qotd_timestamp() -> str:
-    now = datetime.datetime.now()
-    target = now.replace(hour=16, minute=0, second=0, microsecond=0)
+COMMON_TIMEZONES = [
+    "UTC",
+    "Europe/London",
+    "Europe/Amsterdam",
+    "Europe/Berlin",
+    "Europe/Paris",
+    "Europe/Madrid",
+    "Europe/Warsaw",
+    "America/New_York",
+    "America/Chicago",
+    "America/Denver",
+    "America/Los_Angeles",
+    "America/Sao_Paulo",
+    "Asia/Tokyo",
+    "Asia/Kolkata",
+    "Australia/Sydney",
+]
+
+
+def _next_qotd_timestamp(guild_id=None) -> str:
+    qotd_time = "16:00"
+    tz_name = None
+    if guild_id is not None:
+        conn = get_db()
+        try:
+            cur = conn.cursor()
+            row = cur.execute("SELECT qotd_time, qotd_tz FROM guild_settings WHERE guild_id = ?", (guild_id,)).fetchone()
+            if row:
+                if row["qotd_time"]:
+                    qotd_time = row["qotd_time"]
+                tz_name = row["qotd_tz"]
+        except Exception as e:
+            print(f"{date()} ERROR  Failed to fetch QOTD time for next-run preview: {e}")
+        finally:
+            conn.close()
+
+    minutes = qotd_minutes(qotd_time)
+    if minutes is None:
+        minutes = qotd_minutes("16:00")
+
+    now = qotd_now(tz_name)
+    target = now.replace(hour=minutes // 60, minute=minutes % 60, second=0, microsecond=0)
     if now >= target:
         target += datetime.timedelta(days=1)
     return f"<t:{int(target.timestamp())}:R>"
+
+
+async def _timezone_autocomplete(interaction: discord.Interaction, current: str) -> list[app_commands.Choice[str]]:
+    query = current.strip().lower()
+    if not query:
+        zones = COMMON_TIMEZONES
+    else:
+        all_zones = sorted(available_timezones())
+        starts = [z for z in all_zones if z.lower().startswith(query)]
+        contains = [z for z in all_zones if query in z.lower() and z not in starts]
+        zones = (starts + contains)[:25]
+    return [app_commands.Choice(name=z, value=z) for z in zones[:25]]
 
 
 class ConfigCog(commands.Cog):
@@ -46,7 +98,7 @@ class ConfigCog(commands.Cog):
             cur = conn.cursor()
             level_channel = cur.execute("SELECT level_channel_id, level_channel_enabled FROM guild_settings WHERE guild_id = ?", (interaction.guild.id,)).fetchone() # type: ignore
             level_roles = cur.execute("SELECT level, role_id FROM level_roles WHERE guild_id = ?", (interaction.guild.id,)).fetchall() # type: ignore
-            qotd_channel = cur.execute("SELECT qotd_channel, qotd_enabled, delete_old_qotd FROM guild_settings WHERE guild_id = ?", (interaction.guild.id,)).fetchone() # type: ignore
+            qotd_channel = cur.execute("SELECT qotd_channel, qotd_enabled, delete_old_qotd, qotd_time, qotd_tz FROM guild_settings WHERE guild_id = ?", (interaction.guild.id,)).fetchone() # type: ignore
         except Exception as e:
             print(f"{date()} ERROR  Failed to fetch config: {e}")
             await interaction.response.send_message(f"Failed to fetch config. Please try again later.", ephemeral=True)
@@ -68,7 +120,9 @@ class ConfigCog(commands.Cog):
             channel_name = channel.mention if channel else "`No Channel Set`"
             qotd_status = f"{channel_name} ({'Enabled' if qotd_channel[1] else 'Disabled'})"
             if qotd_channel[1]:
-                qotd_status += f"\nNext QOTD: {_next_qotd_timestamp()}"
+                time_display = f"{qotd_channel[3] or '16:00'} ({qotd_channel[4] or 'server time'})"
+                qotd_status += f"\nPosts daily at: `{time_display}`"
+                qotd_status += f"\nNext QOTD: {_next_qotd_timestamp(interaction.guild.id)}"
             embed.add_field(name="QOTD Channel", value=qotd_status, inline=False)
             embed.add_field(name="Delete Old QOTD", value=f"{'Enabled' if qotd_channel[2] else 'Disabled'}", inline=False)
         else:
@@ -137,6 +191,7 @@ class ConfigCog(commands.Cog):
                 value=(
                     "`/config qotd set_channel [channel]` - Set the channel for QOTD messages\n"
                     "`/config qotd set_role [role]` - Set a role to ping with the QOTD\n"
+                    "`/config qotd set_time [time] [timezone]` - Set when the QOTD is posted (e.g. 18:30 Europe/Amsterdam)\n"
                     "`/config qotd enable [enabled]` - Enable or disable QOTD messages\n"
                     "`/config qotd delete_old [enabled]` - Enable or disable deletion of old QOTD messages"
                 ),
@@ -293,7 +348,7 @@ class ConfigCog(commands.Cog):
             items_text = "\n".join(created_items)
             msg = f"### All set up!\n**Created:**\n{items_text}\n\nBoth features are now enabled. Customize further with `/config help`."
             if qotd:
-                msg += f"\n\nNext QOTD: {_next_qotd_timestamp()}"
+                msg += f"\n\nNext QOTD: {_next_qotd_timestamp(interaction.guild.id)}"
             await interaction.followup.send(msg, ephemeral=True)
 
     @discord.app_commands.allowed_installs(guilds=True, users=False)
@@ -426,6 +481,52 @@ class ConfigCog(commands.Cog):
     @discord.app_commands.allowed_installs(guilds=True, users=False)
     @discord.app_commands.allowed_contexts(guilds=True, dms=False, private_channels=False)
     @discord.app_commands.checks.has_permissions(administrator=True)
+    @qotd.command(name="set_time", description="Set the time of day the QOTD is posted")
+    @app_commands.describe(time="Time of day in 24-hour HH:MM format", timezone="Timezone for the time, e.g. Europe/Amsterdam (defaults to server time)")
+    @app_commands.autocomplete(timezone=_timezone_autocomplete)
+    async def set_qotd_time(self, interaction: discord.Interaction, time: str, timezone: str = None):
+        minutes = qotd_minutes(time)
+        if minutes is None:
+            await interaction.response.send_message("Invalid time. Use 24-hour HH:MM format, e.g. `18:30`.", ephemeral=True)
+            return
+
+        tz_name = None
+        if timezone:
+            try:
+                ZoneInfo(timezone)
+                tz_name = timezone
+            except Exception:
+                await interaction.response.send_message(f"Unknown timezone `{timezone}`. Type part of a nearby city and pick from the suggestions, e.g. `Europe/Amsterdam`.", ephemeral=True)
+                return
+
+        qotd_time = f"{minutes // 60:02d}:{minutes % 60:02d}"
+
+        conn = get_db()
+        try:
+            cur = conn.cursor()
+            existing = cur.execute("SELECT qotd_time, qotd_tz FROM guild_settings WHERE guild_id = ?", (interaction.guild.id,)).fetchone() # type: ignore
+            changed = not existing or existing["qotd_time"] != qotd_time or existing["qotd_tz"] != tz_name
+            if changed:
+                cur.execute("INSERT INTO guild_settings (guild_id, qotd_time, qotd_tz, last_qotd_date) VALUES (?, ?, ?, NULL) ON CONFLICT(guild_id) DO UPDATE SET qotd_time = excluded.qotd_time, qotd_tz = excluded.qotd_tz, last_qotd_date = NULL", (interaction.guild.id, qotd_time, tz_name))
+            else:
+                cur.execute("INSERT INTO guild_settings (guild_id, qotd_time, qotd_tz) VALUES (?, ?, ?) ON CONFLICT(guild_id) DO UPDATE SET qotd_time = excluded.qotd_time, qotd_tz = excluded.qotd_tz", (interaction.guild.id, qotd_time, tz_name)) # type: ignore
+            conn.commit()
+        except Exception as e:
+            print(f"{date()} ERROR  Failed to set QOTD time: {e}")
+            await interaction.response.send_message(f"Failed to set QOTD time. Please try again later.", ephemeral=True)
+            return
+        finally:
+            conn.close()
+
+        msg = f"QOTD will be posted daily at `{qotd_time}` ({tz_name or 'server time'})"
+        if changed and existing is not None:
+            msg += "\n\nThe schedule changed, so the next QOTD posts at this new time even if one already went out today."
+        msg += f"\n\nNext QOTD: {_next_qotd_timestamp(interaction.guild.id)}"
+        await interaction.response.send_message(msg, ephemeral=True)
+
+    @discord.app_commands.allowed_installs(guilds=True, users=False)
+    @discord.app_commands.allowed_contexts(guilds=True, dms=False, private_channels=False)
+    @discord.app_commands.checks.has_permissions(administrator=True)
     @qotd.command(name="enable", description="Enable or disable the QOTD")
     @app_commands.describe(enabled="Whether to enable the QOTD")
     async def enable_qotd(self, interaction: discord.Interaction, enabled: bool):
@@ -461,7 +562,7 @@ class ConfigCog(commands.Cog):
 
         msg = f"QOTD has been {'enabled' if enabled else 'disabled'}"
         if enabled:
-            msg += f"\n\nNext QOTD: {_next_qotd_timestamp()}"
+            msg += f"\n\nNext QOTD: {_next_qotd_timestamp(interaction.guild.id)}"
         await interaction.response.send_message(msg, ephemeral=True)
 
     @discord.app_commands.allowed_installs(guilds=True, users=False)
