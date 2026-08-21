@@ -11,7 +11,7 @@ from utils import (
     get_db, date, log_stats, add_message_xp, send_qotd, llm_worker,
     LLMRequest, get_command_path, extract_options, startup,
     last_llm, llm_queue, llm_queue_size, LLM_COOLDOWN, TOPGG_TOKEN, DBL_TOKEN,
-    http_session as _http_session, log_admin_event,
+    http_session as _http_session, log_admin_event, qotd_now, qotd_minutes,
 )
 import utils
 
@@ -246,21 +246,37 @@ class EventsCog(commands.Cog):
 
     @tasks.loop(minutes=1)
     async def qotd_loop(self):
-        now = datetime.datetime.now()
-        if now.hour != 16 or now.minute != 0:
-            return
-
         conn = get_db()
         try:
             cur = conn.cursor()
 
             try:
-                guilds = cur.execute("SELECT guild_id, qotd_channel, qotd_role_id FROM guild_settings WHERE qotd_enabled = 1").fetchall()
+                guilds = cur.execute("SELECT guild_id, qotd_channel, qotd_role_id, qotd_time, qotd_tz, last_qotd_date FROM guild_settings WHERE qotd_enabled = 1").fetchall()
             except Exception as e:
                 print(f"{date()} ERROR  Failed to fetch QOTD guilds: {e}")
                 return
 
-            guilds = [g for g in guilds if self.bot.get_guild(g["guild_id"])]
+            due = []
+            for g in guilds:
+                now = qotd_now(g["qotd_tz"])
+                target = qotd_minutes(g["qotd_time"])
+                if target is None:
+                    target = qotd_minutes("16:00")
+                if now.hour * 60 + now.minute != target:
+                    continue
+                today = now.strftime("%Y-%m-%d")
+                if g["last_qotd_date"] == today:
+                    continue
+                due.append((g, today))
+
+            if not due:
+                return
+
+            for g, today in due:
+                cur.execute("UPDATE guild_settings SET last_qotd_date=? WHERE guild_id=?", (today, g["guild_id"]))
+            conn.commit()
+
+            guilds = [g for g, _ in due if self.bot.get_guild(g["guild_id"])]
             qotd_tasks = [send_qotd(self.bot, g["qotd_channel"], g["qotd_role_id"], g["guild_id"]) for g in guilds]
             await asyncio.gather(*qotd_tasks, return_exceptions=True)
             print(f"{date()} INFO  Sent QOTD for {len(guilds)} guilds")

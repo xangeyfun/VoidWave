@@ -109,6 +109,21 @@ if __name__ == "__main__":
     except sqlite3.OperationalError:
         pass
 
+    try:
+        cur.execute("ALTER TABLE guild_settings ADD COLUMN qotd_time TEXT DEFAULT '16:00'")
+    except sqlite3.OperationalError:
+        pass
+
+    try:
+        cur.execute("ALTER TABLE guild_settings ADD COLUMN qotd_tz TEXT")
+    except sqlite3.OperationalError:
+        pass
+
+    try:
+        cur.execute("ALTER TABLE guild_settings ADD COLUMN last_qotd_date TEXT")
+    except sqlite3.OperationalError:
+        pass
+
     cur.execute("""
     CREATE TABLE IF NOT EXISTS vote_boosts (
         user_id INTEGER PRIMARY KEY,
