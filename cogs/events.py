@@ -5,6 +5,7 @@ import traceback
 import datetime
 import aiohttp
 import asyncio
+import io
 import time
 import os
 from utils import (
@@ -19,6 +20,7 @@ import utils
 class EventsCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        self.feedback_webhook = None
 
     @commands.Cog.listener()
     async def on_ready(self):
@@ -76,7 +78,7 @@ class EventsCog(commands.Cog):
             else:
                 guild_id = ""
 
-            if interaction.command and interaction.command.name == "ai" and "message" in command_options:
+            if os.getenv("DEBUG") != "true" and interaction.command and interaction.command.name == "ai" and "message" in command_options:
                 command_options["message"] = "***"
             options_str = " ".join(f"{k}:{v}" for k, v in command_options.items())
 
@@ -100,6 +102,7 @@ class EventsCog(commands.Cog):
             print(f"{date()} MESSAGE  from {message.author} in {message.guild.name if message.guild else 'DM'}{'/' + message.channel.name if message.guild else ''}: {message.content} [{message.attachments[0].url if message.attachments else ''}] [{message.embeds[0].url if message.embeds else ''}] [{message.stickers[0].url if message.stickers else ''}]")
 
         if isinstance(message.channel, discord.DMChannel):
+            await self.relay_dm_feedback(message)
             return
 
         message_reference = False
@@ -166,6 +169,100 @@ class EventsCog(commands.Cog):
             await message.reply(f"Something went wrong while processing that message. The developers have been notified.", allowed_mentions=discord.AllowedMentions(users=False))
             return
 
+    async def relay_dm_feedback(self, message):
+        channel = self.bot.get_channel(1540471117557403648)
+        if not channel:
+            print(f"{date()} ERROR  Feedback channel not found, dropped DM from {message.author} ({message.author.id})")
+            return
+
+        try:
+            webhook = await self.get_feedback_webhook(channel)
+            await self.send_dm_via_webhook(webhook, message)
+            print(f"{date()} INFO  Relayed DM from {message.author} ({message.author.id}) to feedback channel")
+        except Exception as e:
+            print(f"{date()} ERROR  Webhook relay failed for DM from {message.author}: {e}, falling back to embed")
+            try:
+                await self.send_dm_embed_fallback(channel, message)
+                print(f"{date()} INFO  Relayed DM from {message.author} ({message.author.id}) via embed fallback")
+            except Exception as e2:
+                print(f"{date()} ERROR  Failed to relay DM feedback from {message.author}: {e2}")
+
+    async def get_feedback_webhook(self, channel):
+        if self.feedback_webhook:
+            return self.feedback_webhook
+
+        for wh in await channel.webhooks():
+            if wh.name == "VoidWave DM Relay" and wh.user and self.bot.user and wh.user.id == self.bot.user.id:
+                self.feedback_webhook = wh
+                return wh
+
+        wh = await channel.create_webhook(name="VoidWave DM Relay", reason="Relaying DMs sent to VoidWave")
+        self.feedback_webhook = wh
+        return wh
+
+    async def send_dm_via_webhook(self, webhook, message):
+        parts = []
+
+        if message.reference and isinstance(message.reference.resolved, discord.Message):
+            ref = message.reference.resolved
+            preview = (ref.content or "(no text)")[:150]
+            parts.append(f"**Replying to {ref.author}:**\n> {preview}")
+
+        text = message.content or "(no text)"
+        if len(text) > 1800:
+            text = text[:1800] + " ..."
+        parts.append(text)
+
+        links = [s.url for s in message.stickers]
+        links += [a.url for a in message.attachments if (a.size or 0) > 8 * 1024 * 1024]
+        if links:
+            parts.append("\n".join(links))
+
+        content = "\n\n".join(parts)
+        content += f"\n-# DM from {message.author.name} ({message.author.id})"
+
+        files = []
+        for att in message.attachments:
+            if len(files) >= 5 or (att.size or 0) > 8 * 1024 * 1024:
+                continue
+            try:
+                data = await att.read()
+                files.append(discord.File(io.BytesIO(data), filename=att.filename))
+            except Exception as e:
+                print(f"{date()} ERROR  Failed to download attachment {att.filename}: {e}")
+
+        display_name = message.author.display_name[:80] or "Unknown User"
+        await webhook.send(
+            content=content,
+            username=display_name,
+            avatar_url=message.author.display_avatar.url,
+            files=files,
+            allowed_mentions=discord.AllowedMentions.none(),
+        )
+
+    async def send_dm_embed_fallback(self, channel, message):
+        embed = discord.Embed(
+            title="📬 New DM to VoidWave",
+            description=message.content or "*no text content*",
+            color=0x7128fc,
+            timestamp=datetime.datetime.now(datetime.timezone.utc)
+        )
+        embed.add_field(name="From", value=f"{message.author} (`{message.author.id}`)", inline=False)
+
+        if message.reference and isinstance(message.reference.resolved, discord.Message):
+            ref = message.reference.resolved
+            preview = ref.content[:200] if ref.content else "*no text content*"
+            embed.add_field(name="Replying to", value=f"**{ref.author}:** {preview}", inline=False)
+
+        links = [a.url for a in message.attachments]
+        links += [s.url for s in message.stickers]
+        if links:
+            embed.add_field(name="Attachments", value="\n".join(links), inline=False)
+
+        embed.set_thumbnail(url=message.author.display_avatar.url)
+        embed.set_footer(text="VoidWave • DM feedback")
+        await channel.send(embed=embed)
+
     @commands.Cog.listener()
     async def on_guild_join(self, guild):
         print(f"{date()} GUILD  Joined guild: {guild.name} | {guild.member_count} members | ID: {guild.id}")
@@ -182,7 +279,10 @@ class EventsCog(commands.Cog):
         embed.add_field(name="Total Members", value=f"`{total_members}`", inline=True)
         embed.add_field(name="Total Guilds", value=f"`{total_guilds}`", inline=True)
         embed.set_footer(text="VoidWave • Vote for 2x XP! /vote")
-        await log_channel.send(embed=embed)
+        if log_channel:
+            await log_channel.send(embed=embed)
+        else:
+            print(f"{date()} ERROR  Join log channel not found, could not log join for guild {guild.id}")
 
         welcome_channel = guild.system_channel
         if not welcome_channel or not welcome_channel.permissions_for(guild.me).send_messages:
@@ -242,7 +342,10 @@ class EventsCog(commands.Cog):
         embed.add_field(name="Total Members", value=f"`{total_members}`", inline=True)
         embed.add_field(name="Total Guilds", value=f"`{total_guilds}`", inline=True)
         embed.set_footer(text="VoidWave • Vote for 2x XP! /vote")
-        await channel.send(embed=embed)
+        if channel:
+            await channel.send(embed=embed)
+        else:
+            print(f"{date()} ERROR  Leave log channel not found, could not log removal of guild {guild.id}")
 
     @tasks.loop(minutes=1)
     async def qotd_loop(self):

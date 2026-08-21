@@ -9,6 +9,7 @@ from utils import startup, get_db
 class GeneralCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        self.feedback_cooldowns = {}
 
     @discord.app_commands.allowed_installs(guilds=True, users=True)
     @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
@@ -45,7 +46,8 @@ class GeneralCog(commands.Cog):
                     "`/vote` - Vote for the bot on Top.gg\n"
                     "`/calc <expression>` - Simple calculator\n"
                     "`/ai <message> [stats] [hidden]` - Chat with the bot's AI\n"
-                    "`/userinfo <user> [hidden]` - Get info about a user"
+                    "`/userinfo <user> [hidden]` - Get info about a user\n"
+                    "`/feedback <feedback>` - Send feedback to the developers"
                 ),
                 inline=False
             )
@@ -106,7 +108,7 @@ class GeneralCog(commands.Cog):
             )
             embed.add_field(
                 name="🔧 Utilities",
-                value="`/ping`, `/uptime`, `/github`, `/calc`, `/ai`, `/userinfo`",
+                value="`/ping`, `/uptime`, `/github`, `/calc`, `/ai`, `/userinfo`, `/feedback`",
                 inline=True
             )
             embed.add_field(
@@ -206,6 +208,48 @@ class GeneralCog(commands.Cog):
         embed.set_footer(text="Vote for 2x XP! /vote")
         embed.timestamp = datetime.datetime.now(datetime.timezone.utc)
         await interaction.response.send_message(embed=embed, ephemeral=True)
+
+
+    @discord.app_commands.allowed_installs(guilds=True, users=True)
+    @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
+    @discord.app_commands.command(name="feedback", description="Send feedback to the VoidWave developers.")
+    async def feedback(self, interaction: discord.Interaction, feedback: str):
+        remaining = self.feedback_cooldowns.get(interaction.user.id, 0) + 60 - time.time()
+        if remaining > 0:
+            await interaction.response.send_message(f"Slow down! You can send feedback again in `{remaining:.0f} seconds`.", ephemeral=True)
+            return
+
+        if not feedback.strip():
+            await interaction.response.send_message("Please include some actual feedback in your message.", ephemeral=True)
+            return
+
+        channel = self.bot.get_channel(1540471117557403648)
+        if not channel:
+            await interaction.response.send_message("Feedback is unavailable right now, please try again later.", ephemeral=True)
+            return
+
+        await interaction.response.defer(ephemeral=True)
+
+        embed = discord.Embed(
+            title="💡 New feedback via /feedback",
+            description=feedback[:4000],
+            color=0x7128fc,
+            timestamp=datetime.datetime.now(datetime.timezone.utc)
+        )
+        embed.add_field(name="From", value=f"{interaction.user} (`{interaction.user.id}`)", inline=False)
+        embed.add_field(name="Sent from", value=interaction.guild.name if interaction.guild else "DMs", inline=False)
+        embed.set_thumbnail(url=interaction.user.display_avatar.url)
+        embed.set_footer(text="VoidWave • /feedback")
+
+        try:
+            await channel.send(embed=embed)
+        except Exception as e:
+            print(f"{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')} ERROR  Failed to relay /feedback from {interaction.user}: {e}")
+            await interaction.followup.send("Something went wrong while sending your feedback, please try again later.", ephemeral=True)
+            return
+
+        self.feedback_cooldowns[interaction.user.id] = time.time()
+        await interaction.followup.send("Thank you! Your feedback has been sent straight to the VoidWave developers. 💜", ephemeral=True)
 
 
 async def setup(bot):
