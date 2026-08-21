@@ -422,7 +422,17 @@ async def send_qotd(bot, channel_id, role_id, guild_id):
     channel = bot.get_channel(channel_id)
 
     if not channel or not isinstance(channel, discord.TextChannel):
-        print(f"{date()} ERROR  QOTD channel with ID {channel_id} not found or is not a text channel.")
+        print(f"{date()} WARN  QOTD channel with ID {channel_id} not found for guild {guild_id}, disabling QOTD")
+        try:
+            conn = get_db()
+            try:
+                cur = conn.cursor()
+                cur.execute("UPDATE guild_settings SET qotd_enabled=0 WHERE guild_id=?", (guild_id,))
+                conn.commit()
+            finally:
+                conn.close()
+        except Exception as e:
+            print(f"{date()} ERROR  Failed to disable QOTD for guild {guild_id}: {e}")
         return
 
     conn = get_db()
@@ -438,6 +448,8 @@ async def send_qotd(bot, channel_id, role_id, guild_id):
                 thread = channel.get_thread(guild_settings["last_qotd_thread_id"])
                 if thread:
                     await thread.delete() # type: ignore
+            except discord.Forbidden:
+                print(f"{date()} WARN  Missing permissions to delete old QOTD thread for guild {guild_id}")
             except Exception as e:
                 print(f"{date()} ERROR  Failed to delete old QOTD thread: {e}")
 
@@ -445,6 +457,8 @@ async def send_qotd(bot, channel_id, role_id, guild_id):
                 old_msg = await channel.fetch_message(guild_settings["last_qotd_id"])
                 await old_msg.delete()
 
+            except discord.Forbidden:
+                print(f"{date()} WARN  Missing permissions to delete old QOTD message for guild {guild_id}")
             except Exception as e:
                 print(f"{date()} ERROR  Failed to delete old QOTD message: {e}")
 

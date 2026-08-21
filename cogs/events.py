@@ -219,6 +219,17 @@ class EventsCog(commands.Cog):
     async def on_guild_remove(self, guild):
         print(f"{date()} GUILD  Removed from guild: {guild.name} | {guild.member_count} members | ID: {guild.id}")
         log_admin_event("guild_leave", f"Removed from {guild.name} ({guild.member_count} members)", guild_id=guild.id)
+        try:
+            conn = get_db()
+            try:
+                cur = conn.cursor()
+                cur.execute("DELETE FROM guild_settings WHERE guild_id=?", (guild.id,))
+                cur.execute("DELETE FROM level_roles WHERE guild_id=?", (guild.id,))
+                conn.commit()
+            finally:
+                conn.close()
+        except Exception as e:
+            print(f"{date()} ERROR  Failed to clean up settings for guild {guild.id}: {e}")
         channel = self.bot.get_channel(1475562384860119196)
         total_members = sum(g.member_count or 0 for g in self.bot.guilds)
         total_guilds = len(self.bot.guilds)
@@ -249,6 +260,7 @@ class EventsCog(commands.Cog):
                 print(f"{date()} ERROR  Failed to fetch QOTD guilds: {e}")
                 return
 
+            guilds = [g for g in guilds if self.bot.get_guild(g["guild_id"])]
             qotd_tasks = [send_qotd(self.bot, g["qotd_channel"], g["qotd_role_id"], g["guild_id"]) for g in guilds]
             await asyncio.gather(*qotd_tasks, return_exceptions=True)
             print(f"{date()} INFO  Sent QOTD for {len(guilds)} guilds")
