@@ -390,6 +390,7 @@ class ConfigCog(commands.Cog):
                 name="General",
                 value=(
                     "`/config view` - View current configuration\n"
+                    "`/config test` - Run a health check of your settings\n"
                     "`/config help topic:Leveling` - View leveling commands\n"
                     "`/config help topic:Question of the Day` - View QOTD commands"
                 ),
