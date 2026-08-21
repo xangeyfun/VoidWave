@@ -20,6 +20,10 @@ TOKEN = os.getenv("TOKEN")
 async def _command_gate(interaction: discord.Interaction) -> bool:
     if is_blocked(interaction.user.id, "commands"):
         print(f"{date()} BLOCKED '/{getattr(interaction.command, 'qualified_name', '?')}' attempt by {interaction.user} ({interaction.user.id})")
+        try:
+            await interaction.response.send_message("You are blocked from using VoidWave commands.", ephemeral=True)
+        except (discord.HTTPException, RuntimeError):
+            pass
         return False
     return True
 
