@@ -66,6 +66,35 @@ async def _timezone_autocomplete(interaction: discord.Interaction, current: str)
     return [app_commands.Choice(name=z, value=z) for z in zones[:25]]
 
 
+def _channel_issue(channel):
+    """Return an error string when a stored channel is unusable, else None."""
+    if channel is None:
+        return "the channel was deleted, set it again"
+    if not isinstance(channel, discord.TextChannel):
+        return f"the stored id points at <#{channel.id}> which is not a text channel"
+    return None
+
+
+def _missing_perms(channel, member, names):
+    perms = channel.permissions_for(member)
+    return [n.replace("_", " ") for n in names if not getattr(perms, n)]
+
+
+def _role_issue(role, top_role):
+    """Return an error string when a stored role can't be assigned, else None."""
+    if role is None:
+        return "the role was deleted, set it again"
+    if role >= top_role:
+        return f"<@&{role.id}> sits above my highest role so it can never be assigned"
+    return None
+
+
+def _role_pingable(role, member):
+    if role.is_default() or role.is_mentionable():
+        return True
+    return member.guild_permissions.mention_everyone
+
+
 class ConfigCog(commands.Cog):
     config = discord.app_commands.Group(name="config", description="Admin commands for configuring the bot", default_permissions=discord.Permissions(administrator=True), allowed_installs=discord.app_commands.AppInstallationType(guild=True, user=False), allowed_contexts=discord.app_commands.AppCommandContext(guild=True, dm_channel=False, private_channel=False))
     level = discord.app_commands.Group(name="level", description="Configure level system settings", parent=config)
@@ -136,6 +165,148 @@ class ConfigCog(commands.Cog):
 
         embed.set_footer(text="Vote for 2x XP! /vote")
         await interaction.response.send_message(embed=embed, ephemeral=True)
+
+    @discord.app_commands.allowed_installs(guilds=True, users=False)
+    @discord.app_commands.allowed_contexts(guilds=True, dms=False, private_channels=False)
+    @discord.app_commands.checks.has_permissions(administrator=True)
+    @config.command(name="test", description="Check that your configuration actually works")
+    @app_commands.describe(send_test="Also send a test message into your configured channels")
+    async def test_config(self, interaction: discord.Interaction, send_test: bool = False):
+        await interaction.response.defer(ephemeral=True)
+
+        conn = get_db()
+        try:
+            cur = conn.cursor()
+            settings = cur.execute("SELECT level_channel_id, level_channel_enabled, qotd_enabled, qotd_channel, qotd_role_id, delete_old_qotd, qotd_time, qotd_tz FROM guild_settings WHERE guild_id = ?", (interaction.guild.id,)).fetchone() # type: ignore
+            level_roles = cur.execute("SELECT level, role_id FROM level_roles WHERE guild_id = ?", (interaction.guild.id,)).fetchall() # type: ignore
+        except Exception as e:
+            print(f"{date()} ERROR  Failed to fetch config for test: {e}")
+            await interaction.followup.send("Failed to run the config test. Please try again later.", ephemeral=True)
+            return
+        finally:
+            conn.close()
+
+        me = interaction.guild.me
+        icons = {"ok": "✅", "warn": "⚠️", "fail": "❌"}
+
+        def line(status, text):
+            return f"{icons[status]} {text}"
+
+        level_results = []
+        qotd_results = []
+
+        # Leveling checks
+        if not settings or not settings["level_channel_id"]:
+            level_results.append(("warn", "No level up channel set. Fix with `/config level set_channel`"))
+        elif not settings["level_channel_enabled"]:
+            level_results.append(("warn", "Level announcements are turned off. Enable with `/config level toggle_channel true`"))
+        else:
+            channel = interaction.guild.get_channel(settings["level_channel_id"])
+            issue = _channel_issue(channel)
+            if issue:
+                level_results.append(("fail", issue))
+            else:
+                missing = _missing_perms(channel, me, ["view_channel", "send_messages", "embed_links"])
+                if missing:
+                    level_results.append(("fail", f"I am missing {', '.join(missing)} in {channel.mention}"))
+                else:
+                    level_results.append(("ok", f"Level up channel {channel.mention} works"))
+
+        if level_roles:
+            bad = 0
+            for row in level_roles:
+                role = interaction.guild.get_role(row["role_id"])
+                issue = _role_issue(role, me.top_role)
+                if issue:
+                    bad += 1
+                    level_results.append(("fail", f"Level {row['level']} reward: {issue}"))
+            good = len(level_roles) - bad
+            if good:
+                level_results.append(("ok", f"{good} of {len(level_roles)} level roles assignable"))
+        elif settings and settings["level_channel_enabled"]:
+            level_results.append(("warn", "No level roles configured. Optional: `/config level add_role`"))
+
+        # QOTD checks
+        if not settings or not settings["qotd_enabled"]:
+            qotd_results.append(("warn", "QOTD is disabled. Set it up with `/config qotd set_channel`, a role with `/config qotd set_role`, then enable with `/config qotd enable true`"))
+        else:
+            if not settings["qotd_channel"]:
+                qotd_results.append(("fail", "QOTD enabled but no channel set. Fix with `/config qotd set_channel`"))
+            else:
+                channel = interaction.guild.get_channel(settings["qotd_channel"])
+                issue = _channel_issue(channel)
+                if issue:
+                    qotd_results.append(("fail", issue))
+                else:
+                    needed = ["view_channel", "send_messages", "embed_links", "create_public_threads", "send_messages_in_threads"]
+                    if settings["delete_old_qotd"]:
+                        needed.append("manage_threads")
+                    missing = _missing_perms(channel, me, needed)
+                    if missing:
+                        note = " (also needed to delete old posts)" if "manage threads" in missing and settings["delete_old_qotd"] else ""
+                        qotd_results.append(("fail", f"I am missing {', '.join(missing)} in {channel.mention}{note}"))
+                    else:
+                        qotd_results.append(("ok", f"QOTD channel {channel.mention} works"))
+
+            role = interaction.guild.get_role(settings["qotd_role_id"]) if settings["qotd_role_id"] else None
+            if role is None:
+                qotd_results.append(("warn", "No ping role set. Optional: `/config qotd set_role`"))
+            elif not _role_pingable(role, me):
+                qotd_results.append(("fail", f"<@&{role.id}> can't be pinged by me. Make it mentionable or grant me the Mention Everyone permission"))
+            elif role.is_default():
+                qotd_results.append(("ok", "@everyone will be pinged with each question"))
+            else:
+                qotd_results.append(("ok", f"Ping role {role.mention} is pingeable"))
+
+            minutes = qotd_minutes(settings["qotd_time"])
+            tz_issue = None
+            if settings["qotd_tz"]:
+                try:
+                    ZoneInfo(settings["qotd_tz"])
+                except Exception:
+                    tz_issue = f"timezone `{settings['qotd_tz']}` is not valid. Run `/config qotd set_time` again and pick from the suggestions"
+            if minutes is None:
+                qotd_results.append(("fail", f"Stored time `{settings['qotd_time']}` is invalid. Run `/config qotd set_time` again"))
+            elif tz_issue:
+                qotd_results.append(("fail", tz_issue))
+            else:
+                qotd_results.append(("ok", f"Scheduled daily at `{settings['qotd_time'] or '16:00'}` ({settings['qotd_tz'] or 'server time'})"))
+                qotd_results.append(("ok", f"Next QOTD: {_next_qotd_timestamp(interaction.guild.id)}"))
+
+        # Optional live sends
+        if send_test and settings:
+            level_channel = interaction.guild.get_channel(settings["level_channel_id"]) if settings["level_channel_id"] else None
+            if isinstance(level_channel, discord.TextChannel) and settings["level_channel_enabled"]:
+                try:
+                    await level_channel.send(embed=discord.Embed(
+                        title="🧪 Configuration test",
+                        description="If you can read this, level up announcements will post here correctly.",
+                        color=0x7128fc,
+                    ))
+                    level_results.append(("ok", f"Test message delivered to {level_channel.mention}"))
+                except Exception as e:
+                    level_results.append(("fail", f"Test message to {level_channel.mention} failed: {e}"))
+
+            qotd_channel = interaction.guild.get_channel(settings["qotd_channel"]) if settings["qotd_channel"] else None
+            if isinstance(qotd_channel, discord.TextChannel):
+                try:
+                    await qotd_channel.send(embed=discord.Embed(
+                        title="🧪 Configuration test",
+                        description="If you can read this, the daily question will post here correctly.",
+                        color=0x7128fc,
+                    ))
+                    qotd_results.append(("ok", f"Test message delivered to {qotd_channel.mention}"))
+                except Exception as e:
+                    qotd_results.append(("fail", f"Test message to {qotd_channel.mention} failed: {e}"))
+
+        all_results = level_results + qotd_results
+        fails = sum(1 for s, _ in all_results if s == "fail")
+
+        embed = discord.Embed(title="🧪 Config Test", color=discord.Color.red() if fails else 0x7128fc)
+        embed.add_field(name="Leveling", value="\n".join(line(s, t) for s, t in level_results) or "Nothing configured yet", inline=False)
+        embed.add_field(name="Question of the Day", value="\n".join(line(s, t) for s, t in qotd_results) or "Nothing configured yet", inline=False)
+        embed.set_footer(text=f"{fails} problem(s) found. Fix them with the commands above." if fails else "Everything looks good!")
+        await interaction.followup.send(embed=embed, ephemeral=True)
 
     @discord.app_commands.allowed_installs(guilds=True, users=False)
     @discord.app_commands.allowed_contexts(guilds=True, dms=False, private_channels=False)
