@@ -219,33 +219,31 @@ def _service_active(unit):
 
 
 def _service_stop(unit):
+    last = ""
     for cmd in (["systemctl", "stop", unit],
                 ["sudo", "-n", "systemctl", "stop", unit]):
         try:
             r = subprocess.run(cmd, capture_output=True, text=True, timeout=20)
             if r.returncode == 0:
                 return True, f"Stopped {unit}"
-            if "denied" in r.stderr.lower() or "not authorized" in r.stderr.lower():
-                continue
-            return False, f"Could not stop {unit}: {r.stderr.strip() or r.returncode}"
+            last = r.stderr.strip() or str(r.returncode)
         except Exception as e:
-            return False, str(e)
-    return False, f"No permission to stop {unit}. Stop it manually and use the other option."
+            last = str(e)
+    return False, f"Could not stop {unit}: {last}"
 
 
 def _service_start(unit):
+    last = ""
     for cmd in (["systemctl", "start", unit],
                 ["sudo", "-n", "systemctl", "start", unit]):
         try:
             r = subprocess.run(cmd, capture_output=True, text=True, timeout=20)
             if r.returncode == 0:
                 return True, f"Started {unit}"
-            if "denied" in r.stderr.lower() or "not authorized" in r.stderr.lower():
-                continue
-            return False, f"Could not start {unit}: {r.stderr.strip() or r.returncode}"
+            last = r.stderr.strip() or str(r.returncode)
         except Exception as e:
-            return False, str(e)
-    return False, f"Start {unit} manually: sudo systemctl start {unit}"
+            last = str(e)
+    return False, f"Could not start {unit}: {last}. Try manually: sudo systemctl start {unit}"
 
 
 def _service_status(unit):
