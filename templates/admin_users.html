@@ -146,24 +146,25 @@
     <span class="muted" style="font-size:0.88rem;">{{ total }} user row(s)</span>
     {% if total_pages > 1 %}
     <div class="pagination">
+        {% set base_args = {'q': q, 'sort': sort, 'order': order} %}
         {% if page > 1 %}
-            <a href="?q={{ q }}&sort={{ sort }}&order={{ order }}&page={{ page - 1 }}">&#x2190;</a>
+            <a href="{{ url_for('admin.users', page=page - 1, **base_args) }}">&#x2190;</a>
         {% endif %}
         {% set start = [1, page - 2] | max %}
         {% set end = [total_pages, page + 2] | min %}
         {% if start > 1 %}
-            <a href="?q={{ q }}&sort={{ sort }}&order={{ order }}&page=1">1</a>
+            <a href="{{ url_for('admin.users', page=1, **base_args) }}">1</a>
             {% if start > 2 %}<span class="dots">...</span>{% endif %}
         {% endif %}
         {% for p in range(start, end + 1) %}
-            <a href="?q={{ q }}&sort={{ sort }}&order={{ order }}&page={{ p }}" class="{% if p == page %}active{% endif %}">{{ p }}</a>
+            <a href="{{ url_for('admin.users', page=p, **base_args) }}" class="{% if p == page %}active{% endif %}">{{ p }}</a>
         {% endfor %}
         {% if end < total_pages %}
             {% if end < total_pages - 1 %}<span class="dots">...</span>{% endif %}
-            <a href="?q={{ q }}&sort={{ sort }}&order={{ order }}&page={{ total_pages }}">{{ total_pages }}</a>
+            <a href="{{ url_for('admin.users', page=total_pages, **base_args) }}">{{ total_pages }}</a>
         {% endif %}
         {% if page < total_pages %}
-            <a href="?q={{ q }}&sort={{ sort }}&order={{ order }}&page={{ page + 1 }}">&#x2192;</a>
+            <a href="{{ url_for('admin.users', page=page + 1, **base_args) }}">&#x2192;</a>
         {% endif %}
     </div>
     {% endif %}

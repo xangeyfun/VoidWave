@@ -50,17 +50,17 @@
 
     {% if total_pages > 1 %}
     <div class="pagination">
-        {% if page > 1 %}<a href="?q={{ q }}&page={{ page - 1 }}">&#x2190;</a>{% endif %}
+        {% if page > 1 %}<a href="{{ url_for('admin.logs', q=q, page=page - 1) }}">&#x2190;</a>{% endif %}
         {% for p in range(1, total_pages + 1) %}
             {% if p == page %}
                 <span class="active">{{ p }}</span>
             {% elif p <= 3 or p > total_pages - 2 or (p >= page - 2 and p <= page + 2) %}
-                <a href="?q={{ q }}&page={{ p }}">{{ p }}</a>
+                <a href="{{ url_for('admin.logs', q=q, page=p) }}">{{ p }}</a>
             {% elif p == 4 or p == total_pages - 3 %}
                 <span class="dots">...</span>
             {% endif %}
         {% endfor %}
-        {% if page < total_pages %}<a href="?q={{ q }}&page={{ page + 1 }}">&#x2192;</a>{% endif %}
+        {% if page < total_pages %}<a href="{{ url_for('admin.logs', q=q, page=page + 1) }}">&#x2192;</a>{% endif %}
     </div>
     {% endif %}
 </div>

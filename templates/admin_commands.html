@@ -117,21 +117,21 @@
     </div>
     {% if total_pages > 1 %}
     <div class="pagination" style="margin-top:1rem;">
-        {% if page > 1 %}<a href="?page={{ page - 1 }}">&#x2190;</a>{% endif %}
+        {% if page > 1 %}<a href="{{ url_for('admin.commands_page', page=page - 1) }}">&#x2190;</a>{% endif %}
         {% set start = [1, page - 2] | max %}
         {% set end = [total_pages, page + 2] | min %}
         {% if start > 1 %}
-            <a href="?page=1">1</a>
+            <a href="{{ url_for('admin.commands_page', page=1) }}">1</a>
             {% if start > 2 %}<span class="dots">...</span>{% endif %}
         {% endif %}
         {% for p in range(start, end + 1) %}
-            <a href="?page={{ p }}" class="{% if p == page %}active{% endif %}">{{ p }}</a>
+            <a href="{{ url_for('admin.commands_page', page=p) }}" class="{% if p == page %}active{% endif %}">{{ p }}</a>
         {% endfor %}
         {% if end < total_pages %}
             {% if end < total_pages - 1 %}<span class="dots">...</span>{% endif %}
-            <a href="?page={{ total_pages }}">{{ total_pages }}</a>
+            <a href="{{ url_for('admin.commands_page', page=total_pages) }}">{{ total_pages }}</a>
         {% endif %}
-        {% if page < total_pages %}<a href="?page={{ page + 1 }}">&#x2192;</a>{% endif %}
+        {% if page < total_pages %}<a href="{{ url_for('admin.commands_page', page=page + 1) }}">&#x2192;</a>{% endif %}
     </div>
     {% endif %}
 </div>
