@@ -3,12 +3,21 @@
 {% block heading %}Guild Settings{% endblock %}
 {% block subheading %}View and edit configuration for every guild{% endblock %}
 
+{% macro sort_header(label, field, cls) %}
+<th class="{{ cls }} sortable">
+    <a class="{% if sort == field %}active{% endif %}" href="{{ url_for('admin.guilds', q=q, sort=field, order=('asc' if (sort == field and order == 'desc') else 'desc')) }}">
+        {{ label }}{% if sort == field %} {{ '&#9650;' if order == 'asc' else '&#9660;' }}{% endif %}
+    </a>
+</th>
+{% endmacro %}
+
 {% block content %}
 <div class="admin-card">
     <form method="GET" action="{{ url_for('admin.guilds') }}" class="form-grid">
         <div class="form-field">
             <label>Search</label>
             <input type="text" name="q" value="{{ q }}" placeholder="Guild ID..." autofocus>
+            <div class="hint">Press <span class="kbd">/</span> to focus search on any page</div>
         </div>
         <div class="form-field">
             <label>Sort by</label>
@@ -39,11 +48,11 @@
     <table class="admin-table">
         <thead>
             <tr>
-                <th>Guild ID</th>
-                <th class="num">Users</th>
-                <th class="num">XP</th>
+                {{ sort_header('Guild ID', 'guild_id', '') }}
+                {{ sort_header('Users', 'users', 'num') }}
+                {{ sort_header('XP', 'xp', 'num') }}
                 <th class="num">Messages</th>
-                <th class="num">Avg Level</th>
+                {{ sort_header('Avg Level', 'avg_level', 'num') }}
                 <th class="num">Max Level</th>
                 <th>Settings</th>
                 <th>QOTD</th>
@@ -52,7 +61,7 @@
         </thead>
         <tbody>
             {% for r in rows %}
-            <tr>
+            <tr data-href="{{ url_for('admin.guild_edit', guild_id=r['guild_id']) }}">
                 <td>
                     <div class="flex items-center gap-1">
                         <div class="guild-icon">{{ (r['guild_id']|string)[-2:] }}</div>
