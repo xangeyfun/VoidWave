@@ -23,35 +23,42 @@ def guilds():
     valid_sorts = {"guild_id", "users", "xp", "avg_level", "settings"}
     if sort not in valid_sorts:
         sort = "users"
-    dir_sql = "ASC" if order == "asc" else "DESC"
 
     conn = _db()
     try:
         rows = conn.execute("""
             SELECT
-                u.guild_id,
-                COUNT(DISTINCT u.user_id) AS users,
-                COALESCE(SUM(u.total_xp), 0) AS xp,
-                COALESCE(SUM(u.total_messages), 0) AS msgs,
-                COALESCE(SUM(u_vc.vc_minutes_sum), 0) AS vc,
-                ROUND(COALESCE(AVG(u.level), 0), 1) AS avg_level,
-                COALESCE(MAX(u.level), 0) AS max_level,
+                a.guild_id,
+                COALESCE(s.users, 0) AS users,
+                COALESCE(s.xp, 0) AS xp,
+                COALESCE(s.msgs, 0) AS msgs,
+                COALESCE(s.vc, 0) AS vc,
+                ROUND(COALESCE(s.avg_level, 0), 1) AS avg_level,
+                COALESCE(s.max_level, 0) AS max_level,
                 CASE WHEN gs.guild_id IS NOT NULL THEN 1 ELSE 0 END AS has_settings,
                 gs.level_channel_enabled,
                 gs.qotd_enabled
-            FROM (SELECT DISTINCT guild_id, user_id, total_xp, total_messages, level FROM users) u
+            FROM (
+                SELECT DISTINCT guild_id FROM users
+                UNION
+                SELECT guild_id FROM guild_settings
+            ) a
             LEFT JOIN (
-                SELECT guild_id, SUM(vc_minutes) AS vc_minutes_sum
+                SELECT guild_id,
+                       COUNT(*) AS users,
+                       SUM(total_xp) AS xp,
+                       SUM(total_messages) AS msgs,
+                       SUM(vc_minutes) AS vc,
+                       AVG(level) AS avg_level,
+                       MAX(level) AS max_level
                 FROM users GROUP BY guild_id
-            ) u_vc ON u_vc.guild_id = u.guild_id
-            LEFT JOIN guild_settings gs ON gs.guild_id = u.guild_id
-            GROUP BY u.guild_id
+            ) s ON s.guild_id = a.guild_id
+            LEFT JOIN guild_settings gs ON gs.guild_id = a.guild_id
         """).fetchall()
 
         if q and q.isdigit() and len(q) >= 8:
             rows = [r for r in rows if str(r["guild_id"]) == q]
         elif q:
-            like = f"%{q}%"
             rows = [r for r in rows if q in str(r["guild_id"])]
 
         sort_map = {"guild_id": "guild_id", "users": "users", "xp": "xp",
@@ -62,6 +69,7 @@ def guilds():
 
         total = len(rows)
         total_pages = max(1, (total + per - 1) // per)
+        page = min(page, total_pages)
         page_rows = rows[(page - 1) * per: page * per]
     finally:
         conn.close()
@@ -92,16 +100,28 @@ def guilds_export():
     try:
         rows = conn.execute("""
             SELECT
-                u.guild_id,
-                COUNT(DISTINCT u.user_id) AS users,
-                COALESCE(SUM(u.total_xp), 0) AS xp,
-                COALESCE(SUM(u.total_messages), 0) AS msgs,
-                ROUND(COALESCE(AVG(u.level), 0), 1) AS avg_level,
-                COALESCE(MAX(u.level), 0) AS max_level,
+                a.guild_id,
+                COALESCE(s.users, 0) AS users,
+                COALESCE(s.xp, 0) AS xp,
+                COALESCE(s.msgs, 0) AS msgs,
+                ROUND(COALESCE(s.avg_level, 0), 1) AS avg_level,
+                COALESCE(s.max_level, 0) AS max_level,
                 CASE WHEN gs.guild_id IS NOT NULL THEN 1 ELSE 0 END AS has_settings
-            FROM (SELECT DISTINCT guild_id, user_id, total_xp, total_messages, level FROM users) u
-            LEFT JOIN guild_settings gs ON gs.guild_id = u.guild_id
-            GROUP BY u.guild_id
+            FROM (
+                SELECT DISTINCT guild_id FROM users
+                UNION
+                SELECT guild_id FROM guild_settings
+            ) a
+            LEFT JOIN (
+                SELECT guild_id,
+                       COUNT(*) AS users,
+                       SUM(total_xp) AS xp,
+                       SUM(total_messages) AS msgs,
+                       AVG(level) AS avg_level,
+                       MAX(level) AS max_level
+                FROM users GROUP BY guild_id
+            ) s ON s.guild_id = a.guild_id
+            LEFT JOIN guild_settings gs ON gs.guild_id = a.guild_id
         """).fetchall()
 
         if q and q.isdigit() and len(q) >= 8:
