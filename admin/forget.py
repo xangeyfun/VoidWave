@@ -117,43 +117,44 @@ def _forget_execute(spec):
     try:
         cur = conn.cursor()
 
-        def run(sql, params=()):
+        def run(label, sql, params=()):
             cur.execute(sql, params)
-            counts.setdefault("_total", 0)
-            counts["_total"] += cur.rowcount
-            return cur.rowcount
+            n = max(0, cur.rowcount)
+            counts["_total"] = counts.get("_total", 0) + n
+            counts[label] = counts.get(label, 0) + n
+            return n
 
         if spec["type"] == "user_all":
             marks = ",".join("?" * len(spec["user_ids"]))
-            run(f"DELETE FROM users WHERE user_id IN ({marks})", spec["user_ids"])
-            run(f"DELETE FROM vote_boosts WHERE user_id IN ({marks})", spec["user_ids"])
+            run("users", f"DELETE FROM users WHERE user_id IN ({marks})", spec["user_ids"])
+            run("vote_boosts", f"DELETE FROM vote_boosts WHERE user_id IN ({marks})", spec["user_ids"])
         elif spec["type"] == "user_guild":
             marks = ",".join("?" * len(spec["user_ids"]))
-            run(f"DELETE FROM users WHERE guild_id=? AND user_id IN ({marks})",
+            run("users", f"DELETE FROM users WHERE guild_id=? AND user_id IN ({marks})",
                 [spec["guild_id"]] + spec["user_ids"])
         elif spec["type"] == "guild_users":
-            run("DELETE FROM users WHERE guild_id=?", (spec["guild_id"],))
+            run("users", "DELETE FROM users WHERE guild_id=?", (spec["guild_id"],))
         elif spec["type"] == "guild_full":
             gid = spec["guild_id"]
-            run("DELETE FROM users WHERE guild_id=?", (gid,))
-            run("DELETE FROM guild_settings WHERE guild_id=?", (gid,))
-            run("DELETE FROM level_roles WHERE guild_id=?", (gid,))
+            run("users", "DELETE FROM users WHERE guild_id=?", (gid,))
+            run("guild_settings", "DELETE FROM guild_settings WHERE guild_id=?", (gid,))
+            run("level_roles", "DELETE FROM level_roles WHERE guild_id=?", (gid,))
         elif spec["type"] == "boost":
             marks = ",".join("?" * len(spec["user_ids"]))
-            run(f"DELETE FROM vote_boosts WHERE user_id IN ({marks})", spec["user_ids"])
+            run("vote_boosts", f"DELETE FROM vote_boosts WHERE user_id IN ({marks})", spec["user_ids"])
         elif spec["type"] == "expired_boosts":
-            run("DELETE FROM vote_boosts WHERE expires_at <= ?", (int(time.time()),))
+            run("vote_boosts", "DELETE FROM vote_boosts WHERE expires_at <= ?", (int(time.time()),))
         elif spec["type"] == "stale_users":
             sql, params = _stale_user_sql(spec["days"])
-            run(sql, params)
+            run("users", sql, params)
         elif spec["type"] == "reset_all":
-            run("DELETE FROM users")
-            run("DELETE FROM vote_boosts")
+            run("users", "DELETE FROM users")
+            run("vote_boosts", "DELETE FROM vote_boosts")
         elif spec["type"] == "reset_table":
             t = spec["table"]
             if t not in TABLES:
                 abort(400)
-            run(f"DELETE FROM {t}")
+            run(t, f"DELETE FROM {t}")
 
         conn.commit()
         _clear_cache()
@@ -170,30 +171,35 @@ def _forget_spec_from_form(form):
         try:
             iv = int(v)
         except ValueError:
-            abort(400)
+            raise ValueError(f"'{v}' is not a valid Discord ID. IDs must be numbers.")
         if iv < 1000000000000:
-            abort(400)
+            raise ValueError(f"'{v}' is not a valid Discord ID. IDs must be numbers.")
         user_ids.append(iv)
     user_ids = list(dict.fromkeys(user_ids))
 
     guild_raw = form.get("guild_id", "").strip()
-    guild_id = _parse_int(guild_raw, "guild_id") if guild_raw else None
+    if guild_raw:
+        guild_id = _parse_int(guild_raw, "guild_id")
+    else:
+        guild_id = None
 
     if mode == "user_all":
         if not user_ids:
-            abort(400)
+            raise ValueError("Enter at least one Discord user ID, one per line.")
         return {"type": "user_all", "user_ids": user_ids}, "DELETE"
     if mode == "user_guild":
-        if not user_ids or not guild_id:
-            abort(400)
+        if not user_ids:
+            raise ValueError("Enter at least one Discord user ID, one per line.")
+        if not guild_id:
+            raise ValueError("Single-guild erasure requires a guild ID.")
         return {"type": "user_guild", "user_ids": user_ids, "guild_id": guild_id}, "DELETE"
     if mode in ("guild_users", "guild_full"):
         if not guild_id:
-            abort(400)
+            raise ValueError("Guild erasure requires a guild ID.")
         return {"type": mode, "guild_id": guild_id}, "DELETE"
     if mode == "boost":
         if not user_ids:
-            abort(400)
+            raise ValueError("Enter at least one Discord user ID, one per line.")
         return {"type": "boost", "user_ids": user_ids}, "DELETE"
     if mode == "expired_boosts":
         return {"type": "expired_boosts"}, "DELETE"
@@ -205,9 +211,9 @@ def _forget_spec_from_form(form):
     if mode == "reset_table":
         t = form.get("table", "")
         if t not in TABLES:
-            abort(400)
+            raise ValueError("Pick a valid table to reset.")
         return {"type": "reset_table", "table": t}, t.upper()
-    abort(400)
+    raise ValueError("Unknown operation.")
 
 
 def _recent_forget_ops(limit=15):
@@ -230,10 +236,30 @@ def _recent_forget_ops(limit=15):
     return ops
 
 
+def _maintenance_counts():
+    conn = _db()
+    try:
+        now = int(time.time())
+        expired_boosts = conn.execute(
+            "SELECT COUNT(*) c FROM vote_boosts WHERE expires_at <= ?", (now,)
+        ).fetchone()["c"]
+        sql, params = _stale_user_sql(30)
+        stale_users = conn.execute(f"SELECT COUNT(*) c FROM ({sql})", params).fetchone()["c"]
+        total_users = conn.execute("SELECT COUNT(*) c FROM users").fetchone()["c"]
+        return {"expired_boosts": expired_boosts, "stale_users": stale_users,
+                "total_users": total_users}
+    finally:
+        conn.close()
+
+
 @admin_bp.route("/forget", methods=["GET", "POST"])
 def forget():
     if request.method == "POST":
-        spec, word = _forget_spec_from_form(request.form)
+        try:
+            spec, word = _forget_spec_from_form(request.form)
+        except ValueError as e:
+            return render_template("admin_forget.html", recent=_recent_forget_ops(),
+                                   maintenance=_maintenance_counts(), error=str(e))
         preview = _forget_preview(spec)
         session["pending_forget_spec"] = spec
         session["pending_forget_word"] = word
@@ -241,7 +267,8 @@ def forget():
             "admin_forget_confirm.html", spec=spec, preview=preview, word=word
         )
     recent = _recent_forget_ops()
-    return render_template("admin_forget.html", recent=recent)
+    return render_template("admin_forget.html", recent=recent,
+                           maintenance=_maintenance_counts())
 
 
 @admin_bp.route("/forget/confirm", methods=["POST"])
