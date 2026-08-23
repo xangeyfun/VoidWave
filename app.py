@@ -378,13 +378,42 @@ def topgg_webhook():
             CREATE TABLE IF NOT EXISTS vote_boosts (
                 user_id INTEGER PRIMARY KEY,
                 multiplier REAL DEFAULT 2.0,
-                expires_at INTEGER
+                expires_at INTEGER,
+                last_vote_at INTEGER
             )
             """)
+            try:
+                cur.execute("ALTER TABLE vote_boosts ADD COLUMN last_vote_at INTEGER")
+            except sqlite3.OperationalError:
+                pass
             cur.execute("""
-            INSERT INTO vote_boosts (user_id, multiplier, expires_at) VALUES (?, 2.0, ?)
-            ON CONFLICT(user_id) DO UPDATE SET multiplier = excluded.multiplier, expires_at = excluded.expires_at
-            """, (int(user_id), int(time.time()) + duration))
+            INSERT INTO vote_boosts (user_id, multiplier, expires_at, last_vote_at) VALUES (?, 2.0, ?, ?)
+            ON CONFLICT(user_id) DO UPDATE SET multiplier = excluded.multiplier, expires_at = excluded.expires_at, last_vote_at = excluded.last_vote_at
+            """, (int(user_id), int(time.time()) + duration, int(time.time())))
+
+            cur.execute("""
+            CREATE TABLE IF NOT EXISTS pending_dms (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER,
+                kind TEXT,
+                payload TEXT,
+                created_at INTEGER
+            )
+            """)
+            cur.execute(
+                "INSERT INTO pending_dms (user_id, kind, payload, created_at) VALUES (?, 'vote_thanks', ?, ?)",
+                (int(user_id), json.dumps({"hours": 3 if weight == 2 else 2}), int(time.time()))
+            )
+
+            cur.execute("""
+            CREATE TABLE IF NOT EXISTS vote_reminders (
+                user_id INTEGER PRIMARY KEY,
+                remind_at INTEGER
+            )
+            """)
+            # only refresh reminders for users who opted in via /vote-remind
+            cur.execute("UPDATE vote_reminders SET remind_at = ? WHERE user_id = ?", (int(time.time()) + 12 * 3600, int(user_id)))
+
             conn.commit()
             print(f"{time.strftime('%Y-%m-%d %H:%M:%S')} WEBHOOK  Top.gg vote from discord user {user_id} ({'3h weekend' if weight == 2 else '2h'} boost)")
         except Exception as e:

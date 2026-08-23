@@ -8,6 +8,7 @@ import asyncio
 import io
 import time
 import os
+import json
 from utils import (
     get_db, date, log_stats, add_message_xp, send_qotd, llm_worker,
     LLMRequest, get_command_path, extract_options, startup,
@@ -59,6 +60,7 @@ class EventsCog(commands.Cog):
             leveling_cog.vc_xp_loop.start()
         self.rotate_status.start()
         self.update_topgg.start()
+        self.vote_dm_loop.start()
 
     @commands.Cog.listener()
     async def on_interaction(self, interaction: discord.Interaction):
@@ -434,6 +436,84 @@ class EventsCog(commands.Cog):
         )
 
         await self.bot.change_presence(activity=activity)
+
+    @tasks.loop(seconds=30)
+    async def vote_dm_loop(self):
+        conn = get_db()
+        try:
+            cur = conn.cursor()
+            queued = cur.execute("SELECT id, user_id, payload FROM pending_dms WHERE kind = 'vote_thanks' ORDER BY id LIMIT 10").fetchall()
+            for row in queued:
+                await self.send_vote_thanks(row["user_id"], row["payload"])
+                cur.execute("DELETE FROM pending_dms WHERE id = ?", (row["id"],))
+                conn.commit()
+
+            due = cur.execute("SELECT user_id, remind_at FROM vote_reminders WHERE remind_at <= ?", (int(time.time()),)).fetchall()
+            for row in due:
+                await self.send_vote_reminder(row["user_id"])
+                cur.execute("DELETE FROM vote_reminders WHERE user_id = ?", (row["user_id"],))
+                conn.commit()
+        except Exception as e:
+            print(f"{date()} ERROR  Vote DM loop failed: {e}")
+        finally:
+            conn.close()
+
+    async def send_vote_thanks(self, user_id, payload):
+        try:
+            hours = json.loads(payload or "{}").get("hours", 2)
+        except ValueError:
+            hours = 2
+
+        embed = discord.Embed(
+            title="🗳️ Thanks for voting!",
+            description=(
+                f"Hey, thanks for voting for VoidWave on **Top.gg**! 💜\n\n"
+                f"Your vote has been successfully registered and you now have **{hours} hours of Double XP**. ⚡"
+            ),
+            color=0x7128fc,
+        )
+        embed.add_field(
+            name="Want a reminder?",
+            value="Run `/vote-remind` and I'll DM you when you can vote again!",
+            inline=False,
+        )
+        embed.set_thumbnail(url=self.bot.user.display_avatar.url if self.bot.user else None)
+        embed.set_footer(text="VoidWave • Vote for 2x XP! /vote")
+
+        try:
+            user = self.bot.get_user(user_id) or await self.bot.fetch_user(user_id)
+            await user.send(embed=embed)
+            print(f"{date()} INFO  Sent vote thanks DM to {user} ({user_id})")
+        except discord.Forbidden:
+            print(f"{date()} WARN  Could not DM vote thanks to {user_id} (DMs closed)")
+        except (discord.NotFound, discord.HTTPException) as e:
+            print(f"{date()} ERROR  Failed to send vote thanks DM to {user_id}: {e}")
+
+    async def send_vote_reminder(self, user_id):
+        embed = discord.Embed(
+            title="⏰ Time to vote again!",
+            description=(
+                "Hey! You asked me to remind you. Your Top.gg vote cooldown is over, so you can vote for VoidWave again! 🗳️\n\n"
+                "Voting gets you **2x XP for 2 hours** (**3h on weekends**). Thanks for supporting VoidWave! 💜"
+            ),
+            color=0x7128fc,
+        )
+        embed.add_field(
+            name="Vote Link",
+            value="<https://top.gg/bot/1442229230384709752/vote>",
+            inline=False,
+        )
+        embed.set_thumbnail(url=self.bot.user.display_avatar.url if self.bot.user else None)
+        embed.set_footer(text="Don't want these? Run /vote-remind again to turn them off.")
+
+        try:
+            user = self.bot.get_user(user_id) or await self.bot.fetch_user(user_id)
+            await user.send(embed=embed)
+            print(f"{date()} INFO  Sent vote reminder DM to {user} ({user_id})")
+        except discord.Forbidden:
+            print(f"{date()} WARN  Could not DM vote reminder to {user_id} (DMs closed)")
+        except (discord.NotFound, discord.HTTPException) as e:
+            print(f"{date()} ERROR  Failed to send vote reminder DM to {user_id}: {e}")
 
     @tasks.loop(minutes=30)
     async def update_topgg(self):

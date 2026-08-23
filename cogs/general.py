@@ -174,10 +174,12 @@ class GeneralCog(commands.Cog):
     @discord.app_commands.command(name="vote", description="Vote for VoidWave!")
     async def vote(self, interaction: discord.Interaction):
         boost = None
+        reminder = None
         conn = get_db()
         try:
             cur = conn.cursor()
             boost = cur.execute("SELECT multiplier, expires_at FROM vote_boosts WHERE user_id=? AND expires_at > ?", (interaction.user.id, int(time.time()))).fetchone()
+            reminder = cur.execute("SELECT remind_at FROM vote_reminders WHERE user_id=?", (interaction.user.id,)).fetchone()
         finally:
             conn.close()
 
@@ -187,11 +189,15 @@ class GeneralCog(commands.Cog):
         else:
             boost_line = "> ⚡ **Vote now to get 2x XP for 2 hours!** (3 hours on weekends)"
 
+        reminder_line = ""
+        if reminder:
+            reminder_line = f"\n> ⏰ Reminder set! I'll DM you when it's time to vote again (<t:{reminder['remind_at']}:R>)."
+
         embed = discord.Embed(
             title="🗳️ Vote for VoidWave!",
             description=(
                 "Voting is free, takes 5 seconds, and helps VoidWave reach more servers. 🚀\n\n"
-                f"{boost_line}"
+                f"{boost_line}{reminder_line}"
             ),
             color=0x7128fc,
         )
@@ -208,6 +214,49 @@ class GeneralCog(commands.Cog):
         embed.set_footer(text="Vote for 2x XP! /vote")
         embed.timestamp = datetime.datetime.now(datetime.timezone.utc)
         await interaction.response.send_message(embed=embed, ephemeral=True)
+
+    @discord.app_commands.allowed_installs(guilds=True, users=True)
+    @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
+    @discord.app_commands.command(name="vote-remind", description="Get a DM when you can vote for VoidWave again.")
+    @app_commands.describe(enabled="Turn reminders on or off (leave out to toggle)")
+    async def vote_remind(self, interaction: discord.Interaction, enabled: bool = None):
+        confirm = None
+        conn = get_db()
+        try:
+            cur = conn.cursor()
+            row = cur.execute("SELECT remind_at FROM vote_reminders WHERE user_id=?", (interaction.user.id,)).fetchone()
+            turn_on = enabled if enabled is not None else row is None
+
+            if turn_on:
+                now = int(time.time())
+                boost = cur.execute("SELECT last_vote_at FROM vote_boosts WHERE user_id=?", (interaction.user.id,)).fetchone()
+                last_vote = boost["last_vote_at"] if boost else None
+
+                if last_vote is None:
+                    remind_at = now + 12 * 3600
+                    confirm = f"⏰ Got it! I'll DM you **12 hours** from now (<t:{remind_at}:R>). Once you vote, reminders stay synced to your most recent vote."
+                else:
+                    remind_at = max(last_vote + 12 * 3600, now + 60)
+                    if last_vote + 12 * 3600 <= now:
+                        confirm = "⏰ Your Top.gg cooldown is already over! I'll DM you in about a minute so you can vote again."
+                    else:
+                        confirm = f"⏰ Got it! Your Top.gg cooldown ends <t:{remind_at}:R>, and I'll DM you then."
+
+                cur.execute(
+                    "INSERT INTO vote_reminders (user_id, remind_at) VALUES (?, ?) ON CONFLICT(user_id) DO UPDATE SET remind_at = excluded.remind_at",
+                    (interaction.user.id, remind_at),
+                )
+            else:
+                cur.execute("DELETE FROM vote_reminders WHERE user_id=?", (interaction.user.id,))
+            conn.commit()
+        finally:
+            conn.close()
+
+        if not turn_on:
+            await interaction.response.send_message("🔕 Vote reminders are now off. Run `/vote-remind` any time to turn them back on.", ephemeral=True)
+            return
+
+        await interaction.response.send_message(confirm, ephemeral=True)
 
 
     @discord.app_commands.allowed_installs(guilds=True, users=True)

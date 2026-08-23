@@ -149,7 +149,33 @@ if __name__ == "__main__":
     CREATE TABLE IF NOT EXISTS vote_boosts (
         user_id INTEGER PRIMARY KEY,
         multiplier REAL DEFAULT 2.0,
-        expires_at INTEGER
+        expires_at INTEGER,
+        last_vote_at INTEGER
+    )
+    """)
+    conn.commit()
+
+    try:
+        cur.execute("ALTER TABLE vote_boosts ADD COLUMN last_vote_at INTEGER")
+    except sqlite3.OperationalError:
+        pass
+    conn.commit()
+
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS vote_reminders (
+        user_id INTEGER PRIMARY KEY,
+        remind_at INTEGER
+    )
+    """)
+    conn.commit()
+
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS pending_dms (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER,
+        kind TEXT,
+        payload TEXT,
+        created_at INTEGER
     )
     """)
     conn.commit()
