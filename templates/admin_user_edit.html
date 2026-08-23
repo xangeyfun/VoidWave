@@ -82,6 +82,15 @@
                     <label>Username</label>
                     <input type="text" name="username" value="{{ user['username'] or '' }}">
                 </div>
+                <div class="form-field">
+                    <label>Last Message</label>
+                    <input type="text" name="last_message" value="{{ user['last_message'] or '' }}" placeholder="YYYY-MM-DD HH:MM:SS">
+                    <div class="hint">Activity timestamp used for active and stale stats</div>
+                </div>
+                <div class="form-field">
+                    <label>Avatar Hash</label>
+                    <input type="text" name="avatar_hash" value="{{ user['avatar_hash'] or '' }}" placeholder="Discord avatar hash">
+                </div>
             </div>
 
             <label class="checkbox-field">
