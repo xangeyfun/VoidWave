@@ -1,7 +1,7 @@
 from flask import render_template, request
 
 from . import admin_bp
-from .helpers import _read_log_lines
+from .helpers import _read_log_lines, _parse_log_line
 
 
 @admin_bp.route("/logs")
@@ -16,11 +16,13 @@ def logs():
 
     total = len(lines)
     total_pages = max(1, (total + per - 1) // per)
+    page = min(page, total_pages)
     chunk = lines[(page - 1) * per: page * per]
+    entries = [_parse_log_line(ln) for ln in chunk]
 
     return render_template(
         "admin_logs.html",
-        lines=chunk,
+        entries=entries,
         total=total,
         q=q,
         page=page,

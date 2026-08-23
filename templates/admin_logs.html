@@ -31,20 +31,15 @@
                 <tr><th style="width:160px;">Time</th><th style="width:150px;">Action</th><th style="width:170px;">IP</th><th>Details</th></tr>
             </thead>
             <tbody>
-                {% for line in lines %}
-                    {% set parts = line.split(' ', 2) %}
-                    {% set ts = parts[0] + ' ' + parts[1] if parts|length > 1 else '' %}
-                    {% set rest = parts[2] if parts|length > 2 else '' %}
-                    {% set action = rest.split(' ')[0] if rest else '' %}
-                    {% set ip = rest.split(' ')[1] if rest.split(' ')|length > 1 else '' %}
-                    {% set detail = rest.split(' ', 2)[2] if rest.split(' ', 2)|length > 2 else '' %}
+                {% for e in entries %}
                     <tr>
-                        <td class="mono" style="font-size:0.78rem;">{{ ts }}</td>
+                        <td class="mono" style="font-size:0.78rem;">{{ e.ts }}</td>
                         <td>
-                            <span class="badge {% if action.startswith('LOGIN') and 'FAIL' not in action %}info{% elif action.startswith('USER EDIT') or action.startswith('USER ADD') or action.startswith('CHECK FIX') or action.startswith('GUILD') %}warn{% elif 'FAIL' in action or action.startswith('FORGET') or action.startswith('DELETE') or action.startswith('RESTORE') or action.startswith('RESET') %}fail{% else %}muted{% endif %}">{{ action }}</span>
+                            {% set a = e.action %}
+                            <span class="badge {% if 'FAIL' in a %}fail{% elif a.startswith('LOGIN') %}info{% elif a.startswith(('USER EDIT', 'USER ADD', 'CHECK FIX')) or a.startswith('GUILD') or a.startswith('LEVEL ROLE') or a.startswith('BOT ACTION') %}warn{% elif a.startswith(('FORGET EXEC', 'RESTORE', 'RESET', 'USER DELETE', 'USER BULK DELETE', 'BACKUP DELETE')) %}fail{% else %}muted{% endif %}">{{ a }}</span>
                         </td>
-                        <td class="mono" style="font-size:0.78rem;">{{ ip }}</td>
-                        <td style="word-break:break-word; font-size:0.88rem;">{{ detail }}</td>
+                        <td class="mono" style="font-size:0.78rem;">{{ e.ip }}</td>
+                        <td style="word-break:break-word; font-size:0.88rem;">{{ e.detail }}</td>
                     </tr>
                 {% else %}
                 <tr><td colspan="4"><div class="empty-state">No log entries.</div></td></tr>
