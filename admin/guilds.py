@@ -161,7 +161,6 @@ def guild_edit(guild_id):
         settings = conn.execute(
             "SELECT * FROM guild_settings WHERE guild_id=?", (guild_id,)
         ).fetchone()
-
         level_roles = conn.execute(
             "SELECT * FROM level_roles WHERE guild_id=? ORDER BY level", (guild_id,)
         ).fetchall()
@@ -261,6 +260,15 @@ def guild_edit(guild_id):
     finally:
         conn.close()
 
+    qotd_queue_count = 0
+    if settings and settings["qotd_queue"]:
+        try:
+            parsed = json.loads(settings["qotd_queue"])
+            if isinstance(parsed, list):
+                qotd_queue_count = len(parsed)
+        except (ValueError, TypeError):
+            qotd_queue_count = 0
+
     return render_template(
         "admin_guild_edit.html",
         guild_id=guild_id,
@@ -271,4 +279,5 @@ def guild_edit(guild_id):
         total_msgs=total_msgs,
         flash_msg=flash_msg,
         error=error,
+        qotd_queue_count=qotd_queue_count,
     )
