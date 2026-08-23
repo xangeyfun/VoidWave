@@ -8,12 +8,15 @@ from .constants import BLOCK_FEATURES, BLOCK_DURATIONS, VALID_BLOCK_DURATIONS
 
 
 def _known_user(conn, user_id):
-    return conn.execute(
+    row = conn.execute(
         "SELECT display_name, username, COUNT(*) AS guild_count, SUM(total_xp) AS total_xp, "
         "MAX(avatar_hash) AS avatar_hash "
         "FROM users WHERE user_id=?",
         (user_id,)
     ).fetchone()
+    if row and not row["guild_count"]:
+        return None
+    return row
 
 
 def _avatar_url(user_id, avatar_hash):
