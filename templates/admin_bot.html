@@ -39,7 +39,7 @@
 
 <div class="admin-grid cols-3" style="margin-top:24px;">
     <div class="admin-card">
-        <div class="card-head"><h3>Controls</h3></div>
+        <div class="card-head"><h2>Controls</h2></div>
         <div style="display:flex;flex-direction:column;gap:12px;padding:16px 0;">
             {% if not status.active %}
             <form method="POST" action="{{ url_for('admin.bot_action', action='start') }}">
@@ -59,22 +59,22 @@
 
     <div class="admin-card" style="grid-column: span 2;">
         <div class="card-head">
-            <h3>Service Info</h3>
+            <h2>Service Info</h2>
         </div>
         <table class="admin-table" style="margin:0;">
-            <tr><td style="width:160px;color:var(--muted);">Service</td><td><code>{{ service }}</code></td></tr>
-            <tr><td style="color:var(--muted);">State</td><td><span class="badge {% if status.active %}ok{% elif status.state == 'failed' %}fail{% else %}warn{% endif %}">{{ status.state }}</span></td></tr>
-            <tr><td style="color:var(--muted);">PID</td><td>{{ status.pid }}</td></tr>
-            <tr><td style="color:var(--muted);">Restarts</td><td>{{ status.restarts }}</td></tr>
-            <tr><td style="color:var(--muted);">Memory</td><td>{% if status.memory and status.memory != '?' %}{{ (status.memory | int // 1048576) }} MB{% else %}N/A{% endif %}</td></tr>
-            <tr><td style="color:var(--muted);">Since</td><td>{{ status.uptime or 'N/A' }}</td></tr>
+            <tr><td style="width:160px;" class="muted">Service</td><td><code>{{ service }}</code></td></tr>
+            <tr><td class="muted">State</td><td><span class="badge {% if status.active %}ok{% elif status.state == 'failed' %}fail{% else %}warn{% endif %}">{{ status.state }}</span></td></tr>
+            <tr><td class="muted">PID</td><td>{{ status.pid }}</td></tr>
+            <tr><td class="muted">Restarts</td><td>{{ status.restarts }}</td></tr>
+            <tr><td class="muted">Memory</td><td>{% if status.memory and status.memory != '?' %}{{ (status.memory | int // 1048576) }} MB{% else %}N/A{% endif %}</td></tr>
+            <tr><td class="muted">Since</td><td>{{ status.uptime or 'N/A' }}</td></tr>
         </table>
     </div>
 </div>
 
 <div class="admin-card" style="margin-top:24px;">
     <div class="card-head">
-        <h3>Live Logs</h3>
+        <h2>Live Logs</h2>
         <div style="display:flex;gap:8px;">
             <button class="btn btn-secondary btn-sm" onclick="refreshLogs()">&#128260; Refresh</button>
             <button class="btn btn-secondary btn-sm" onclick="copyLogs()">&#128203; Copy</button>
@@ -118,26 +118,4 @@ function copyLogs() {
     });
 }
 </script>
-
-<style>
-.log-output {
-    background: var(--bg-tertiary);
-    border: 1px solid var(--border-light);
-    border-radius: 10px;
-    padding: 12px;
-    max-height: 500px;
-    overflow-y: auto;
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-    font-size: 12px;
-    line-height: 1.6;
-}
-.log-line {
-    color: var(--text-secondary);
-    white-space: pre-wrap;
-    word-break: break-all;
-}
-.log-line:hover {
-    background: rgba(132, 56, 252, 0.04);
-}
-</style>
 {% endblock %}

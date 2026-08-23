@@ -1,5 +1,11 @@
 /* VoidWave Admin Panel - Main Site Design Language */
 
+/* Aliases used across admin templates */
+:root {
+    --muted: var(--text-muted);
+    --warning: #f59e0b;
+}
+
 /* ── Background ─────────────────────────────────────────────── */
 .admin-body {
     display: flex;
@@ -266,6 +272,18 @@
     font-size: 1.05rem;
     font-weight: 700;
     margin: 0;
+}
+
+.card-head h3 {
+    font-size: 1.05rem;
+    font-weight: 700;
+    margin: 0;
+}
+
+.admin-card h3 {
+    font-size: 0.95rem;
+    font-weight: 700;
+    margin-bottom: 0.35rem;
 }
 
 /* ── Grid ────────────────────────────────────────────────────── */
@@ -905,7 +923,7 @@
 
 .activity-item .activity-action {
     font-weight: 600;
-    min-width: 100px;
+    min-width: 150px;
 }
 
 .activity-item .activity-detail {
@@ -1048,4 +1066,49 @@
 
 @media (max-width: 600px) {
     .admin-grid.cols-4 { grid-template-columns: 1fr; }
+}
+
+/* ── Visual Polish ───────────────────────────────────────────── */
+.admin-table tbody tr:nth-child(even) {
+    background: rgba(255, 255, 255, 0.015);
+}
+
+.admin-table-wrap .admin-table th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: var(--bg-card);
+}
+
+.empty-state {
+    border: 1px dashed var(--border);
+    border-radius: 10px;
+    margin: 0.75rem;
+}
+
+.admin-main :focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+}
+
+.log-output {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-light);
+    border-radius: 10px;
+    padding: 12px;
+    max-height: 500px;
+    overflow-y: auto;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12px;
+    line-height: 1.6;
+}
+
+.log-line {
+    color: var(--text-secondary);
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+
+.log-line:hover {
+    background: rgba(132, 56, 252, 0.04);
 }
