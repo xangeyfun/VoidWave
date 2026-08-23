@@ -105,8 +105,8 @@ WHERE level = 0 AND total_xp = 0 AND total_messages = 0
         rows = q("""SELECT g.guild_id FROM guild_settings g
             LEFT JOIN (SELECT DISTINCT guild_id FROM users) u ON u.guild_id=g.guild_id
             WHERE u.guild_id IS NULL""")
-        add("Data", "guild_settings without any users", not rows,
-            f"{len(rows)} guild(s)", fix="orphan_settings" if rows else None,
+        add("Info", "Guild settings without tracked users", True,
+            f"{len(rows)} guild(s) (normal for brand new servers)",
             sql="""SELECT g.guild_id FROM guild_settings g
 LEFT JOIN (SELECT DISTINCT guild_id FROM users) u ON u.guild_id = g.guild_id
 WHERE u.guild_id IS NULL""")
@@ -312,14 +312,8 @@ def check_fix(kind):
             cur.execute("""DELETE FROM users
                 WHERE level=0 AND total_xp=0 AND total_messages=0 AND vc_minutes=0 AND last_message=''""")
             changed = cur.rowcount
-        elif kind == "orphan_settings":
-            executed_sql.append("""DELETE FROM guild_settings
-                WHERE guild_id NOT IN (SELECT DISTINCT guild_id FROM users)""")
-            cur.execute("""DELETE FROM guild_settings
-                WHERE guild_id NOT IN (SELECT DISTINCT guild_id FROM users)""")
-            changed = cur.rowcount
         elif kind == "expired_boosts":
-            executed_sql.append("DELETE FROM vote_boosts WHERE expires_at <= ?" % int(time.time()))
+            executed_sql.append(f"DELETE FROM vote_boosts WHERE expires_at <= {int(time.time())}")
             cur.execute("DELETE FROM vote_boosts WHERE expires_at <= ?", (int(time.time()),))
             changed = cur.rowcount
         elif kind == "orphan_level_roles":
