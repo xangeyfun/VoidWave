@@ -96,9 +96,17 @@ def verify_2fa():
         ), 429
 
     token = session.get("pending_2fa")
+    pending_ip = session.get("pending_2fa_ip")
     code = (request.form.get("code") or "").strip()
 
-    if not token or not code.isdigit() or len(code) != 8:
+    if not token or pending_ip != ip:
+        _rate_limit_fail(ip)
+        _log("2FA FAIL", "missing session or ip mismatch", ip)
+        return render_template(
+            "admin_login.html", twofa=True, error="Session expired. Start again from the login page.", password_only=False
+        ), 401
+
+    if not code.isdigit() or len(code) != 8:
         _rate_limit_fail(ip)
         _log("2FA FAIL", "malformed code", ip)
         return render_template(
