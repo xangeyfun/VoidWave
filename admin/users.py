@@ -173,15 +173,43 @@ def user_edit(guild_id, user_id):
         if not user:
             abort(404)
 
+        def render_page(error=None, flash_msg=None):
+            rank = conn.execute(
+                "SELECT COUNT(*) + 1 r FROM users WHERE guild_id=? AND total_xp > ?",
+                (guild_id, user["total_xp"])
+            ).fetchone()["r"]
+            global_rank = conn.execute(
+                "SELECT COUNT(*) + 1 r FROM users WHERE total_xp > ?",
+                (user["total_xp"],)
+            ).fetchone()["r"]
+            boost = conn.execute(
+                "SELECT * FROM vote_boosts WHERE user_id=?", (user_id,)
+            ).fetchone()
+            guild_rows = conn.execute(
+                "SELECT guild_id FROM users WHERE user_id=?", (user_id,)
+            ).fetchall()
+            return render_template(
+                "admin_user_edit.html",
+                user=user,
+                rank=rank,
+                global_rank=global_rank,
+                boost=boost,
+                guild_rows=guild_rows,
+                flash_msg=flash_msg,
+                error=error,
+                now=int(time.time()),
+            )
+
         if request.method == "POST":
             data = {}
             for field, ftype in USER_FIELDS.items():
                 raw = request.form.get(field, "")
                 if ftype == "int":
-                    if raw == "":
-                        abort(400)
-                    val = int(raw)
-                    data[field] = val
+                    try:
+                        data[field] = int(raw)
+                    except (TypeError, ValueError):
+                        _log("USER EDIT FAIL", f"bad value {field} guild={guild_id} user={user_id}")
+                        return render_page(error=f"Invalid number for {field}.")
                 else:
                     data[field] = raw.strip()
 
@@ -189,9 +217,7 @@ def user_edit(guild_id, user_id):
                                          "total_messages", "total_messages_xp",
                                          "vc_minutes", "vc_xp_minutes")):
                 _log("USER EDIT FAIL", f"negative value guild={guild_id} user={user_id}")
-                return render_template(
-                    "admin_user_edit.html", user=user, error="Values cannot be negative."
-                )
+                return render_page(error="Values cannot be negative.")
 
             auto_fix = request.form.get("auto_fix") == "on"
 
@@ -200,13 +226,10 @@ def user_edit(guild_id, user_id):
                     data["level"], data["progress"], data["out_of"]
                 )
                 data["level"], data["progress"], data["out_of"] = level, progress, out_of
-            elif data["progress"] >= data["out_of"] and data["out_of"] > 0:
-                _log("USER EDIT WARN", f"progress>=out_of after edit guild={guild_id} user={user_id}")
             elif data["out_of"] <= 0:
-                return render_template(
-                    "admin_user_edit.html", user=user,
-                    error="out_of must be positive (or enable auto-fix)."
-                )
+                return render_page(error="out_of must be positive (or enable auto-fix).")
+            elif data["progress"] >= data["out_of"]:
+                _log("USER EDIT WARN", f"progress>=out_of after edit guild={guild_id} user={user_id}")
 
             sets = ", ".join(f"{f}=?" for f in data)
             conn.execute(
@@ -220,38 +243,11 @@ def user_edit(guild_id, user_id):
             user = conn.execute(
                 "SELECT * FROM users WHERE guild_id=? AND user_id=?", (guild_id, user_id)
             ).fetchone()
-            flash_msg = "User updated."
+            return render_page(flash_msg="User updated.")
 
-        else:
-            flash_msg = None
-
-        rank = conn.execute(
-            "SELECT COUNT(*) + 1 r FROM users WHERE guild_id=? AND total_xp > ?",
-            (guild_id, user["total_xp"])
-        ).fetchone()["r"]
-        global_rank = conn.execute(
-            "SELECT COUNT(*) + 1 r FROM users WHERE total_xp > ?",
-            (user["total_xp"],)
-        ).fetchone()["r"]
-        boost = conn.execute(
-            "SELECT * FROM vote_boosts WHERE user_id=?", (user_id,)
-        ).fetchone()
-        guild_rows = conn.execute(
-            "SELECT guild_id FROM users WHERE user_id=?", (user_id,)
-        ).fetchall()
+        return render_page()
     finally:
         conn.close()
-
-    return render_template(
-        "admin_user_edit.html",
-        user=user,
-        rank=rank,
-        global_rank=global_rank,
-        boost=boost,
-        guild_rows=guild_rows,
-        flash_msg=flash_msg,
-        now=int(time.time()),
-    )
 
 
 @admin_bp.route("/users/<int:guild_id>/<int:user_id>/delete", methods=["POST"])
