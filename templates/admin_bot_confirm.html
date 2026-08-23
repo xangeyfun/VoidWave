@@ -6,7 +6,7 @@
 {% block content %}
 <div style="max-width:700px;">
     <div class="admin-card">
-        <div class="card-head"><h3>Confirm {{ action | capitalize }}</h3></div>
+        <div class="card-head"><h2>Confirm {{ action | capitalize }}</h2></div>
         <div class="alert alert-warn" style="margin:16px 0 0;">
             {% if action == 'stop' %}
                 The bot service is currently <strong>{% if status.active %}running{% else %}{{ status.state }}{% endif %}</strong>.

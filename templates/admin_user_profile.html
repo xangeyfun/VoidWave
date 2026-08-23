@@ -1,7 +1,12 @@
 {% extends "admin_base.html" %}
 {% block title %}User Profile{% endblock %}
 {% block heading %}User Profile{% endblock %}
-{% block subheading %}{{ user_id }}{% endblock %}
+{% block subheading %}
+    {% if guilds %}
+        {{ (guilds[0].display_name or guilds[0].username or 'unknown') }} &middot;
+    {% endif %}
+    <span class="mono" data-copy="{{ user_id }}" style="cursor:pointer;">{{ user_id }}</span>
+{% endblock %}
 {% block actions %}
     <a href="{{ url_for('admin.users', q=user_id) }}" class="btn btn-secondary btn-sm">&#x2190; Back to Users</a>
 {% endblock %}

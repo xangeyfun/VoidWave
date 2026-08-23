@@ -163,6 +163,10 @@
             <p class="card-sub">Useful references for this guild.</p>
             <table class="admin-table compact">
                 <tbody>
+                    <tr><td>QOTD Schedule</td><td class="text-right">
+                        <span class="mono">{{ settings['qotd_time'] or '16:00' }}</span>
+                        <span class="muted" style="font-size:0.78rem;">{{ settings['qotd_tz'] or 'server time' }}</span>
+                    </td></tr>
                     <tr><td>QOTD Last Post ID</td><td class="text-right"><span class="mono">{{ settings['last_qotd_id'] if settings and settings['last_qotd_id'] else 'none' }}</span></td></tr>
                     <tr><td>QOTD Thread ID</td><td class="text-right"><span class="mono">{{ settings['last_qotd_thread_id'] if settings and settings['last_qotd_thread_id'] else 'none' }}</span></td></tr>
                     <tr><td>QOTD Queue</td><td class="text-right"><span class="mono">{{ qotd_queue_count }} items</span></td></tr>
