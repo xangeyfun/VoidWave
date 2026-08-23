@@ -24,7 +24,13 @@ def dashboard():
 
         data = {
             "users": scalar("SELECT COUNT(*) FROM users"),
-            "guilds": scalar("SELECT COUNT(DISTINCT guild_id) FROM users"),
+            "guilds": scalar("""
+                SELECT COUNT(*) FROM (
+                    SELECT DISTINCT guild_id FROM users
+                    UNION
+                    SELECT guild_id FROM guild_settings
+                )
+            """),
             "total_xp": scalar("SELECT COALESCE(SUM(total_xp),0) FROM users"),
             "total_messages": scalar("SELECT COALESCE(SUM(total_messages),0) FROM users"),
             "vc_minutes": scalar("SELECT COALESCE(SUM(vc_minutes),0) FROM users"),
@@ -111,7 +117,13 @@ def api_dashboard():
 
         return jsonify({
             "users": users,
-            "guilds": scalar("SELECT COUNT(DISTINCT guild_id) FROM users"),
+            "guilds": scalar("""
+                SELECT COUNT(*) FROM (
+                    SELECT DISTINCT guild_id FROM users
+                    UNION
+                    SELECT guild_id FROM guild_settings
+                )
+            """),
             "total_xp": total_xp,
             "total_messages": scalar("SELECT COALESCE(SUM(total_messages),0) FROM users"),
             "vc_minutes": total_vc_minutes,

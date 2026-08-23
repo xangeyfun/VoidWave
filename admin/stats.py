@@ -27,7 +27,13 @@ def stats():
         total = scalar("SELECT COUNT(*) FROM users")
         agg = {
             "users": total,
-            "guilds": scalar("SELECT COUNT(DISTINCT guild_id) FROM users"),
+            "guilds": scalar("""
+                SELECT COUNT(*) FROM (
+                    SELECT DISTINCT guild_id FROM users
+                    UNION
+                    SELECT guild_id FROM guild_settings
+                )
+            """),
             "total_xp": scalar("SELECT COALESCE(SUM(total_xp),0) FROM users"),
             "total_messages": scalar("SELECT COALESCE(SUM(total_messages),0) FROM users"),
             "total_messages_xp": scalar("SELECT COALESCE(SUM(total_messages_xp),0) FROM users"),
@@ -82,12 +88,29 @@ def stats():
             level_buckets.append({"range": label, "count": n})
 
         guild_rows = conn.execute("""
-            SELECT guild_id, COUNT(*) users, COALESCE(SUM(total_xp),0) xp,
-                   COALESCE(SUM(total_messages),0) msgs,
-                   COALESCE(SUM(vc_minutes),0) vc,
-                   COALESCE(AVG(level),0) avg_level,
-                   COALESCE(MAX(level),0) max_level
-            FROM users GROUP BY guild_id ORDER BY users DESC LIMIT 50
+            SELECT a.guild_id,
+                   COALESCE(s.users, 0) AS users,
+                   COALESCE(s.xp, 0) AS xp,
+                   COALESCE(s.msgs, 0) AS msgs,
+                   COALESCE(s.vc, 0) AS vc,
+                   ROUND(COALESCE(s.avg_level, 0), 1) AS avg_level,
+                   COALESCE(s.max_level, 0) AS max_level
+            FROM (
+                SELECT DISTINCT guild_id FROM users
+                UNION
+                SELECT guild_id FROM guild_settings
+            ) a
+            LEFT JOIN (
+                SELECT guild_id,
+                       COUNT(*) AS users,
+                       SUM(total_xp) AS xp,
+                       SUM(total_messages) AS msgs,
+                       SUM(vc_minutes) AS vc,
+                       AVG(level) AS avg_level,
+                       MAX(level) AS max_level
+                FROM users GROUP BY guild_id
+            ) s ON s.guild_id = a.guild_id
+            ORDER BY users DESC LIMIT 50
         """).fetchall()
 
         def top(field, n=10):
