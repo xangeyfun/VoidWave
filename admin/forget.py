@@ -39,7 +39,7 @@ def _forget_preview(spec):
                                   "username": r["username"] or "unknown",
                                   "display_name": r["display_name"] or "",
                                   "level": r["level"], "total_xp": r["total_xp"]} for r in ur[:50]],
-                "boost_details": [{"user_id": r["user_id"], "guild_id": r["guild_id"],
+                "boost_details": [{"user_id": r["user_id"],
                                    "expires_at": r["expires_at"]} for r in br[:50]],
             }
         if spec["type"] == "user_guild":
@@ -80,14 +80,14 @@ def _forget_preview(spec):
             br = rows(f"SELECT * FROM vote_boosts WHERE user_id IN ({marks})", spec["user_ids"])
             return {
                 "users_rows": 0, "boost_rows": len(br),
-                "boost_details": [{"user_id": r["user_id"], "guild_id": r["guild_id"],
+                "boost_details": [{"user_id": r["user_id"],
                                    "expires_at": r["expires_at"]} for r in br[:50]],
             }
         if spec["type"] == "expired_boosts":
             br = rows("SELECT * FROM vote_boosts WHERE expires_at <= ?", (int(time.time()),))
             return {
                 "users_rows": 0, "boost_rows": len(br),
-                "boost_details": [{"user_id": r["user_id"], "guild_id": r["guild_id"],
+                "boost_details": [{"user_id": r["user_id"],
                                    "expires_at": r["expires_at"]} for r in br[:50]],
             }
         if spec["type"] == "stale_users":

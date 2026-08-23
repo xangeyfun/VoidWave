@@ -113,22 +113,20 @@
 <div class="admin-card">
     <div class="card-head"><h3>Vote boosts affected</h3></div>
     <div class="admin-table-wrap" style="margin-top:12px;">
-        <table class="admin-table">
-            <thead>
-                <tr>
-                    <th>User</th>
-                    <th>Guild</th>
-                    <th>Expires</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for b in preview.boost_details %}
-                <tr>
-                    <td class="mono">{{ b.user_id }}</td>
-                    <td class="mono">{{ b.guild_id }}</td>
-                    <td style="color:var(--muted);">{{ b.expires_at }}</td>
-                </tr>
-                {% endfor %}
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>User</th>
+                            <th>Expires</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for b in preview.boost_details %}
+                        <tr>
+                            <td class="mono">{{ b.user_id }}</td>
+                            <td style="color:var(--muted);">{{ b.expires_at }}</td>
+                        </tr>
+                        {% endfor %}
                 {% if preview.boost_rows > 50 %}
                 <tr><td colspan="3" style="color:var(--muted);text-align:center;font-style:italic;">... and {{ preview.boost_rows - 50 }} more</td></tr>
                 {% endif %}
