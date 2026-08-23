@@ -6,7 +6,7 @@
 {% macro sort_header(label, field, cls) %}
 <th class="{{ cls }} sortable">
     <a class="{% if sort == field %}active{% endif %}" href="{{ url_for('admin.guilds', q=q, sort=field, order=('asc' if (sort == field and order == 'desc') else 'desc')) }}">
-        {{ label }}{% if sort == field %} {{ '&#9650;' if order == 'asc' else '&#9660;' }}{% endif %}
+        {{ label }}{% if sort == field %} {{ '▲' if order == 'asc' else '▼' }}{% endif %}
     </a>
 </th>
 {% endmacro %}
