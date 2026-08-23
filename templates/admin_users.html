@@ -3,12 +3,21 @@
 {% block heading %}Users{% endblock %}
 {% block subheading %}Search, edit and manage every user's statistics{% endblock %}
 
+{% macro sort_header(label, field, cls) %}
+<th class="{{ cls }} sortable">
+    <a class="{% if sort == field %}active{% endif %}" href="{{ url_for('admin.users', q=q, sort=field, order=('asc' if (sort == field and order == 'desc') else 'desc')) }}">
+        {{ label }}{% if sort == field %} {{ '&#9650;' if order == 'asc' else '&#9660;' }}{% endif %}
+    </a>
+</th>
+{% endmacro %}
+
 {% block content %}
 <div class="admin-card">
     <form method="GET" action="{{ url_for('admin.users') }}" class="form-grid">
         <div class="form-field">
             <label>Search</label>
             <input type="text" name="q" value="{{ q }}" placeholder="User ID, guild ID, or username..." autofocus>
+            <div class="hint">Press <span class="kbd">/</span> to focus search on any page</div>
         </div>
         <div class="form-field">
             <label>Sort by</label>
@@ -27,7 +36,10 @@
         </div>
         <div class="form-field">
             <label>&nbsp;</label>
-            <button class="btn btn-primary" type="submit">Search</button>
+            <div class="flex gap-1">
+                <button class="btn btn-primary" type="submit">Search</button>
+                <a href="{{ url_for('admin.users_export', q=q, sort=sort, order=order) }}" class="btn btn-secondary btn-sm">&#128229; Export CSV</a>
+            </div>
         </div>
     </form>
 </div>
@@ -87,19 +99,19 @@
                 <th style="width:40px; text-align:center;">
                     <input type="checkbox" id="selectAll" style="accent-color: var(--primary); width:16px; height:16px;">
                 </th>
-                <th>User</th>
-                <th>Guild</th>
-                <th class="num">Level</th>
-                <th class="num">XP</th>
-                <th class="num">Messages</th>
-                <th class="num">VC (min)</th>
+                {{ sort_header('User', 'username', '') }}
+                {{ sort_header('Guild', 'guild_id', '') }}
+                {{ sort_header('Level', 'level', 'num') }}
+                {{ sort_header('XP', 'total_xp', 'num') }}
+                {{ sort_header('Messages', 'total_messages', 'num') }}
+                {{ sort_header('VC (min)', 'vc_minutes', 'num') }}
                 <th>Boost</th>
                 <th>Actions</th>
             </tr>
         </thead>
         <tbody>
             {% for r in rows %}
-            <tr>
+            <tr data-href="{{ url_for('admin.user_edit', guild_id=r['guild_id'], user_id=r['user_id']) }}">
                 <td style="text-align:center;">
                     <input type="checkbox" class="user-check" data-guild="{{ r['guild_id'] }}" data-user="{{ r['user_id'] }}" style="accent-color: var(--primary); width:16px; height:16px;">
                 </td>

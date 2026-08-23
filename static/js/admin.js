@@ -68,15 +68,31 @@ document.addEventListener('DOMContentLoaded', function() {
         }, 6000);
     });
 
-    // Keyboard shortcut: Ctrl+K or Cmd+K to focus search inputs
+    // Keyboard shortcut: Ctrl+K or Cmd+K or / to focus search inputs
     document.addEventListener('keydown', function(e) {
+        var isTyping = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName);
         if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
             e.preventDefault();
-            var searchInput = document.querySelector('.admin-main input[type="text"][autofocus]')
-                || document.querySelector('.admin-main input[type="text"][name="q"]')
-                || document.querySelector('.admin-main input[type="text"][name="search"]');
-            if (searchInput) searchInput.focus();
+            focusSearch();
+        } else if (e.key === '/' && !isTyping && !e.ctrlKey && !e.metaKey && !e.altKey) {
+            e.preventDefault();
+            focusSearch();
         }
+    });
+
+    function focusSearch() {
+        var searchInput = document.querySelector('.admin-main input[type="text"][autofocus]')
+            || document.querySelector('.admin-main input[type="text"][name="q"]')
+            || document.querySelector('.admin-main input[type="text"][name="search"]');
+        if (searchInput) searchInput.focus();
+    }
+
+    // Clickable table rows: elements marked data-href navigate on click
+    document.querySelectorAll('tr[data-href]').forEach(function(row) {
+        row.addEventListener('click', function(e) {
+            if (e.target.closest('a, button, input, select, label, [data-copy]')) return;
+            window.location.href = row.getAttribute('data-href');
+        });
     });
 
     // Smooth number counting animation for stat values

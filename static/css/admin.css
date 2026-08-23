@@ -1073,6 +1073,47 @@
     background: rgba(255, 255, 255, 0.015);
 }
 
+tr[data-href] {
+    cursor: pointer;
+}
+
+.kbd {
+    display: inline-block;
+    padding: 0.1rem 0.45rem;
+    border: 1px solid var(--border);
+    border-bottom-width: 2px;
+    border-radius: 5px;
+    background: var(--bg-tertiary);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.72rem;
+    color: var(--text-secondary);
+}
+
+th.sortable a {
+    color: var(--text-muted);
+    text-decoration: none;
+    transition: color 0.2s ease;
+}
+
+th.sortable a:hover {
+    color: var(--primary);
+}
+
+th.sortable a.active {
+    color: var(--primary);
+}
+
+a.badge {
+    text-decoration: none;
+    cursor: pointer;
+    transition: transform 0.15s ease, filter 0.15s ease;
+}
+
+a.badge:hover {
+    filter: brightness(1.25);
+    transform: translateY(-1px);
+}
+
 .admin-table-wrap .admin-table th {
     position: sticky;
     top: 0;
