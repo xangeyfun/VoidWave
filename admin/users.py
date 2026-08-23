@@ -201,6 +201,37 @@ def user_edit(guild_id, user_id):
             )
 
         if request.method == "POST":
+            action = request.form.get("action", "save_user")
+
+            if action == "clear_boost":
+                conn.execute("DELETE FROM vote_boosts WHERE user_id=?", (user_id,))
+                conn.commit()
+                _clear_cache()
+                _log("VOTE BOOST REVOKE", f"user={user_id}")
+                return render_page(flash_msg="Vote boost revoked.")
+
+            if action == "set_boost":
+                try:
+                    multiplier = round(float(request.form.get("boost_multiplier", "")), 2)
+                    hours = int(request.form.get("boost_hours", ""))
+                except (TypeError, ValueError):
+                    return render_page(error="Multiplier must be a number and duration a whole number of hours.")
+                if not (1.0 <= multiplier <= 10.0):
+                    return render_page(error="Multiplier must be between 1 and 10.")
+                if hours <= 0 or hours > 24 * 30:
+                    return render_page(error="Duration must be between 1 and 720 hours.")
+                expires_at = int(time.time()) + hours * 3600
+                conn.execute(
+                    "INSERT INTO vote_boosts (user_id, multiplier, expires_at, last_vote_at) "
+                    "VALUES (?, ?, ?, NULL) "
+                    "ON CONFLICT(user_id) DO UPDATE SET multiplier=excluded.multiplier, expires_at=excluded.expires_at",
+                    (user_id, multiplier, expires_at)
+                )
+                conn.commit()
+                _clear_cache()
+                _log("VOTE BOOST SET", f"user={user_id} multiplier={multiplier} expires_at={expires_at}")
+                return render_page(flash_msg="Vote boost saved.")
+
             data = {}
             for field, ftype in USER_FIELDS.items():
                 raw = request.form.get(field, "")

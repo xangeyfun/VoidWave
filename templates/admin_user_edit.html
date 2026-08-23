@@ -125,6 +125,31 @@
             {% else %}
                 <div class="empty-state" style="padding:1rem;">No vote boost on record.</div>
             {% endif %}
+
+            <form method="POST" action="{{ url_for('admin.user_edit', guild_id=user['guild_id'], user_id=user['user_id']) }}" class="admin-form" style="margin-top:0.75rem;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="action" value="set_boost">
+                <div class="form-grid">
+                    <div class="form-field">
+                        <label>Multiplier</label>
+                        <input type="number" name="boost_multiplier" step="0.1" min="1" max="10" value="{{ '%g'|format(boost['multiplier']) if boost else '2' }}" required>
+                    </div>
+                    <div class="form-field">
+                        <label>Duration (hours)</label>
+                        <input type="number" name="boost_hours" min="1" max="720" placeholder="e.g. 12" required>
+                    </div>
+                </div>
+                <div class="hint">Replaces the boost and counts the duration from now. Max 720 hours.</div>
+                <button class="btn btn-primary btn-sm" type="submit">Save Boost</button>
+            </form>
+
+            {% if boost %}
+            <form method="POST" action="{{ url_for('admin.user_edit', guild_id=user['guild_id'], user_id=user['user_id']) }}" style="margin-top:0.5rem;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="action" value="clear_boost">
+                <button class="btn btn-danger btn-sm" type="submit" data-armed>Revoke Boost</button>
+            </form>
+            {% endif %}
         </div>
 
         <div class="admin-card" style="margin-top:1rem;">
