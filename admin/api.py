@@ -34,7 +34,13 @@ def api_user_search():
             ).fetchall()
         else:
             rows = []
-        return jsonify([dict(r) for r in rows])
+        rows_out = []
+        for r in rows:
+            d = dict(r)
+            d["user_id"] = str(d["user_id"])
+            d["guild_id"] = str(d["guild_id"])
+            rows_out.append(d)
+        return jsonify(rows_out)
     finally:
         conn.close()
 
