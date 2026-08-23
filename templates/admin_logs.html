@@ -9,6 +9,7 @@
         <div class="form-field">
             <label>Filter</label>
             <input type="text" name="q" value="{{ q }}" placeholder="e.g. LOGIN OK, USER EDIT, FORGET, RESTORE, BACKUP, IP..." autofocus>
+            <div class="hint">Tip: click any action badge below to filter by it. Press <span class="kbd">/</span> to search.</div>
         </div>
         <div class="form-field">
             <label>&nbsp;</label>
@@ -36,7 +37,8 @@
                         <td class="mono" style="font-size:0.78rem;">{{ e.ts }}</td>
                         <td>
                             {% set a = e.action %}
-                            <span class="badge {% if 'FAIL' in a %}fail{% elif a.startswith('LOGIN') %}info{% elif a.startswith(('USER EDIT', 'USER ADD', 'CHECK FIX')) or a.startswith('GUILD') or a.startswith('LEVEL ROLE') or a.startswith('BOT ACTION') %}warn{% elif a.startswith(('FORGET EXEC', 'RESTORE', 'RESET', 'USER DELETE', 'USER BULK DELETE', 'BACKUP DELETE')) %}fail{% else %}muted{% endif %}">{{ a }}</span>
+                            <a class="badge {% if 'FAIL' in a %}fail{% elif a.startswith('LOGIN') %}info{% elif a.startswith(('USER EDIT', 'USER ADD', 'CHECK FIX')) or a.startswith('GUILD') or a.startswith('LEVEL ROLE') or a.startswith('BOT ACTION') %}warn{% elif a.startswith(('FORGET EXEC', 'RESTORE', 'RESET', 'USER DELETE', 'USER BULK DELETE', 'BACKUP DELETE')) %}fail{% else %}muted{% endif %}"
+                               href="{{ url_for('admin.logs', q=a) }}" title="Filter by {{ a }}">{{ a }}</a>
                         </td>
                         <td class="mono" style="font-size:0.78rem;">{{ e.ip }}</td>
                         <td style="word-break:break-word; font-size:0.88rem;">{{ e.detail }}</td>

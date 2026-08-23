@@ -87,11 +87,11 @@ document.addEventListener('DOMContentLoaded', function() {
         if (searchInput) searchInput.focus();
     }
 
-    // Clickable table rows: elements marked data-href navigate on click
-    document.querySelectorAll('tr[data-href]').forEach(function(row) {
-        row.addEventListener('click', function(e) {
+    // Clickable elements marked data-href navigate on click
+    document.querySelectorAll('[data-href]').forEach(function(el) {
+        el.addEventListener('click', function(e) {
             if (e.target.closest('a, button, input, select, label, [data-copy]')) return;
-            window.location.href = row.getAttribute('data-href');
+            window.location.href = el.getAttribute('data-href');
         });
     });
 

@@ -1073,8 +1073,12 @@
     background: rgba(255, 255, 255, 0.015);
 }
 
-tr[data-href] {
+[data-href] {
     cursor: pointer;
+}
+
+tr[data-href]:hover {
+    background: rgba(132, 56, 252, 0.06);
 }
 
 .kbd {

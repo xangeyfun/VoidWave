@@ -14,7 +14,8 @@
     <form id="quickLookup" onsubmit="return quickLookupGo(event)" class="form-grid" style="grid-template-columns:1fr auto;">
         <div class="form-field" style="margin-bottom:0;">
             <label>Quick User Lookup</label>
-            <input type="text" id="quickLookupInput" placeholder="Enter user ID to view full profile..." autofocus>
+            <input type="text" id="quickLookupInput" placeholder="Enter a Discord user ID to view their full profile..." autofocus oninput="clearLookupError()">
+            <div class="hint" id="lookupHint">Paste a 17 to 20 digit user ID. Click any ID in tables to copy it. Press <span class="kbd">/</span> to focus this box.</div>
         </div>
         <div class="form-field" style="margin-bottom:0;">
             <label>&nbsp;</label>
@@ -27,8 +28,21 @@
         var v = document.getElementById('quickLookupInput').value.trim();
         if (/^\d{17,20}$/.test(v)) {
             window.location.href = '/admin/user/' + v;
+        } else {
+            var input = document.getElementById('quickLookupInput');
+            var hint = document.getElementById('lookupHint');
+            input.style.borderColor = 'var(--error)';
+            hint.textContent = 'That does not look like a Discord user ID. It must be 17 to 20 digits.';
+            hint.style.color = 'var(--error)';
         }
         return false;
+    }
+    function clearLookupError() {
+        var input = document.getElementById('quickLookupInput');
+        var hint = document.getElementById('lookupHint');
+        input.style.borderColor = '';
+        hint.textContent = 'Paste a 17 to 20 digit user ID. Click any ID in tables to copy it. Press / to focus this box.';
+        hint.style.color = '';
     }
     </script>
 </div>
@@ -139,7 +153,7 @@
         </div>
         <div class="dashboard-activity">
             {% for a in recent_actions %}
-            <div class="activity-item">
+            <div class="activity-item" data-href="{{ url_for('admin.logs', q=a.action) }}" title="Show all {{ a.action }} entries">
                 <span class="activity-action">
                     <span class="badge {% if 'FAIL' in a.action or 'DELETE' in a.action %}fail{% elif 'EDIT' in a.action or 'ADD' in a.action %}warn{% elif 'LOGIN' in a.action %}info{% else %}muted{% endif %}">{{ a.action }}</span>
                 </span>
