@@ -1,6 +1,7 @@
 import sqlite3
 import time
 import os
+import re
 import hmac
 import hashlib
 import secrets
@@ -138,6 +139,32 @@ def _read_log_lines():
             return [ln.rstrip("\n") for ln in f if ln.strip()]
     except OSError:
         return []
+
+
+_LOG_IP_RE = re.compile(r"^(\d{1,3}\.){3}\d{1,3}$")
+
+
+def _looks_like_ip(token):
+    if not token:
+        return False
+    if token.lower() == "unknown":
+        return True
+    return bool(_LOG_IP_RE.match(token))
+
+
+def _parse_log_line(line):
+    tokens = line.split(" ")
+    ts = f"{tokens[0]} {tokens[1]}" if len(tokens) > 1 else ""
+    rest = tokens[2:]
+    ip_idx = next((i for i, t in enumerate(rest) if _looks_like_ip(t)), None)
+    if ip_idx is None:
+        return {"ts": ts, "action": " ".join(rest), "ip": "", "detail": ""}
+    return {
+        "ts": ts,
+        "action": " ".join(rest[:ip_idx]),
+        "ip": rest[ip_idx],
+        "detail": " ".join(rest[ip_idx + 1:]),
+    }
 
 
 # ---------------------------------------------------------------------------

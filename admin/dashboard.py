@@ -5,7 +5,7 @@ from flask import jsonify, render_template
 
 from . import admin_bp
 from .helpers import (
-    _db, _read_log_lines, _list_backups, _bot_status, _stale_users,
+    _db, _read_log_lines, _parse_log_line, _list_backups, _bot_status, _stale_users,
 )
 from .health import _run_checks
 
@@ -54,13 +54,10 @@ def dashboard():
         data["avg_level"] = round(data["avg_level"], 2)
 
         recent_logs = _read_log_lines()[-8:][::-1]
-        recent_actions = []
-        for line in recent_logs:
-            parts = line.split(" ", 4)
-            ts = f"{parts[0]} {parts[1]}" if len(parts) > 1 else ""
-            action = parts[2] if len(parts) > 2 else ""
-            detail = parts[4] if len(parts) > 4 else ""
-            recent_actions.append({"ts": ts, "action": action, "detail": detail[:60]})
+        recent_actions = [
+            {"ts": e["ts"], "action": e["action"], "detail": e["detail"][:60]}
+            for e in (_parse_log_line(line) for line in recent_logs)
+        ]
     finally:
         conn.close()
 
