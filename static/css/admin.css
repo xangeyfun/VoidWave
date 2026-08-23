@@ -1362,3 +1362,81 @@ a.badge:hover {
     vertical-align: -7px;
     margin-right: 8px;
 }
+
+/* ── Stats page upgrades ────────────────────────────────────── */
+.chart-wrap.tall {
+    height: 340px;
+}
+
+.admin-table-wrap.tall-wrap {
+    max-height: 420px;
+    overflow-y: auto;
+}
+
+.delta-up {
+    color: #4ade80;
+    font-weight: 600;
+}
+
+.delta-down {
+    color: var(--error);
+    font-weight: 600;
+}
+
+.range-tabs {
+    display: inline-flex;
+    gap: 4px;
+    background: var(--bg-tertiary);
+    border-radius: 8px;
+    padding: 3px;
+}
+
+.range-tabs button {
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    padding: 4px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.78rem;
+    font-weight: 600;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.range-tabs button:hover {
+    color: var(--text-primary);
+}
+
+.range-tabs button.on {
+    background: rgba(132, 56, 252, 0.25);
+    color: #c9a6ff;
+}
+
+.range-summary {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+}
+
+.range-chip {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 6px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 3px 12px;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+}
+
+.range-chip strong {
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+#auto-refresh-btn.on {
+    border-color: rgba(74, 222, 128, 0.5);
+    color: #4ade80;
+}

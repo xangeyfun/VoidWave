@@ -74,6 +74,12 @@ def stats():
                 (ts,)
             )
 
+        cutoff30 = (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d %H:%M:%S")
+        dormant = scalar(
+            "SELECT COUNT(*) FROM users WHERE total_messages > 0 "
+            "AND (last_message = '' OR last_message < ?)", (cutoff30,)
+        )
+
         level_buckets = []
         bounds = [(0, 0), (1, 1), (2, 2), (3, 3), (4, 4), (5, 5), (6, 10),
                   (11, 15), (16, 20), (21, 30), (31, 40), (41, 50), (51, None)]
@@ -125,6 +131,11 @@ def stats():
             "FROM vote_boosts", (int(time.time()), int(time.time()))
         ).fetchone()
 
+        soon_boosts = conn.execute(
+            "SELECT user_id, expires_at FROM vote_boosts WHERE expires_at > ? "
+            "ORDER BY expires_at ASC LIMIT 5", (int(time.time()),)
+        ).fetchall()
+
         bot_rows = conn.execute("SELECT * FROM bot_stats").fetchall()
 
         top_xp = top("total_xp")
@@ -153,28 +164,53 @@ def stats():
     finally:
         conn.close()
 
-    snapshots = []
     try:
         with open("stats_history.json", "r") as f:
-            snapshots = json.load(f)[-30:]
+            all_snaps = json.load(f)
     except Exception:
-        snapshots = []
+        all_snaps = []
 
-    snap_deltas = []
-    prev = None
-    for s in snapshots:
-        row = {"ts": s.get("timestamp"), "users": s.get("total_users"),
-               "xp": s.get("total_xp"), "messages": s.get("total_messages"),
-               "vc": s.get("total_vc_minutes"), "guilds": s.get("total_guilds")}
-        if prev:
-            row["d_users"] = row["users"] - prev["users"]
-            row["d_xp"] = row["xp"] - prev["xp"]
-            row["d_messages"] = row["messages"] - prev["messages"]
-            row["d_vc"] = row["vc"] - prev["vc"] if row["vc"] and prev["vc"] else None
-        else:
-            row["d_users"] = row["d_xp"] = row["d_messages"] = row["d_vc"] = None
-        snap_deltas.append(row)
-        prev = row
+    def _series(rows, key):
+        return [s.get(key) or 0 for s in rows]
+
+    def _window_rows(days):
+        if days is None:
+            return all_snaps
+        cutoff = (datetime.now() - timedelta(days=days)).isoformat()
+        return [s for s in all_snaps if s.get("timestamp", "") >= cutoff]
+
+    def _downsample(rows, target=300):
+        n = len(rows)
+        if n <= target:
+            return rows
+        step = n / target
+        return [rows[int(i * step)] for i in range(target)]
+
+    growth = {}
+    for label, days in (("24h", 1), ("7d", 7), ("30d", 30), ("all", None)):
+        rows = _window_rows(days)
+        if len(rows) > 400:
+            rows = _downsample(rows)
+        growth[label] = {
+            "labels": [(s.get("timestamp") or "")[:16].replace("T", " ") for s in rows],
+            "users": _series(rows, "total_users"),
+            "xp": _series(rows, "total_xp"),
+            "messages": _series(rows, "total_messages"),
+            "vc": _series(rows, "total_vc_minutes"),
+        }
+
+    week_delta = None
+    if len(all_snaps) >= 2:
+        latest = all_snaps[-1]
+        week_ago_ts = (datetime.now() - timedelta(days=7)).isoformat()
+        older = next((s for s in all_snaps if s.get("timestamp", "") >= week_ago_ts), None)
+        if older and older is not latest:
+            week_delta = {
+                "users": (latest.get("total_users") or 0) - (older.get("total_users") or 0),
+                "xp": (latest.get("total_xp") or 0) - (older.get("total_xp") or 0),
+                "messages": (latest.get("total_messages") or 0) - (older.get("total_messages") or 0),
+                "vc": (latest.get("total_vc_minutes") or 0) - (older.get("total_vc_minutes") or 0),
+            }
 
     db_size = Path("database.db").stat().st_size if Path("database.db").exists() else 0
     wal_size = 0
@@ -185,6 +221,7 @@ def stats():
         "admin_stats.html",
         agg=agg,
         active=active,
+        dormant=dormant,
         level_buckets=level_buckets,
         xp_distribution=xp_distribution,
         guild_rows=guild_rows,
@@ -193,8 +230,10 @@ def stats():
         top_vc=top_vc,
         top_level=top_level,
         boost_rows=dict(boost_rows) if boost_rows else {"c": 0, "active": 0, "expired": 0},
+        soon_boosts=[dict(r) for r in soon_boosts],
         bot_rows=[dict(r) for r in bot_rows],
-        snap_deltas=snap_deltas,
+        growth=growth,
+        week_delta=week_delta,
         db_size=db_size,
         wal_size=wal_size,
         guild_settings_count=guild_settings_count,

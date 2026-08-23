@@ -1,98 +1,88 @@
 {% extends "admin_base.html" %}
 {% block title %}Statistics{% endblock %}
 {% block heading %}Statistics{% endblock %}
-{% block subheading %}Comprehensive analytics across the entire user base{% endblock %}
+{% block subheading %}Analytics across the entire user base with growth trends from {{ growth.all.labels|length }} hourly snapshots.{% endblock %}
 {% block actions %}
-    <a href="{{ url_for('admin.stats') }}" class="btn btn-secondary btn-sm">&#128260; Refresh</a>
+    <button class="btn btn-secondary btn-sm" id="auto-refresh-btn" type="button">&#128260; Auto refresh</button>
+    <a href="{{ url_for('admin.stats') }}" class="btn btn-secondary btn-sm">&#8635; Refresh</a>
 {% endblock %}
 
 {% block content %}
-<!-- Overview Cards Row 1 -->
+{% set wd = week_delta %}
+
 <div class="admin-grid cols-4">
     <div class="stat-card">
         <div class="stat-icon">&#128101;</div>
         <div class="stat-value">{{ "{:,}".format(agg.users) }}</div>
         <div class="stat-label">Users</div>
-        <div class="stat-hint">{{ "{:,}".format(agg.guilds) }} guilds</div>
+        <div class="stat-hint">{{ "{:,}".format(agg.guilds) }} guilds{% if wd and wd.users %} &middot; <span class="delta-up">{% if wd.users > 0 %}+{% endif %}{{ "{:,}".format(wd.users) }} this week</span>{% endif %}</div>
     </div>
     <div class="stat-card">
         <div class="stat-icon">&#127775;</div>
         <div class="stat-value">{{ "{:,}".format(agg.total_xp) }}</div>
         <div class="stat-label">Total XP</div>
-        <div class="stat-hint">{{ "{:,}".format(agg.xp_per_user) }} avg/user</div>
+        <div class="stat-hint">{% if wd and wd.xp %}<span class="delta-up">+{{ "{:,}".format(wd.xp) }}</span> this week &middot; {% endif %}{{ "{:,}".format(agg.xp_per_user) }} avg</div>
     </div>
     <div class="stat-card">
         <div class="stat-icon">&#128172;</div>
         <div class="stat-value">{{ "{:,}".format(agg.total_messages) }}</div>
         <div class="stat-label">Total Messages</div>
-        <div class="stat-hint">{{ "{:,}".format(agg.total_messages_xp) }} granted XP</div>
+        <div class="stat-hint">{% if wd and wd.messages %}<span class="delta-up">+{{ "{:,}".format(wd.messages) }}</span> this week &middot; {% endif %}{{ "{:,}".format(active['7d']) }} active 7d</div>
     </div>
     <div class="stat-card">
         <div class="stat-icon">&#127908;</div>
         <div class="stat-value">{{ "{:,}".format(agg.total_vc_hours) }}h</div>
         <div class="stat-label">Voice Time</div>
-        <div class="stat-hint">{{ "{:,}".format(agg.vc_xp_minutes) }}m earned XP</div>
+        <div class="stat-hint">{% if wd and wd.vc %}<span class="delta-up">+{{ "{:,}".format((wd.vc / 60)|round|int) }}h</span> this week &middot; {% endif %}max {{ "{:,}".format(agg.max_vc) }}m user</div>
     </div>
 </div>
 
-<!-- Overview Cards Row 2 -->
 <div class="admin-grid cols-4" style="margin-top:0.75rem;">
     <div class="stat-card">
         <div class="stat-icon">&#128200;</div>
         <div class="stat-value">{{ agg.avg_level }}</div>
-        <div class="stat-label">Avg Level</div>
-        <div class="stat-hint">median {{ agg.median_level }} &middot; p90 {{ agg.p90_level }}</div>
+        <div class="stat-label">Average Level</div>
+        <div class="stat-hint">median {{ agg.median_level }} &middot; top 10% at {{ agg.p90_level }}+ &middot; max {{ agg.max_level }}</div>
     </div>
     <div class="stat-card">
-        <div class="stat-icon">&#127942;</div>
-        <div class="stat-value">{{ agg.max_level }}</div>
-        <div class="stat-label">Max Level</div>
-        <div class="stat-hint">{{ "{:,}".format(agg.level_100) }} at 100+ &middot; {{ "{:,}".format(agg.level_50) }} at 50+</div>
-    </div>
-    <div class="stat-card">
-        <div class="stat-icon">&#128100;</div>
-        <div class="stat-value">{{ "{:,}".format(agg.msgs_per_user) }}</div>
-        <div class="stat-label">Messages / User</div>
-        <div class="stat-hint">max {{ "{:,}".format(agg.max_messages) }}</div>
+        <div class="stat-icon">&#9889;</div>
+        <div class="stat-value">{{ ((active['7d'] / agg.users * 100)|round(1) if agg.users else 0) }}%</div>
+        <div class="stat-label">Active This Week</div>
+        <div class="stat-hint">{{ "{:,}".format(active['24h']) }} today &middot; {{ "{:,}".format(active['30d']) }} in 30 days</div>
     </div>
     <div class="stat-card">
         <div class="stat-icon">&#128176;</div>
-        <div class="stat-value">{{ "{:,}".format(agg.xp_per_user) }}</div>
-        <div class="stat-label">XP / User</div>
-        <div class="stat-hint">max {{ "{:,}".format(agg.max_xp) }}</div>
-    </div>
-</div>
-
-<!-- Overview Cards Row 3 (New Stats) -->
-<div class="admin-grid cols-4" style="margin-top:0.75rem;">
-    <div class="stat-card">
-        <div class="stat-icon">&#128202;</div>
-        <div class="stat-value">{{ "{:,}".format(agg.p10_level) }}</div>
-        <div class="stat-label">P10 Level</div>
-        <div class="stat-hint">bottom 10% threshold</div>
-    </div>
-    <div class="stat-card">
-        <div class="stat-icon">&#127941;</div>
-        <div class="stat-value">{{ "{:,}".format(agg.level_20) }}</div>
-        <div class="stat-label">Level 20+</div>
-        <div class="stat-hint">{{ "{:,}".format(agg.level_10) }} at 10+ &middot; {{ "{:,}".format(agg.level_5) }} at 5+</div>
+        <div class="stat-value" style="color:#4ade80;">{{ boost_rows.active }}</div>
+        <div class="stat-label">Active Vote Boosts</div>
+        <div class="stat-hint">{{ boost_rows.expired }} expired of {{ boost_rows.c }} total</div>
     </div>
     <div class="stat-card">
         <div class="stat-icon">&#128164;</div>
-        <div class="stat-value">{{ "{:,}".format(agg.zero_level) }}</div>
-        <div class="stat-label">Level 0</div>
-        <div class="stat-hint">{{ ((agg.zero_level / agg.users * 100)|round(1) if agg.users else 0) }}% of users</div>
-    </div>
-    <div class="stat-card">
-        <div class="stat-icon">&#128197;</div>
-        <div class="stat-value">{{ "{:,}".format(agg.avg_vc) }}m</div>
-        <div class="stat-label">Avg Voice / User</div>
-        <div class="stat-hint">max {{ "{:,}".format(agg.max_vc) }}m</div>
+        <div class="stat-value">{{ "{:,}".format(dormant) }}</div>
+        <div class="stat-label">Dormant Users</div>
+        <div class="stat-hint"><a href="{{ url_for('admin.forget') }}">quiet for 30+ days</a></div>
     </div>
 </div>
 
-<!-- Charts Row: Activity, Level, XP -->
-<div class="admin-grid cols-3" style="margin-top:1.5rem;">
+<div class="chart-card" style="margin-top:1.5rem;">
+    <div class="card-head">
+        <h3>Growth over time</h3>
+        <div class="range-tabs" id="growth-tabs">
+            <button type="button" data-range="24h">24h</button>
+            <button type="button" data-range="7d">7d</button>
+            <button type="button" data-range="30d" class="on">30d</button>
+            <button type="button" data-range="all">All time</button>
+        </div>
+    </div>
+    <div class="range-summary" id="growth-summary"></div>
+    {% if growth['30d'].labels|length >= 2 %}
+    <div class="chart-wrap tall"><canvas id="chartGrowth"></canvas></div>
+    {% else %}
+    <div class="empty-state">Not enough snapshots yet to draw a trend.</div>
+    {% endif %}
+</div>
+
+<div class="admin-grid cols-3" style="margin-top:1rem;">
     <div class="chart-card">
         <h3>Activity Windows</h3>
         <div class="chart-wrap"><canvas id="chartActive"></canvas></div>
@@ -107,7 +97,6 @@
     </div>
 </div>
 
-<!-- Tables Row: Activity, Level, XP -->
 <div class="admin-grid cols-3" style="margin-top:1rem;">
     <div class="admin-card">
         <h2>Activity Windows</h2>
@@ -179,16 +168,27 @@
     </div>
 </div>
 
-<!-- Vote Boosts and Config Summary -->
 <div class="admin-grid cols-2" style="margin-top:1rem;">
     <div class="admin-card">
         <h2>Vote Boosts</h2>
-        <p class="card-sub">Top.gg vote boost state.</p>
-        <div class="admin-grid cols-3">
-            <div class="stat-card"><div class="stat-value" style="color:#4ade80;">{{ boost_rows.active }}</div><div class="stat-label">Active</div></div>
-            <div class="stat-card"><div class="stat-value" style="color:#fbbf24;">{{ boost_rows.expired }}</div><div class="stat-label">Expired</div></div>
-            <div class="stat-card"><div class="stat-value">{{ boost_rows.c }}</div><div class="stat-label">Total</div></div>
+        <p class="card-sub">Active boosts expiring soonest.</p>
+        {% if soon_boosts %}
+        <div class="admin-table-wrap">
+            <table class="admin-table compact">
+                <thead><tr><th>User</th><th>Expires</th></tr></thead>
+                <tbody>
+                    {% for b in soon_boosts %}
+                    <tr>
+                        <td><a href="{{ url_for('admin.user_profile', user_id=b.user_id) }}" class="mono">{{ b.user_id }}</a></td>
+                        <td style="color:var(--text-secondary);">{{ b.expires_at | dt }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
+        {% else %}
+        <div class="empty-state">No active boosts right now.</div>
+        {% endif %}
     </div>
 
     <div class="admin-card">
@@ -201,22 +201,24 @@
     </div>
 </div>
 
-<!-- Top Guilds -->
 <div class="admin-card" style="margin-top:1rem;">
-    <h2>Top Guilds</h2>
-    <p class="card-sub">By user count (top 10).</p>
-    <div class="admin-table-wrap">
+    <div class="card-head">
+        <h2>Top Guilds</h2>
+        <span class="badge muted">{{ guild_rows|length }} guilds &middot; click a row to inspect</span>
+    </div>
+    <div class="admin-table-wrap tall-wrap">
         <table class="admin-table compact">
             <thead>
-                <tr><th>Guild</th><th class="num">Users</th><th class="num">XP</th><th class="num">Msgs</th><th class="num">Avg Lvl</th><th class="num">Max Lvl</th></tr>
+                <tr><th>Guild</th><th class="num">Users</th><th class="num">XP</th><th class="num">Msgs</th><th class="num">Voice</th><th class="num">Avg Lvl</th><th class="num">Max Lvl</th></tr>
             </thead>
             <tbody>
-                {% for g in guild_rows[:10] %}
-                <tr>
-                    <td class="mono" data-copy="{{ g['guild_id'] }}" style="cursor:pointer;">{{ g['guild_id'] }}</td>
+                {% for g in guild_rows %}
+                <tr data-href="{{ url_for('admin.guild_edit', guild_id=g['guild_id']) }}">
+                    <td class="mono" data-copy="{{ g['guild_id'] }}">{{ g['guild_id'] }}</td>
                     <td class="num">{{ "{:,}".format(g['users']) }}</td>
                     <td class="num">{{ "{:,}".format(g['xp']) }}</td>
                     <td class="num">{{ "{:,}".format(g['msgs']) }}</td>
+                    <td class="num">{{ "{:,}".format((g['vc'] / 60)|round|int) }}h</td>
                     <td class="num">{{ g['avg_level']|round(1) }}</td>
                     <td class="num">{{ g['max_level'] }}</td>
                 </tr>
@@ -226,161 +228,66 @@
     </div>
 </div>
 
-<!-- Top Users -->
 <div class="admin-grid cols-4" style="margin-top:1.25rem;">
+    {% set boards = [(top_xp, 'total_xp', '&#127775; Top by XP', 'XP'),
+                     (top_messages, 'total_messages', '&#128172; Top by Messages', 'Msgs'),
+                     (top_vc, 'vc_minutes', '&#127908; Top by Voice', 'VC'),
+                     (top_level, 'level', '&#127942; Top by Level', 'Lvl')] %}
+    {% for rows, field, title, unit in boards %}
     <div class="admin-card compact-list">
-        <h2>&#127775; Top by XP</h2>
+        <h2>{{ title | safe }}</h2>
         <div class="admin-table-wrap">
             <table class="admin-table compact">
-                <thead><tr><th>#</th><th>User</th><th class="num">XP</th></tr></thead>
+                <thead><tr><th>#</th><th>User</th><th class="num">{{ unit }}</th></tr></thead>
                 <tbody>
-                    {% for u in top_xp[:5] %}
-                    <tr>
+                    {% for u in rows[:5] %}
+                    <tr data-href="{{ url_for('admin.user_profile', user_id=u['user_id']) }}">
                         <td class="num">{{ loop.index }}</td>
-                        <td>{{ u['display_name'] or u['username'] }}</td>
-                        <td class="num">{{ "{:,}".format(u['total_xp']) }}</td>
+                        <td>
+                            <img src="{% if u['avatar_hash'] %}https://cdn.discordapp.com/avatars/{{ u['user_id'] }}/{{ u['avatar_hash'] }}.png?size=64{% else %}https://cdn.discordapp.com/embed/avatars/0.png{% endif %}"
+                                 alt="" class="row-avatar">
+                            {{ u['display_name'] or u['username'] }}
+                        </td>
+                        <td class="num">{% if field == 'vc_minutes' %}{{ "{:,}".format((u[field] / 60)|round|int) }}h{% elif field == 'level' %}{{ u[field] }}{% else %}{{ "{:,}".format(u[field]) }}{% endif %}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
     </div>
-    <div class="admin-card compact-list">
-        <h2>&#128172; Top by Messages</h2>
-        <div class="admin-table-wrap">
-            <table class="admin-table compact">
-                <thead><tr><th>#</th><th>User</th><th class="num">Msgs</th></tr></thead>
-                <tbody>
-                    {% for u in top_messages[:5] %}
-                    <tr>
-                        <td class="num">{{ loop.index }}</td>
-                        <td>{{ u['display_name'] or u['username'] }}</td>
-                        <td class="num">{{ "{:,}".format(u['total_messages']) }}</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
-    <div class="admin-card compact-list">
-        <h2>&#127908; Top by Voice</h2>
-        <div class="admin-table-wrap">
-            <table class="admin-table compact">
-                <thead><tr><th>#</th><th>User</th><th class="num">VC</th></tr></thead>
-                <tbody>
-                    {% for u in top_vc[:5] %}
-                    <tr>
-                        <td class="num">{{ loop.index }}</td>
-                        <td>{{ u['display_name'] or u['username'] }}</td>
-                        <td class="num">{{ "{:,}".format(u['vc_minutes']) }}m</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
-    <div class="admin-card compact-list">
-        <h2>&#127942; Top by Level</h2>
-        <div class="admin-table-wrap">
-            <table class="admin-table compact">
-                <thead><tr><th>#</th><th>User</th><th class="num">Level</th></tr></thead>
-                <tbody>
-                    {% for u in top_level[:5] %}
-                    <tr>
-                        <td class="num">{{ loop.index }}</td>
-                        <td>{{ u['display_name'] or u['username'] }}</td>
-                        <td class="num">{{ u['level'] }}</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
+    {% endfor %}
 </div>
 
-<!-- Snapshot History -->
-<div class="admin-card" style="margin-top:1.25rem;">
-    <div class="card-head">
-        <h2>Snapshot History</h2>
-        <span class="badge muted">{{ snap_deltas|length }} snapshots</span>
-    </div>
-    <p class="card-sub">Hourly snapshots from <span class="mono">stats_history.json</span> with deltas.</p>
-    <div class="admin-table-wrap">
-        <table class="admin-table compact">
-            <thead>
-                <tr>
-                    <th>Timestamp</th>
-                    <th class="num">Guilds</th>
-                    <th class="num">Users (&Delta;)</th>
-                    <th class="num">XP (&Delta;)</th>
-                    <th class="num">Messages (&Delta;)</th>
-                    <th class="num">VC (&Delta;)</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for s in snap_deltas|reverse %}
-                <tr>
-                    <td class="mono">{{ s.ts }}</td>
-                    <td class="num">{{ "{:,}".format(s.guilds or 0) }}</td>
-                    <td class="num">
-                        {{ "{:,}".format(s.users or 0) }}
-                        {% if s.d_users is not none %}
-                            <span class="muted" style="font-size:0.7rem;">{% if s.d_users >= 0 %}+{% endif %}{{ s.d_users }}</span>
-                        {% endif %}
-                    </td>
-                    <td class="num">
-                        {{ "{:,}".format(s.xp or 0) }}
-                        {% if s.d_xp is not none %}
-                            <span class="muted" style="font-size:0.7rem;">{% if s.d_xp >= 0 %}+{% endif %}{{ "{:,}".format(s.d_xp) }}</span>
-                        {% endif %}
-                    </td>
-                    <td class="num">
-                        {{ "{:,}".format(s.messages or 0) }}
-                        {% if s.d_messages is not none %}
-                            <span class="muted" style="font-size:0.7rem;">{% if s.d_messages >= 0 %}+{% endif %}{{ "{:,}".format(s.d_messages) }}</span>
-                        {% endif %}
-                    </td>
-                    <td class="num">
-                        {{ "{:,}".format(s.vc or 0) }}m
-                        {% if s.d_vc is not none %}
-                            <span class="muted" style="font-size:0.7rem;">{% if s.d_vc >= 0 %}+{% endif %}{{ "{:,}".format(s.d_vc) }}</span>
-                        {% endif %}
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-</div>
-
-<!-- Files & Bot Stats -->
-<div class="admin-grid cols-2" style="margin-top:1.25rem;">
-    <div class="admin-card">
-        <h2>Database Files</h2>
-        <p class="card-sub">On-disk storage state.</p>
-        <table class="admin-table compact">
-            <tbody>
-                <tr><td class="mono">database.db</td><td class="text-right num">{{ "%.1f"|format(db_size / 1024) }} KB</td></tr>
-                <tr><td class="mono">database.db-wal</td><td class="text-right num">{{ "%.1f"|format(wal_size / 1024) }} KB</td></tr>
-                <tr><td class="mono">Total</td><td class="text-right num">{{ "%.1f"|format((db_size + wal_size) / 1024) }} KB</td></tr>
-            </tbody>
-        </table>
-    </div>
-    <div class="admin-card">
-        <h2>Bot Stats Row</h2>
-        <p class="card-sub">Last recorded totals from the bot process.</p>
+<details class="danger-zone" style="margin-top:1.25rem;">
+    <summary>&#128221; Raw snapshot history<span class="count-pill danger">{{ growth.all.labels|length }} points stored hourly</span></summary>
+    <div class="danger-body">
+        <p class="card-sub">Hourly totals from <span class="mono">stats_history.json</span>. The chart above is the friendly view; the growth story lives there.</p>
         {% if bot_rows %}
-            <table class="admin-table compact">
-                <tbody>
-                    <tr><td>Total guilds</td><td class="text-right num">{{ bot_rows[0].get('total_guilds', '-') }}</td></tr>
-                    <tr><td>Total members</td><td class="text-right num">{{ "{:,}".format(bot_rows[0].get('total_members', 0)) }}</td></tr>
-                </tbody>
-            </table>
+        <div class="admin-grid cols-2" style="margin-top:12px;">
+            <div>
+                <strong style="font-size:0.85rem;">Bot process last report</strong>
+                <table class="admin-table compact" style="margin-top:6px;">
+                    <tbody>
+                        <tr><td>Total guilds</td><td class="text-right num">{{ bot_rows[0].get('total_guilds', '-') }}</td></tr>
+                        <tr><td>Total members</td><td class="text-right num">{{ "{:,}".format(bot_rows[0].get('total_members', 0)) }}</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div>
+                <strong style="font-size:0.85rem;">Database files</strong>
+                <table class="admin-table compact" style="margin-top:6px;">
+                    <tbody>
+                        <tr><td class="mono">database.db</td><td class="text-right num">{{ db_size | size }}</td></tr>
+                        <tr><td class="mono">database.db-wal</td><td class="text-right num">{{ wal_size | size }}</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
         {% else %}
-            <div class="empty-state">No bot_stats row.</div>
+        <div class="empty-state" style="margin-top:12px;">No bot_stats row. Database: {{ db_size | size }} + WAL {{ wal_size | size }}.</div>
         {% endif %}
     </div>
-</div>
+</details>
 {% endblock %}
 
 {% block scripts %}
@@ -391,92 +298,159 @@
     var tickColor = '#8b949e';
     var barBg = 'rgba(132, 56, 252, 0.15)';
     var barBorder = 'rgba(132, 56, 252, 0.7)';
-
     var commonScaleOpts = {
         grid: { color: gridColor },
         ticks: { color: tickColor, font: { size: 11 } }
     };
+    function barChart(id, labels, values) {
+        new Chart(document.getElementById(id), {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: values,
+                    backgroundColor: barBg,
+                    borderColor: barBorder,
+                    borderWidth: 1,
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: Object.assign({}, commonScaleOpts),
+                    y: Object.assign({}, commonScaleOpts, { beginAtZero: true })
+                }
+            }
+        });
+    }
 
     var activeData = {{ active|tojson }};
-    var activeLabels = Object.keys(activeData).map(function(k) { return 'Last ' + k; });
-    var activeValues = Object.values(activeData);
-
-    new Chart(document.getElementById('chartActive'), {
-        type: 'bar',
-        data: {
-            labels: activeLabels,
-            datasets: [{
-                data: activeValues,
-                backgroundColor: barBg,
-                borderColor: barBorder,
-                borderWidth: 1,
-                borderRadius: 4
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
-            scales: {
-                x: Object.assign({}, commonScaleOpts),
-                y: Object.assign({}, commonScaleOpts, { beginAtZero: true })
-            }
-        }
-    });
+    barChart('chartActive',
+        Object.keys(activeData).map(function(k) { return 'Last ' + k; }),
+        Object.values(activeData));
 
     var levelData = {{ level_buckets|tojson }};
-    var levelLabels = levelData.map(function(b) { return b.range; });
-    var levelValues = levelData.map(function(b) { return b.count; });
-
-    new Chart(document.getElementById('chartLevels'), {
-        type: 'bar',
-        data: {
-            labels: levelLabels,
-            datasets: [{
-                data: levelValues,
-                backgroundColor: barBg,
-                borderColor: barBorder,
-                borderWidth: 1,
-                borderRadius: 4
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
-            scales: {
-                x: Object.assign({}, commonScaleOpts),
-                y: Object.assign({}, commonScaleOpts, { beginAtZero: true })
-            }
-        }
-    });
+    barChart('chartLevels',
+        levelData.map(function(b) { return b.range; }),
+        levelData.map(function(b) { return b.count; }));
 
     var xpData = {{ xp_distribution|tojson }};
-    var xpLabels = xpData.map(function(b) { return b.range; });
-    var xpValues = xpData.map(function(b) { return b.count; });
+    barChart('chartXp',
+        xpData.map(function(b) { return b.range; }),
+        xpData.map(function(b) { return b.count; }));
 
-    new Chart(document.getElementById('chartXp'), {
-        type: 'bar',
-        data: {
-            labels: xpLabels,
-            datasets: [{
-                data: xpValues,
-                backgroundColor: barBg,
-                borderColor: barBorder,
-                borderWidth: 1,
-                borderRadius: 4
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
-            scales: {
-                x: Object.assign({}, commonScaleOpts),
-                y: Object.assign({}, commonScaleOpts, { beginAtZero: true })
+    /* Growth chart */
+    var growth = {{ growth|tojson }};
+    var seriesMeta = [
+        { key: 'users', label: 'Users', color: '#8438fc' },
+        { key: 'xp', label: 'XP', color: '#22c55e' },
+        { key: 'messages', label: 'Messages', color: '#f59e0b' },
+        { key: 'vc', label: 'Voice minutes', color: '#38bdf8' }
+    ];
+    var currentRange = '30d';
+    var growthChart = null;
+
+    function fmt(n) {
+        n = n || 0;
+        var abs = Math.abs(n);
+        if (abs >= 1e9) return (n / 1e9).toFixed(1) + 'B';
+        if (abs >= 1e6) return (n / 1e6).toFixed(1) + 'M';
+        if (abs >= 1e4) return (n / 1e3).toFixed(1) + 'K';
+        return n.toLocaleString('en-US');
+    }
+
+    function renderSummary(range) {
+        var d = growth[range];
+        var box = document.getElementById('growth-summary');
+        if (!box) return;
+        box.replaceChildren.apply(box, seriesMeta.map(function(m) {
+            var first = d[m.key][0] || 0;
+            var last = d[m.key][d[m.key].length - 1] || 0;
+            var diff = last - first;
+            var chip = document.createElement('span');
+            chip.className = 'range-chip';
+            chip.appendChild(document.createElement('strong')).textContent = m.label;
+            chip.appendChild(document.createTextNode(' ' + fmt(first) + ' \u2192 ' + fmt(last)));
+            var delta = document.createElement('span');
+            delta.className = diff >= 0 ? 'delta-up' : 'delta-down';
+            delta.textContent = (diff >= 0 ? '+' : '') + fmt(diff);
+            chip.appendChild(delta);
+            return chip;
+        }));
+    }
+
+    {% if growth['30d'].labels|length >= 2 %}
+    function buildGrowthChart(range) {
+        var d = growth[range];
+        var datasets = seriesMeta.map(function(m) {
+            return {
+                label: m.label,
+                data: d[m.key],
+                borderColor: m.color,
+                backgroundColor: m.color,
+                borderWidth: 2,
+                pointRadius: 0,
+                pointHoverRadius: 4,
+                tension: 0.25,
+                yAxisID: m.key === 'xp' ? 'y1' : 'y'
+            };
+        });
+        if (growthChart) growthChart.destroy();
+        growthChart = new Chart(document.getElementById('chartGrowth'), {
+            type: 'line',
+            data: { labels: d.labels, datasets: datasets },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: { legend: { labels: { color: tickColor, boxWidth: 12 } } },
+                scales: {
+                    x: Object.assign({}, commonScaleOpts, {
+                        ticks: Object.assign({}, commonScaleOpts.ticks, { maxTicksLimit: 10 })
+                    }),
+                    y: Object.assign({}, commonScaleOpts, {
+                        type: 'linear', position: 'left',
+                        ticks: Object.assign({}, commonScaleOpts.ticks, { callback: fmt })
+                    }),
+                    y1: Object.assign({}, commonScaleOpts, {
+                        type: 'linear', position: 'right', grid: { drawOnChartArea: false },
+                        ticks: Object.assign({}, commonScaleOpts.ticks, { callback: fmt })
+                    })
+                }
             }
-        }
+        });
+    }
+
+    document.getElementById('growth-tabs').addEventListener('click', function(e) {
+        var btn = e.target.closest('button[data-range]');
+        if (!btn) return;
+        currentRange = btn.dataset.range;
+        this.querySelectorAll('button').forEach(function(b) { b.classList.toggle('on', b === btn); });
+        buildGrowthChart(currentRange);
+        renderSummary(currentRange);
     });
+
+    buildGrowthChart(currentRange);
+    {% endif %}
+    renderSummary(currentRange);
+
+    /* Auto refresh */
+    var autoBtn = document.getElementById('auto-refresh-btn');
+    var KEY = 'stats_auto_refresh';
+    var timer = null;
+    function setAuto(on) {
+        autoBtn.classList.toggle('on', on);
+        if (timer) { clearInterval(timer); timer = null; }
+        if (on) timer = setInterval(function() { location.reload(); }, 60000);
+        try { sessionStorage.setItem(KEY, on ? '1' : ''); } catch (e) {}
+    }
+    autoBtn.addEventListener('click', function() {
+        setAuto(!autoBtn.classList.contains('on'));
+    });
+    try { if (sessionStorage.getItem(KEY)) setAuto(true); } catch (e) {}
 })();
 </script>
 {% endblock %}
