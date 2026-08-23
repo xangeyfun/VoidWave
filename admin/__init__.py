@@ -4,9 +4,15 @@ from datetime import datetime, timezone
 from .helpers import (
     _db, _ensure_admin_tables, _admin_password, _client_ip,
     _csrf_token, _csrf_ok, _log,
+    _fmt_delta, _fmt_dt, _fmt_ago, _fmt_size,
 )
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/admin")
+
+admin_bp.add_app_template_filter(_fmt_delta, "delta")
+admin_bp.add_app_template_filter(_fmt_dt, "dt")
+admin_bp.add_app_template_filter(_fmt_ago, "ago")
+admin_bp.add_app_template_filter(_fmt_size, "size")
 
 
 @admin_bp.before_request

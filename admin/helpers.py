@@ -589,3 +589,87 @@ def _stale_users(days=30):
         return [dict(r) for r in rows]
     finally:
         conn.close()
+
+
+# ---------------------------------------------------------------------------
+# Human friendly formatting (registered as template filters)
+# ---------------------------------------------------------------------------
+
+_DT_PATTERNS = ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M")
+
+
+def _parse_dt(value):
+    if isinstance(value, datetime):
+        return value
+    if isinstance(value, (int, float)):
+        try:
+            return datetime.fromtimestamp(int(value))
+        except (OSError, OverflowError, ValueError):
+            return None
+    s = str(value or "").strip()
+    if not s:
+        return None
+    for pattern in _DT_PATTERNS:
+        try:
+            return datetime.strptime(s, pattern)
+        except ValueError:
+            continue
+    return None
+
+
+def _fmt_delta(seconds):
+    try:
+        seconds = int(seconds)
+    except (TypeError, ValueError):
+        return ""
+    if seconds < 0:
+        seconds = 0
+    days, rem = divmod(seconds, 86400)
+    hours, rem = divmod(rem, 3600)
+    minutes, secs = divmod(rem, 60)
+    if days:
+        return f"{days}d {hours}h"
+    if hours:
+        return f"{hours}h {minutes}m"
+    if minutes:
+        return f"{minutes}m"
+    return f"{secs}s"
+
+
+def _fmt_dt(value):
+    dt_obj = _parse_dt(value)
+    if dt_obj is None:
+        return str(value or "")
+    return dt_obj.strftime("%b %d, %Y %H:%M")
+
+
+def _fmt_ago(value):
+    dt_obj = _parse_dt(value)
+    if dt_obj is None:
+        raw = str(value or "").strip()
+        return raw or "never"
+    diff = int((datetime.now() - dt_obj).total_seconds())
+    if diff < 0:
+        return f"in {_fmt_delta(-diff)}"
+    if diff < 45:
+        return "just now"
+    if diff < 3600:
+        return f"{max(1, diff // 60)}m ago"
+    if diff < 86400:
+        return f"{diff // 3600}h ago"
+    if diff < 86400 * 30:
+        return f"{diff // 86400}d ago"
+    return dt_obj.strftime("%b %d, %Y")
+
+
+def _fmt_size(num):
+    try:
+        num = float(num)
+    except (TypeError, ValueError):
+        return "?"
+    for unit, scale in (("B", 1), ("KB", 1024), ("MB", 1024 ** 2), ("GB", 1024 ** 3)):
+        if num < scale * 1024 or unit == "GB":
+            if unit == "B":
+                return f"{int(num)} {unit}"
+            return f"{num / scale:.1f} {unit}"
+    return "?"
