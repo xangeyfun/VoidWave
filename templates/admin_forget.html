@@ -1,52 +1,75 @@
 {% extends "admin_base.html" %}
 {% block title %}Privacy / Forget{% endblock %}
 {% block heading %}Privacy &amp; Right to be Forgotten{% endblock %}
-{% block subheading %}GDPR-style erasure for users and guilds. Nothing is deleted until you confirm with a typed word.{% endblock %}
+{% block subheading %}Nothing is deleted until you review a preview and type the confirmation word. Every execution lands in the audit log.{% endblock %}
 
 {% block content %}
 {% if error %}<div class="alert alert-error">{{ error }}</div>{% endif %}
 
-<div class="admin-grid cols-2" style="margin-bottom:24px;">
-    <div class="admin-card" style="border-color:rgba(74,222,128,0.3);">
-        <div class="card-head"><h3>&#129505; Quick Cleanup</h3></div>
-        <p class="card-sub" style="margin:12px 0 0;">Common maintenance operations.</p>
-        <div style="display:flex;flex-direction:column;gap:10px;margin-top:16px;">
-            <form method="POST" action="{{ url_for('admin.forget') }}" style="display:flex;gap:8px;align-items:center;">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <input type="hidden" name="mode" value="expired_boosts">
-                <button class="btn btn-secondary btn-sm" type="submit">&#128176; Purge expired boosts</button>
-            </form>
-            <form method="POST" action="{{ url_for('admin.forget') }}" style="display:flex;gap:8px;align-items:center;">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <input type="hidden" name="mode" value="stale_users">
-                <input type="hidden" name="days" value="30">
-                <button class="btn btn-secondary btn-sm" type="submit">&#128164; Purge stale users (30+ days)</button>
-            </form>
-        </div>
+<div class="howto">
+    <div class="howto-step">
+        <span class="howto-num">1</span>
+        <strong>Pick a target</strong>
+        <p>Paste Discord IDs below. Live lookup shows you exactly who they are before anything else happens.</p>
     </div>
+    <div class="howto-step">
+        <span class="howto-num">2</span>
+        <strong>Review the preview</strong>
+        <p>A second page lists every row that will disappear. Read it, then decide.</p>
+    </div>
+    <div class="howto-step">
+        <span class="howto-num">3</span>
+        <strong>Type the word</strong>
+        <p>Deletion stays disabled until you type the shown word exactly. There is no undo after that.</p>
+    </div>
+</div>
 
+<div class="admin-grid cols-2" style="margin-bottom:24px;">
     <div class="admin-card">
-        <div class="card-head"><h3>&#128101; User Erasure</h3></div>
-        <p class="card-sub" style="margin:12px 0 0;">Delete one or more users by Discord ID. Supports multiple IDs, one per line.</p>
+        <div class="card-head"><h3>User erasure</h3><span class="badge warn">Erasure</span></div>
+        <p class="card-sub" style="margin:12px 0 0;">Paste one or more Discord user IDs, one per line. Lookup runs while you type.</p>
         <form method="POST" action="{{ url_for('admin.forget') }}" style="margin-top:16px;">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div class="form-field" style="margin-bottom:12px;">
                 <label>Discord user IDs</label>
-                <textarea name="user_ids" rows="3" placeholder="123456789012345678&#10;987654321098765432" style="width:100%;"></textarea>
+                <textarea name="user_ids" id="user-ids-input" rows="3"
+                          placeholder="123456789012345678&#10;987654321098765432" style="width:100%;"></textarea>
             </div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div class="lookup-box" id="user-lookup"><span class="lookup-hint">Waiting for IDs…</span></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px;">
                 <div class="form-field">
                     <label>Scope</label>
-                    <select name="mode">
+                    <select name="mode" id="user-mode">
                         <option value="user_all">Everywhere (all guilds)</option>
                         <option value="user_guild">Only in one guild</option>
-                        <option value="boost">Vote boost only</option>
+                        <option value="boost">Vote boosts only</option>
                     </select>
                 </div>
-                <div class="form-field">
-                    <label>Guild ID (for single-guild scope)</label>
+                <div class="form-field" id="user-guild-wrap" hidden>
+                    <label>Guild ID for this scope</label>
                     <input type="text" name="guild_id" placeholder="123456789012345678">
                 </div>
+            </div>
+            <button class="btn btn-primary btn-sm" type="submit" style="margin-top:12px;">Preview deletion</button>
+        </form>
+    </div>
+
+    <div class="admin-card">
+        <div class="card-head"><h3>Guild erasure</h3><span class="badge warn">Erasure</span></div>
+        <p class="card-sub" style="margin:12px 0 0;">Remove data tied to one server. Lookup shows what lives under that ID.</p>
+        <form method="POST" action="{{ url_for('admin.forget') }}" style="margin-top:16px;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="form-field" style="margin-bottom:12px;">
+                <label>Guild ID</label>
+                <input type="text" name="guild_id" id="guild-id-input" placeholder="123456789012345678" required style="width:100%;">
+            </div>
+            <div class="lookup-box" id="guild-lookup"><span class="lookup-hint">Waiting for a guild ID…</span></div>
+            <div class="form-field" style="margin-top:14px;">
+                <label>Scope</label>
+                <select name="mode">
+                    <option value="guild_users">All users only (keeps settings)</option>
+                    <option value="guild_full">Everything: users + settings + level roles</option>
+                </select>
             </div>
             <button class="btn btn-primary btn-sm" type="submit" style="margin-top:12px;">Preview deletion</button>
         </form>
@@ -54,41 +77,45 @@
 </div>
 
 <div class="admin-grid cols-2" style="margin-bottom:24px;">
-    <div class="admin-card">
-        <div class="card-head"><h3>&#127757; Guild Erasure</h3></div>
-        <p class="card-sub" style="margin:12px 0 0;">Remove everything tied to one server.</p>
-        <form method="POST" action="{{ url_for('admin.forget') }}" style="margin-top:16px;">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <div class="form-field" style="margin-bottom:12px;">
-                <label>Guild ID</label>
-                <input type="text" name="guild_id" placeholder="123456789012345678" required style="width:100%;">
-            </div>
-            <div class="form-field" style="margin-bottom:12px;">
-                <label>Scope</label>
-                <select name="mode">
-                    <option value="guild_users">All users only (keep settings)</option>
-                    <option value="guild_full">Everything: users + settings + level roles</option>
-                </select>
-            </div>
-            <button class="btn btn-primary btn-sm" type="submit">Preview deletion</button>
-        </form>
+    <div class="admin-card" style="border-color:rgba(74,222,128,0.3);">
+        <div class="card-head"><h3>Maintenance</h3><span class="badge ok">Safe cleanup</span></div>
+        <p class="card-sub" style="margin:12px 0 0;">Routine purges. Counts refresh every time this page loads.</p>
+        <div style="display:flex;flex-direction:column;gap:10px;margin-top:16px;">
+            <form method="POST" action="{{ url_for('admin.forget') }}" style="display:flex;gap:8px;align-items:center;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="mode" value="expired_boosts">
+                <button class="btn btn-secondary btn-sm" type="submit" {% if not maintenance.expired_boosts %}disabled{% endif %}>
+                    Purge expired boosts
+                </button>
+                <span class="count-pill">{{ maintenance.expired_boosts }} found</span>
+            </form>
+            <form method="POST" action="{{ url_for('admin.forget') }}" style="display:flex;gap:8px;align-items:center;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="mode" value="stale_users">
+                <input type="hidden" name="days" value="30">
+                <button class="btn btn-secondary btn-sm" type="submit" {% if not maintenance.stale_users %}disabled{% endif %}>
+                    Purge stale users (idle 30+ days)
+                </button>
+                <span class="count-pill">{{ maintenance.stale_users }} of {{ maintenance.total_users }} users</span>
+            </form>
+        </div>
     </div>
 
-    <div class="admin-card" style="border-color:rgba(239,68,68,0.35);">
-        <div class="card-head"><h3 style="color:var(--error);">&#9888; Danger Zone</h3></div>
-        <p class="card-sub" style="margin:12px 0 0;">Destructive operations that affect all data. Each requires a typed confirmation word.</p>
-        <form method="POST" action="{{ url_for('admin.forget') }}" style="margin-top:16px;">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-                <div class="form-field">
+    <details class="danger-zone">
+        <summary>&#9888; Danger zone: wipe everything<span class="count-pill danger">collapsed on purpose</span></summary>
+        <div class="danger-body">
+            <p class="card-sub">Destructive operations affecting all data. Each still requires typing a confirmation word on the next page.</p>
+            <form method="POST" action="{{ url_for('admin.forget') }}" style="margin-top:14px;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="form-field" style="margin-bottom:12px;">
                     <label>Operation</label>
-                    <select name="mode">
-                        <option value="reset_all">Reset ALL user data</option>
+                    <select name="mode" id="danger-mode">
+                        <option value="reset_all">Reset ALL user data (users + vote boosts)</option>
                         <option value="reset_table">Reset one table</option>
                     </select>
                 </div>
-                <div class="form-field">
-                    <label>Table (for reset one table)</label>
+                <div class="form-field" id="danger-table-wrap" hidden>
+                    <label>Table</label>
                     <select name="table">
                         <option value="users">users</option>
                         <option value="vote_boosts">vote_boosts</option>
@@ -97,24 +124,24 @@
                         <option value="bot_stats">bot_stats</option>
                     </select>
                 </div>
-            </div>
-            <div class="hint" style="margin-top:8px;">Reset-all requires typing RESET. Table reset requires typing the table name.</div>
-            <button class="btn btn-danger btn-sm" type="submit" style="margin-top:12px;">Preview destructive reset</button>
-        </form>
-    </div>
+                <div class="hint" style="margin:8px 0 12px;">Confirmation word: RESET for the full wipe, otherwise the table name.</div>
+                <button class="btn btn-danger btn-sm" type="submit">Preview destructive reset</button>
+            </form>
+        </div>
+    </details>
 </div>
 
 {% if recent %}
 <div class="admin-card">
     <div class="card-head">
-        <h3>&#128221; Recent Deletions</h3>
-        <a href="{{ url_for('admin.logs') }}" class="btn btn-secondary btn-sm">View full audit log</a>
+        <h3>Recent deletions</h3>
+        <a href="{{ url_for('admin.logs', action='forget exec') }}" class="btn btn-secondary btn-sm">View in audit log</a>
     </div>
     <div class="admin-table-wrap">
         <table class="admin-table">
             <thead>
                 <tr>
-                    <th>Time</th>
+                    <th>When</th>
                     <th>Action</th>
                     <th>Details</th>
                 </tr>
@@ -122,7 +149,7 @@
             <tbody>
                 {% for op in recent %}
                 <tr>
-                    <td style="white-space:nowrap;color:var(--muted);">{{ op.timestamp }}</td>
+                    <td style="white-space:nowrap;color:var(--muted);" title="{{ op.timestamp }}">{{ op.timestamp | ago }}</td>
                     <td>
                         {% if op.spec.type %}
                             <span class="badge {% if 'reset' in op.spec.type %}fail{% else %}warn{% endif %}">
@@ -146,7 +173,7 @@
                         {% elif op.spec.type == 'expired_boosts' %}
                             Expired vote boosts
                         {% elif op.spec.type == 'stale_users' %}
-                            Stale users ({{ op.spec.days }}+ days)
+                            Stale users ({{ op.spec.days }}+ days idle)
                         {% elif op.spec.type == 'reset_all' %}
                             All user data
                         {% elif op.spec.type == 'reset_table' %}
@@ -165,4 +192,168 @@
     </div>
 </div>
 {% endif %}
+
+<script>
+(function() {
+    const AVATARS = ['ff0000','ffa500','ffff00','00ff00','00ffff','0000ff','ff00ff','ffffff'];
+    function avatarUrl(id, hash) {
+        if (hash) return 'https://cdn.discordapp.com/avatars/' + id + '/' + hash + '.png?size=64';
+        const pick = parseInt(String(id).slice(-1), 10) || 0;
+        return 'https://cdn.discordapp.com/embed/avatars/' + (pick % AVATARS.length) + '.png';
+    }
+    function el(tag, cls, text) {
+        const n = document.createElement(tag);
+        if (cls) n.className = cls;
+        if (text !== undefined) n.textContent = text;
+        return n;
+    }
+    function relTime(str) {
+        if (!str) return null;
+        const t = Date.parse(str.replace(' ', 'T'));
+        if (isNaN(t)) return str;
+        const s = Math.floor((Date.now() - t) / 1000);
+        if (s < 60) return 'just now';
+        if (s < 3600) return Math.floor(s / 60) + 'm ago';
+        if (s < 86400) return Math.floor(s / 3600) + 'h ago';
+        return Math.floor(s / 86400) + 'd ago';
+    }
+
+    const userBox = document.getElementById('user-lookup');
+    const userInput = document.getElementById('user-ids-input');
+    const userMode = document.getElementById('user-mode');
+    const userGuildWrap = document.getElementById('user-guild-wrap');
+    let userTimer = null;
+
+    userMode.addEventListener('change', function() {
+        userGuildWrap.hidden = userMode.value !== 'user_guild';
+    });
+
+    async function lookupOne(id) {
+        const res = await fetch('/admin/api/users/search?q=' + encodeURIComponent(id));
+        if (!res.ok) throw new Error('bad status');
+        return res.json();
+    }
+
+    async function renderUserLookup() {
+        const lines = userInput.value.split(/[\s,]+/).map(s => s.trim()).filter(Boolean);
+        const seen = new Set();
+        const ids = [];
+        for (const ln of lines) {
+            if (/^\d{8,}$/.test(ln) && !seen.has(ln)) { seen.add(ln); ids.push(ln); }
+        }
+        if (!ids.length) {
+            userBox.className = 'lookup-box';
+            userBox.replaceChildren(el('span', 'lookup-hint', 'Waiting for IDs…'));
+            return;
+        }
+        userBox.className = 'lookup-box';
+        userBox.replaceChildren(el('span', 'lookup-hint', 'Looking up ' + ids.length + ' ID(s)…'));
+        let results;
+        try {
+            results = await Promise.all(ids.map(lookupOne));
+        } catch (e) {
+            userBox.replaceChildren(el('span', 'lookup-error', 'Lookup failed. Check your connection and try again.'));
+            return;
+        }
+        userBox.className = 'lookup-box filled';
+        const frag = document.createDocumentFragment();
+        let matched = 0;
+        ids.forEach((id, i) => {
+            const rows = (results[i] || []).filter(r => String(r.user_id) === id);
+            const block = el('div', 'id-chip-group');
+            if (rows.length) {
+                matched++;
+                rows.forEach(r => {
+                    const chip = el('div', 'id-chip');
+                    const img = document.createElement('img');
+                    img.src = avatarUrl(id, r.avatar_hash);
+                    img.alt = '';
+                    chip.appendChild(img);
+                    const info = el('div');
+                    info.appendChild(el('div', 'chip-name', r.display_name || r.username || id));
+                    const bits = [];
+                    if (r.username && r.display_name) bits.push('@' + r.username);
+                    bits.push('Lv ' + r.level, (r.total_xp || 0) + ' XP', 'guild ' + r.guild_id);
+                    info.appendChild(el('div', 'chip-sub', bits.join(' · ')));
+                    chip.appendChild(info);
+                    block.appendChild(chip);
+                });
+            } else if ((results[i] || []).length) {
+                const chip = el('div', 'id-chip warn-chip');
+                chip.appendChild(el('div', 'chip-name', id));
+                chip.appendChild(el('div', 'chip-sub',
+                    'This looks like a guild ID holding ' + results[i].length + ' user row(s), not a user.'));
+                block.appendChild(chip);
+            } else {
+                const chip = el('div', 'id-chip unknown');
+                chip.appendChild(el('span', 'chip-name', id));
+                chip.appendChild(el('span', 'chip-sub', 'No records found. Nothing will match this ID.'));
+                block.appendChild(chip);
+            }
+            frag.appendChild(block);
+        });
+        frag.prepend(el('div', 'lookup-summary', matched + ' of ' + ids.length + ' ID(s) matched real users.'));
+        userBox.replaceChildren(frag);
+    }
+
+    userInput.addEventListener('input', function() {
+        clearTimeout(userTimer);
+        userTimer = setTimeout(renderUserLookup, 350);
+    });
+
+    const guildBox = document.getElementById('guild-lookup');
+    const guildInput = document.getElementById('guild-id-input');
+    let guildTimer = null;
+
+    async function renderGuildLookup() {
+        const v = guildInput.value.trim();
+        if (!/^\d{8,}$/.test(v)) {
+            guildBox.className = 'lookup-box';
+            guildBox.replaceChildren(el('span', 'lookup-hint', 'Waiting for a guild ID…'));
+            return;
+        }
+        guildBox.className = 'lookup-box';
+        guildBox.replaceChildren(el('span', 'lookup-hint', 'Looking up guild…'));
+        let g;
+        try {
+            const res = await fetch('/admin/api/guilds/lookup?q=' + encodeURIComponent(v));
+            g = await res.json();
+        } catch (e) {
+            guildBox.replaceChildren(el('span', 'lookup-error', 'Lookup failed. Check your connection and try again.'));
+            return;
+        }
+        if (!g) {
+            guildBox.className = 'lookup-box filled';
+            const chip = el('div', 'id-chip unknown');
+            chip.appendChild(el('span', 'chip-name', v));
+            chip.appendChild(el('span', 'chip-sub', 'No users, settings or roles exist for this ID.'));
+            guildBox.replaceChildren(chip);
+            return;
+        }
+        guildBox.className = 'lookup-box filled';
+        const chip = el('div', 'id-chip');
+        const info = el('div');
+        info.appendChild(el('div', 'chip-name', 'Guild ' + g.guild_id));
+        const bits = [g.users + ' user(s)', (g.xp || 0) + ' total XP'];
+        if (g.level_roles) bits.push(g.level_roles + ' level role(s)');
+        bits.push(g.qotd_enabled ? 'QOTD on' + (g.qotd_time ? ' at ' + g.qotd_time : '') : 'QOTD off');
+        const last = relTime(g.last_message);
+        if (last) bits.push('last activity ' + last);
+        info.appendChild(el('div', 'chip-sub', bits.join(' · ')));
+        chip.appendChild(info);
+        guildBox.replaceChildren(chip);
+    }
+
+    guildInput.addEventListener('input', function() {
+        clearTimeout(guildTimer);
+        guildTimer = setTimeout(renderGuildLookup, 400);
+    });
+
+    const dangerMode = document.getElementById('danger-mode');
+    const dangerTableWrap = document.getElementById('danger-table-wrap');
+    dangerMode.addEventListener('change', function() {
+        dangerTableWrap.hidden = dangerMode.value !== 'reset_table';
+    });
+})();
+</script>
 {% endblock %}

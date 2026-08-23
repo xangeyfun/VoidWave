@@ -1157,3 +1157,165 @@ a.badge:hover {
 .log-line:hover {
     background: rgba(132, 56, 252, 0.04);
 }
+
+/* ── Forget page ────────────────────────────────────────────── */
+.howto {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 24px;
+}
+
+.howto-step {
+    flex: 1;
+    min-width: 200px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+}
+
+.howto-step p {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    margin-top: 4px;
+}
+
+.howto-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: rgba(132, 56, 252, 0.18);
+    color: var(--primary-hover);
+    font-weight: 700;
+    font-size: 0.8rem;
+    margin-right: 8px;
+}
+
+.lookup-box {
+    margin-top: 12px;
+    border: 1px dashed var(--border);
+    border-radius: 10px;
+    padding: 10px 12px;
+    min-height: 42px;
+    font-size: 0.88rem;
+}
+
+.lookup-box.filled {
+    border-style: solid;
+    background: var(--bg-tertiary);
+}
+
+.lookup-hint {
+    color: var(--text-muted);
+}
+
+.lookup-error {
+    color: var(--error);
+}
+
+.lookup-summary {
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    margin-bottom: 6px;
+}
+
+.id-chip-group + .id-chip-group {
+    margin-top: 6px;
+}
+
+.id-chip {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 8px;
+    border-radius: 8px;
+    background: var(--bg-card);
+}
+
+.id-chip + .id-chip {
+    margin-top: 4px;
+}
+
+.id-chip img {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.id-chip .chip-name {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.id-chip .chip-sub {
+    color: var(--text-muted);
+    font-size: 0.78rem;
+}
+
+.id-chip.unknown {
+    border: 1px solid rgba(239, 68, 68, 0.45);
+}
+
+.id-chip.warn-chip {
+    border: 1px solid rgba(245, 158, 11, 0.45);
+}
+
+.count-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 9px;
+    border-radius: 999px;
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    white-space: nowrap;
+}
+
+.count-pill.danger {
+    background: rgba(239, 68, 68, 0.12);
+    color: var(--error);
+    margin-left: 8px;
+    font-size: 0.7rem;
+}
+
+.danger-zone {
+    border: 1px solid rgba(239, 68, 68, 0.35);
+    border-radius: 12px;
+    background: var(--bg-card);
+    overflow: hidden;
+}
+
+.danger-zone summary {
+    cursor: pointer;
+    padding: 16px 20px;
+    font-weight: 600;
+    color: var(--error);
+    list-style: none;
+    user-select: none;
+}
+
+.danger-zone summary::-webkit-details-marker {
+    display: none;
+}
+
+.danger-zone summary::before {
+    content: '\25B8 ';
+    margin-right: 6px;
+}
+
+.danger-zone[open] summary::before {
+    content: '\25BE ';
+}
+
+.danger-zone[open] summary {
+    border-bottom: 1px solid var(--border-light);
+}
+
+.danger-body {
+    padding: 14px 20px 20px;
+}
