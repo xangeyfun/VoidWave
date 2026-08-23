@@ -595,7 +595,11 @@ def _stale_users(days=30):
 # Human friendly formatting (registered as template filters)
 # ---------------------------------------------------------------------------
 
-_DT_PATTERNS = ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M")
+_DT_PATTERNS = (
+    "%Y-%m-%d %H:%M:%S.%f",
+    "%Y-%m-%d %H:%M:%S",
+    "%Y-%m-%d %H:%M",
+)
 
 
 def _parse_dt(value):
