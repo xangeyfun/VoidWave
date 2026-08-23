@@ -115,10 +115,11 @@
                         <tr><td>Multiplier</td><td class="text-right num">{{ boost['multiplier'] }}x</td></tr>
                         <tr><td>Expires</td><td class="text-right">
                             {% if boost['expires_at'] > now %}
-                                <span class="badge ok">{{ boost['expires_at'] - now }}s left</span>
+                                <span class="badge ok">{{ (boost['expires_at'] - now)|delta }} left</span>
                             {% else %}
                                 <span class="badge muted">expired</span>
                             {% endif %}
+                            <div class="muted" style="font-size:0.75rem; margin-top:0.2rem;">{{ boost['expires_at']|dt }}</div>
                         </td></tr>
                     </tbody>
                 </table>

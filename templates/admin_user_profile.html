@@ -45,7 +45,7 @@
         <div class="stat-card">
             {% if boost.expires_at > now_ts %}
                 <div class="stat-value" style="color:#4ade80;">Active</div>
-                <div class="stat-label">{{ ((boost.expires_at - now_ts) / 3600)|round(1) }}h left</div>
+                <div class="stat-label">{{ (boost.expires_at - now_ts)|delta }} left</div>
             {% else %}
                 <div class="stat-value" style="color:var(--text-muted);">Expired</div>
                 <div class="stat-label">Boost ended</div>
@@ -85,9 +85,9 @@
                     <td class="num">{{ "{:,}".format(g.total_xp) }}</td>
                     <td class="num">{{ "{:,}".format(g.total_messages) }}</td>
                     <td class="num">{{ "{:,}".format(g.vc_minutes) }}</td>
-                    <td style="font-size:0.82rem;">
+                    <td style="font-size:0.82rem;" title="{{ g.last_message or '' }}">
                         {% if g.last_message %}
-                            {{ g.last_message }}
+                            {{ g.last_message|ago }}
                         {% else %}
                             <span class="muted">never</span>
                         {% endif %}

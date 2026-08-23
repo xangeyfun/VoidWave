@@ -123,10 +123,10 @@
             </div>
         </div>
         <div style="margin-top:0.75rem;padding-top:0.6rem;border-top:1px solid var(--border-light);display:flex;justify-content:space-between;font-size:0.82rem;">
-            <span class="muted">DB: {{ "%.1f"|format(db_size / 1024) }} KB</span>
-            <span class="muted">WAL: {{ "%.1f"|format(wal_size / 1024) }} KB</span>
+            <span class="muted">DB: {{ db_size|size }}</span>
+            <span class="muted">WAL: {{ wal_size|size }}</span>
             {% if latest_backup %}
-            <span class="muted">Latest: {{ latest_backup.mtime.strftime('%m-%d %H:%M') }}</span>
+            <span class="muted">Latest: {{ latest_backup.mtime.strftime('%b %d, %H:%M') }}</span>
             {% endif %}
         </div>
     </div>
@@ -143,8 +143,8 @@
                 <span class="activity-action">
                     <span class="badge {% if 'FAIL' in a.action or 'DELETE' in a.action %}fail{% elif 'EDIT' in a.action or 'ADD' in a.action %}warn{% elif 'LOGIN' in a.action %}info{% else %}muted{% endif %}">{{ a.action }}</span>
                 </span>
-                <span class="activity-detail">{{ a.detail }}</span>
-                <span class="activity-time">{{ a.ts.split(' ')[1] if ' ' in a.ts else '' }}</span>
+                <span class="activity-detail" title="{{ a.detail }}">{{ a.detail }}</span>
+                <span class="activity-time">{{ a.ts.split(' ')[1][:5] if ' ' in a.ts else '' }}</span>
             </div>
             {% else %}
             <div class="empty-state" style="padding:1rem;">No recent activity.</div>
@@ -203,8 +203,8 @@
                     <td class="mono" style="font-size:0.82rem;">{{ u.guild_id }}</td>
                     <td class="num">{{ u.level }}</td>
                     <td class="num">{{ "{:,}".format(u.total_xp) }}</td>
-                    <td style="font-size:0.82rem;">
-                        {% if u.last_message %}{{ u.last_message }}{% else %}<span class="muted">never</span>{% endif %}
+                    <td style="font-size:0.82rem;" title="{{ u.last_message or '' }}">
+                        {% if u.last_message %}{{ u.last_message|ago }}{% else %}<span class="muted">never</span>{% endif %}
                     </td>
                     <td>
                         <a href="{{ url_for('admin.user_edit', guild_id=u.guild_id, user_id=u.user_id) }}" class="btn btn-secondary btn-sm">Edit</a>

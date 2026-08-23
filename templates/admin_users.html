@@ -124,11 +124,12 @@
                     {% if boost %}
                         {% if boost['expires_at'] > now %}
                             <span class="badge ok">{{ boost['multiplier'] }}x</span>
+                            <div class="muted" style="font-size:0.72rem; margin-top:0.15rem;">{{ (boost['expires_at'] - now)|delta }} left</div>
                         {% else %}
                             <span class="badge muted">expired</span>
                         {% endif %}
                     {% else %}
-                        <span class="badge muted">-</span>
+                        <span class="badge muted">none</span>
                     {% endif %}
                 </td>
                 <td>

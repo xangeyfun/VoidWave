@@ -97,7 +97,7 @@
                 <tr>
                     <td class="mono">{{ b.name }}</td>
                     <td>{{ b.mtime.strftime('%Y-%m-%d %H:%M') }}</td>
-                    <td class="num">{{ (b.size / 1024)|round(1) }} KB</td>
+                    <td class="num">{{ b.size|size }}</td>
                     <td>
                         <div class="flex gap-1 flex-wrap items-center">
                             <a href="{{ url_for('admin.backup_restore', name=b.name) }}" class="btn btn-danger btn-sm">Restore</a>
