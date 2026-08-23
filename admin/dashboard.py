@@ -56,11 +56,10 @@ def dashboard():
         recent_logs = _read_log_lines()[-8:][::-1]
         recent_actions = []
         for line in recent_logs:
-            parts = line.split(" ", 3)
+            parts = line.split(" ", 4)
             ts = f"{parts[0]} {parts[1]}" if len(parts) > 1 else ""
-            rest = parts[2] if len(parts) > 2 else ""
-            action = rest.split(" ")[0] if rest else ""
-            detail = rest.split(" ", 1)[1] if rest.split(" ", 1)[1:] else ""
+            action = parts[2] if len(parts) > 2 else ""
+            detail = parts[4] if len(parts) > 4 else ""
             recent_actions.append({"ts": ts, "action": action, "detail": detail[:60]})
     finally:
         conn.close()
