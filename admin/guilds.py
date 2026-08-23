@@ -2,6 +2,7 @@ import time
 import json
 from datetime import datetime, timedelta
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import io
 import csv
@@ -193,30 +194,58 @@ def guild_edit(guild_id):
                         "SELECT * FROM guild_settings WHERE guild_id=?", (guild_id,)
                     ).fetchone()
 
-                for field, ftype in GUILD_SETTING_FIELDS.items():
-                    raw = request.form.get(field, "")
-                    if ftype == "int":
-                        if raw == "" or raw is None:
-                            val = None
-                        else:
-                            try:
-                                val = int(raw)
-                            except ValueError:
+                time_raw = (request.form.get("qotd_time") or "").strip()
+                tz_raw = (request.form.get("qotd_tz") or "").strip()
+                parsed_time = None
+                parsed_tz = None
+
+                if time_raw:
+                    try:
+                        hh_s, mm_s = time_raw.split(":")
+                        hh, mm = int(hh_s), int(mm_s)
+                    except ValueError:
+                        hh = mm = -1
+                    if 0 <= hh <= 23 and 0 <= mm <= 59:
+                        parsed_time = f"{hh:02d}:{mm:02d}"
+                    else:
+                        error = "QOTD post time must be a valid 24h HH:MM value."
+
+                if not error and tz_raw:
+                    try:
+                        ZoneInfo(tz_raw)
+                        parsed_tz = tz_raw
+                    except Exception:
+                        error = "QOTD timezone must be a valid IANA name such as Europe/Berlin."
+
+                if not error:
+                    for field, ftype in GUILD_SETTING_FIELDS.items():
+                        raw = request.form.get(field, "")
+                        if ftype == "int":
+                            if raw == "" or raw is None:
                                 val = None
-                        conn.execute(
-                            f"UPDATE guild_settings SET {field}=? WHERE guild_id=?",
-                            (val, guild_id)
-                        )
-                    elif ftype == "bool":
-                        val = 1 if raw == "on" or raw == "1" else 0
-                        conn.execute(
-                            f"UPDATE guild_settings SET {field}=? WHERE guild_id=?",
-                            (val, guild_id)
-                        )
-                conn.commit()
-                _clear_cache()
-                _log("GUILD SETTINGS EDIT", f"guild={guild_id}")
-                flash_msg = "Guild settings saved."
+                            else:
+                                try:
+                                    val = int(raw)
+                                except ValueError:
+                                    val = None
+                            conn.execute(
+                                f"UPDATE guild_settings SET {field}=? WHERE guild_id=?",
+                                (val, guild_id)
+                            )
+                        elif ftype == "bool":
+                            val = 1 if raw == "on" or raw == "1" else 0
+                            conn.execute(
+                                f"UPDATE guild_settings SET {field}=? WHERE guild_id=?",
+                                (val, guild_id)
+                            )
+                    conn.execute(
+                        "UPDATE guild_settings SET qotd_time=?, qotd_tz=? WHERE guild_id=?",
+                        (parsed_time, parsed_tz, guild_id)
+                    )
+                    conn.commit()
+                    _clear_cache()
+                    _log("GUILD SETTINGS EDIT", f"guild={guild_id}")
+                    flash_msg = "Guild settings saved."
 
             elif action == "add_role":
                 try:

@@ -90,6 +90,19 @@
                 </div>
             </div>
 
+            <div class="form-grid">
+                <div class="form-field">
+                    <label>QOTD Post Time</label>
+                    <input type="text" name="qotd_time" value="{{ settings['qotd_time'] if settings and settings['qotd_time'] else '' }}" placeholder="16:00">
+                    <div class="hint">24h HH:MM in the timezone below. Leave blank for the default 16:00.</div>
+                </div>
+                <div class="form-field">
+                    <label>QOTD Timezone</label>
+                    <input type="text" name="qotd_tz" value="{{ settings['qotd_tz'] if settings and settings['qotd_tz'] else '' }}" placeholder="Europe/Berlin">
+                    <div class="hint">IANA zone name. Leave blank to use the server's local time.</div>
+                </div>
+            </div>
+
             <button class="btn btn-primary" type="submit">&#128190; Save Settings</button>
         </form>
     </div>
