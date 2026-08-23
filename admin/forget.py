@@ -38,6 +38,7 @@ def _forget_preview(spec):
                 "user_details": [{"user_id": r["user_id"], "guild_id": r["guild_id"],
                                   "username": r["username"] or "unknown",
                                   "display_name": r["display_name"] or "",
+                                  "avatar_hash": r["avatar_hash"] or "",
                                   "level": r["level"], "total_xp": r["total_xp"]} for r in ur[:50]],
                 "boost_details": [{"user_id": r["user_id"],
                                    "expires_at": r["expires_at"]} for r in br[:50]],
@@ -51,6 +52,7 @@ def _forget_preview(spec):
                 "user_details": [{"user_id": r["user_id"], "guild_id": r["guild_id"],
                                   "username": r["username"] or "unknown",
                                   "display_name": r["display_name"] or "",
+                                  "avatar_hash": r["avatar_hash"] or "",
                                   "level": r["level"], "total_xp": r["total_xp"]} for r in ur[:50]],
             }
         if spec["type"] == "guild_users":
@@ -60,6 +62,7 @@ def _forget_preview(spec):
                 "user_details": [{"user_id": r["user_id"], "guild_id": r["guild_id"],
                                   "username": r["username"] or "unknown",
                                   "display_name": r["display_name"] or "",
+                                  "avatar_hash": r["avatar_hash"] or "",
                                   "level": r["level"], "total_xp": r["total_xp"]} for r in ur[:50]],
             }
         if spec["type"] == "guild_full":
@@ -72,6 +75,7 @@ def _forget_preview(spec):
                 "user_details": [{"user_id": r["user_id"], "guild_id": r["guild_id"],
                                   "username": r["username"] or "unknown",
                                   "display_name": r["display_name"] or "",
+                                  "avatar_hash": r["avatar_hash"] or "",
                                   "level": r["level"], "total_xp": r["total_xp"]} for r in ur[:50]],
                 "level_role_details": [{"level": r["level"], "role_id": r["role_id"]} for r in lr],
             }
@@ -98,6 +102,7 @@ def _forget_preview(spec):
                 "user_details": [{"user_id": r["user_id"], "guild_id": r["guild_id"],
                                   "username": r["username"] or "unknown",
                                   "display_name": r["display_name"] or "",
+                                  "avatar_hash": r["avatar_hash"] or "",
                                   "level": r["level"], "total_xp": r["total_xp"]} for r in ur[:50]],
             }
         if spec["type"] == "reset_all":

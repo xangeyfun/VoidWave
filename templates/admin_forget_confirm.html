@@ -1,7 +1,7 @@
 {% extends "admin_base.html" %}
 {% block title %}Confirm Deletion{% endblock %}
-{% block heading %}Confirm Deletion{% endblock %}
-{% block subheading %}Review exactly what will be erased before confirming{% endblock %}
+{% block heading %}Review before you erase{% endblock %}
+{% block subheading %}Everything below disappears the moment you type the confirmation word. Read it twice.{% endblock %}
 {% block actions %}
     <a href="{{ url_for('admin.forget') }}" class="btn btn-secondary btn-sm">&#x2190; Change selection</a>
 {% endblock %}
@@ -9,8 +9,9 @@
 {% block content %}
 {% if error %}<div class="alert alert-error">{{ error }}</div>{% endif %}
 <div class="alert alert-warn">
-    This operation is <strong>permanent and cannot be undone</strong>. A backup is not taken automatically. If you need one,
-    create one on the <a href="{{ url_for('admin.backups') }}">Backups</a> page first.
+    This operation is <strong>permanent and cannot be undone</strong>. No backup is taken automatically. Need one?
+    <a href="{{ url_for('admin.backups') }}" target="_blank" rel="noopener">Create it on the Backups page</a> first,
+    then come back here. Your selection stays ready.
 </div>
 
 <div class="admin-card">
@@ -23,60 +24,38 @@
         {% endif %}
     </div>
 
-    <div class="admin-table-wrap" style="margin-top:12px;">
-        <table class="admin-table">
-            <thead>
-                <tr>
-                    <th>Target</th>
-                    <th>Value</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% if spec.type == 'user_all' %}
-                    <tr><td>Action</td><td>Erase {{ spec.user_ids|length }} user(s) everywhere</td></tr>
-                    <tr><td>User rows</td><td class="num">{{ preview.users_rows }}</td></tr>
-                    <tr><td>Distinct guilds</td><td class="num">{{ preview.distinct_guilds }}</td></tr>
-                    <tr><td>Vote boosts</td><td class="num">{{ preview.boost_rows }}</td></tr>
-                {% elif spec.type == 'user_guild' %}
-                    <tr><td>Action</td><td>Erase {{ spec.user_ids|length }} user(s) in one guild</td></tr>
-                    <tr><td>Guild</td><td class="mono">{{ spec.guild_id }}</td></tr>
-                    <tr><td>User rows</td><td class="num">{{ preview.users_rows }}</td></tr>
-                {% elif spec.type == 'guild_users' %}
-                    <tr><td>Action</td><td>Delete all users of a guild</td></tr>
-                    <tr><td>Guild</td><td class="mono">{{ spec.guild_id }}</td></tr>
-                    <tr><td>User rows</td><td class="num">{{ preview.users_rows }}</td></tr>
-                {% elif spec.type == 'guild_full' %}
-                    <tr><td>Action</td><td>Delete entire guild</td></tr>
-                    <tr><td>Guild</td><td class="mono">{{ spec.guild_id }}</td></tr>
-                    <tr><td>Users</td><td class="num">{{ preview.users_rows }}</td></tr>
-                    <tr><td>Guild settings</td><td class="num">{{ preview.guild_settings_rows }}</td></tr>
-                    <tr><td>Level roles</td><td class="num">{{ preview.level_roles_rows }}</td></tr>
-                {% elif spec.type == 'boost' %}
-                    <tr><td>Action</td><td>Delete vote boost(s)</td></tr>
-                    <tr><td>Boosts</td><td class="num">{{ preview.boost_rows }}</td></tr>
-                {% elif spec.type == 'expired_boosts' %}
-                    <tr><td>Action</td><td>Purge expired vote boosts</td></tr>
-                    <tr><td>Boosts</td><td class="num">{{ preview.boost_rows }}</td></tr>
-                {% elif spec.type == 'stale_users' %}
-                    <tr><td>Action</td><td>Delete stale users (idle &gt; {{ spec.days }} days)</td></tr>
-                    <tr><td>Users</td><td class="num">{{ preview.users_rows }}</td></tr>
-                    <tr><td>Distinct guilds</td><td class="num">{{ preview.distinct_guilds }}</td></tr>
-                {% elif spec.type == 'reset_all' %}
-                    <tr><td style="color:var(--error);font-weight:600;">RESET ALL USER DATA</td><td></td></tr>
-                    <tr><td>Users</td><td class="num">{{ preview.users_rows }}</td></tr>
-                    <tr><td>Vote boosts</td><td class="num">{{ preview.boost_rows }}</td></tr>
-                {% elif spec.type == 'reset_table' %}
-                    <tr><td style="color:var(--error);font-weight:600;">Reset table {{ spec.table }}</td><td></td></tr>
-                    <tr><td>Rows</td><td class="num">{{ preview.get(spec.table ~ '_rows', 0) }}</td></tr>
-                {% endif %}
-            </tbody>
-        </table>
+    <div class="stat-chips">
+        {% if spec.type == 'user_all' %}
+            <div class="stat-chip"><span class="num">{{ preview.users_rows }}</span>user row(s)</div>
+            <div class="stat-chip"><span class="num">{{ preview.distinct_guilds }}</span>guild(s) touched</div>
+            {% if preview.boost_rows %}<div class="stat-chip"><span class="num">{{ preview.boost_rows }}</span>vote boost(s)</div>{% endif %}
+        {% elif spec.type == 'user_guild' or spec.type == 'guild_users' or spec.type == 'stale_users' %}
+            <div class="stat-chip"><span class="num">{{ preview.users_rows }}</span>user row(s)</div>
+            <div class="stat-chip"><span class="num">{{ preview.distinct_guilds }}</span>guild(s) touched</div>
+        {% elif spec.type == 'guild_full' %}
+            <div class="stat-chip"><span class="num">{{ preview.users_rows }}</span>user row(s)</div>
+            <div class="stat-chip"><span class="num">{{ preview.guild_settings_rows }}</span>settings row(s)</div>
+            <div class="stat-chip"><span class="num">{{ preview.level_roles_rows }}</span>level role(s)</div>
+        {% elif spec.type in ('boost', 'expired_boosts') %}
+            <div class="stat-chip"><span class="num">{{ preview.boost_rows }}</span>vote boost(s)</div>
+        {% elif spec.type == 'reset_all' %}
+            <div class="stat-chip danger"><span class="num">{{ preview.users_rows }}</span>all users</div>
+            <div class="stat-chip danger"><span class="num">{{ preview.boost_rows }}</span>all vote boosts</div>
+        {% elif spec.type == 'reset_table' %}
+            <div class="stat-chip danger"><span class="num">{{ preview.get(spec.table ~ '_rows', 0) }}</span>{{ spec.table }} rows</div>
+        {% endif %}
     </div>
+
+    {% if spec.type in ('user_all', 'boost') and spec.user_ids is defined %}
+    <p class="card-sub" style="margin-top:14px;">Target IDs: {% for uid in spec.user_ids[:20] %}<code>{{ uid }}</code>{% if not loop.last %}, {% endif %}{% endfor %}{% if spec.user_ids|length > 20 %} and {{ spec.user_ids|length - 20 }} more{% endif %}</p>
+    {% elif spec.guild_id is defined %}
+    <p class="card-sub" style="margin-top:14px;">Target guild: <code>{{ spec.guild_id }}</code></p>
+    {% endif %}
 </div>
 
 {% if preview.user_details is defined and preview.user_details %}
 <div class="admin-card">
-    <div class="card-head"><h3>Users affected</h3></div>
+    <div class="card-head"><h3>Users affected</h3><span class="count-pill">first 50 shown</span></div>
     <div class="admin-table-wrap" style="margin-top:12px;">
         <table class="admin-table">
             <thead>
@@ -91,9 +70,11 @@
                 {% for u in preview.user_details %}
                 <tr>
                     <td>
-                        <span class="mono">{{ u.user_id }}</span>
-                        {% if u.username %}<span style="color:var(--muted);margin-left:6px;">{{ u.username }}</span>{% endif %}
-                        {% if u.display_name %}<span style="margin-left:4px;">({{ u.display_name }})</span>{% endif %}
+                        <img src="{% if u.avatar_hash %}https://cdn.discordapp.com/avatars/{{ u.user_id }}/{{ u.avatar_hash }}.png?size=64{% else %}https://cdn.discordapp.com/embed/avatars/0.png{% endif %}"
+                             alt="" class="row-avatar">
+                        <strong>{{ u.display_name or u.username }}</strong>
+                        {% if u.display_name and u.username %}<span style="color:var(--text-muted);">@{{ u.username }}</span>{% endif %}
+                        <span class="mono" style="color:var(--text-muted);margin-left:6px;">{{ u.user_id }}</span>
                     </td>
                     <td class="mono">{{ u.guild_id }}</td>
                     <td class="num">{{ u.level }}</td>
@@ -111,24 +92,24 @@
 
 {% if preview.boost_details is defined and preview.boost_details %}
 <div class="admin-card">
-    <div class="card-head"><h3>Vote boosts affected</h3></div>
+    <div class="card-head"><h3>Vote boosts affected</h3><span class="count-pill">first 50 shown</span></div>
     <div class="admin-table-wrap" style="margin-top:12px;">
-                <table class="admin-table">
-                    <thead>
-                        <tr>
-                            <th>User</th>
-                            <th>Expires</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for b in preview.boost_details %}
-                        <tr>
-                            <td class="mono">{{ b.user_id }}</td>
-                            <td style="color:var(--muted);">{{ b.expires_at }}</td>
-                        </tr>
-                        {% endfor %}
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>User</th>
+                    <th>Expired / expires</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for b in preview.boost_details %}
+                <tr>
+                    <td class="mono">{{ b.user_id }}</td>
+                    <td style="color:var(--muted);">{{ b.expires_at | dt }}</td>
+                </tr>
+                {% endfor %}
                 {% if preview.boost_rows > 50 %}
-                <tr><td colspan="3" style="color:var(--muted);text-align:center;font-style:italic;">... and {{ preview.boost_rows - 50 }} more</td></tr>
+                <tr><td colspan="2" style="color:var(--muted);text-align:center;font-style:italic;">... and {{ preview.boost_rows - 50 }} more</td></tr>
                 {% endif %}
             </tbody>
         </table>

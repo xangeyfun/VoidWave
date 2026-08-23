@@ -1,44 +1,56 @@
 {% extends "admin_base.html" %}
 {% block title %}Deletion Complete{% endblock %}
-{% block heading %}Deletion Complete{% endblock %}
-{% block subheading %}The erasure ran successfully{% endblock %}
+{% block heading %}Deletion complete{% endblock %}
+{% block subheading %}The operation ran successfully and was written to the audit log.{% endblock %}
 {% block actions %}
     <a href="{{ url_for('admin.forget') }}" class="btn btn-secondary btn-sm">&#x2190; New erasure</a>
+    <a href="{{ url_for('admin.logs', action='forget exec') }}" class="btn btn-secondary btn-sm">Audit log</a>
 {% endblock %}
 
 {% block content %}
-<div class="alert alert-success">Deletion completed successfully. All changes were logged to the audit log.</div>
+<div class="alert alert-success">Done. {{ counts.get('_total', 0) }} row(s) removed in total. Cached leaderboard data clears within a few seconds automatically.</div>
 
 <div class="admin-card">
-    <h2>Summary</h2>
-    <p class="card-sub">Rows affected:</p>
-    <div class="admin-table-wrap">
-        <table class="admin-table">
-            <tbody>
-                {% if spec.type == 'user_all' %}
-                    <tr><td>Users erased (all guilds)</td><td class="num">{{ counts['_total'] }}</td></tr>
-                {% elif spec.type == 'user_guild' %}
-                    <tr><td>Users erased (one guild)</td><td class="num">{{ counts['_total'] }}</td></tr>
-                {% elif spec.type == 'guild_users' %}
-                    <tr><td>Users erased (guild)</td><td class="num">{{ counts['_total'] }}</td></tr>
-                {% elif spec.type == 'guild_full' %}
-                    <tr><td>Total rows erased (guild)</td><td class="num">{{ counts['_total'] }}</td></tr>
-                {% elif spec.type == 'boost' %}
-                    <tr><td>Vote boosts erased</td><td class="num">{{ counts['_total'] }}</td></tr>
-                {% elif spec.type == 'expired_boosts' %}
-                    <tr><td>Expired boosts purged</td><td class="num">{{ counts['_total'] }}</td></tr>
-                {% elif spec.type == 'stale_users' %}
-                    <tr><td>Stale users deleted</td><td class="num">{{ counts['_total'] }}</td></tr>
-                {% elif spec.type == 'reset_all' %}
-                    <tr><td>All user data reset</td><td class="num">{{ counts['_total'] }} rows</td></tr>
-                {% elif spec.type == 'reset_table' %}
-                    <tr><td>Table {{ spec.table }} reset</td><td class="num">{{ counts['_total'] }} rows</td></tr>
-                {% endif %}
-            </tbody>
-        </table>
+    <div class="card-head"><h3>Summary</h3></div>
+    <div class="stat-chips">
+        {% if spec.type == 'user_all' %}
+            <div class="stat-chip"><span class="num">{{ counts.get('users', 0) }}</span>user row(s)</div>
+            <div class="stat-chip"><span class="num">{{ counts.get('vote_boosts', 0) }}</span>vote boost(s)</div>
+        {% elif spec.type in ('user_guild', 'guild_users') %}
+            <div class="stat-chip"><span class="num">{{ counts.get('users', 0) }}</span>user row(s)</div>
+            {% if spec.guild_id is defined %}<div class="stat-chip"><span class="num mono" style="font-size:0.9rem;">{{ spec.guild_id }}</span>in guild</div>{% endif %}
+        {% elif spec.type == 'guild_full' %}
+            <div class="stat-chip"><span class="num">{{ counts.get('users', 0) }}</span>user row(s)</div>
+            <div class="stat-chip"><span class="num">{{ counts.get('guild_settings', 0) }}</span>settings row(s)</div>
+            <div class="stat-chip"><span class="num">{{ counts.get('level_roles', 0) }}</span>level role(s)</div>
+        {% elif spec.type == 'boost' %}
+            <div class="stat-chip"><span class="num">{{ counts.get('vote_boosts', 0) }}</span>vote boost(s)</div>
+        {% elif spec.type == 'expired_boosts' %}
+            <div class="stat-chip"><span class="num">{{ counts.get('vote_boosts', 0) }}</span>expired boost(s) purged</div>
+        {% elif spec.type == 'stale_users' %}
+            <div class="stat-chip"><span class="num">{{ counts.get('users', 0) }}</span>stale user row(s)</div>
+        {% elif spec.type == 'reset_all' %}
+            <div class="stat-chip danger"><span class="num">{{ counts.get('users', 0) }}</span>users wiped</div>
+            <div class="stat-chip danger"><span class="num">{{ counts.get('vote_boosts', 0) }}</span>vote boosts wiped</div>
+        {% elif spec.type == 'reset_table' %}
+            <div class="stat-chip danger"><span class="num">{{ counts.get('_total', 0) }}</span>{{ spec.table }} rows wiped</div>
+        {% endif %}
     </div>
-    <p class="muted" style="margin-top:1rem; font-size:0.82rem;">
-        Note: cached leaderboard data clears within a few seconds automatically.
-    </p>
+</div>
+
+<div class="admin-card">
+    <div class="card-head"><h3>What next</h3></div>
+    <p class="card-sub" style="margin:12px 0 12px;">Useful places to double check the result.</p>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        {% if spec.type in ('user_all', 'user_guild', 'guild_users', 'stale_users') %}
+            <a href="{{ url_for('admin.users') }}" class="btn btn-secondary btn-sm">Browse users</a>
+        {% endif %}
+        {% if spec.type in ('user_guild', 'guild_users', 'guild_full') %}
+            <a href="{{ url_for('admin.guild_edit', guild_id=spec.guild_id) }}" class="btn btn-secondary btn-sm">Inspect guild</a>
+        {% endif %}
+        {% if spec.type in ('boost', 'expired_boosts', 'reset_all', 'reset_table') %}
+            <a href="{{ url_for('admin.dashboard') }}" class="btn btn-secondary btn-sm">Back to dashboard</a>
+        {% endif %}
+    </div>
 </div>
 {% endblock %}
