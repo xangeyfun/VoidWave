@@ -395,8 +395,19 @@
                 pointRadius: 0,
                 pointHoverRadius: 4,
                 tension: 0.25,
-                yAxisID: m.key === 'xp' ? 'y1' : 'y'
+                yAxisID: 'ax_' + m.key
             };
+        });
+        var scales = {
+            x: Object.assign({}, commonScaleOpts, {
+                ticks: Object.assign({}, commonScaleOpts.ticks, { maxTicksLimit: 10 })
+            })
+        };
+        seriesMeta.forEach(function(m) {
+            var lo = Math.min.apply(null, d[m.key]);
+            var hi = Math.max.apply(null, d[m.key]);
+            if (lo === hi) { lo = lo - 1; hi = hi + 1; }
+            scales['ax_' + m.key] = { display: false, min: lo, max: hi };
         });
         if (growthChart) growthChart.destroy();
         growthChart = new Chart(document.getElementById('chartGrowth'), {
@@ -406,20 +417,13 @@
                 responsive: true,
                 maintainAspectRatio: false,
                 interaction: { mode: 'index', intersect: false },
-                plugins: { legend: { labels: { color: tickColor, boxWidth: 12 } } },
-                scales: {
-                    x: Object.assign({}, commonScaleOpts, {
-                        ticks: Object.assign({}, commonScaleOpts.ticks, { maxTicksLimit: 10 })
-                    }),
-                    y: Object.assign({}, commonScaleOpts, {
-                        type: 'linear', position: 'left',
-                        ticks: Object.assign({}, commonScaleOpts.ticks, { callback: fmt })
-                    }),
-                    y1: Object.assign({}, commonScaleOpts, {
-                        type: 'linear', position: 'right', grid: { drawOnChartArea: false },
-                        ticks: Object.assign({}, commonScaleOpts.ticks, { callback: fmt })
-                    })
-                }
+                plugins: {
+                    legend: { labels: { color: tickColor, boxWidth: 12 } },
+                    tooltip: {
+                        callbacks: { label: function(c) { return c.dataset.label + ': ' + fmt(c.parsed.y); } }
+                    }
+                },
+                scales: scales
             }
         });
     }
