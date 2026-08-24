@@ -117,7 +117,7 @@ class EventsCog(commands.Cog):
                 ref_msg = None
             message_reference = ref_msg.author.id == 1442229230384709752 if ref_msg else False
 
-        if message.content.startswith(f"<@{self.bot.user.id}>") or message_reference or message.channel.id == 1494361038420709466:
+        if f"<@{self.bot.user.id}>" in message.content or message_reference or message.channel.id == 1494361038420709466:
             if is_blocked(message.author.id, "ai"):
                 await message.reply(block_reply(message.author.id, "ai", "using VoidWave AI features"))
                 return
