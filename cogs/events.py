@@ -451,7 +451,7 @@ class EventsCog(commands.Cog):
             due = cur.execute("SELECT user_id, remind_at FROM vote_reminders WHERE remind_at <= ?", (int(time.time()),)).fetchall()
             for row in due:
                 await self.send_vote_reminder(row["user_id"])
-                cur.execute("DELETE FROM vote_reminders WHERE user_id = ?", (row["user_id"],))
+                cur.execute("UPDATE vote_reminders SET remind_at = NULL WHERE user_id = ?", (row["user_id"],))
                 conn.commit()
         except Exception as e:
             print(f"{date()} ERROR  Vote DM loop failed: {e}")
