@@ -50,11 +50,16 @@ TICTACTOE_EMPTY = "\u200b"
 
 
 class RPSView(discord.ui.View):
-    def __init__(self):
+    def __init__(self, player: discord.User):
         super().__init__(timeout=120)
+        self.player = player
         self.bot_choice = random.choice(list(RPS_WINS.keys()))
 
     async def _finish(self, interaction: discord.Interaction, player_choice: str):
+        if interaction.user.id != self.player.id:
+            await interaction.response.send_message("This isn't your game!", ephemeral=True)
+            return
+
         for child in self.children:
             child.disabled = True
 
@@ -1088,7 +1093,7 @@ class GamesCog(commands.Cog):
             color=discord.Color(VOIDWAVE_COLOR),
         )
         embed.set_footer(text="Vote for 2x XP! /vote")
-        await interaction.response.send_message(embed=embed, ephemeral=hidden, view=RPSView())
+        await interaction.response.send_message(embed=embed, ephemeral=hidden, view=RPSView(interaction.user))
 
     @discord.app_commands.allowed_installs(guilds=True, users=True)
     @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
