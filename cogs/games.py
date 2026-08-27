@@ -3,10 +3,13 @@ from discord.ext import commands
 import discord
 import random
 import html as html_module
+import asyncio
 import utils
 
 
 VOIDWAVE_COLOR = 0x7128fc
+
+_trivia_token = None
 
 TEAM_EMOJI = {
     "rock": "🪨",
@@ -54,7 +57,6 @@ class RPSView(discord.ui.View):
     async def _finish(self, interaction: discord.Interaction, player_choice: str):
         for child in self.children:
             child.disabled = True
-        await interaction.response.edit_message(view=self)
 
         player_emoji = TEAM_EMOJI[player_choice]
         bot_emoji = TEAM_EMOJI[self.bot_choice]
@@ -79,7 +81,7 @@ class RPSView(discord.ui.View):
             color=color,
         )
         embed.set_footer(text="Vote for 2x XP! /vote")
-        await interaction.followup.send(embed=embed)
+        await interaction.response.edit_message(embed=embed, view=self)
 
     @discord.ui.button(emoji="🪨", style=discord.ButtonStyle.secondary)
     async def rock(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -246,9 +248,104 @@ class TriviaView(discord.ui.View):
         self.options = options
         self.answer = answer
         self.answered = False
+        self._loading = False
 
         for label in options:
             self.add_item(_TriviaButton(label, self))
+
+    @staticmethod
+    async def _ensure_token():
+        global _trivia_token
+        if _trivia_token:
+            return
+        try:
+            async with utils.http_session.get("https://opentdb.com/api_token.php?command=request") as r:
+                data = await r.json()
+            if (data or {}).get("response_code") == 0:
+                _trivia_token = data.get("token")
+        except Exception:
+            pass
+
+    @staticmethod
+    async def fetch_question():
+        global _trivia_token
+        await TriviaView._ensure_token()
+
+        for attempt in range(6):
+            url = "https://opentdb.com/api.php?amount=1&type=multiple"
+            if _trivia_token:
+                url += f"&token={_trivia_token}"
+            try:
+                async with utils.http_session.get(url) as r:
+                    data = await r.json()
+            except Exception:
+                return None
+
+            code = (data or {}).get("response_code")
+            if code == 0:
+                result = (data.get("results") or [None])[0]
+                if not result:
+                    return None
+
+                def clean(text):
+                    return html_module.unescape(str(text))
+
+                question = clean(result["question"])
+                correct = clean(result["correct_answer"])
+                incorrect = [clean(a) for a in result["incorrect_answers"]]
+
+                options = [correct] + incorrect
+                random.shuffle(options)
+
+                return question, options, correct
+            elif code == 1:
+                _trivia_token = None
+                return None
+            elif code == 5:
+                await asyncio.sleep(min(5, 2 ** attempt))
+                continue
+            else:
+                return None
+
+        return None
+
+    def _build_embed(self):
+        embed = discord.Embed(
+            title="❓ Trivia",
+            description=f"**{self.question}**\n\nSelect an answer below!",
+            color=discord.Color(VOIDWAVE_COLOR),
+        )
+        embed.set_footer(text="Vote for 2x XP! /vote")
+        return embed
+
+    async def start_again(self, interaction: discord.Interaction):
+        if self._loading:
+            try:
+                await interaction.response.send_message("Loading a new question...", ephemeral=True)
+            except discord.HTTPException:
+                pass
+            return
+        self._loading = True
+        await interaction.response.defer()
+        fetched = await self.fetch_question()
+        if not fetched:
+            self._loading = False
+            try:
+                await interaction.edit_original_response(
+                    content="> Could not fetch a trivia question. Please try again later.",
+                    embed=None,
+                    view=None,
+                )
+            except discord.HTTPException:
+                pass
+            return
+        self.question, self.options, self.answer = fetched
+        self.answered = False
+        self._loading = False
+        self.clear_items()
+        for label in self.options:
+            self.add_item(_TriviaButton(label, self))
+        await interaction.edit_original_response(embed=self._build_embed(), view=self)
 
     async def reveal(self, interaction: discord.Interaction, chosen: str):
         self.answered = True
@@ -274,6 +371,8 @@ class TriviaView(discord.ui.View):
             else:
                 child.style = discord.ButtonStyle.danger
 
+        self.add_item(_TriviaAgainButton(self))
+
         await interaction.response.edit_message(embed=embed, view=self)
 
     async def on_timeout(self):
@@ -295,7 +394,7 @@ class TriviaView(discord.ui.View):
 
 class _TriviaButton(discord.ui.Button):
     def __init__(self, label, view):
-        super().__init__(label=label, style=discord.ButtonStyle.primary)
+        super().__init__(label=label, style=discord.ButtonStyle.primary, row=1)
         self.host_view = view
 
     async def callback(self, interaction: discord.Interaction):
@@ -305,6 +404,18 @@ class _TriviaButton(discord.ui.Button):
         if self.host_view.answered:
             return
         await self.host_view.reveal(interaction, self.label)
+
+
+class _TriviaAgainButton(discord.ui.Button):
+    def __init__(self, view):
+        super().__init__(label="🔁 Another", style=discord.ButtonStyle.secondary, row=1)
+        self.host_view = view
+
+    async def callback(self, interaction: discord.Interaction):
+        if interaction.user.id != self.host_view.interaction.user.id:
+            await interaction.response.send_message("This isn't your trivia game!", ephemeral=True)
+            return
+        await self.host_view.start_again(interaction)
 
 
 CONNECT_FOUR_ROWS = 6
@@ -716,29 +827,12 @@ class GamesCog(commands.Cog):
     async def trivia(self, interaction: discord.Interaction, hidden: bool = False):
         await interaction.response.defer(ephemeral=hidden)
 
-        try:
-            async with utils.http_session.get("https://opentdb.com/api.php?amount=1&type=multiple") as r:
-                data = await r.json()
-        except Exception as e:
-            await interaction.followup.send(f"> Could not fetch a trivia question. Please try again later.\n> {e}")
-            return
-
-        results = (data or {}).get("results")
-        if not results:
+        fetched = await TriviaView.fetch_question()
+        if not fetched:
             await interaction.followup.send("> Could not fetch a trivia question. Please try again later.")
             return
 
-        result = results[0]
-
-        def clean(text):
-            return html_module.unescape(str(text))
-
-        question = clean(result["question"])
-        correct = clean(result["correct_answer"])
-        incorrect = [clean(a) for a in result["incorrect_answers"]]
-
-        options = [correct] + incorrect
-        random.shuffle(options)
+        question, options, correct = fetched
 
         embed = discord.Embed(
             title="❓ Trivia",
