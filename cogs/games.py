@@ -1286,6 +1286,138 @@ class _MinesweeperNewGameButton(discord.ui.Button):
         await self.host_view._new_game(interaction)
 
 
+PUZZLE_SIZE = 4
+PUZZLE_CELLS = 16
+PUZZLE_SOLVED = tuple(range(1, PUZZLE_CELLS)) + (0,)
+
+
+class PuzzleView(discord.ui.View):
+    def __init__(self, player: discord.User):
+        super().__init__(timeout=300)
+        self.player = player
+        self.board = list(PUZZLE_SOLVED)
+        self.moves = 0
+        self.won = False
+        self.invalid_idx = None
+        self._shuffle()
+        self._build_board()
+        self._render()
+
+    def _shuffle(self):
+        for _ in range(random.randint(300, 500)):
+            zero = self.board.index(0)
+            row, col = divmod(zero, PUZZLE_SIZE)
+            moves = []
+            for dr, dc in ((0, 1), (0, -1), (1, 0), (-1, 0)):
+                nr, nc = row + dr, col + dc
+                if 0 <= nr < PUZZLE_SIZE and 0 <= nc < PUZZLE_SIZE:
+                    moves.append(nr * PUZZLE_SIZE + nc)
+            target = random.choice(moves)
+            self.board[zero], self.board[target] = self.board[target], self.board[zero]
+
+    def _build_board(self):
+        for idx in range(PUZZLE_CELLS):
+            self.add_item(PuzzleTileButton(idx, self, idx // PUZZLE_SIZE))
+        shuffle = _PuzzleShuffleButton(self)
+        shuffle.row = PUZZLE_SIZE
+        self.add_item(shuffle)
+
+    def _state_embed(self):
+        if self.won:
+            title = "🎉 You solved the puzzle!"
+            color = discord.Color(0x2ecc71)
+        else:
+            title = "🧩 15-Puzzle"
+            color = discord.Color(VOIDWAVE_COLOR)
+        description = f"> Slide the tiles to order them 1 to 15 with the empty space at the end.\n> **Moves:** {self.moves}"
+        embed = discord.Embed(title=title, description=description, color=color)
+        embed.set_footer(text="Vote for 2x XP! /vote")
+        return embed
+
+    def _render(self):
+        for child in self.children:
+            if isinstance(child, PuzzleTileButton):
+                tile = self.board[child.idx]
+                child.label = "⬜" if tile == 0 else str(tile)
+                child.disabled = self.won or tile == 0
+                if not self.won and child.idx == self.invalid_idx:
+                    child.label = "❌"
+                    child.style = discord.ButtonStyle.danger
+                else:
+                    child.style = discord.ButtonStyle.success if self.won else discord.ButtonStyle.secondary
+
+    async def _handle_tile(self, interaction: discord.Interaction, idx: int):
+        if interaction.user.id != self.player.id:
+            await interaction.response.send_message("This isn't your game!", ephemeral=True)
+            return
+        if self.won:
+            return
+        if self.invalid_idx is not None:
+            self.invalid_idx = None
+        zero = self.board.index(0)
+        r0, c0 = divmod(zero, PUZZLE_SIZE)
+        r1, c1 = divmod(idx, PUZZLE_SIZE)
+        if abs(r0 - r1) + abs(c0 - c1) != 1:
+            self.invalid_idx = idx
+            await self._update(interaction)
+            await self._clear_invalid(interaction, idx)
+            return
+        self.board[zero], self.board[idx] = self.board[idx], self.board[zero]
+        self.moves += 1
+        if self.board == list(PUZZLE_SOLVED):
+            self.won = True
+        await self._update(interaction)
+
+    async def _clear_invalid(self, interaction: discord.Interaction, idx: int):
+        await asyncio.sleep(2)
+        if self.invalid_idx != idx or self.won:
+            return
+        self.invalid_idx = None
+        self._render()
+        try:
+            await interaction.message.edit(embed=self._state_embed(), view=self)
+        except Exception:
+            pass
+
+    async def _new_game(self, interaction: discord.Interaction):
+        if interaction.user.id != self.player.id:
+            await interaction.response.send_message("This isn't your game!", ephemeral=True)
+            return
+        self.board = list(PUZZLE_SOLVED)
+        self._shuffle()
+        self.moves = 0
+        self.invalid_idx = None
+        self.won = False
+        await self._update(interaction)
+
+    async def _update(self, interaction: discord.Interaction):
+        self._render()
+        await interaction.response.edit_message(embed=self._state_embed(), view=self)
+
+    async def on_timeout(self):
+        for child in self.children:
+            child.disabled = True
+
+
+class PuzzleTileButton(discord.ui.Button):
+    def __init__(self, idx, view, row):
+        super().__init__(label="⬜", style=discord.ButtonStyle.secondary, row=row)
+        self.idx = idx
+        self.host_view = view
+
+    async def callback(self, interaction: discord.Interaction):
+        await self.host_view._handle_tile(interaction, self.idx)
+
+
+class _PuzzleShuffleButton(discord.ui.Button):
+    def __init__(self, view):
+        super().__init__(label="🔄 New Game", style=discord.ButtonStyle.secondary)
+        self.host_view = view
+
+    async def callback(self, interaction: discord.Interaction):
+        await self.host_view._new_game(interaction)
+
+
 BS_SIZE = 6
 BS_SHIPS = (3, 2, 2)
 BS_COLORS = ("🟦", "🟩", "🟨", "🟪", "🟧", "🟥", "🟫")
@@ -1728,6 +1860,14 @@ class GamesCog(commands.Cog):
     @app_commands.describe(hidden="Hide the command from others")
     async def battleship(self, interaction: discord.Interaction, hidden: bool = False):
         view = BattleshipView(interaction.user)
+        await interaction.response.send_message(embed=view._state_embed(), ephemeral=hidden, view=view)
+
+    @discord.app_commands.allowed_installs(guilds=True, users=True)
+    @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
+    @discord.app_commands.command(name="15puzzle", description="Slide the tiles to solve the 15-puzzle.")
+    @app_commands.describe(hidden="Hide the command from others")
+    async def puzzle15(self, interaction: discord.Interaction, hidden: bool = False):
+        view = PuzzleView(interaction.user)
         await interaction.response.send_message(embed=view._state_embed(), ephemeral=hidden, view=view)
 
 

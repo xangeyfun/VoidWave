@@ -33,7 +33,7 @@
 * Moderation commands (kick, ban, timeout, slowmode, lock, role management)
 * Vote for 2x XP boosts, 3 hours on weekends
 * Fun commands (animal pics, quotes, facts, calculator)
-* Games (8-ball, rock-paper-scissors, tic-tac-toe, connect four, hangman, blackjack, trivia, wordle, minesweeper, battleship)
+* Games (8-ball, rock-paper-scissors, tic-tac-toe, connect four, hangman, blackjack, trivia, wordle, minesweeper, battleship, 15-puzzle)
 * All slash commands, no prefix needed
 
 ## Tech Stack
