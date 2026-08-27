@@ -1062,6 +1062,230 @@ class _WordleRevealButton(discord.ui.Button):
         await self.host_view._reveal(interaction)
 
 
+MS_COLS = 5
+MS_ROWS = 4
+MS_MINES = 5
+MS_CELLS = 20
+
+MS_NUM_EMOJI = {
+    1: "1️⃣",
+    2: "2️⃣",
+    3: "3️⃣",
+    4: "4️⃣",
+    5: "5️⃣",
+    6: "6️⃣",
+    7: "7️⃣",
+    8: "8️⃣",
+}
+
+
+def _ms_neighbors(idx):
+    row, col = divmod(idx, MS_COLS)
+    out = []
+    for r in range(max(0, row - 1), min(MS_ROWS, row + 2)):
+        for c in range(max(0, col - 1), min(MS_COLS, col + 2)):
+            if (r, c) != (row, col):
+                out.append(r * MS_COLS + c)
+    return out
+
+
+class MinesweeperView(discord.ui.View):
+    def __init__(self, player: discord.User, mine_count: int = MS_MINES):
+        super().__init__(timeout=300)
+        self.player = player
+        self.mine_count = mine_count
+        self.mines = set()
+        self.revealed = set()
+        self.flags = set()
+        self.over = False
+        self.won = False
+        self.flag_mode = False
+        self.started = False
+        self._build_board()
+        self._build_controls()
+
+    def _build_board(self):
+        for idx in range(MS_CELLS):
+            self.add_item(MinesweeperButton(idx, self, idx // MS_COLS))
+
+    def _build_controls(self):
+        flag = _MinesweeperFlagButton(self)
+        flag.row = MS_ROWS
+        self.add_item(flag)
+        new_game = _MinesweeperNewGameButton(self)
+        new_game.row = MS_ROWS
+        self.add_item(new_game)
+
+    def _place_mines(self, safe_idx):
+        pool = [i for i in range(MS_CELLS) if i != safe_idx]
+        zone = {safe_idx} | set(_ms_neighbors(safe_idx))
+        zone_pool = [i for i in pool if i not in zone]
+        if len(zone_pool) >= self.mine_count:
+            pool = zone_pool
+        self.mines = set(random.sample(pool, self.mine_count))
+
+    def _adjacent_mines(self, idx):
+        return sum(1 for n in _ms_neighbors(idx) if n in self.mines)
+
+    def _reveal(self, idx):
+        if self.over or self.won:
+            return
+        if idx in self.flags:
+            return
+        if not self.started:
+            self._place_mines(idx)
+            self.started = True
+        if idx in self.mines:
+            self.over = True
+            return
+        if idx in self.revealed:
+            return
+        count = self._adjacent_mines(idx)
+        self.revealed.add(idx)
+        if count == 0:
+            for n in _ms_neighbors(idx):
+                if n not in self.revealed and n not in self.flags and n not in self.mines:
+                    self._reveal(n)
+
+    def _check_win(self):
+        safe = MS_CELLS - self.mine_count
+        if len(self.revealed) == safe:
+            self.won = True
+
+    def _state_embed(self):
+        if self.over:
+            title = "💥 You hit a mine!"
+            color = discord.Color(0xe74c3c)
+        elif self.won:
+            title = "🎉 You cleared the field!"
+            color = discord.Color(0x2ecc71)
+        else:
+            title = "💣 Minesweeper"
+            color = discord.Color(VOIDWAVE_COLOR)
+
+        flag_state = "On 🚩" if self.flag_mode else "Off"
+        description = (
+            f"> Reveal every safe cell without hitting a mine.\n"
+            f"> **Mines:** {self.mine_count} **| Flags:** {len(self.flags)}/{self.mine_count} **| Flag mode:** {flag_state}"
+        )
+        embed = discord.Embed(title=title, description=description, color=color)
+        embed.set_footer(text="Vote for 2x XP! /vote")
+        return embed
+
+    def _render(self):
+        over = self.over or self.won
+        for child in self.children:
+            if isinstance(child, MinesweeperButton):
+                child.disabled = over
+                idx = child.idx
+                if self.over:
+                    if idx in self.mines:
+                        child.label = "💣"
+                        child.style = discord.ButtonStyle.danger
+                    else:
+                        count = self._adjacent_mines(idx)
+                        child.label = MS_NUM_EMOJI.get(count) or "⬜"
+                        if idx in self.revealed:
+                            child.style = discord.ButtonStyle.success if count == 0 else discord.ButtonStyle.primary
+                        else:
+                            child.style = discord.ButtonStyle.secondary
+                elif idx in self.flags and idx not in self.revealed:
+                    child.label = "🚩"
+                    child.style = discord.ButtonStyle.secondary
+                elif idx in self.revealed:
+                    count = self._adjacent_mines(idx)
+                    child.label = MS_NUM_EMOJI.get(count) or "⬜"
+                    child.style = discord.ButtonStyle.success if count == 0 else discord.ButtonStyle.primary
+                else:
+                    child.label = "⬜"
+                    child.style = discord.ButtonStyle.secondary
+            elif isinstance(child, _MinesweeperFlagButton):
+                child.disabled = over
+                child.label = "🚩 Flag: On" if self.flag_mode else "🚩 Flag: Off"
+                child.style = discord.ButtonStyle.success if self.flag_mode else discord.ButtonStyle.secondary
+
+    async def _handle_cell(self, interaction: discord.Interaction, idx: int):
+        if interaction.user.id != self.player.id:
+            await interaction.response.send_message("This isn't your game!", ephemeral=True)
+            return
+        if self.over or self.won:
+            return
+        if self.flag_mode:
+            if idx in self.revealed:
+                await interaction.response.send_message("That cell is already revealed.", ephemeral=True)
+                return
+            if idx in self.flags:
+                self.flags.discard(idx)
+                await self._update(interaction)
+                return
+            if len(self.flags) < self.mine_count:
+                self.flags.add(idx)
+                await self._update(interaction)
+                return
+            await interaction.response.send_message("You've placed all your flags.", ephemeral=True)
+            return
+        self._reveal(idx)
+        self._check_win()
+        await self._update(interaction)
+
+    async def _toggle_flag_mode(self, interaction: discord.Interaction):
+        if interaction.user.id != self.player.id:
+            await interaction.response.send_message("This isn't your game!", ephemeral=True)
+            return
+        if self.over or self.won:
+            return
+        self.flag_mode = not self.flag_mode
+        await self._update(interaction)
+
+    async def _new_game(self, interaction: discord.Interaction):
+        if interaction.user.id != self.player.id:
+            await interaction.response.send_message("This isn't your game!", ephemeral=True)
+            return
+        self.mines = set()
+        self.revealed = set()
+        self.flags = set()
+        self.over = False
+        self.won = False
+        self.started = False
+        await self._update(interaction)
+
+    async def _update(self, interaction: discord.Interaction):
+        self._render()
+        await interaction.response.edit_message(embed=self._state_embed(), view=self)
+
+    async def on_timeout(self):
+        for child in self.children:
+            child.disabled = True
+
+
+class MinesweeperButton(discord.ui.Button):
+    def __init__(self, idx, view, row):
+        super().__init__(label="⬜", style=discord.ButtonStyle.secondary, row=row)
+        self.idx = idx
+        self.host_view = view
+
+    async def callback(self, interaction: discord.Interaction):
+        await self.host_view._handle_cell(interaction, self.idx)
+
+
+class _MinesweeperFlagButton(discord.ui.Button):
+    def __init__(self, view):
+        super().__init__(label="🚩 Flag: Off", style=discord.ButtonStyle.secondary)
+        self.host_view = view
+
+    async def callback(self, interaction: discord.Interaction):
+        await self.host_view._toggle_flag_mode(interaction)
+
+
+class _MinesweeperNewGameButton(discord.ui.Button):
+    def __init__(self, view):
+        super().__init__(label="🔄 New Game", style=discord.ButtonStyle.secondary)
+        self.host_view = view
+
+    async def callback(self, interaction: discord.Interaction):
+        await self.host_view._new_game(interaction)
+
+
 class GamesCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -1162,6 +1386,20 @@ class GamesCog(commands.Cog):
         await interaction.response.defer(ephemeral=hidden)
         view = WordleView(interaction.user)
         view.message = await interaction.followup.send(embed=view._state_embed(), view=view)
+
+    @discord.app_commands.allowed_installs(guilds=True, users=True)
+    @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
+    @discord.app_commands.command(name="minesweeper", description="Play a game of minesweeper against VoidWave.")
+    @app_commands.describe(mines="Mine density as a percentage (default 25)", hidden="Hide the command from others")
+    async def minesweeper(self, interaction: discord.Interaction, mines: int = None, hidden: bool = False):
+        total = MS_CELLS
+        if mines is None:
+            mine_count = MS_MINES
+        else:
+            mine_count = round(total * mines / 100) if 0 < mines <= 100 else MS_MINES
+            mine_count = min(max(mine_count, 1), total - 1)
+        view = MinesweeperView(interaction.user, mine_count)
+        await interaction.response.send_message(embed=view._state_embed(), ephemeral=hidden, view=view)
 
 
 async def setup(bot):
