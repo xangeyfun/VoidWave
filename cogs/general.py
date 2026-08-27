@@ -45,6 +45,7 @@ class GeneralCog(commands.Cog):
                     "`/uptime` - Check the bot's uptime and useful links\n"
                     "`/github` - View the source code and report issues\n"
                     "`/vote` - Vote for the bot on Top.gg\n"
+                    "`/vote-remind` - Toggle vote reminders\n"
                     "`/calc <expression>` - Simple calculator\n"
                     "`/ai <message> [stats] [hidden]` - Chat with the bot's AI\n"
                     "`/userinfo <user> [hidden]` - Get info about a user\n"
@@ -125,7 +126,7 @@ class GeneralCog(commands.Cog):
             )
             embed.add_field(
                 name="🔧 Utilities",
-                value="`/ping`, `/uptime`, `/github`, `/calc`, `/ai`, `/userinfo`, `/feedback`",
+                value="`/ping`, `/uptime`, `/github`, `/vote`, `/vote-remind`, `/calc`, `/ai`, `/userinfo`, `/feedback`",
                 inline=True
             )
             embed.add_field(
