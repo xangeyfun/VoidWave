@@ -1286,6 +1286,327 @@ class _MinesweeperNewGameButton(discord.ui.Button):
         await self.host_view._new_game(interaction)
 
 
+BS_SIZE = 6
+BS_SHIPS = (3, 2, 2)
+BS_COLORS = ("🟦", "🟩", "🟨", "🟪", "🟧", "🟥", "🟫")
+
+
+def _bs_place_ships(exclude=frozenset()):
+    ships = []
+    for length in BS_SHIPS:
+        placed = False
+        for _ in range(200):
+            horizontal = random.choice((True, False))
+            r = random.randint(0, BS_SIZE - 1)
+            c = random.randint(0, BS_SIZE - 1)
+            if horizontal and c + length > BS_SIZE:
+                continue
+            if not horizontal and r + length > BS_SIZE:
+                continue
+            cells = []
+            ok = True
+            for i in range(length):
+                idx = (r + (0 if horizontal else i)) * BS_SIZE + (c + (i if horizontal else 0))
+                if any(idx in s for s in ships) or idx in exclude:
+                    ok = False
+                    break
+                cells.append(idx)
+            if ok:
+                ships.append(set(cells))
+                placed = True
+                break
+        if not placed:
+            ships.append(set())
+    return ships
+
+
+class BattleshipView(discord.ui.View):
+    def __init__(self, player: discord.User):
+        super().__init__(timeout=300)
+        self.player = player
+        self.player_ships = _bs_place_ships()
+        self.ship_colors = random.sample(BS_COLORS, len(BS_SHIPS))
+        self.bot_colors = random.sample(BS_COLORS, len(BS_SHIPS))
+        self.bot_ships = None
+        self.shots_on_bot = {}
+        self.shots_on_player = {}
+        self.hunt_stack = []
+        self.found = []
+        self.shot_dir = 0
+        self.cursor = True
+        self.over = False
+        self.won = False
+        self.col = 0
+        self.row = 0
+        self.add_item(_BSLeftButton(self))
+        self.add_item(_BSUpButton(self))
+        self.add_item(_BSDownButton(self))
+        self.add_item(_BSRightButton(self))
+        self.add_item(_BSFireButton(self))
+        self.add_item(_BSNewGameButton(self))
+        self.add_item(_BSSurrenderButton(self))
+
+    def _ortho(self, idx):
+        row, col = divmod(idx, BS_SIZE)
+        out = []
+        for r, c in ((row - 1, col), (row + 1, col), (row, col - 1), (row, col + 1)):
+            if 0 <= r < BS_SIZE and 0 <= c < BS_SIZE:
+                out.append(r * BS_SIZE + c)
+        return out
+
+    def _board_str(self, ships, shots, reveal, aim=None, ship_colors=None):
+        color_map = {}
+        if ship_colors:
+            color_map = {c: ship_colors[i] for i, s in enumerate(ships) for c in s}
+        lines = ["    " + "  ".join(str(i) for i in range(1, BS_SIZE + 1))]
+        for r in range(BS_SIZE):
+            cells = []
+            for c in range(BS_SIZE):
+                idx = r * BS_SIZE + c
+                if idx == aim:
+                    cells.append("🎯")
+                elif idx in shots:
+                    cells.append("💥" if shots[idx] == "hit" else "🌊")
+                elif reveal and idx in color_map:
+                    cells.append(color_map[idx])
+                elif reveal and any(idx in s for s in ships):
+                    cells.append("🟦")
+                else:
+                    cells.append("⬜")
+            lines.append(f"{r + 1}   " + " ".join(cells))
+        return "\n".join(lines)
+
+    def _state_embed(self):
+        if self.over:
+            title = "🎉 You sank the enemy fleet!" if self.won else "💥 The enemy sank your fleet!"
+            color = discord.Color(0x2ecc71 if self.won else 0xe74c3c)
+        else:
+            title = "⚓ Battleship"
+            color = discord.Color(VOIDWAVE_COLOR)
+
+        bot_left = self._ships_left(self.bot_ships, self.shots_on_bot)
+        my_left = self._ships_left(self.player_ships, self.shots_on_player)
+        aim = None if self.over or not self.cursor else self.row * BS_SIZE + self.col
+        description = (
+            f"Sink the enemy fleet before they sink yours. Aim with the arrows, then Fire.\n"
+            f"> **Enemy ships left:** {bot_left} | **Your ships left:** {my_left} | **Target:** Col {self.col + 1}, Row {self.row + 1}\n\n"
+            f"**Enemy waters (ships hidden)**\n```\n{self._board_str(self.bot_ships or [], self.shots_on_bot, self.over, aim, self.bot_colors)}\n```\n"
+            f"**Your fleet**\n```\n{self._board_str(self.player_ships, self.shots_on_player, True, ship_colors=self.ship_colors)}\n```"
+        )
+        embed = discord.Embed(title=title, description=description, color=color)
+        embed.set_footer(text="Vote for 2x XP! /vote")
+        return embed
+
+    def _ships_left(self, ships, shots):
+        if ships is None:
+            return len(BS_SHIPS)
+        return sum(1 for s in ships if not all(shots.get(c) == "hit" for c in s))
+
+    async def _move(self, interaction: discord.Interaction, dr: int, dc: int):
+        if interaction.user.id != self.player.id:
+            await interaction.response.send_message("This isn't your game!", ephemeral=True)
+            return
+        if self.over:
+            return
+        self.cursor = True
+        self.row = max(0, min(BS_SIZE - 1, self.row + dr))
+        self.col = max(0, min(BS_SIZE - 1, self.col + dc))
+        await self._update(interaction)
+
+    def _player_won(self):
+        return not any(any(self.shots_on_bot.get(c) != "hit" for c in s) for s in self.bot_ships) if self.bot_ships else False
+
+    def _bot_won(self):
+        return not any(any(self.shots_on_player.get(c) != "hit" for c in s) for s in self.player_ships)
+
+    async def _do_fire(self, interaction: discord.Interaction):
+        if interaction.user.id != self.player.id:
+            await interaction.response.send_message("This isn't your game!", ephemeral=True)
+            return
+        if self.over:
+            return
+        idx = self.row * BS_SIZE + self.col
+        if idx in self.shots_on_bot:
+            await interaction.response.send_message("You've already shot there. Pick a new target.", ephemeral=True)
+            return
+        if self.bot_ships is None:
+            self.bot_ships = _bs_place_ships(exclude={idx})
+
+        self.shots_on_bot[idx] = "hit" if any(idx in s for s in self.bot_ships) else "miss"
+        self.cursor = False
+        if self._player_won():
+            self.over = True
+            self.won = True
+            await self._update(interaction)
+            return
+
+        await self._bot_fire(interaction)
+        if self._bot_won():
+            self.over = True
+            self.won = False
+        await self._update(interaction)
+
+    def _hunt_candidates(self):
+        if self.shot_dir and len(self.found) >= 2:
+            out = []
+            for base in (self.found[0] - self.shot_dir, self.found[-1] + self.shot_dir):
+                r, c = divmod(base, BS_SIZE)
+                if 0 <= r < BS_SIZE and 0 <= c < BS_SIZE:
+                    out.append(base)
+            return out
+        out = []
+        for hit in self.found:
+            for n in self._ortho(hit):
+                if n not in out:
+                    out.append(n)
+        return out
+
+    def _bot_next_shot(self):
+        taken = set(self.shots_on_player)
+        while self.hunt_stack:
+            cell = self.hunt_stack.pop()
+            if cell not in taken:
+                return cell
+        return random.choice([i for i in range(BS_SIZE * BS_SIZE) if i not in taken])
+
+    async def _bot_fire(self, interaction: discord.Interaction):
+        idx = self._bot_next_shot()
+        hit = any(idx in s for s in self.player_ships)
+        self.shots_on_player[idx] = "hit" if hit else "miss"
+        if hit:
+            ship = next(s for s in self.player_ships if idx in s)
+            if all(self.shots_on_player.get(c) == "hit" for c in ship):
+                self.hunt_stack, self.found, self.shot_dir = [], [], 0
+            else:
+                step = idx - self.found[-1] if self.found else 0
+                if self.shot_dir and step == self.shot_dir:
+                    self.found.append(idx)
+                elif not self.shot_dir and step in (1, -1, BS_SIZE, -BS_SIZE):
+                    if step in (1, -1):
+                        r1, c1 = divmod(self.found[-1], BS_SIZE)
+                        r2, c2 = divmod(idx, BS_SIZE)
+                        if r1 != r2 or abs(c1 - c2) != 1:
+                            step = 0
+                    if step:
+                        self.shot_dir = step
+                        self.found.append(idx)
+                else:
+                    self.found = [idx]
+                    self.shot_dir = 0
+                for n in self._hunt_candidates():
+                    if n not in self.shots_on_player and n not in self.hunt_stack:
+                        self.hunt_stack.append(n)
+        await asyncio.sleep(0.8)
+
+    async def _new_game(self, interaction: discord.Interaction):
+        if interaction.user.id != self.player.id:
+            await interaction.response.send_message("This isn't your game!", ephemeral=True)
+            return
+        self.player_ships = _bs_place_ships()
+        self.ship_colors = random.sample(BS_COLORS, len(BS_SHIPS))
+        self.bot_colors = random.sample(BS_COLORS, len(BS_SHIPS))
+        self.bot_ships = None
+        self.shots_on_bot = {}
+        self.shots_on_player = {}
+        self.hunt_stack = []
+        self.found = []
+        self.shot_dir = 0
+        self.cursor = True
+        self.over = False
+        self.won = False
+        self.col = 0
+        self.row = 0
+        await self._update(interaction)
+
+    async def _surrender(self, interaction: discord.Interaction):
+        if interaction.user.id != self.player.id:
+            await interaction.response.send_message("This isn't your game!", ephemeral=True)
+            return
+        if self.over:
+            return
+        self.over = True
+        self.won = False
+        for ship in self.player_ships:
+            for cell in ship:
+                self.shots_on_player[cell] = "hit"
+        await self._update(interaction)
+
+    async def _update(self, interaction: discord.Interaction):
+        for child in self.children:
+            if isinstance(child, (_BSLeftButton, _BSUpButton, _BSDownButton, _BSRightButton, _BSFireButton, _BSSurrenderButton)):
+                child.disabled = self.over
+            elif isinstance(child, _BSNewGameButton):
+                child.disabled = False
+        await interaction.response.edit_message(embed=self._state_embed(), view=self)
+
+    async def on_timeout(self):
+        for child in self.children:
+            child.disabled = True
+
+
+class _BSLeftButton(discord.ui.Button):
+    def __init__(self, view):
+        super().__init__(label="◀️", style=discord.ButtonStyle.secondary, row=0)
+        self.host_view = view
+
+    async def callback(self, interaction: discord.Interaction):
+        await self.host_view._move(interaction, 0, -1)
+
+
+class _BSUpButton(discord.ui.Button):
+    def __init__(self, view):
+        super().__init__(label="▲", style=discord.ButtonStyle.secondary, row=0)
+        self.host_view = view
+
+    async def callback(self, interaction: discord.Interaction):
+        await self.host_view._move(interaction, -1, 0)
+
+
+class _BSDownButton(discord.ui.Button):
+    def __init__(self, view):
+        super().__init__(label="▼", style=discord.ButtonStyle.secondary, row=0)
+        self.host_view = view
+
+    async def callback(self, interaction: discord.Interaction):
+        await self.host_view._move(interaction, 1, 0)
+
+
+class _BSRightButton(discord.ui.Button):
+    def __init__(self, view):
+        super().__init__(label="▶️", style=discord.ButtonStyle.secondary, row=0)
+        self.host_view = view
+
+    async def callback(self, interaction: discord.Interaction):
+        await self.host_view._move(interaction, 0, 1)
+
+
+class _BSFireButton(discord.ui.Button):
+    def __init__(self, view):
+        super().__init__(label="💥 Fire", style=discord.ButtonStyle.danger, row=0)
+        self.host_view = view
+
+    async def callback(self, interaction: discord.Interaction):
+        await self.host_view._do_fire(interaction)
+
+
+class _BSNewGameButton(discord.ui.Button):
+    def __init__(self, view):
+        super().__init__(label="🔄 New Game", style=discord.ButtonStyle.secondary, row=1)
+        self.host_view = view
+
+    async def callback(self, interaction: discord.Interaction):
+        await self.host_view._new_game(interaction)
+
+
+class _BSSurrenderButton(discord.ui.Button):
+    def __init__(self, view):
+        super().__init__(label="🏳️ Surrender", style=discord.ButtonStyle.secondary, row=1)
+        self.host_view = view
+
+    async def callback(self, interaction: discord.Interaction):
+        await self.host_view._surrender(interaction)
+
+
 class GamesCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -1399,6 +1720,14 @@ class GamesCog(commands.Cog):
             mine_count = round(total * mines / 100) if 0 < mines <= 100 else MS_MINES
             mine_count = min(max(mine_count, 1), total - 1)
         view = MinesweeperView(interaction.user, mine_count)
+        await interaction.response.send_message(embed=view._state_embed(), ephemeral=hidden, view=view)
+
+    @discord.app_commands.allowed_installs(guilds=True, users=True)
+    @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
+    @discord.app_commands.command(name="battleship", description="Play a game of battleship against VoidWave.")
+    @app_commands.describe(hidden="Hide the command from others")
+    async def battleship(self, interaction: discord.Interaction, hidden: bool = False):
+        view = BattleshipView(interaction.user)
         await interaction.response.send_message(embed=view._state_embed(), ephemeral=hidden, view=view)
 
 
