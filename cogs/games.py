@@ -557,6 +557,119 @@ HANGMAN_WORDS = (
     "lantern", "mystic", "nomad", "orbit", "phoenix", "quantum",
     "raptor", "sapphire", "tournament", "umbrella", "voyage", "walrus",
     "zeppelin", "adventure", "biscuit", "cascade", "dragonfly", "emerald",
+    "astronaut", "blacksmith", "cathedral", "dolphin", "eclipse", "forest",
+    "glacier", "harbor", "icicle", "journey", "kangaroo", "lagoon",
+    "mammoth", "nightingale", "octopus", "paradise", "quicksilver", "rainbow",
+    "savanna", "tornado", "unicorn", "volcano", "waterfall", "yacht",
+    "zephyr", "blueprint", "chandelier", "diamonds", "elephant", "fireworks",
+    "glowworm", "harmony", "igloo", "jasmine", "kilometer", "language",
+    "mirage", "northstar", "octagon", "planetarium", "quasar", "staircase",
+    "telescope", "universe", "vortex", "whisper", "xylophone", "yellowstone",
+    "zealous", "algorithm", "bandwidth", "chipmunk", "dashboard", "elevator",
+    "forecast", "greenhouse", "hierarchy", "instrument", "javascript", "keyboard",
+    "latitude", "magnet", "nutmeg", "ostrich", "pillowcase", "quartz",
+    "radiator", "satellite", "tangerine", "underwater", "vacation", "watermelon",
+    "yogurt", "zebra", "abacus", "banjo", "cactus", "dandelion",
+    "eucalyptus", "fireplace", "gazebo", "honeycomb", "ivory", "jungle",
+    "kindergarten", "lemonade", "moonshine", "nightshade", "obsidian", "pineapple",
+    "quest", "reindeer", "sunflower", "twilight", "umbrella", "vineyard",
+    "whirlwind", "xenon", "yo-yo", "zeppelin",
+)
+
+WORDLE_WORDS = (
+    "apple", "about", "above", "abuse", "actor", "acute", "admit", "adobe",
+    "adopt", "adult", "after", "again", "agent", "agree", "ahead", "alarm",
+    "album", "alert", "alien", "align", "alive", "allow", "alone", "along",
+    "alter", "amaze", "ample", "angle", "angry", "apart", "apple", "apply",
+    "arena", "argue", "arise", "armed", "array", "aside", "asset", "audio",
+    "audit", "avoid", "award", "aware", "awful", "basic", "beach", "beard",
+    "beast", "begin", "being", "belly", "below", "bench", "birth", "black",
+    "blade", "blame", "blank", "blast", "blaze", "bleak", "blend", "blind",
+    "block", "blood", "bloom", "blown", "board", "boast", "boost", "brain",
+    "brand", "brave", "bread", "break", "breed", "brick", "brief", "bring",
+    "broad", "brood", "brown", "brush", "build", "bunch", "burst", "cabin",
+    "cable", "candy", "canoe", "carry", "catch", "cause", "cease", "chain",
+    "chair", "chaos", "charm", "chase", "cheap", "cheek", "cheer", "chess",
+    "chest", "chief", "child", "chill", "choir", "chose", "chunk", "civic",
+    "civil", "claim", "clash", "class", "clean", "clear", "click", "cliff",
+    "climb", "clock", "close", "cloud", "coach", "coast", "coral", "couch",
+    "cough", "could", "count", "court", "cover", "crack", "craft", "crane",
+    "crash", "crazy", "cream", "crime", "crisp", "cross", "crowd", "crown",
+    "crude", "cruel", "crush", "curve", "cycle", "daily", "dance", "death",
+    "debut", "decor", "delay", "delta", "dense", "depth", "devil", "diary",
+    "dirty", "ditch", "dizzy", "dough", "dozen", "drama", "drift", "drink",
+    "drive", "drone", "drove", "dying", "eager", "eagle", "early", "earth",
+    "eight", "elbow", "elder", "elect", "elite", "empty", "enemy", "enjoy",
+    "enter", "entry", "equal", "error", "essay", "event", "every", "exact",
+    "exile", "exist", "extra", "fable", "facet", "faint", "fairy", "faith",
+    "false", "fancy", "fault", "favor", "feast", "fence", "ferry", "fever",
+    "fiber", "field", "fifth", "fifty", "fight", "final", "first", "flame",
+    "flask", "fleet", "flesh", "float", "flock", "flood", "floor", "flour",
+    "fluid", "flush", "focal", "focus", "force", "forge", "forth", "forty",
+    "forum", "found", "frame", "fresh", "front", "frost", "fruit", "fully",
+    "funny", "gauge", "gears", "ghost", "giant", "given", "glass", "globe",
+    "gloom", "glory", "glove", "glued", "going", "grace", "grade", "grain",
+    "grand", "grant", "grape", "graph", "grasp", "grass", "grave", "great",
+    "green", "grief", "grill", "grind", "gross", "group", "grove", "grown",
+    "guard", "guess", "guest", "guide", "guilt", "habit", "happy", "harsh",
+    "haste", "hatch", "haunt", "haven", "hazel", "heart", "heavy", "hedge",
+    "hello", "hence", "herbs", "hinge", "honey", "honor", "horse", "hotel",
+    "house", "human", "humor", "hurry", "ideal", "image", "imply", "index",
+    "inner", "input", "irony",     "issue", "ivory", "jazzy", "jeans", "jelly",
+    "jewel", "joint", "judge", "juice", "kayak", "kebab", "kneel", "knife",
+    "knock", "known", "label", "labor", "large", "laser", "later", "laugh",
+    "layer", "learn", "lease", "least", "leave", "legal", "lemon", "level",
+    "light", "limit", "liver", "lobby", "local", "lodge", "logic", "loose",
+    "lover", "lower", "lucky", "lunar", "lunch", "lying", "magic", "major",
+    "maker", "manor", "maple", "march", "marsh", "mason", "match", "maybe",
+    "mayor", "meant", "media", "medal", "melon", "mercy", "merit", "metal",
+    "meter", "might", "minor", "minus", "mixed", "model", "money", "month",
+    "moral", "motor", "mount", "mouse", "mouth", "movie", "music", "nerve",
+    "never", "newly", "night", "noble", "noise", "north", "noted", "novel",
+    "nurse", "oasis", "occur", "ocean", "offer", "often", "olive", "onion",
+    "onset", "opera", "orbit", "order", "organ", "other", "ought", "ounce",
+    "outer", "owner", "paint", "panel", "panic", "paper", "party", "pasta",
+    "patch", "peace", "peach", "pearl", "piano", "piece", "pilot", "pinch",
+    "pitch", "pizza", "place", "plain", "plane", "plant", "plate", "plead",
+    "pluck",     "point", "polar", "porch", "posed", "pound", "power", "press",
+    "price", "pride", "prime", "print", "prior", "prize", "proof", "proud",
+    "prove", "pulse", "punch", "pupil", "purse", "quest", "queue", "quick",
+    "quiet", "quite", "quote", "radio", "raise", "rally", "ranch", "range",
+    "rapid", "ratio", "reach", "react", "ready", "refer", "relax", "reply",
+    "rider", "rifle", "right", "rigid", "ripen", "risky", "rival", "river",
+    "robot", "rocky", "roman", "rough", "round", "route", "royal", "rugby",
+    "ruler", "rural", "sadly", "saint", "sauce", "scale", "scare", "scene",
+    "scent", "scope", "score", "scout", "screw", "seize", "sense", "serve",
+    "seven", "shade", "shake", "shall", "shame", "shape", "share", "shark",
+    "sharp", "sheep", "sheet", "shelf", "shell", "shift", "shine", "shirt",
+    "shock", "shoot", "shore", "short", "shout", "showy", "since", "siren",
+    "sixth", "sixty", "skill", "skirt", "slate", "sleep", "slice", "slide",
+    "slope", "small", "smart", "smell", "smile", "smoke", "snack", "snake",
+    "solar", "solid", "solve", "sorry", "sound", "south", "space", "spare",
+    "spark", "speak", "speed", "spell", "spend", "spent", "spice", "spike",
+    "spine", "spite", "split", "spoke", "sport", "spray", "squad", "stack",
+    "staff", "stage", "stain", "stake", "stale", "stand", "stare", "start",
+    "state", "stave", "stead", "steam", "steel", "steep", "steer", "stunt",
+    "stern", "stick", "stiff", "still", "sting", "stock", "stole", "stone",
+    "stood", "stool", "store", "storm", "story", "stove", "strap", "straw",
+    "stray", "strip", "stuck", "study", "stuff", "style", "sugar", "suite",
+    "sunny", "super", "surge", "sweet", "swift", "swing", "sword", "table",
+    "taken", "taste", "teach", "teeth", "tempo", "tenth", "theme", "there",
+    "these", "thick", "thing", "think", "third", "those", "three", "threw",
+    "throw", "thumb", "tiger", "tight", "timer", "tired", "title", "toast",
+    "today", "token", "tonic", "tooth", "topic", "total", "touch", "tough",
+    "towel", "tower", "toxic", "trace", "track", "trade", "trail", "train",
+    "trait", "treat", "trend", "trial", "tribe", "trick", "tried", "troop",
+    "truck", "truly", "trunk", "trust", "truth", "twice", "twist", "uncle",
+    "under", "union", "unite", "unity", "until", "upper", "upset", "urban",
+    "usage", "usual", "utter", "vague", "valid", "value", "valve", "vapor",
+    "vault", "venue", "verse", "video", "vigor", "viral", "virus", "visit",
+    "vital", "vivid", "vocal", "voice", "voter", "wagon", "waste", "watch",
+    "water", "weary", "weave", "wedge", "weigh", "whale", "wheat", "wheel",
+    "where", "which", "while", "white", "whole", "whose", "widow", "width",
+    "witch", "woman", "world", "worry", "worse", "worst", "worth", "would",
+    "wound", "wreck", "write", "wrong", "wrote", "yacht", "yield", "young",
+    "youth", "zebra", "zesty", "zones",
 )
 
 HANGMAN_MAX_WRONG = 6
@@ -779,6 +892,171 @@ class BlackjackView(discord.ui.View):
         await self._stand(interaction)
 
 
+WORDLE_MAX_GUESSES = 6
+
+WORDLE_COLOR = {
+    2: "🟩",
+    1: "🟨",
+    0: "⬛",
+}
+
+
+def _wordle_hint(guess, word):
+    hint = [0] * len(word)
+    used = [False] * len(word)
+
+    for i, ch in enumerate(guess):
+        if ch == word[i]:
+            hint[i] = 2
+            used[i] = True
+
+    for i, ch in enumerate(guess):
+        if hint[i] == 2:
+            continue
+        for j in range(len(word)):
+            if word[j] == ch and not used[j] and hint[j] != 2:
+                hint[i] = 1
+                used[j] = True
+                break
+
+    return hint
+
+
+class _WordleGuessModal(discord.ui.Modal, title="Wordle Guess"):
+    def __init__(self, view):
+        super().__init__()
+        self.host_view = view
+        self.word_input = discord.ui.TextInput(
+            label="5-letter word",
+            placeholder="Enter your guess (e.g. CRANE)",
+            min_length=5,
+            max_length=5,
+            style=discord.TextStyle.short,
+            required=True,
+        )
+        self.add_item(self.word_input)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        guess = self.word_input.value.strip().upper()
+        if not guess.isalpha() or len(guess) != 5:
+            await interaction.response.send_message("Please enter a valid 5-letter word.", ephemeral=True)
+            return
+        await self.host_view._submit_guess(interaction, guess)
+
+
+class WordleView(discord.ui.View):
+    def __init__(self, player: discord.User):
+        super().__init__(timeout=300)
+        self.player = player
+        self.word = random.choice(WORDLE_WORDS).upper()
+        self.guesses = []
+        self.done = False
+        self.message = None
+        self.add_item(_WordleGuessButton(self))
+        self.add_item(_WordleRevealButton(self))
+
+    def _format_row(self, guess):
+        hint = _wordle_hint(guess, self.word)
+        letters = "  ".join(guess)
+        tiles = " ".join(WORDLE_COLOR[h] for h in hint)
+        return f"> `{letters}`\n> {tiles}"
+
+    def _state_embed(self):
+        lines = [self._format_row(g) for g in self.guesses]
+
+        if self.done:
+            if self.guesses and self.guesses[-1] == self.word:
+                title = "🎉 You got it!"
+                color = discord.Color(0x2ecc71)
+                description = f"> The word was **{self.word}**.\n\n" + "\n\n".join(lines)
+            else:
+                title = "😞 Out of guesses!"
+                color = discord.Color(0xe74c3c)
+                description = f"> The word was **{self.word}**.\n\n" + "\n\n".join(lines)
+        else:
+            title = "🟩🟨⬛ Wordle"
+            color = discord.Color(VOIDWAVE_COLOR)
+            description = (
+                "> Guess the 5-letter word in 6 tries.\n"
+                "> 🟩 correct spot, 🟨 wrong spot, ⬛ not in the word.\n\n"
+                + "\n\n".join(lines)
+            )
+
+        embed = discord.Embed(title=title, description=description, color=color)
+        embed.set_footer(text=f"Guess {len(self.guesses)}/{WORDLE_MAX_GUESSES} • Vote for 2x XP! /vote")
+        return embed
+
+    async def _submit_guess(self, interaction: discord.Interaction, guess: str):
+        if interaction.user.id != self.player.id:
+            await interaction.response.send_message("This isn't your game!", ephemeral=True)
+            return
+        if self.done or len(self.guesses) >= WORDLE_MAX_GUESSES:
+            await interaction.response.send_message("This game is already over.", ephemeral=True)
+            return
+
+        await interaction.response.defer()
+        self.guesses.append(guess)
+        if guess == self.word or len(self.guesses) >= WORDLE_MAX_GUESSES:
+            self.done = True
+            for child in self.children:
+                child.disabled = True
+
+        embed = self._state_embed()
+        await self._edit(embed)
+
+    async def _reveal(self, interaction: discord.Interaction):
+        if interaction.user.id != self.player.id:
+            await interaction.response.send_message("This isn't your game!", ephemeral=True)
+            return
+        if self.done:
+            return
+        await interaction.response.defer()
+        self.done = True
+        for child in self.children:
+            child.disabled = True
+        await self._edit(self._state_embed())
+
+    async def _edit(self, embed):
+        try:
+            await self.message.edit(embed=embed, view=self)
+        except discord.HTTPException:
+            pass
+        except discord.NotFound:
+            pass
+
+    async def on_timeout(self):
+        for child in self.children:
+            child.disabled = True
+        if self.message:
+            try:
+                await self.message.edit(view=self)
+            except discord.HTTPException:
+                pass
+
+
+class _WordleGuessButton(discord.ui.Button):
+    def __init__(self, view):
+        super().__init__(label="✏️ Guess", style=discord.ButtonStyle.success)
+        self.host_view = view
+
+    async def callback(self, interaction: discord.Interaction):
+        if interaction.user.id != self.host_view.player.id:
+            await interaction.response.send_message("This isn't your game!", ephemeral=True)
+            return
+        if self.host_view.done:
+            return
+        await interaction.response.send_modal(_WordleGuessModal(self.host_view))
+
+
+class _WordleRevealButton(discord.ui.Button):
+    def __init__(self, view):
+        super().__init__(label="💡 Reveal", style=discord.ButtonStyle.secondary)
+        self.host_view = view
+
+    async def callback(self, interaction: discord.Interaction):
+        await self.host_view._reveal(interaction)
+
+
 class GamesCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -870,6 +1148,15 @@ class GamesCog(commands.Cog):
     async def blackjack(self, interaction: discord.Interaction, hidden: bool = False):
         view = BlackjackView(interaction.user)
         await interaction.response.send_message(embed=view._state_embed(), ephemeral=hidden, view=view)
+
+    @discord.app_commands.allowed_installs(guilds=True, users=True)
+    @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
+    @discord.app_commands.command(name="wordle", description="Play a game of wordle against VoidWave.")
+    @app_commands.describe(hidden="Hide the command from others")
+    async def wordle(self, interaction: discord.Interaction, hidden: bool = False):
+        await interaction.response.defer(ephemeral=hidden)
+        view = WordleView(interaction.user)
+        view.message = await interaction.followup.send(embed=view._state_embed(), view=view)
 
 
 async def setup(bot):

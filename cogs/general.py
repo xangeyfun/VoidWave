@@ -79,7 +79,8 @@ class GeneralCog(commands.Cog):
                     "`/connectfour` - Play connect four against the bot\n"
                     "`/hangman` - Play hangman against the bot\n"
                     "`/blackjack` - Play blackjack against the bot\n"
-                    "`/trivia` - Test your knowledge with a trivia question"
+                    "`/trivia` - Test your knowledge with a trivia question\n"
+                    "`/wordle` - Guess the 5-letter word in 6 tries"
                 ),
                 inline=False
             )
@@ -136,7 +137,7 @@ class GeneralCog(commands.Cog):
             )
             embed.add_field(
                 name="🎮 Games",
-                value="`/8ball`, `/rps`, `/tictactoe`, `/connectfour`, `/hangman`, `/blackjack`, `/trivia`",
+                value="`/8ball`, `/rps`, `/tictactoe`, `/connectfour`, `/hangman`, `/blackjack`, `/trivia`, `/wordle`",
                 inline=True
             )
             embed.add_field(
