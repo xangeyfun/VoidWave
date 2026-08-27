@@ -32,6 +32,7 @@ bot.tree.interaction_check = _command_gate
 async def setup_hook():
     await bot.load_extension("cogs.general")
     await bot.load_extension("cogs.fun")
+    await bot.load_extension("cogs.games")
     await bot.load_extension("cogs.leveling")
     await bot.load_extension("cogs.ai")
     await bot.load_extension("cogs.config")

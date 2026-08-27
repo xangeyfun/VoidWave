@@ -19,6 +19,7 @@ class GeneralCog(commands.Cog):
         app_commands.Choice(name="Leveling", value="leveling"),
         app_commands.Choice(name="Utilities", value="utilities"),
         app_commands.Choice(name="Fun", value="fun"),
+        app_commands.Choice(name="Games", value="games"),
         app_commands.Choice(name="Moderation", value="moderation"),
         app_commands.Choice(name="Configuration", value="configuration"),
     ])
@@ -62,6 +63,19 @@ class GeneralCog(commands.Cog):
                     "`/quote <choice>` - Get a quote (Today or Random)\n"
                     "`/fact <choice>` - Get a daily fact (Today or Random)\n"
                     "`/animal <animal> [hidden]` - Get a random animal picture"
+                ),
+                inline=False
+            )
+            embed.set_footer(text="Vote for 2x XP! /vote")
+        elif topic == "games":
+            embed = discord.Embed(title="🎮 Games", color=discord.Color(0x7128fc))
+            embed.add_field(
+                name="Commands",
+                value=(
+                    "`/8ball <question>` - Ask the magic 8-ball a question\n"
+                    "`/rps` - Play rock, paper, scissors against the bot\n"
+                    "`/tictactoe` - Play tic-tac-toe against the bot\n"
+                    "`/trivia` - Test your knowledge with a trivia question"
                 ),
                 inline=False
             )
@@ -114,6 +128,11 @@ class GeneralCog(commands.Cog):
             embed.add_field(
                 name="🎉 Fun",
                 value="`/flip`, `/random`, `/quote`, `/fact`, `/animal`",
+                inline=True
+            )
+            embed.add_field(
+                name="🎮 Games",
+                value="`/8ball`, `/rps`, `/tictactoe`, `/trivia`",
                 inline=True
             )
             embed.add_field(
