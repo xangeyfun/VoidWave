@@ -39,7 +39,7 @@ EIGHT_BALL_RESPONSES = [
     "🎱 Very doubtful.",
     "🎱 Without a doubt.",
     "🎱 Yes.",
-    "🎱 Yes - definitely.",
+    "🎱 Yes, definitely.",
     "🎱 You may rely on it.",
 ]
 
@@ -157,10 +157,10 @@ class TicTacToeView(discord.ui.View):
                 self.board[i] = TICTACTOE_EMPTY
             return None
 
-        win = find_move("O", "X")
+        win = find_move("⭕", "❌")
         if win is not None:
             return win
-        block = find_move("X", "O")
+        block = find_move("❌", "⭕")
         if block is not None:
             return block
         if 4 in empty:
@@ -213,7 +213,7 @@ class TicTacToeView(discord.ui.View):
 
         self.board[index] = "❌"
         self.move_count += 1
-        self.winner = self._check_winner()
+        self.winner = "player" if self._check_winner() else None
 
         found_winner = self.winner is not None
 
@@ -221,7 +221,7 @@ class TicTacToeView(discord.ui.View):
             bot_index = self._bot_move()
             self.board[bot_index] = "⭕"
             self.move_count += 1
-            self.winner = self._check_winner()
+            self.winner = "bot" if self._check_winner() else None
             found_winner = self.winner is not None
 
         game_over = found_winner or self.move_count == 9
@@ -307,6 +307,367 @@ class _TriviaButton(discord.ui.Button):
         await self.host_view.reveal(interaction, self.label)
 
 
+CONNECT_FOUR_ROWS = 6
+CONNECT_FOUR_COLS = 7
+CONNECT_FOUR_EMPTY = "⚪"
+CONNECT_FOUR_PLAYER = "🔴"
+CONNECT_FOUR_BOT = "🟣"
+
+
+class ConnectFourView(discord.ui.View):
+    def __init__(self, player: discord.User):
+        super().__init__(timeout=120)
+        self.player = player
+        self.board = [[CONNECT_FOUR_EMPTY] * CONNECT_FOUR_COLS for _ in range(CONNECT_FOUR_ROWS)]
+        self.winner = None
+        self.move_count = 0
+
+    def _board_embed(self, over=False):
+        if self.winner == "player":
+            title = "🔴 You win! 🎉"
+            color = discord.Color(0x2ecc71)
+        elif self.winner == "bot":
+            title = "🟣 VoidWave wins! 😅"
+            color = discord.Color(0xe74c3c)
+        elif over:
+            title = "🤝 It's a draw!"
+            color = discord.Color(0xf1c40f)
+        else:
+            title = "Connect Four"
+            color = discord.Color(VOIDWAVE_COLOR)
+
+        grid = "\n".join(" ".join(row) for row in self.board)
+        column_numbers = " ".join(f"{c + 1:>2}" for c in range(CONNECT_FOUR_COLS))
+        description = (
+            f"> {self.player.mention} is **{CONNECT_FOUR_PLAYER}** and VoidWave is **{CONNECT_FOUR_BOT}**.\n"
+            f"> Press a column button below to drop your piece!\n\n"
+            f"```\n{grid}\n{column_numbers}\n```"
+        )
+        embed = discord.Embed(title=title, description=description, color=color)
+        embed.set_footer(text="Vote for 2x XP! /vote")
+        return embed
+
+    def _drop(self, col, piece):
+        for row in range(CONNECT_FOUR_ROWS - 1, -1, -1):
+            if self.board[row][col] == CONNECT_FOUR_EMPTY:
+                self.board[row][col] = piece
+                return row
+        return None
+
+    def _check_winner_at(self, row, col):
+        piece = self.board[row][col]
+        for dr, dc in ((0, 1), (1, 0), (1, 1), (1, -1)):
+            count = 1
+            for step in (1, -1):
+                r, c = row + dr * step, col + dc * step
+                while 0 <= r < CONNECT_FOUR_ROWS and 0 <= c < CONNECT_FOUR_COLS and self.board[r][c] == piece:
+                    count += 1
+                    r += dr * step
+                    c += dc * step
+            if count >= 4:
+                return True
+        return False
+
+    def _find_winning_col(self, me):
+        for col in range(CONNECT_FOUR_COLS):
+            if self.board[0][col] != CONNECT_FOUR_EMPTY:
+                continue
+            row = self._drop(col, me)
+            won = self._check_winner_at(row, col)
+            self.board[row][col] = CONNECT_FOUR_EMPTY
+            if won:
+                return col
+        return None
+
+    def _bot_move(self):
+        win = self._find_winning_col(CONNECT_FOUR_BOT)
+        if win is not None:
+            return win
+        block = self._find_winning_col(CONNECT_FOUR_PLAYER)
+        if block is not None:
+            return block
+        preferred = [3, 2, 4, 1, 5, 0, 6]
+        for col in preferred:
+            if self.board[0][col] == CONNECT_FOUR_EMPTY:
+                return col
+        return None
+
+    async def _player_turn(self, interaction: discord.Interaction, col: int):
+        if interaction.user.id != self.player.id:
+            await interaction.response.send_message("This isn't your game!", ephemeral=True)
+            return
+        if self.winner is not None:
+            return
+        if self.board[0][col] != CONNECT_FOUR_EMPTY:
+            await interaction.response.send_message("That column is full!", ephemeral=True)
+            return
+
+        row = self._drop(col, CONNECT_FOUR_PLAYER)
+        self.move_count += 1
+        if self._check_winner_at(row, col):
+            self.winner = "player"
+
+        if self.winner is None and self.move_count < CONNECT_FOUR_ROWS * CONNECT_FOUR_COLS:
+            bot_col = self._bot_move()
+            bot_row = self._drop(bot_col, CONNECT_FOUR_BOT)
+            self.move_count += 1
+            if self._check_winner_at(bot_row, bot_col):
+                self.winner = "bot"
+
+        game_over = self.winner is not None or self.move_count >= CONNECT_FOUR_ROWS * CONNECT_FOUR_COLS
+        embed = self._board_embed(over=game_over)
+
+        if game_over:
+            for child in self.children:
+                child.disabled = True
+        await interaction.response.edit_message(embed=embed, view=self)
+
+    async def on_timeout(self):
+        for child in self.children:
+            child.disabled = True
+
+
+class ConnectFourButton(discord.ui.Button):
+    def __init__(self, col, view, row):
+        super().__init__(label=f"{col + 1}", style=discord.ButtonStyle.secondary, row=row)
+        self.col = col
+        self.game_view = view
+
+    async def callback(self, interaction: discord.Interaction):
+        await self.game_view._player_turn(interaction, self.col)
+
+
+HANGMAN_WORDS = (
+    "python", "javascript", "server", "discord", "level", "starlight",
+    "android", "keyboard", "monitor", "galaxy", "crystal", "thunder",
+    "mountain", "ocean", "garden", "library", "captain", "pixel",
+    "rocket", "comet", "nebula", "shadow", "firefly", "guitar",
+    "breeze", "canyon", "sunrise", "horizon", "island", "kingdom",
+    "lantern", "mystic", "nomad", "orbit", "phoenix", "quantum",
+    "raptor", "sapphire", "tournament", "umbrella", "voyage", "walrus",
+    "zeppelin", "adventure", "biscuit", "cascade", "dragonfly", "emerald",
+)
+
+HANGMAN_MAX_WRONG = 6
+
+
+class HangmanView(discord.ui.View):
+    def __init__(self, player: discord.User):
+        super().__init__(timeout=120)
+        self.player = player
+        self.word = random.choice(HANGMAN_WORDS).upper()
+        self.guessed = set()
+        self.wrong = 0
+        self.done = False
+        self.add_item(_HangmanSelect("A-M", "ABCDEFGHIJKLM", self))
+        self.add_item(_HangmanSelect("N-Z", "NOPQRSTUVWXYZ", self))
+
+    def _state_embed(self):
+        masked = " ".join((ch if ch in self.guessed else "▬") for ch in self.word)
+        if self.wrong >= HANGMAN_MAX_WRONG:
+            title = "💀 You lost!"
+            color = discord.Color(0xe74c3c)
+            description = f"> The word was **{self.word}**."
+        elif all(ch in self.guessed for ch in self.word):
+            title = "🎉 You won!"
+            color = discord.Color(0x2ecc71)
+            description = f"> Word guessed: **{self.word}**"
+        else:
+            title = "✏️ Hangman"
+            color = discord.Color(VOIDWAVE_COLOR)
+            description = f"> Guess the word! Select a letter below."
+
+        wrong_letters = " ".join(sorted(l for l in self.guessed if l not in self.word))
+        embed = discord.Embed(
+            title=title,
+            description=(
+                f"{description}\n\n"
+                f"**{masked}**\n"
+                f"**Wrong:** {wrong_letters or 'none'}\n"
+                f"**Lives:** {'❤️' * (HANGMAN_MAX_WRONG - self.wrong)}{'🖤' * self.wrong}"
+            ),
+            color=color,
+        )
+        embed.set_footer(text="Vote for 2x XP! /vote")
+        return embed
+
+    def _refresh_options(self):
+        for child in self.children:
+            if isinstance(child, _HangmanSelect):
+                child.rebuild(self.guessed)
+
+    def _refresh_embed_and_view(self):
+        embed = self._state_embed()
+        for child in self.children:
+            if isinstance(child, _HangmanSelect):
+                child.disabled = self.done or not child.remaining()
+        self._refresh_options()
+        return embed
+
+    async def _guess(self, interaction: discord.Interaction, letter: str):
+        if interaction.user.id != self.player.id:
+            await interaction.response.send_message("This isn't your game!", ephemeral=True)
+            return
+        if self.done or letter in self.guessed:
+            return
+
+        self.guessed.add(letter)
+        if letter not in self.word:
+            self.wrong += 1
+
+        if self.wrong >= HANGMAN_MAX_WRONG or all(ch in self.guessed for ch in self.word):
+            self.done = True
+
+        embed = self._refresh_embed_and_view()
+        await interaction.response.edit_message(embed=embed, view=self)
+
+    async def on_timeout(self):
+        for child in self.children:
+            if isinstance(child, _HangmanSelect):
+                child.disabled = True
+
+
+class _HangmanSelect(discord.ui.Select):
+    def __init__(self, placeholder, letters, view, row=0):
+        self.letters = list(letters)
+        self.game_view = view
+        options = [discord.SelectOption(label=l, value=l) for l in self.letters]
+        super().__init__(
+            placeholder=placeholder,
+            options=options,
+            min_values=1,
+            max_values=1,
+            disabled=False,
+        )
+        self._reset()
+
+    def remaining(self):
+        return [l for l in self.letters if l not in self.game_view.guessed]
+
+    def rebuild(self, guessed):
+        remaining = [l for l in self.letters if l not in guessed]
+        if not remaining:
+            self.placeholder = "Done"
+        else:
+            self.placeholder = remaining[0] + "-" + remaining[-1]
+        self.options = [discord.SelectOption(label=l, value=l) for l in remaining]
+        if self.values:
+            self._reset()
+
+    def _reset(self):
+        self._values = []
+
+    async def callback(self, interaction: discord.Interaction):
+        if not self.values:
+            return
+        await self.game_view._guess(interaction, self.values[0])
+
+
+CARD_SUITS = ("♠", "♥", "♦", "♣")
+CARD_RANKS = ("A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K")
+
+
+def _build_deck():
+    return [f"{rank}{suit}" for suit in CARD_SUITS for rank in CARD_RANKS]
+
+
+def _card_value(card):
+    rank = card[:-1]
+    if rank in ("J", "Q", "K"):
+        return 10
+    if rank == "A":
+        return 11
+    return int(rank)
+
+
+def _hand_value(hand):
+    total = sum(_card_value(c) for c in hand)
+    aces = sum(1 for c in hand if c[:-1] == "A")
+    while total > 21 and aces:
+        total -= 10
+        aces -= 1
+    return total
+
+
+class BlackjackView(discord.ui.View):
+    def __init__(self, player: discord.User):
+        super().__init__(timeout=120)
+        self.player = player
+        self.deck = _build_deck()
+        random.shuffle(self.deck)
+        self.player_hand = [self.deck.pop(), self.deck.pop()]
+        self.bot_hand = [self.deck.pop(), self.deck.pop()]
+        self.over = False
+
+    def _state_embed(self):
+        player_value = _hand_value(self.player_hand)
+
+        description = (
+            f"> **Your hand:** {' '.join(self.player_hand)}\n"
+            f"> **Your total:** {player_value}\n"
+        )
+
+        if self.over:
+            bot_value = _hand_value(self.bot_hand)
+            description += f"> **VoidWave's hand:** {' '.join(self.bot_hand)} ({bot_value})"
+
+            if player_value > 21:
+                embed = discord.Embed(title="💥 You busted! VoidWave wins. 😅", description=description, color=discord.Color(0xe74c3c))
+            elif bot_value > 21:
+                embed = discord.Embed(title="🎉 VoidWave busted, you win!", description=description, color=discord.Color(0x2ecc71))
+            elif player_value > bot_value:
+                embed = discord.Embed(title="🎉 You win!", description=description, color=discord.Color(0x2ecc71))
+            elif player_value < bot_value:
+                embed = discord.Embed(title="😅 VoidWave wins!", description=description, color=discord.Color(0xe74c3c))
+            else:
+                embed = discord.Embed(title="🤝 It's a push!", description=description, color=discord.Color(0xf1c40f))
+        else:
+            description += f"> **VoidWave's hand:** {self.bot_hand[0]} 🂠 (?)"
+            title_color = discord.Color(VOIDWAVE_COLOR)
+            embed = discord.Embed(title="🃏 Blackjack", description=description, color=title_color)
+
+        embed.set_footer(text="Vote for 2x XP! /vote")
+        return embed
+
+    async def _hit(self, interaction: discord.Interaction):
+        if interaction.user.id != self.player.id:
+            await interaction.response.send_message("This isn't your game!", ephemeral=True)
+            return
+        if self.over:
+            return
+        self.player_hand.append(self.deck.pop())
+        if _hand_value(self.player_hand) > 21:
+            self.over = True
+            for child in self.children:
+                child.disabled = True
+        await interaction.response.edit_message(embed=self._state_embed(), view=self)
+
+    async def _stand(self, interaction: discord.Interaction):
+        if interaction.user.id != self.player.id:
+            await interaction.response.send_message("This isn't your game!", ephemeral=True)
+            return
+        if self.over:
+            return
+        self.over = True
+        while _hand_value(self.bot_hand) < 17:
+            self.bot_hand.append(self.deck.pop())
+        for child in self.children:
+            child.disabled = True
+        await interaction.response.edit_message(embed=self._state_embed(), view=self)
+
+    async def on_timeout(self):
+        for child in self.children:
+            child.disabled = True
+
+    @discord.ui.button(label="Hit", style=discord.ButtonStyle.success)
+    async def hit(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self._hit(interaction)
+
+    @discord.ui.button(label="Stand", style=discord.ButtonStyle.danger)
+    async def stand(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self._stand(interaction)
+
+
 class GamesCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -388,6 +749,33 @@ class GamesCog(commands.Cog):
 
         view = TriviaView(interaction, question, options, correct)
         await interaction.followup.send(embed=embed, view=view)
+
+    @discord.app_commands.allowed_installs(guilds=True, users=True)
+    @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
+    @discord.app_commands.command(name="connectfour", description="Play connect four against VoidWave.")
+    @app_commands.describe(hidden="Hide the command from others")
+    async def connectfour(self, interaction: discord.Interaction, hidden: bool = False):
+        view = ConnectFourView(interaction.user)
+        for col in range(CONNECT_FOUR_COLS):
+            row = 0 if col < 4 else 1
+            view.add_item(ConnectFourButton(col, view, row))
+        await interaction.response.send_message(embed=view._board_embed(), ephemeral=hidden, view=view)
+
+    @discord.app_commands.allowed_installs(guilds=True, users=True)
+    @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
+    @discord.app_commands.command(name="hangman", description="Play hangman against VoidWave.")
+    @app_commands.describe(hidden="Hide the command from others")
+    async def hangman(self, interaction: discord.Interaction, hidden: bool = False):
+        view = HangmanView(interaction.user)
+        await interaction.response.send_message(embed=view._state_embed(), ephemeral=hidden, view=view)
+
+    @discord.app_commands.allowed_installs(guilds=True, users=True)
+    @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
+    @discord.app_commands.command(name="blackjack", description="Play blackjack against VoidWave.")
+    @app_commands.describe(hidden="Hide the command from others")
+    async def blackjack(self, interaction: discord.Interaction, hidden: bool = False):
+        view = BlackjackView(interaction.user)
+        await interaction.response.send_message(embed=view._state_embed(), ephemeral=hidden, view=view)
 
 
 async def setup(bot):
