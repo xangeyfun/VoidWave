@@ -185,6 +185,76 @@
     </div>
 </div>
 
+<!-- Ratings -->
+<div class="admin-card" style="margin-bottom:1.25rem;">
+    <div class="card-head">
+        <h2>&#11088; Ratings</h2>
+        <a href="{{ url_for('admin.stats') }}" class="btn btn-secondary btn-sm">Full Statistics</a>
+    </div>
+    <div class="admin-grid cols-2" style="margin-bottom:0.75rem;">
+        <div class="stat-card">
+            <div class="stat-icon">&#128172;</div>
+            <div class="stat-value">{{ "{:,}".format(ratings.total) }}</div>
+            <div class="stat-label">Total Ratings</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon">&#11088;</div>
+            <div class="stat-value">{{ ratings.avg }} / 5</div>
+            <div class="stat-label">Average Rating</div>
+        </div>
+    </div>
+    <div class="admin-grid cols-2">
+        <div>
+            <h3 style="font-size:0.9rem; margin-bottom:0.5rem;">Distribution</h3>
+            <div class="admin-table-wrap">
+                <table class="admin-table compact">
+                    <thead><tr><th>Stars</th><th class="num">Submissions</th><th>Share</th></tr></thead>
+                    <tbody>
+                        {% for star in range(1, 6) %}
+                        <tr>
+                            <td>{{ '⭐' * star }}</td>
+                            <td class="num">{{ "{:,}".format(ratings.distribution[star]) }}</td>
+                            <td style="min-width:140px;">
+                                {% set pct = (ratings.distribution[star] / ratings.total * 100)|round(1) if ratings.total else 0 %}
+                                <div class="progress-track"><div class="progress-fill" style="width: {{ pct }}%;"></div></div>
+                                <span class="muted" style="font-size:0.7rem;">{{ pct }}%</span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div>
+            <h3 style="font-size:0.9rem; margin-bottom:0.5rem;">Recent Ratings</h3>
+            <div class="admin-table-wrap">
+                <table class="admin-table compact">
+                    <thead><tr><th>User</th><th>Stars</th><th>Feedback</th><th>Guild</th><th>Date</th><th></th></tr></thead>
+                    <tbody>
+                        {% for r in ratings.recent %}
+                        <tr>
+                            <td><a href="{{ url_for('admin.user_profile', user_id=r.user_id) }}" class="mono">{{ r.user_id }}</a></td>
+                            <td>{{ '⭐' * r.rating }}</td>
+                            <td class="muted" title="{{ r.feedback or '' }}">{{ (r.feedback or 'No written feedback') | truncate(60) }}</td>
+                            <td>{{ r.guild_name or 'DMs' }}</td>
+                            <td>{{ r.created_at | dt }}</td>
+                            <td>
+                                <form method="post" action="{{ url_for('admin.rating_delete', rating_id=r.id) }}" onsubmit="return confirm('Delete this rating?');">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="btn btn-danger btn-sm" title="Delete rating">&#128465;</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="6"><div class="empty-state" style="padding:1rem;">No ratings yet.</div></td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Stale Data Warnings -->
 {% if stale_users %}
 <div class="admin-card" style="border-color:rgba(245,158,11,0.3);">
