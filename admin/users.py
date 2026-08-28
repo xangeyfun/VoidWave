@@ -246,9 +246,17 @@ def user_edit(guild_id, user_id):
 
             if any(data[f] < 0 for f in ("level", "progress", "out_of", "total_xp",
                                          "total_messages", "total_messages_xp",
-                                         "vc_minutes", "vc_xp_minutes")):
+                                         "vc_minutes", "vc_xp_minutes", "command_uses")):
                 _log("USER EDIT FAIL", f"negative value guild={guild_id} user={user_id}")
                 return render_page(error="Values cannot be negative.")
+
+            if data["rated"] not in (0, 1):
+                _log("USER EDIT FAIL", f"bad rated value guild={guild_id} user={user_id}")
+                return render_page(error="Rated must be 0 or 1.")
+
+            if data["prompt_sent"] not in (0, 1):
+                _log("USER EDIT FAIL", f"bad prompt_sent value guild={guild_id} user={user_id}")
+                return render_page(error="Prompt Sent must be 0 or 1.")
 
             auto_fix = request.form.get("auto_fix") == "on"
 
