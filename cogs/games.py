@@ -10,6 +10,7 @@ import utils
 VOIDWAVE_COLOR = 0x7128fc
 
 _trivia_token = None
+_trivia_headers = {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) VoidWave/1.0"}
 
 TEAM_EMOJI = {
     "rock": "🪨",
@@ -270,7 +271,10 @@ class TriviaView(discord.ui.View):
         if _trivia_token:
             return
         try:
-            async with utils.http_session.get("https://opentdb.com/api_token.php?command=request") as r:
+            async with utils.http_session.get(
+                "https://opentdb.com/api_token.php?command=request",
+                headers=_trivia_headers,
+            ) as r:
                 data = await r.json()
             if (data or {}).get("response_code") == 0:
                 _trivia_token = data.get("token")
@@ -280,43 +284,43 @@ class TriviaView(discord.ui.View):
     @staticmethod
     async def fetch_question():
         global _trivia_token
-        await TriviaView._ensure_token()
 
-        for attempt in range(6):
+        for attempt in range(10):
+            if _trivia_token is None and attempt < 6:
+                await TriviaView._ensure_token()
+
             url = "https://opentdb.com/api.php?amount=1&type=multiple"
             if _trivia_token:
                 url += f"&token={_trivia_token}"
             try:
-                async with utils.http_session.get(url) as r:
+                async with utils.http_session.get(url, headers=_trivia_headers) as r:
                     data = await r.json()
             except Exception:
-                return None
+                data = None
 
             code = (data or {}).get("response_code")
-            if code == 0:
-                result = (data.get("results") or [None])[0]
-                if not result:
-                    return None
+            if code == 0 and data.get("results"):
+                result = data["results"][0]
+                if result:
 
-                def clean(text):
-                    return html_module.unescape(str(text))
+                    def clean(text):
+                        return html_module.unescape(str(text))
 
-                question = clean(result["question"])
-                correct = clean(result["correct_answer"])
-                incorrect = [clean(a) for a in result["incorrect_answers"]]
+                    question = clean(result["question"])
+                    correct = clean(result["correct_answer"])
+                    incorrect = [clean(a) for a in result["incorrect_answers"]]
 
-                options = [correct] + incorrect
-                random.shuffle(options)
+                    options = [correct] + incorrect
+                    random.shuffle(options)
 
-                return question, options, correct
-            elif code == 1:
+                    return question, options, correct
+
+            if code in (1, 3, 4):
                 _trivia_token = None
-                return None
-            elif code == 5:
-                await asyncio.sleep(min(5, 2 ** attempt))
-                continue
-            else:
-                return None
+            elif attempt >= 6 and _trivia_token is not None:
+                _trivia_token = None
+
+            await asyncio.sleep(min(5, 2 ** attempt) if code == 5 else 1)
 
         return None
 
