@@ -181,7 +181,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Floating particles
     const canvas = document.getElementById('particles-canvas');
-    if (canvas && !document.body.classList.contains('stats-page-mode')) {
+    if (canvas) {
         const ctx = canvas.getContext('2d');
         let particles = [];
         let w, h;
@@ -357,6 +357,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         return;
                     }
                 }
+
+                const params = getParams();
+                params.find = query;
+                params.page = '1';
+                window.location.href = buildUrl(params);
             }
 
             findMeBtn.addEventListener('click', doFindMe);
