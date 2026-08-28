@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+
+{% block title %}Status{% endblock %}
+
+{% block meta_description %}Live status of the VoidWave bot and website services.{% endblock %}
+
+{% block og_tags %}
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="VoidWave">
+<meta property="og:url" content="https://voidwave.xangey.dev/status">
+<meta property="og:title" content="VoidWave Status">
+<meta property="og:description" content="Live status of the VoidWave bot and website services.">
+<meta property="og:image" content="https://voidwave.xangey.dev/static/images/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+{% endblock %}
+
+{% block content %}
+<div class="bs-page">
+    <header class="bs-hero">
+        <h1 class="bs-title">Bot <span>Status</span></h1>
+        <p class="bs-sub">Live status of the VoidWave services.</p>
+        <p class="bs-meta">Last stats snapshot: <strong id="statusUpdated">{{ last_stats_ts or 'n/a' }}</strong></p>
+    </header>
+
+    <section class="bs-kpis status-kpis">
+        <div class="bs-kpi" style="--kpi:#8438fc">
+            <div class="bs-kpi-top">
+                <span class="bs-kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="7" rx="2"/><rect x="2" y="14" width="20" height="7" rx="2"/><line x1="6" y1="6.5" x2="6.01" y2="6.5"/><line x1="6" y1="17.5" x2="6.01" y2="17.5"/></svg></span>
+            </div>
+            <div class="bs-kpi-value">{{ "{:,}".format(bot_stats.get('total_guilds') or 0) }}</div>
+            <div class="bs-kpi-label">Servers</div>
+        </div>
+
+        <div class="bs-kpi" style="--kpi:#a78bfa">
+            <div class="bs-kpi-top">
+                <span class="bs-kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
+            </div>
+            <div class="bs-kpi-value">{{ "{:,}".format(bot_stats.get('total_members') or 0) }}</div>
+            <div class="bs-kpi-label">Members</div>
+        </div>
+
+        <div class="bs-kpi" style="--kpi:#60a5fa">
+            <div class="bs-kpi-top">
+                <span class="bs-kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
+            </div>
+            <div class="bs-kpi-value">{{ "{:,}".format(latest.get('total_users') or 0) }}</div>
+            <div class="bs-kpi-label">Tracked Users</div>
+        </div>
+
+        <div class="bs-kpi" style="--kpi:#22c55e">
+            <div class="bs-kpi-top">
+                <span class="bs-kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>
+            </div>
+            <div class="bs-kpi-value">{{ "{:,}".format(latest.get('total_messages') or 0) }}</div>
+            <div class="bs-kpi-label">Messages</div>
+        </div>
+    </section>
+
+    <div class="bs-card bs-card-lg">
+        <div class="bs-card-head">
+            <div>
+                <h2>Services</h2>
+                <p class="bs-card-sub">Systemd services behind VoidWave.</p>
+            </div>
+        </div>
+        <div class="svc-row">
+            <span class="svc-dot {% if bot_active is none %}is-unknown{% elif bot_active %}is-online{% else %}is-down{% endif %}"></span>
+            <span class="svc-name">Discord bot</span>
+            <span class="svc-uptime">{{ bot_uptime or 'n/a' }}</span>
+            <span class="svc-state {% if bot_active is none %}is-unknown{% elif bot_active %}is-online{% else %}is-down{% endif %}">{% if bot_active is none %}Unknown{% elif bot_active %}Online{% else %}Offline{% endif %}</span>
+        </div>
+        <div class="svc-row">
+            <span class="svc-dot {% if web_active is none %}is-unknown{% elif web_active %}is-online{% else %}is-down{% endif %}"></span>
+            <span class="svc-name">Website</span>
+            <span class="svc-uptime">{{ web_uptime or 'n/a' }}</span>
+            <span class="svc-state {% if web_active is none %}is-unknown{% elif web_active %}is-online{% else %}is-down{% endif %}">{% if web_active is none %}Unknown{% elif web_active %}Online{% else %}Offline{% endif %}</span>
+        </div>
+        <div class="svc-row">
+            <span class="svc-dot {% if db_ok %}is-online{% else %}is-down{% endif %}"></span>
+            <span class="svc-name">Database</span>
+            <span class="svc-uptime">{{ db_detail or 'n/a' }}</span>
+            <span class="svc-state {% if db_ok %}is-online{% else %}is-down{% endif %}">{% if db_ok %}Healthy{% else %}Offline{% endif %}</span>
+        </div>
+    </div>
+</div>
+{% endblock %}
