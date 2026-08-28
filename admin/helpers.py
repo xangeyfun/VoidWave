@@ -78,6 +78,24 @@ def _ensure_admin_tables():
                 conn.execute(f"ALTER TABLE user_blocks ADD COLUMN {column}")
             except sqlite3.OperationalError:
                 pass
+
+        for column in ("command_uses INTEGER DEFAULT 0", "rated INTEGER DEFAULT 0",
+                       "prompt_sent INTEGER DEFAULT 0"):
+            try:
+                conn.execute(f"ALTER TABLE users ADD COLUMN {column}")
+            except sqlite3.OperationalError:
+                pass
+
+        conn.execute("""
+        CREATE TABLE IF NOT EXISTS user_ratings (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            rating INTEGER,
+            feedback TEXT,
+            guild_name TEXT,
+            created_at INTEGER
+        )
+        """)
         conn.commit()
     finally:
         conn.close()
