@@ -250,6 +250,8 @@ class TicTacToeView(discord.ui.View):
 
 
 class TriviaView(discord.ui.View):
+    command_name = "/trivia"
+
     def __init__(self, interaction: discord.Interaction, question, options, answer):
         super().__init__(timeout=60)
         self.interaction = interaction
