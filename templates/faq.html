@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+
+{% block title %}FAQ{% endblock %}
+
+{% block meta_description %}Frequently asked questions about VoidWave - leveling, XP, voice chat, Question of the Day, privacy, and more.{% endblock %}
+
+{% block og_tags %}
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="VoidWave">
+<meta property="og:url" content="https://voidwave.xangey.dev/faq">
+<meta property="og:title" content="VoidWave FAQ">
+<meta property="og:description" content="Answers to the most common questions about VoidWave.">
+<meta property="og:image" content="https://voidwave.xangey.dev/static/images/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+{% endblock %}
+
+{% block content %}
+<div class="bs-page">
+    <header class="bs-hero">
+        <h1 class="bs-title">Frequently Asked <span>Questions</span></h1>
+        <p class="bs-sub">Everything you need to know about VoidWave.</p>
+        <p class="bs-meta">Still stuck? <a href="https://discord.gg/tyQksBReAS" target="_blank" class="faq-support-link">Join the support server</a></p>
+    </header>
+
+    <div class="faq-list">
+        <details class="faq-item" open>
+            <summary>What is VoidWave?</summary>
+            <p>VoidWave is a free, open-source Discord bot focused on leveling and engagement. It tracks XP, messages, and voice time, rewards members with level roles, posts a Question of the Day, and includes moderation, AI chat, and fun commands. You can invite it with the <strong>Invite</strong> button in the top bar.</p>
+        </details>
+
+        <details class="faq-item">
+            <summary>How does XP and leveling work?</summary>
+            <p>Messages earn a small random amount of XP (1-15 XP, once every 30 seconds, and only for messages at least 5 characters long), and spending time in voice channels earns voice XP. XP builds toward your level, and once you fill your progress bar you level up (and can earn a level role if the server has configured them). You can check your progress with the <code>/level</code> command.</p>
+        </details>
+
+        <details class="faq-item">
+            <summary>How do level roles work?</summary>
+            <p>Server admins can configure roles that are granted automatically at specific levels (for example, a role at level 5, another at level 10). Whenever you level up, the bot adds the role for your new level. Setting these up is covered in the <a href="/setup">Setup Guide</a>.</p>
+        </details>
+
+        <details class="faq-item">
+            <summary>How does voice XP work?</summary>
+            <p>You earn a small amount of voice XP at most once every 10 minutes, as long as at least one other person is also in the voice channel with you (your <code>/vote</code> XP boost applies here too). Being in a channel alone or self-deafened does not earn XP. Your total voice time is tracked either way.</p>
+        </details>
+
+        <details class="faq-item">
+            <summary>What is Question of the Day (QOTD)?</summary>
+            <p>QOTD posts a daily prompt from a static list of questions into a configured channel, opens a thread for members to answer (auto-archived after 24 hours), and pings a role. It requires no user data - it just sends a pre-written question. Admins enable it with the <code>/config qotd</code> command, and by default it posts at 4:00 PM server time.</p>
+        </details>
+
+        <details class="faq-item">
+            <summary>Does VoidWave use AI chat?</summary>
+            <p>Yes. Use the <code>/ai</code> command, mention @VoidWave, or reply to one of its messages. The LLM chat feature runs on a self-hosted Llama 3.2 model, so prompts and replies never leave VoidWave's own server and are never shared with third-party AI services. Conversations are stateless - no history is kept between messages. See the <a href="/privacy">Privacy Policy</a> for details.</p>
+        </details>
+
+        <details class="faq-item">
+            <summary>What data does VoidWave collect?</summary>
+            <p>The bare minimum to work: your user ID, guild ID, username/display name, avatar hash, XP, level, message count, and voice time. Message content and AI prompts only appear in server logs for debugging and are never stored in the database. We never sell or share your data. Read the <a href="/privacy">Privacy Policy</a> for the full breakdown.</p>
+        </details>
+
+        <details class="faq-item">
+            <summary>How do I request data deletion?</summary>
+            <p>Message <a href="https://discord.gg/tyQksBReAS" target="_blank">our support server</a> or DM <a href="https://xangey.dev">xangey</a> and we'll remove your data. Removing the bot from a server also stops all tracking for that server.</p>
+        </details>
+
+        <details class="faq-item">
+            <summary>How do I invite VoidWave?</summary>
+            <p>Click the <strong>Invite</strong> button in the top bar and follow the Discord authorization flow, or use the invite on the bot's <a href="https://top.gg/bot/1442229230384709752" target="_blank" rel="noopener">top.gg page</a>.</p>
+        </details>
+
+        <details class="faq-item">
+            <summary>How can I support VoidWave?</summary>
+            <p>Vote for the bot on <a href="https://top.gg/bot/1442229230384709752" target="_blank" rel="noopener">top.gg</a>, <a href="https://discordlist.gg/" target="_blank" rel="noopener">discordlist.gg</a>, or <a href="https://discordbotlist.com/" target="_blank" rel="noopener">discordbotlist.com</a> (each site has its own cooldown) to earn a 2x XP boost for 2 hours, or 3 hours on weekends. Use <code>/vote-remind</code> to get a DM when you can vote again. You can also join the support server or contribute on <a href="https://github.com/xangeyfun/VoidWave" target="_blank" rel="noopener">GitHub</a> - VoidWave is open source.</p>
+        </details>
+    </div>
+</div>
+{% endblock %}
