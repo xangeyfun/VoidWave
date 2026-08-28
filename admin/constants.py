@@ -10,6 +10,7 @@ BOT_SERVICE = "voidwave.service"
 
 TABLES = {
     "users", "bot_stats", "guild_settings", "level_roles", "vote_boosts",
+    "user_ratings",
 }
 
 BLOCK_FEATURES = {
@@ -37,7 +38,7 @@ REQUIRED_USERS_COLUMNS = {
     "guild_id", "user_id", "display_name", "username", "level",
     "progress", "out_of", "last_message", "total_messages",
     "total_messages_xp", "total_xp", "vc_minutes", "vc_xp_minutes",
-    "avatar_hash",
+    "avatar_hash", "command_uses", "rated", "prompt_sent",
 }
 
 USER_FIELDS = {
@@ -53,6 +54,9 @@ USER_FIELDS = {
     "vc_minutes": "int",
     "vc_xp_minutes": "int",
     "last_message": "text",
+    "command_uses": "int",
+    "rated": "int",
+    "prompt_sent": "int",
 }
 
 GUILD_SETTING_FIELDS = {
