@@ -37,6 +37,7 @@ async def setup_hook():
     await bot.load_extension("cogs.ai")
     await bot.load_extension("cogs.config")
     await bot.load_extension("cogs.events")
+    await bot.load_extension("cogs.rating")
     await bot.load_extension("cogs.moderation")
 
 bot.setup_hook = setup_hook
@@ -85,6 +86,33 @@ if __name__ == "__main__":
         vc_xp_minutes INTEGER,
         avatar_hash TEXT,
         PRIMARY KEY (guild_id, user_id)
+    )
+    """)
+    conn.commit()
+
+    try:
+        cur.execute("ALTER TABLE users ADD COLUMN command_uses INTEGER DEFAULT 0")
+    except sqlite3.OperationalError:
+        pass
+
+    try:
+        cur.execute("ALTER TABLE users ADD COLUMN rated INTEGER DEFAULT 0")
+    except sqlite3.OperationalError:
+        pass
+
+    try:
+        cur.execute("ALTER TABLE users ADD COLUMN prompt_sent INTEGER DEFAULT 0")
+    except sqlite3.OperationalError:
+        pass
+
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS user_ratings (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER,
+        rating INTEGER,
+        feedback TEXT,
+        guild_name TEXT,
+        created_at INTEGER
     )
     """)
     conn.commit()
