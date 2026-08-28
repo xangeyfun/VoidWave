@@ -264,6 +264,17 @@ def log_stats(bot):
     cur.execute("SELECT COALESCE(AVG(level), 0) FROM users")
     avg_level = round(cur.fetchone()[0], 2)
 
+    cur.execute("SELECT COUNT(*) FROM user_ratings")
+    total_ratings = cur.fetchone()[0]
+
+    cur.execute("SELECT COALESCE(AVG(rating), 0) FROM user_ratings")
+    avg_rating = round(cur.fetchone()[0], 1)
+
+    rating_distribution = {rating: 0 for rating in range(1, 6)}
+    for r in cur.execute("SELECT rating, COUNT(*) c FROM user_ratings GROUP BY rating"):
+        if 1 <= r["rating"] <= 5:
+            rating_distribution[r["rating"]] = r["c"]
+
     conn.close()
 
     snapshot = {
@@ -277,6 +288,9 @@ def log_stats(bot):
         "total_vc_minutes": total_vc_minutes,
         "total_vc_xp_minutes": total_vc_xp_minutes,
         "avg_level": avg_level,
+        "total_ratings": total_ratings,
+        "avg_rating": avg_rating,
+        "rating_distribution": rating_distribution,
     }
 
     history = []
