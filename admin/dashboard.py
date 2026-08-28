@@ -1,11 +1,12 @@
 import time
 from pathlib import Path
 
-from flask import jsonify, render_template
+from flask import jsonify, render_template, request, flash, redirect, url_for
 
 from . import admin_bp
 from .helpers import (
     _db, _read_log_lines, _parse_log_line, _list_backups, _bot_status, _stale_users,
+    _clear_cache, _log,
 )
 from .health import _run_checks
 
@@ -53,6 +54,17 @@ def dashboard():
         }
         data["avg_level"] = round(data["avg_level"], 2)
 
+        ratings = {
+            "total": scalar("SELECT COUNT(*) FROM user_ratings"),
+            "avg": round(scalar("SELECT COALESCE(AVG(rating),0) FROM user_ratings"), 1),
+        }
+        ratings["distribution"] = {star: 0 for star in range(1, 6)}
+        for r in conn.execute("SELECT rating, COUNT(*) c FROM user_ratings GROUP BY rating"):
+            if 1 <= r["rating"] <= 5:
+                ratings["distribution"][r["rating"]] = r["c"]
+        ratings["recent"] = [dict(r) for r in conn.execute(
+            "SELECT * FROM user_ratings ORDER BY id DESC LIMIT 10").fetchall()]
+
         recent_logs = _read_log_lines()[-8:][::-1]
         recent_actions = [
             {"ts": e["ts"], "action": e["action"], "detail": e["detail"][:60]}
@@ -92,6 +104,7 @@ def dashboard():
         bot_alive=bot_alive,
         recent_actions=recent_actions,
         stale_users=stale,
+        ratings=ratings,
     )
 
 
@@ -139,3 +152,22 @@ def api_dashboard():
         })
     finally:
         conn.close()
+
+
+@admin_bp.route("/ratings/<int:rating_id>/delete", methods=["POST"])
+def rating_delete(rating_id):
+    conn = _db()
+    try:
+        cur = conn.execute("DELETE FROM user_ratings WHERE id=?", (rating_id,))
+        removed = cur.rowcount
+        conn.commit()
+        _clear_cache()
+    finally:
+        conn.close()
+
+    _log("RATING DELETE", f"rating={rating_id} rows={removed}")
+    if removed:
+        flash(f"Deleted rating #{rating_id}.", "success")
+    else:
+        flash(f"Rating #{rating_id} not found.", "error")
+    return redirect(url_for("admin.dashboard"))
