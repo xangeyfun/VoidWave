@@ -201,6 +201,77 @@
     </div>
 </div>
 
+<div class="admin-grid cols-2" style="margin-top:1rem;">
+    <div class="admin-card">
+        <h2>Ratings</h2>
+        <p class="card-sub">Total ratings and average star rating across all guilds.</p>
+        <div class="admin-grid cols-2">
+            <div class="stat-card">
+                <div class="stat-icon">&#128172;</div>
+                <div class="stat-value">{{ "{:,}".format(ratings.total) }}</div>
+                <div class="stat-label">Total Ratings</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">&#11088;</div>
+                <div class="stat-value">{{ "%.1f"|format(ratings.avg) }} / 5</div>
+                <div class="stat-label">Average Rating</div>
+            </div>
+        </div>
+        <div class="chart-wrap" style="height:220px; margin-top:0.75rem;"><canvas id="chartRatings"></canvas></div>
+    </div>
+
+    <div class="admin-card">
+        <h2>Rating Distribution</h2>
+        <p class="card-sub">How the star ratings break down.</p>
+        <div class="admin-table-wrap">
+            <table class="admin-table compact">
+                <thead><tr><th>Stars</th><th class="num">Submissions</th><th>Share</th></tr></thead>
+                <tbody>
+                    {% for star in range(1, 6) %}
+                    <tr>
+                        <td>{{ '⭐' * star }}</td>
+                        <td class="num">{{ "{:,}".format(ratings.distribution[star]) }}</td>
+                        <td style="min-width:140px;">
+                            {% set pct = (ratings.distribution[star] / ratings.total * 100)|round(1) if ratings.total else 0 %}
+                            <div class="progress-track"><div class="progress-fill" style="width: {{ pct }}%;"></div></div>
+                            <span class="muted" style="font-size:0.7rem;">{{ pct }}%</span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="admin-card" style="margin-top:1rem;">
+    <div class="card-head">
+        <h2>Recent Ratings</h2>
+        <span class="badge muted">{{ ratings.recent|length }} shown</span>
+    </div>
+    <p class="card-sub">Latest auto-ratings from the DM rating prompt.</p>
+    <div class="admin-table-wrap">
+        <table class="admin-table compact">
+            <thead>
+                <tr><th>User</th><th>Stars</th><th>Feedback</th><th>Guild</th><th>Date</th></tr>
+            </thead>
+            <tbody>
+                {% for r in ratings.recent %}
+                <tr>
+                    <td><a href="{{ url_for('admin.user_profile', user_id=r.user_id) }}" class="mono">{{ r.user_id }}</a></td>
+                    <td>{{ '⭐' * r.rating }}</td>
+                    <td class="muted" title="{{ r.feedback or '' }}">{{ (r.feedback or 'No written feedback') | truncate(120) }}</td>
+                    <td>{{ r.guild_name or 'DMs' }}</td>
+                    <td>{{ r.created_at | dt }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="5"><div class="empty-state">No ratings yet.</div></td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
 <div class="admin-card" style="margin-top:1rem;">
     <div class="card-head">
         <h2>Top Guilds</h2>
@@ -341,6 +412,11 @@
     barChart('chartXp',
         xpData.map(function(b) { return b.range; }),
         xpData.map(function(b) { return b.count; }));
+
+    var ratingDist = {{ ratings.distribution | tojson }};
+    barChart('chartRatings',
+        [1, 2, 3, 4, 5].map(function(s) { return s + ' star' + (s > 1 ? 's' : ''); }),
+        [1, 2, 3, 4, 5].map(function(s) { return ratingDist[s]; }));
 
     /* Growth chart */
     var growth = {{ growth|tojson }};
