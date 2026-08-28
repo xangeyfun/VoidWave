@@ -106,6 +106,24 @@ if __name__ == "__main__":
         pass
 
     cur.execute("""
+        UPDATE users SET
+            level = COALESCE(level, 0),
+            progress = COALESCE(progress, 0),
+            out_of = COALESCE(out_of, 100),
+            last_message = COALESCE(last_message, ''),
+            total_messages = COALESCE(total_messages, 0),
+            total_messages_xp = COALESCE(total_messages_xp, 0),
+            total_xp = COALESCE(total_xp, 0),
+            vc_minutes = COALESCE(vc_minutes, 0),
+            vc_xp_minutes = COALESCE(vc_xp_minutes, 0)
+        WHERE level IS NULL OR progress IS NULL OR out_of IS NULL
+           OR last_message IS NULL OR total_messages IS NULL
+           OR total_messages_xp IS NULL OR total_xp IS NULL
+           OR vc_minutes IS NULL OR vc_xp_minutes IS NULL
+    """)
+    conn.commit()
+
+    cur.execute("""
     CREATE TABLE IF NOT EXISTS user_ratings (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER,

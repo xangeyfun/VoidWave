@@ -33,10 +33,10 @@ def user_profile(user_id):
         max_level = 0
         for r in rows:
             guilds.append(dict(r))
-            total_xp += r["total_xp"]
-            total_messages += r["total_messages"]
-            total_vc += r["vc_minutes"]
-            max_level = max(max_level, r["level"])
+            total_xp += r["total_xp"] or 0
+            total_messages += r["total_messages"] or 0
+            total_vc += r["vc_minutes"] or 0
+            max_level = max(max_level, r["level"] or 0)
 
         now_ts = int(time.time())
         return render_template(

@@ -104,8 +104,10 @@ class EventsCog(commands.Cog):
                         cur = conn.cursor()
                         cur.execute("""
                             INSERT INTO users (guild_id, user_id, display_name, username,
-                                               level, progress, out_of, command_uses)
-                            VALUES (?, ?, ?, ?, 0, 0, 100, 1)
+                                               level, progress, out_of, command_uses,
+                                               last_message, total_messages, total_messages_xp,
+                                               total_xp, vc_minutes, vc_xp_minutes)
+                            VALUES (?, ?, ?, ?, 0, 0, 100, 1, '', 0, 0, 0, 0, 0)
                             ON CONFLICT(guild_id, user_id) DO UPDATE SET
                                 command_uses = command_uses + 1,
                                 display_name = excluded.display_name,

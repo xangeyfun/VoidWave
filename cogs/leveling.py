@@ -45,8 +45,8 @@ class LevelingCog(commands.Cog):
         finally:
             conn.close()
 
-        progress = data["progress"]
-        out_of = data["out_of"]
+        progress = data["progress"] or 0
+        out_of = data["out_of"] or 0
         percent = (progress / out_of) * 100 if out_of else 0
         global_rank = f" (`#{global_rank}` Global)"
 
@@ -73,8 +73,8 @@ class LevelingCog(commands.Cog):
         embed.add_field(
             name="💬 Message Stats",
             value=(
-                f"**Messages (XP):** `{data['total_messages_xp']:,}`\n"
-                f"**Total Messages:** `{data['total_messages']:,}`"
+                f"**Messages (XP):** `{(data['total_messages_xp'] or 0):,}`\n"
+                f"**Total Messages:** `{(data['total_messages'] or 0):,}`"
             ),
             inline=True
         )
@@ -82,8 +82,8 @@ class LevelingCog(commands.Cog):
         embed.add_field(
             name="🎤 Voice Stats",
             value=(
-                f"**Voice (XP):** `{format_minutes(data['vc_xp_minutes'])}`\n"
-                f"**Total Voice:** `{format_minutes(data['vc_minutes'])}`"
+                f"**Voice (XP):** `{format_minutes(data['vc_xp_minutes'] or 0)}`\n"
+                f"**Total Voice:** `{format_minutes(data['vc_minutes'] or 0)}`"
             ),
             inline=True
         )
@@ -164,7 +164,8 @@ class LevelingCog(commands.Cog):
         lines = []
 
         for i, row in enumerate(leaderboard_data):
-            username, level = row[0], row[1]
+            username = row[0] or "Unknown"
+            value = row[1] or 0
 
             if i == 0:
                 rank = "🥇"
@@ -175,7 +176,7 @@ class LevelingCog(commands.Cog):
             else:
                 rank = f"`#{i+1}`"
 
-            line = f"{rank} **{username}** | `{format_minutes(level) if sort == 'Total Voice' else f'{level:,}'}`"
+            line = f"{rank} **{username}** | `{format_minutes(value) if sort == 'Total Voice' else f'{value:,}'}`"
             lines.append(line)
 
         link = f"https://voidwave.xangey.dev/leaderboard?guild={interaction.guild.id}" if not global_lb else "https://voidwave.xangey.dev/leaderboard"
