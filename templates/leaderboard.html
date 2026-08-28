@@ -13,76 +13,105 @@
 <meta property="og:image:height" content="630">
 {% endblock %}
 
+{% block body_attrs %}class="lb-page-mode"{% endblock %}
+
 {% block content %}
-<section class="leaderboard-hero">
-    <span class="section-label">Rankings</span>
-    <h1>Leaderboard</h1>
-    <p>See who's on top across all servers.</p>
-</section>
+<div class="lb-page">
+    <header class="bs-hero">
+        <h1 class="bs-title">Global <span>Leaderboard</span></h1>
+        <p class="bs-sub">See who's on top across all servers.</p>
+        <p class="bs-meta">Showing <strong>{{ leaderboard|length }}</strong> of <strong>{{ total }}</strong> ranked users</p>
+    </header>
 
-<div class="lb-stats-bar">
-    <div class="lb-stat">
-        <span class="lb-stat-value">{{ total }}</span>
-        <span class="lb-stat-label">Users</span>
-    </div>
-    <div class="lb-stat">
-        <span class="lb-stat-value">{{ agg_xp }}</span>
-        <span class="lb-stat-label">Total XP</span>
-    </div>
-    <div class="lb-stat">
-        <span class="lb-stat-value">{{ agg_messages }}</span>
-        <span class="lb-stat-label">Messages</span>
-    </div>
-    <div class="lb-stat">
-        <span class="lb-stat-value">{{ agg_vc }}</span>
-        <span class="lb-stat-label">Voice Time</span>
-    </div>
-</div>
+    <section class="bs-kpis">
+        <div class="bs-kpi" style="--kpi:#60a5fa">
+            <div class="bs-kpi-top">
+                <span class="bs-kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
+            </div>
+            <div class="bs-kpi-value" id="lbKpiUsers">{{ total }}</div>
+            <div class="bs-kpi-label">Ranked Users</div>
+        </div>
 
-<section class="leaderboard-page">
-    <div class="leaderboard-controls">
+        <div class="bs-kpi" style="--kpi:#fbbf24">
+            <div class="bs-kpi-top">
+                <span class="bs-kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></span>
+            </div>
+            <div class="bs-kpi-value" id="lbKpiXp">{{ agg_xp }}</div>
+            <div class="bs-kpi-label">Total XP</div>
+        </div>
+
+        <div class="bs-kpi" style="--kpi:#22c55e">
+            <div class="bs-kpi-top">
+                <span class="bs-kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>
+            </div>
+            <div class="bs-kpi-value" id="lbKpiMessages">{{ agg_messages }}</div>
+            <div class="bs-kpi-label">Messages</div>
+        </div>
+
+        <div class="bs-kpi" style="--kpi:#f472b6">
+            <div class="bs-kpi-top">
+                <span class="bs-kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg></span>
+            </div>
+            <div class="bs-kpi-value" id="lbKpiVoice">{{ agg_vc }}</div>
+            <div class="bs-kpi-label">Voice Time</div>
+        </div>
+    </section>
+
+    <div class="lb-controls-bar">
         <div class="guild-input">
-            <input type="text" id="guildInput" placeholder="Server ID..." class="find-input" value="{{ guild_id if guild_id else '' }}">
+            <input type="text" id="guildInput" placeholder="Filter by server ID" class="find-input" value="{{ guild_id if guild_id else '' }}">
             <button class="find-btn" id="guildBtn">Go</button>
         </div>
         <div class="find-me">
-            <input type="text" id="findMeInput" placeholder="Find user..." class="find-input">
-            <button class="find-btn" id="findMeBtn">Find Me</button>
+            <input type="text" id="findMeInput" placeholder="Find a user..." class="find-input">
+            <button class="find-btn" id="findMeBtn">Locate</button>
         </div>
     </div>
 
-    <div class="leaderboard-table" id="leaderboardTable">
-        <div class="leaderboard-row header">
-            <span>Rank</span>
-            <span>User</span>
-            <span class="sortable-header {% if sort_by == 'level' %}active{% endif %}" data-sort="level" data-dir="{% if sort_by == 'level' and direction == 'desc' %}asc{% else %}desc{% endif %}">Level {% if sort_by == 'level' %}{% if direction == 'desc' %}&#x2193;{% else %}&#x2191;{% endif %}{% endif %}</span>
-            <span class="sortable-header {% if sort_by == 'total_xp' %}active{% endif %}" data-sort="total_xp" data-dir="{% if sort_by == 'total_xp' and direction == 'desc' %}asc{% else %}desc{% endif %}">XP {% if sort_by == 'total_xp' %}{% if direction == 'desc' %}&#x2193;{% else %}&#x2191;{% endif %}{% endif %}</span>
-            <span class="sortable-header {% if sort_by == 'total_messages' %}active{% endif %}" data-sort="total_messages" data-dir="{% if sort_by == 'total_messages' and direction == 'desc' %}asc{% else %}desc{% endif %}">Messages {% if sort_by == 'total_messages' %}{% if direction == 'desc' %}&#x2193;{% else %}&#x2191;{% endif %}{% endif %}</span>
-            <span class="sortable-header {% if sort_by == 'vc_minutes' %}active{% endif %}" data-sort="vc_minutes" data-dir="{% if sort_by == 'vc_minutes' and direction == 'desc' %}asc{% else %}desc{% endif %}">Voice {% if sort_by == 'vc_minutes' %}{% if direction == 'desc' %}&#x2193;{% else %}&#x2191;{% endif %}{% endif %}</span>
-        </div>
-
-        {% for entry in leaderboard %}
-        <div class="leaderboard-row {% if entry.rank == 1 %}top-1{% elif entry.rank == 2 %}top-2{% elif entry.rank == 3 %}top-3{% endif %}" data-level="{{ entry.level }}" data-xp="{{ entry.total_xp }}" data-messages="{{ entry.total_messages }}" data-voice="{{ entry.vc_minutes }}" data-username="{{ entry.username|lower }}">
-            <span class="rank {% if entry.rank == 1 %}rank-1{% elif entry.rank == 2 %}rank-2{% elif entry.rank == 3 %}rank-3{% endif %}">
-                {% if entry.rank == 1 %}&#x1F947;{% elif entry.rank == 2 %}&#x1F948;{% elif entry.rank == 3 %}&#x1F949;{% else %}#{{ entry.rank }}{% endif %}
-            </span>
-            <div class="user-cell">
-                <img class="user-avatar" src="{% if entry.avatar_hash %}https://cdn.discordapp.com/avatars/{{ entry.user_id }}/{{ entry.avatar_hash }}.png?size=128{% else %}https://cdn.discordapp.com/embed/avatars/0.png{% endif %}" onerror="this.onerror=null;this.src='https://cdn.discordapp.com/embed/avatars/0.png'" alt="{{ entry.username }}">
-                <span class="user-name"><a href="/stats/{{ entry.guild_id }}/{{ entry.user_id }}">{{ entry.username }}</a></span>
-            </div>
-            <span class="stat-cell level-cell">{{ entry.level }}</span>
-            <span class="stat-cell xp-cell">{{ "{:,}".format(entry.total_xp) }}</span>
-            <span class="stat-cell msg-cell">{{ "{:,}".format(entry.total_messages) }}</span>
-            <span class="stat-cell voice-cell">{% if entry.vc_minutes >= 1440 %}{{ "%dd %dh" | format(entry.vc_minutes // 1440, (entry.vc_minutes % 1440) // 60) }}{% elif entry.vc_minutes >= 60 %}{{ "%dh %dm" | format(entry.vc_minutes // 60, entry.vc_minutes % 60) }}{% else %}{{ entry.vc_minutes }}m{% endif %}</span>
-        </div>
+    {% if find_query %}
+    <div class="lb-locate-note {% if not find_user_id %}lb-locate-miss{% endif %}">
+        {% if find_user_id %}
+        Found <strong>{{ find_username }}</strong> at rank <strong>#{{ find_rank }}</strong> &middot; <a href="?guild={{ guild_id }}&sort={{ sort_by }}&dir={{ direction }}&page={{ page }}">clear</a>
         {% else %}
-        <div class="leaderboard-row">
-            <span style="grid-column: 1 / -1; text-align: center; color: var(--text-muted); padding: 2rem;">No users yet. Start chatting to appear here!</span>
+        No match found for &ldquo;<strong>{{ find_query }}</strong>&rdquo;
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <div class="lb-card">
+        <div class="leaderboard-table" id="leaderboardTable">
+            <div class="leaderboard-row header">
+                <span>Rank</span>
+                <span>User</span>
+                <span class="sortable-header {% if sort_by == 'level' %}active{% endif %}" data-sort="level" data-dir="{% if sort_by == 'level' and direction == 'desc' %}asc{% else %}desc{% endif %}">Level {% if sort_by == 'level' %}{% if direction == 'desc' %}&#x2193;{% else %}&#x2191;{% endif %}{% endif %}</span>
+                <span class="sortable-header {% if sort_by == 'total_xp' %}active{% endif %}" data-sort="total_xp" data-dir="{% if sort_by == 'total_xp' and direction == 'desc' %}asc{% else %}desc{% endif %}">XP {% if sort_by == 'total_xp' %}{% if direction == 'desc' %}&#x2193;{% else %}&#x2191;{% endif %}{% endif %}</span>
+                <span class="sortable-header {% if sort_by == 'total_messages' %}active{% endif %}" data-sort="total_messages" data-dir="{% if sort_by == 'total_messages' and direction == 'desc' %}asc{% else %}desc{% endif %}">Messages {% if sort_by == 'total_messages' %}{% if direction == 'desc' %}&#x2193;{% else %}&#x2191;{% endif %}{% endif %}</span>
+                <span class="sortable-header {% if sort_by == 'vc_minutes' %}active{% endif %}" data-sort="vc_minutes" data-dir="{% if sort_by == 'vc_minutes' and direction == 'desc' %}asc{% else %}desc{% endif %}">Voice {% if sort_by == 'vc_minutes' %}{% if direction == 'desc' %}&#x2193;{% else %}&#x2191;{% endif %}{% endif %}</span>
+            </div>
+
+            {% for entry in leaderboard %}
+            <div class="leaderboard-row {% if entry.rank == 1 %}top-1{% elif entry.rank == 2 %}top-2{% elif entry.rank == 3 %}top-3{% endif %}{% if find_user_id and entry.user_id == find_user_id and entry.guild_id == find_guild_id %} find-highlight lb-located{% endif %}" data-level="{{ entry.level }}" data-xp="{{ entry.total_xp }}" data-messages="{{ entry.total_messages }}" data-voice="{{ entry.vc_minutes }}" data-username="{{ entry.username|lower }}">
+                <span class="rank {% if entry.rank == 1 %}rank-1{% elif entry.rank == 2 %}rank-2{% elif entry.rank == 3 %}rank-3{% endif %}">
+                    {% if entry.rank == 1 %}&#x1F947;{% elif entry.rank == 2 %}&#x1F948;{% elif entry.rank == 3 %}&#x1F949;{% else %}#{{ entry.rank }}{% endif %}
+                </span>
+                <div class="user-cell">
+                    <img class="user-avatar" src="{% if entry.avatar_hash %}https://cdn.discordapp.com/avatars/{{ entry.user_id }}/{{ entry.avatar_hash }}.png?size=128{% else %}https://cdn.discordapp.com/embed/avatars/0.png{% endif %}" onerror="this.onerror=null;this.src='https://cdn.discordapp.com/embed/avatars/0.png'" alt="{{ entry.username }}">
+                    <span class="user-name"><a href="/stats/{{ entry.guild_id }}/{{ entry.user_id }}">{{ entry.username }}</a></span>
+                </div>
+                <span class="stat-cell level-cell">{{ entry.level }}</span>
+                <span class="stat-cell xp-cell">{{ "{:,}".format(entry.total_xp) }}</span>
+                <span class="stat-cell msg-cell">{{ "{:,}".format(entry.total_messages) }}</span>
+                <span class="stat-cell voice-cell">{% if entry.vc_minutes >= 1440 %}{{ "%dd %dh" | format(entry.vc_minutes // 1440, (entry.vc_minutes % 1440) // 60) }}{% elif entry.vc_minutes >= 60 %}{{ "%dh %dm" | format(entry.vc_minutes // 60, entry.vc_minutes % 60) }}{% else %}{{ entry.vc_minutes }}m{% endif %}</span>
+            </div>
+            {% else %}
+            <div class="leaderboard-row">
+                <span style="grid-column: 1 / -1; text-align: center; color: var(--text-muted); padding: 2rem;">No users yet. Start chatting to appear here!</span>
+            </div>
+            {% endfor %}
         </div>
-        {% endfor %}
     </div>
 
-    <div class="leaderboard-footer">
+    <div class="lb-foot">
         <span class="leaderboard-info">Showing {{ leaderboard|length }} of {{ total }} users</span>
 
         {% if total_pages > 1 %}
@@ -114,5 +143,14 @@
         </div>
         {% endif %}
     </div>
-</section>
+</div>
+
+{% if find_user_id %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var row = document.querySelector('.lb-located');
+    if (row) row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+});
+</script>
+{% endif %}
 {% endblock %}
