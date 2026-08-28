@@ -146,6 +146,17 @@ def stats():
         guild_settings_count = scalar("SELECT COUNT(*) FROM guild_settings")
         level_roles_count = scalar("SELECT COUNT(*) FROM level_roles")
 
+        ratings = {
+            "total": scalar("SELECT COUNT(*) FROM user_ratings"),
+            "avg": round(scalar("SELECT COALESCE(AVG(rating),0) FROM user_ratings"), 1),
+        }
+        ratings["distribution"] = {star: 0 for star in range(1, 6)}
+        for r in conn.execute("SELECT rating, COUNT(*) c FROM user_ratings GROUP BY rating"):
+            if 1 <= r["rating"] <= 5:
+                ratings["distribution"][r["rating"]] = r["c"]
+        ratings["recent"] = [dict(r) for r in conn.execute(
+            "SELECT user_id, rating, feedback, guild_name, created_at FROM user_ratings ORDER BY id DESC LIMIT 20").fetchall()]
+
         xp_distribution = []
         xp_bounds = [(0, 0), (1, 49), (50, 99), (100, 249), (250, 499),
                      (500, 999), (1000, 4999), (5000, 9999), (10000, 49999),
@@ -238,4 +249,5 @@ def stats():
         wal_size=wal_size,
         guild_settings_count=guild_settings_count,
         level_roles_count=level_roles_count,
+        ratings=ratings,
     )
