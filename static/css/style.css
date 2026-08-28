@@ -2426,6 +2426,7 @@ a:hover {
         right: 0;
         background: var(--bg-secondary);
         flex-direction: column;
+        align-items: stretch;
         padding: 2rem;
         gap: 1rem;
         border-bottom: 1px solid var(--border-light);
@@ -2435,6 +2436,10 @@ a:hover {
         display: flex;
     }
     
+    .nav-dropdown {
+        width: 100%;
+    }
+
     .nav-dropdown-menu {
         position: static;
         box-shadow: none;
@@ -2442,6 +2447,7 @@ a:hover {
         border-radius: 0;
         padding: 0;
         min-width: auto;
+        width: 100%;
         opacity: 1;
         visibility: visible;
         transform: none;
@@ -2454,7 +2460,9 @@ a:hover {
     }
 
     .nav-dropdown-item {
+        display: block;
         padding: 0;
+        font-size: 0.95rem;
     }
 
     .nav-toggle {
