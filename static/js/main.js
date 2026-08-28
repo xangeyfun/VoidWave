@@ -181,7 +181,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Floating particles
     const canvas = document.getElementById('particles-canvas');
-    if (canvas) {
+    if (canvas && !document.body.classList.contains('stats-page-mode')) {
         const ctx = canvas.getContext('2d');
         let particles = [];
         let w, h;

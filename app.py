@@ -1,7 +1,8 @@
 from flask import Flask, render_template, request, redirect, jsonify
-from datetime import timedelta
+from datetime import datetime, timedelta
 from dotenv import load_dotenv
 from admin import admin_bp
+from pathlib import Path
 import sqlite3
 import time
 import os
@@ -37,6 +38,78 @@ def cached_query(key, query, params=(), ttl=CACHE_TTL):
         return result
     finally:
         conn.close()
+
+STATS_HISTORY_FILE = Path('stats_history.json')
+STORY_KEYS = ['total_guilds', 'total_members', 'total_users', 'total_xp', 'total_messages', 'total_vc_minutes']
+RANGE_DAYS = {'24h': 1, '7d': 7, '30d': 30, '90d': 90, 'all': None}
+
+_history_cache = {'key': None, 'data': []}
+
+def _load_stats_history():
+    try:
+        st = STATS_HISTORY_FILE.stat()
+        key = (st.st_mtime_ns, st.st_size)
+    except OSError:
+        return []
+    if _history_cache['key'] != key:
+        try:
+            with open(STATS_HISTORY_FILE, 'r') as f:
+                _history_cache['data'] = json.load(f)
+            _history_cache['key'] = key
+        except (json.JSONDecodeError, IOError):
+            _history_cache['data'] = []
+            _history_cache['key'] = key
+    return _history_cache['data']
+
+def _lttb_indices(ts, vals, target):
+    n = len(vals)
+    if target >= n or target < 3:
+        return list(range(n))
+    idxs = [0]
+    every = (n - 2) / (target - 2)
+    a = 0
+    for i in range(target - 2):
+        avg_start = int(1 + i * every)
+        avg_end = min(int(1 + (i + 1) * every) + 1, n)
+        if avg_end <= avg_start:
+            avg_end = avg_start + 1
+        avg_x = 0.0
+        avg_y = 0.0
+        for j in range(avg_start, avg_end):
+            avg_x += ts[j]
+            avg_y += vals[j]
+        cnt = avg_end - avg_start
+        avg_x /= cnt
+        avg_y /= cnt
+        r_start = int(1 + (i + 1) * every)
+        r_end = min(int(1 + (i + 2) * every) + 1, n)
+        if r_end <= r_start:
+            r_end = r_start + 1
+        xa = ts[a]
+        ya = vals[a]
+        best_area = -1.0
+        best = -1
+        for j in range(r_start, r_end):
+            area = abs((xa - avg_x) * (vals[j] - ya) - (xa - ts[j]) * (avg_y - ya))
+            if area > best_area:
+                best_area = area
+                best = j
+        if best < 0:
+            best = r_start
+        idxs.append(best)
+        a = best
+    idxs.append(n - 1)
+    return idxs
+
+def _snap_ts_ms(snap):
+    return datetime.fromisoformat(snap['timestamp']).timestamp() * 1000
+
+def _range_history(history, range_name):
+    days = RANGE_DAYS.get(range_name)
+    if not days:
+        return history
+    cutoff = (datetime.now() - timedelta(days=days)).isoformat()
+    return [s for s in history if s.get('timestamp', '') >= cutoff]
 
 @app.before_request
 def remove_trailing_slash():
@@ -242,12 +315,7 @@ def leaderboard():
 
 @app.route('/stats')
 def botstats():
-    history = []
-    try:
-        with open('stats_history.json', 'r') as f:
-            history = json.load(f)
-    except Exception:
-        pass
+    history = _load_stats_history()
 
     latest = history[-1] if history else {}
     total_snapshots = len(history)
@@ -255,8 +323,19 @@ def botstats():
     first_ts = history[0]['timestamp'] if history else None
     last_ts = latest.get('timestamp') if latest else None
 
+    week_delta = None
+    if total_snapshots >= 2 and last_ts:
+        week_ago = (datetime.now() - timedelta(days=7)).isoformat()
+        older = next((s for s in history if s.get('timestamp', '') >= week_ago), None)
+        if older and older is not latest:
+            week_delta = {
+                'users': (latest.get('total_users') or 0) - (older.get('total_users') or 0),
+                'xp': (latest.get('total_xp') or 0) - (older.get('total_xp') or 0),
+                'messages': (latest.get('total_messages') or 0) - (older.get('total_messages') or 0),
+                'vc': (latest.get('total_vc_minutes') or 0) - (older.get('total_vc_minutes') or 0),
+            }
+
     return render_template('botstats.html',
-        history=history,
         total_snapshots=total_snapshots,
         first_ts=first_ts,
         last_ts=last_ts,
@@ -270,7 +349,61 @@ def botstats():
         total_ratings=latest.get('total_ratings', 0),
         avg_rating=latest.get('avg_rating', 0),
         rating_distribution=latest.get('rating_distribution', {}),
+        week_delta=week_delta,
     ), 200
+
+_api_history_cache = {'key': None, 'payload': {}}
+
+@app.route('/api/stats/history')
+def api_stats_history():
+    points = max(50, min(request.args.get('points', 400, type=int) or 400, 1000))
+    range_name = request.args.get('range', 'all')
+    if range_name not in RANGE_DAYS:
+        range_name = 'all'
+
+    history = _load_stats_history()
+    total_snapshots = len(history)
+    try:
+        key = STATS_HISTORY_FILE.stat().st_mtime_ns
+    except OSError:
+        key = -1
+    cache_tag = (key, points)
+    payload = None
+    if _api_history_cache['key'] == cache_tag:
+        payload = _api_history_cache['payload'].get(range_name)
+
+    if payload is None:
+        rows = _range_history(history, range_name)
+        if not rows:
+            payload = {
+                'series': {k: [] for k in STORY_KEYS},
+                'meta': {'range': range_name, 'points': points, 'snapshots': 0, 'full': total_snapshots, 'last_ts': None},
+            }
+        else:
+            ts = [_snap_ts_ms(s) for s in rows]
+            probe = [s.get('total_xp') or 0 for s in rows]
+            idxs = _lttb_indices(ts, probe, points)
+            series = {}
+            for k in STORY_KEYS:
+                series[k] = [[ts[i], (rows[i].get(k) or 0)] for i in idxs]
+            payload = {
+                'series': series,
+                'meta': {
+                    'range': range_name,
+                    'points': len(idxs),
+                    'snapshots': len(rows),
+                    'full': total_snapshots,
+                    'last_ts': rows[-1].get('timestamp'),
+                },
+            }
+        if _api_history_cache['key'] != cache_tag:
+            _api_history_cache['key'] = cache_tag
+            _api_history_cache['payload'] = {}
+        _api_history_cache['payload'][range_name] = payload
+
+    resp = jsonify(payload)
+    resp.headers['Cache-Control'] = 'public, max-age=120'
+    return resp
 
 @app.route('/api/leaderboard')
 def api_leaderboard():

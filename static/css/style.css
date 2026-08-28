@@ -44,6 +44,11 @@ body {
     animation: bgShift 20s ease infinite;
 }
 
+/* Chart-heavy pages skip the animated background for smoothness */
+body.stats-page-mode {
+    animation: none;
+}
+
 @keyframes bgShift {
     0%, 100% { background-position: 0% 50%; }
     50% { background-position: 100% 50%; }
@@ -1388,45 +1393,409 @@ a:hover {
 }
 
 /* Bot Stats Page */
-.botstats-page {
-    padding: 3rem 0;
+.bs-page {
+    padding: 2rem 0 2rem;
     animation: slideUp 0.8s ease-out;
 }
 
-.botstats-grid {
+/* -- Hero -- */
+.bs-hero {
+    text-align: center;
+    padding: 1rem 0 2.25rem;
+    max-width: 980px;
+    margin: 0 auto;
+}
+
+.bs-title {
+    font-size: 3.25rem;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    margin-bottom: 0.6rem;
+    background: linear-gradient(135deg, var(--text-primary) 0%, var(--primary) 50%, var(--secondary) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    background-size: 200% 200%;
+    animation: shimmer 3s ease infinite;
+    filter: drop-shadow(0 0 30px rgba(132, 56, 252, 0.3));
+}
+
+.bs-sub {
+    color: var(--text-secondary);
+    font-size: 1.05rem;
+    margin-bottom: 0.9rem;
+}
+
+.bs-meta {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+}
+
+.bs-meta time,
+.bs-meta strong {
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+/* -- KPI cards -- */
+.bs-kpis {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 1.25rem;
-    margin-top: 2rem;
-    padding: 0 2rem;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
     max-width: 1200px;
-    margin-left: auto;
-    margin-right: auto;
+    margin: 0 auto;
 }
 
-.chart-card {
-    background: var(--bg-card);
+.bs-kpis-secondary {
+    margin-top: 1rem;
+}
+
+.bs-kpi {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    padding: 1.2rem 1.35rem 0.85rem;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.015), transparent), var(--bg-card);
     border: 1px solid var(--border-light);
-    border-radius: 14px;
-    padding: 1.25rem 1.5rem;
-    transition: border-color 0.2s ease, box-shadow 0.3s ease;
+    border-radius: 16px;
+    overflow: hidden;
+    transition: border-color 0.25s ease, transform 0.25s ease, box-shadow 0.3s ease;
 }
 
-.chart-card:hover {
-    border-color: var(--primary);
-    box-shadow: 0 0 24px var(--glow);
+.bs-kpi::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 14%;
+    right: 14%;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--kpi, var(--primary)), transparent);
+    opacity: 0.55;
 }
 
-.chart-card h3 {
-    font-size: 0.95rem;
+.bs-kpi:hover {
+    border-color: color-mix(in srgb, var(--kpi, var(--primary)) 45%, var(--border-light));
+    transform: translateY(-3px);
+    box-shadow: 0 14px 34px -18px color-mix(in srgb, var(--kpi, var(--primary)) 60%, transparent);
+}
+
+.bs-kpi-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+}
+
+.bs-kpi-icon {
+    width: 34px;
+    height: 34px;
+    border-radius: 9px;
+    display: grid;
+    place-items: center;
+    background: color-mix(in srgb, var(--kpi, var(--primary)) 14%, transparent);
+    color: var(--kpi, var(--primary));
+}
+
+.bs-kpi-icon svg {
+    width: 17px;
+    height: 17px;
+}
+
+.bs-kpi-delta {
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 0.2rem 0.55rem;
+    border-radius: 999px;
+    background: rgba(34, 197, 94, 0.1);
+    border: 1px solid rgba(34, 197, 94, 0.3);
+    white-space: nowrap;
+}
+
+.bs-kpi-delta.is-down {
+    color: var(--error);
+    background: rgba(239, 68, 68, 0.1);
+    border-color: rgba(239, 68, 68, 0.3);
+}
+
+.bs-kpi-value {
+    font-size: 1.9rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+    margin-top: 0.35rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.bs-kpi-value.bs-kpi-rating {
+    font-size: 1.6rem;
+}
+
+.bs-kpi-out {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    margin-left: 0.15rem;
+}
+
+.bs-kpi-label {
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    color: var(--text-muted);
+}
+
+.bs-kpi-spark {
+    height: 34px;
+    margin-top: 0.4rem;
+    opacity: 0.85;
+}
+
+.bs-kpi-spark svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+    overflow: visible;
+}
+
+/* -- shared card -- */
+.bs-card {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.015), transparent), var(--bg-card);
+    border: 1px solid var(--border-light);
+    border-radius: 18px;
+}
+
+.bs-card-lg {
+    padding: 1.5rem 1.75rem;
+}
+
+.bs-card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.9rem;
+}
+
+.bs-card-head h2 {
+    font-size: 1.15rem;
+    font-weight: 700;
+}
+
+.bs-card-sub {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    margin-top: 0.15rem;
+}
+
+.bs-chart {
+    position: relative;
+}
+
+.bs-chart-lg {
+    height: 340px;
+}
+
+.bs-chart-sm {
+    height: 200px;
+}
+
+/* -- growth -- */
+.bs-growth {
+    max-width: 1200px;
+    margin: 2rem auto 0;
+}
+
+/* -- trends -- */
+.bs-trends {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    max-width: 1200px;
+    margin: 2rem auto 0;
+}
+
+.bs-trend {
+    padding: 1.1rem 1.25rem 1.1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+    transition: border-color 0.25s ease, transform 0.25s ease, box-shadow 0.3s ease;
+}
+
+.bs-trend:hover {
+    border-color: var(--border);
+    transform: translateY(-3px);
+    box-shadow: 0 14px 34px -20px var(--glow);
+}
+
+.bs-trend-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+}
+
+.bs-trend-name {
+    display: inline-flex;
+    align-items: center;
     font-weight: 600;
     color: var(--text-secondary);
-    margin-bottom: 0.75rem;
+    font-size: 0.9rem;
 }
 
-.chart-wrap {
-    position: relative;
-    height: 220px;
+.bs-trend-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    margin-right: 0.5rem;
+    box-shadow: 0 0 10px currentColor;
+}
+
+.bs-trend-value {
+    font-weight: 700;
+    color: var(--text-primary);
+    font-variant-numeric: tabular-nums;
+}
+
+.bs-trend .bs-chart {
+    height: 170px;
+}
+
+/* -- ratings -- */
+.bs-ratings {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    max-width: 1200px;
+    margin: 1rem auto 0;
+}
+
+.bs-ratings .bs-card {
+    padding: 1.4rem 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+}
+
+.bs-rating-num {
+    font-size: 2.6rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: #facc15;
+    line-height: 1;
+    display: flex;
+    align-items: baseline;
+    gap: 0.25rem;
+}
+
+.bs-rating-out {
+    color: var(--text-muted);
+    font-weight: 600;
+    font-size: 1rem;
+}
+
+.bs-stars {
+    font-size: 1.4rem;
+    letter-spacing: 0.15em;
+    line-height: 1;
+}
+
+.bs-stars-filled {
+    color: #facc15;
+    text-shadow: 0 0 14px rgba(250, 204, 21, 0.35);
+}
+
+.bs-stars-empty {
+    color: var(--border);
+}
+
+.bs-rating-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+}
+
+/* -- summary chips -- */
+.range-summary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 0.9rem;
+}
+
+.range-chip {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.35rem;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-light);
+    border-radius: 8px;
+    padding: 0.35rem 0.75rem;
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+
+.range-chip strong {
+    color: var(--text-primary);
+    font-size: 0.8rem;
+}
+
+.range-tabs {
+    display: flex;
+    gap: 0.35rem;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-light);
+    border-radius: 9px;
+    padding: 0.2rem;
+}
+
+.range-tabs button {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-family: inherit;
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: 0.35rem 0.75rem;
+    border-radius: 7px;
+    cursor: pointer;
+    transition: color 0.2s ease, background 0.2s ease;
+}
+
+.range-tabs button:hover {
+    color: var(--text-primary);
+}
+
+.range-tabs button.on {
+    background: var(--primary);
+    color: white;
+}
+
+.delta-up {
+    color: var(--success);
+}
+
+.delta-down {
+    color: var(--error);
+}
+
+.chart-skeleton {
+    position: absolute;
+    inset: 0;
+    border-radius: 8px;
+    background: linear-gradient(100deg, var(--bg-tertiary) 40%, var(--border-light) 50%, var(--bg-tertiary) 60%);
+    background-size: 200% 100%;
+    animation: skeletonShimmer 1.4s ease infinite;
+    z-index: 2;
+}
+
+@keyframes skeletonShimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
 }
 
 @media (max-width: 768px) {

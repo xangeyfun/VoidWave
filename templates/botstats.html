@@ -15,283 +15,691 @@
 <meta property="og:image:height" content="630">
 {% endblock %}
 
+{% block body_attrs %}class="stats-page-mode"{% endblock %}
+
 {% block content %}
-<div class="botstats-page">
-    <div class="leaderboard-hero">
-        <h1>Bot Stats</h1>
-        <p>Live metrics from VoidWave across all servers</p>
-        <div class="lb-stats-bar">
-            <div class="lb-stat">
-                <span class="lb-stat-value">{{ "{:,}".format(guilds) }}</span>
-                <span class="lb-stat-label">Servers</span>
-            </div>
-            <div class="lb-stat">
-                <span class="lb-stat-value">{{ "{:,}".format(members) }}</span>
-                <span class="lb-stat-label">Members</span>
-            </div>
-            <div class="lb-stat">
-                <span class="lb-stat-value">{{ "{:,}".format(users) }}</span>
-                <span class="lb-stat-label">Tracked Users</span>
-            </div>
-            <div class="lb-stat">
-                <span class="lb-stat-value">{{ "{:,}".format(messages) }}</span>
-                <span class="lb-stat-label">Messages</span>
-            </div>
-            <div class="lb-stat">
-                <span class="lb-stat-value">{{ "{:,}".format(xp) }}</span>
-                <span class="lb-stat-label">Total XP</span>
-            </div>
-            <div class="lb-stat">
-                <span class="lb-stat-value">{{ "{:,}".format(vc_minutes) }}</span>
-                <span class="lb-stat-label">VC Minutes</span>
-            </div>
-            <div class="lb-stat">
-                <span class="lb-stat-value">{{ "{:,}".format(total_ratings) }}</span>
-                <span class="lb-stat-label">Ratings</span>
-            </div>
-            <div class="lb-stat">
-                <span class="lb-stat-value">{{ "%.1f"|format(avg_rating) }} / 5</span>
-                <span class="lb-stat-label">Avg Rating</span>
-            </div>
+<div class="bs-page">
+    <header class="bs-hero">
+        <h1 class="bs-title">Bot <span>Statistics</span></h1>
+        <p class="bs-sub">Global activity across {{ "{:,}".format(guilds) }} servers and {{ "{:,}".format(members) }} members.</p>
+        <p class="bs-meta">Updated <time id="statsUpdated">&#8230;</time> &middot; <strong id="statsSnapshots">{{ "{:,}".format(total_snapshots) }}</strong> snapshots</p>
+    </header>
 
+    <section class="bs-kpis">
+        <div class="bs-kpi" style="--kpi:#8438fc">
+            <div class="bs-kpi-top">
+                <span class="bs-kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="7" rx="2"/><rect x="2" y="14" width="20" height="7" rx="2"/><line x1="6" y1="6.5" x2="6.01" y2="6.5"/><line x1="6" y1="17.5" x2="6.01" y2="17.5"/></svg></span>
+            </div>
+            <div class="bs-kpi-value" id="kpiGuilds">{{ "{:,}".format(guilds) }}</div>
+            <div class="bs-kpi-label">Servers</div>
+            <div class="bs-kpi-spark" data-spark="total_guilds"></div>
         </div>
-    </div>
 
-    <div class="botstats-grid">
-        <div class="chart-card">
-            <h3>Servers</h3>
-            <div class="chart-wrap"><canvas id="chartGuilds"></canvas></div>
+        <div class="bs-kpi" style="--kpi:#a78bfa">
+            <div class="bs-kpi-top">
+                <span class="bs-kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
+            </div>
+            <div class="bs-kpi-value" id="kpiMembers">{{ "{:,}".format(members) }}</div>
+            <div class="bs-kpi-label">Members</div>
+            <div class="bs-kpi-spark" data-spark="total_members"></div>
         </div>
-        <div class="chart-card">
-            <h3>Members</h3>
-            <div class="chart-wrap"><canvas id="chartMembers"></canvas></div>
+
+        <div class="bs-kpi" style="--kpi:#22c55e">
+            <div class="bs-kpi-top">
+                <span class="bs-kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>
+                {% if week_delta and week_delta.messages %}<span class="bs-kpi-delta {% if week_delta.messages >= 0 %}delta-up{% else %}is-down{% endif %}">{% if week_delta.messages > 0 %}+{% endif %}{{ "{:,}".format(week_delta.messages) }} wk</span>{% endif %}
+            </div>
+            <div class="bs-kpi-value" id="kpiMessages">{{ "{:,}".format(messages) }}</div>
+            <div class="bs-kpi-label">Messages</div>
+            <div class="bs-kpi-spark" data-spark="total_messages"></div>
         </div>
-        <div class="chart-card">
-            <h3>Tracked Users</h3>
-            <div class="chart-wrap"><canvas id="chartUsers"></canvas></div>
+
+        <div class="bs-kpi" style="--kpi:#fbbf24">
+            <div class="bs-kpi-top">
+                <span class="bs-kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></span>
+                {% if week_delta and week_delta.xp %}<span class="bs-kpi-delta {% if week_delta.xp >= 0 %}delta-up{% else %}is-down{% endif %}">{% if week_delta.xp > 0 %}+{% endif %}{{ "{:,}".format(week_delta.xp) }} wk</span>{% endif %}
+            </div>
+            <div class="bs-kpi-value" id="kpiXP">{{ "{:,}".format(xp) }}</div>
+            <div class="bs-kpi-label">Total XP</div>
+            <div class="bs-kpi-spark" data-spark="total_xp"></div>
         </div>
-        <div class="chart-card">
-            <h3>Messages</h3>
-            <div class="chart-wrap"><canvas id="chartMessages"></canvas></div>
+    </section>
+
+    <section class="bs-kpis bs-kpis-secondary">
+        <div class="bs-kpi" style="--kpi:#60a5fa">
+            <div class="bs-kpi-top">
+                <span class="bs-kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>
+                {% if week_delta and week_delta.users %}<span class="bs-kpi-delta {% if week_delta.users >= 0 %}delta-up{% else %}is-down{% endif %}">{% if week_delta.users > 0 %}+{% endif %}{{ "{:,}".format(week_delta.users) }} wk</span>{% endif %}
+            </div>
+            <div class="bs-kpi-value" id="kpiUsers">{{ "{:,}".format(users) }}</div>
+            <div class="bs-kpi-label">Tracked Users</div>
+            <div class="bs-kpi-spark" data-spark="total_users"></div>
         </div>
-        <div class="chart-card">
-            <h3>Total XP</h3>
-            <div class="chart-wrap"><canvas id="chartXP"></canvas></div>
+
+        <div class="bs-kpi" style="--kpi:#f472b6">
+            <div class="bs-kpi-top">
+                <span class="bs-kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></svg></span>
+                {% if week_delta and week_delta.vc %}<span class="bs-kpi-delta {% if week_delta.vc >= 0 %}delta-up{% else %}is-down{% endif %}">
+                    {%- if week_delta.vc > 0 %}+{% endif %}
+                    {%- if week_delta.vc >= 1440 %}{{ week_delta.vc // 1440 }}d{% elif week_delta.vc >= 60 %}{{ week_delta.vc // 60 }}h{% else %}{{ week_delta.vc }}m{% endif -%}
+                    wk</span>{% endif %}
+            </div>
+            <div class="bs-kpi-value" id="kpiVoice">
+                {%- if vc_minutes >= 1440 %}{{ vc_minutes // 1440 }}d {{ (vc_minutes % 1440) // 60 }}h
+                {%- elif vc_minutes >= 60 %}{{ vc_minutes // 60 }}h {{ vc_minutes % 60 }}m
+                {%- else %}{{ vc_minutes }}m{% endif -%}
+            </div>
+            <div class="bs-kpi-label">Voice Time</div>
+            <div class="bs-kpi-spark" data-spark="total_vc_minutes"></div>
         </div>
-        <div class="chart-card">
-            <h3>Voice Minutes</h3>
-            <div class="chart-wrap"><canvas id="chartVC"></canvas></div>
+
+        <div class="bs-kpi" style="--kpi:#38bdf8">
+            <div class="bs-kpi-top">
+                <span class="bs-kpi-icon"><svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="0" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></span>
+            </div>
+            <div class="bs-kpi-value" id="kpiRatings">{{ "{:,}".format(total_ratings) }}</div>
+            <div class="bs-kpi-label">Ratings</div>
         </div>
-        <div class="chart-card" style="grid-column: 1 / -1;">
-            <h3>Rating Distribution</h3>
-            <div class="chart-wrap"><canvas id="chartRatings"></canvas></div>
+
+        <div class="bs-kpi" style="--kpi:#facc15">
+            <div class="bs-kpi-top">
+                <span class="bs-kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></span>
+            </div>
+            <div class="bs-kpi-value bs-kpi-rating">{{ "%.1f"|format(avg_rating) }}<span class="bs-kpi-out">/5</span></div>
+            <div class="bs-kpi-label">Average Rating</div>
         </div>
-    </div>
+    </section>
+
+    <section class="bs-growth bs-card bs-card-lg">
+        <header class="bs-card-head">
+            <div>
+                <h2>Growth over time</h2>
+                <p class="bs-card-sub">Users, XP, messages, and voice across all servers</p>
+            </div>
+            <div class="range-tabs" id="growthTabs">
+                <button type="button" data-range="24h">24h</button>
+                <button type="button" data-range="7d">7d</button>
+                <button type="button" data-range="30d">30d</button>
+                <button type="button" data-range="90d">90d</button>
+                <button type="button" data-range="all" class="on">All</button>
+            </div>
+        </header>
+        <div class="range-summary" id="growthSummary"></div>
+        <div class="bs-chart bs-chart-lg">
+            <div class="chart-skeleton" id="sk-chartGrowth"></div>
+            <canvas id="chartGrowth"></canvas>
+        </div>
+    </section>
+
+    <section class="bs-trends">
+        <div class="bs-trend bs-card">
+            <header class="bs-trend-head">
+                <span class="bs-trend-name"><span class="bs-trend-dot" style="background:#8438fc;color:#8438fc"></span>Servers</span>
+                <span class="bs-trend-value" id="tv-chartGuilds">{{ "{:,}".format(guilds) }}</span>
+            </header>
+            <div class="bs-chart">
+                <div class="chart-skeleton" id="sk-chartGuilds"></div>
+                <canvas id="chartGuilds"></canvas>
+            </div>
+        </div>
+
+        <div class="bs-trend bs-card">
+            <header class="bs-trend-head">
+                <span class="bs-trend-name"><span class="bs-trend-dot" style="background:#c084ec;color:#c084ec"></span>Members</span>
+                <span class="bs-trend-value" id="tv-chartMembers">{{ "{:,}".format(members) }}</span>
+            </header>
+            <div class="bs-chart">
+                <div class="chart-skeleton" id="sk-chartMembers"></div>
+                <canvas id="chartMembers"></canvas>
+            </div>
+        </div>
+
+        <div class="bs-trend bs-card">
+            <header class="bs-trend-head">
+                <span class="bs-trend-name"><span class="bs-trend-dot" style="background:#60a5fa;color:#60a5fa"></span>Tracked Users</span>
+                <span class="bs-trend-value" id="tv-chartUsers">{{ "{:,}".format(users) }}</span>
+            </header>
+            <div class="bs-chart">
+                <div class="chart-skeleton" id="sk-chartUsers"></div>
+                <canvas id="chartUsers"></canvas>
+            </div>
+        </div>
+
+        <div class="bs-trend bs-card">
+            <header class="bs-trend-head">
+                <span class="bs-trend-name"><span class="bs-trend-dot" style="background:#22c55e;color:#22c55e"></span>Messages</span>
+                <span class="bs-trend-value" id="tv-chartMessages">{{ "{:,}".format(messages) }}</span>
+            </header>
+            <div class="bs-chart">
+                <div class="chart-skeleton" id="sk-chartMessages"></div>
+                <canvas id="chartMessages"></canvas>
+            </div>
+        </div>
+
+        <div class="bs-trend bs-card">
+            <header class="bs-trend-head">
+                <span class="bs-trend-name"><span class="bs-trend-dot" style="background:#fbbf24;color:#fbbf24"></span>Total XP</span>
+                <span class="bs-trend-value" id="tv-chartXP">{{ "{:,}".format(xp) }}</span>
+            </header>
+            <div class="bs-chart">
+                <div class="chart-skeleton" id="sk-chartXP"></div>
+                <canvas id="chartXP"></canvas>
+            </div>
+        </div>
+
+        <div class="bs-trend bs-card">
+            <header class="bs-trend-head">
+                <span class="bs-trend-name"><span class="bs-trend-dot" style="background:#f472b6;color:#f472b6"></span>Voice Minutes</span>
+                <span class="bs-trend-value" id="tv-chartVC">
+                    {%- if vc_minutes >= 1440 %}{{ vc_minutes // 1440 }}d {{ (vc_minutes % 1440) // 60 }}h
+                    {%- elif vc_minutes >= 60 %}{{ vc_minutes // 60 }}h {{ vc_minutes % 60 }}m
+                    {%- else %}{{ vc_minutes }}m{% endif -%}
+                </span>
+            </header>
+            <div class="bs-chart">
+                <div class="chart-skeleton" id="sk-chartVC"></div>
+                <canvas id="chartVC"></canvas>
+            </div>
+        </div>
+    </section>
+
+    <section class="bs-ratings">
+        <div class="bs-card">
+            <header class="bs-card-head">
+                <div>
+                    <h2>Community feedback</h2>
+                    <p class="bs-card-sub">Star ratings from DM rating prompts</p>
+                </div>
+            </header>
+            <div class="bs-chart bs-chart-sm"><canvas id="chartRatings"></canvas></div>
+        </div>
+
+        {% set filled = [avg_rating|round|int, 5] | min %}
+        {% if filled < 0 %}{% set filled = 0 %}{% endif %}
+        {% set empty = 5 - filled %}
+        <div class="bs-card">
+            <header class="bs-card-head">
+                <div>
+                    <h2>Average rating</h2>
+                    <p class="bs-card-sub">{{ "{:,}".format(total_ratings) }} total reviews</p>
+                </div>
+            </header>
+            <div class="bs-rating-body">
+                <div class="bs-rating-num">{{ "%.1f"|format(avg_rating) }}<span class="bs-rating-out">/5</span></div>
+                <div class="bs-stars" aria-label="{{ '%.1f'|format(avg_rating) }} out of 5 stars">
+                    <span class="bs-stars-filled">{{ '★' * filled }}</span><span class="bs-stars-empty">{{ '★' * empty }}</span>
+                </div>
+                <p class="bs-card-sub">VoidWave&#8217;s average score as reported by the community.</p>
+            </div>
+        </div>
+    </section>
 </div>
 
 <script src="/static/js/chart.umd.min.js"></script>
 <script src="/static/js/chartjs-adapter-date-fns.bundle.min.js"></script>
 <script src="/static/js/chartjs-plugin-zoom.min.js"></script>
 <script>
-const charts = [];
+(function() {
+    const CARDS = [
+        { id: 'chartGuilds', key: 'total_guilds', color: 'rgba(132, 56, 252, 1)' },
+        { id: 'chartMembers', key: 'total_members', color: 'rgba(192, 132, 236, 1)' },
+        { id: 'chartUsers', key: 'total_users', color: 'rgba(96, 165, 250, 1)' },
+        { id: 'chartMessages', key: 'total_messages', color: 'rgba(34, 197, 94, 1)' },
+        { id: 'chartXP', key: 'total_xp', color: 'rgba(251, 191, 36, 1)' },
+        { id: 'chartVC', key: 'total_vc_minutes', color: 'rgba(244, 114, 182, 1)' },
+    ];
+    const SPARK_HEX = {
+        total_guilds: '#8438fc', total_members: '#a78bfa', total_users: '#60a5fa',
+        total_messages: '#22c55e', total_xp: '#fbbf24', total_vc_minutes: '#f472b6'
+    };
+    const GROWTH_META = [
+        { key: 'total_guilds', label: 'Servers', color: '#8438fc' },
+        { key: 'total_members', label: 'Members', color: '#a78bfa' },
+        { key: 'total_xp', label: 'XP', color: '#fbbf24' },
+        { key: 'total_messages', label: 'Messages', color: '#22c55e' },
+        { key: 'total_vc_minutes', label: 'Voice', color: '#f472b6' },
+    ];
 
-function syncZoom(chart) {
-    const xScale = chart.scales.x;
-    charts.forEach(c => {
-        if (c === chart) return;
-        c.options.scales.x.min = xScale.min;
-        c.options.scales.x.max = xScale.max;
-        c.update('none');
-    });
-}
+    const seriesCache = {};
+    const charts = [];
+    let growthChart = null;
+    let growthRange = 'all';
 
-function resetAllZoom() {
-    charts.forEach(c => {
-        c.options.scales.x.min = undefined;
-        c.options.scales.x.max = undefined;
-        c.resetZoom();
-        c.update('none');
-    });
-}
-
-const crosshairPlugin = {
-    id: 'crosshair',
-    afterDraw(chart) {
-        const active = chart.getActiveElements();
-        if (!active.length) return;
-        const el = active[0].element;
-        const { ctx, chartArea: ca, data } = chart;
-        ctx.save();
-
-        ctx.setLineDash([5, 5]);
-        ctx.strokeStyle = 'rgba(255,255,255,0.25)';
-        ctx.lineWidth = 1;
-        ctx.beginPath(); ctx.moveTo(el.x, ca.top); ctx.lineTo(el.x, ca.bottom); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(ca.left, el.y); ctx.lineTo(ca.right, el.y); ctx.stroke();
-
-        const point = data.datasets[0].data[active[0].index];
-        const val = typeof point.y === 'number' ? point.y.toLocaleString() : point.y;
-        const d = new Date(point.x);
-        const range = chart.scales.x.max - chart.scales.x.min;
-        const dateStr = range < 86400000
-            ? d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
-            : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-        const text = dateStr + '  ' + val;
-        ctx.font = 'bold 13px system-ui, sans-serif';
-        const tw = ctx.measureText(text).width;
-        const pad = 8, bh = 26, bw = tw + pad * 2;
-        let bx = el.x + 12, by = el.y - 36;
-        if (bx + bw > ca.right) bx = ca.right - bw - 4;
-        if (by < ca.top + 4) by = ca.top + 4;
-
-        ctx.fillStyle = 'rgba(20,20,30,0.9)';
-        ctx.beginPath(); ctx.roundRect(bx, by, bw, bh, 6); ctx.fill();
-
-        ctx.fillStyle = 'rgba(255,255,255,0.9)';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(text, bx + pad, by + bh / 2);
-
-        ctx.restore();
+    function fmtCount(n) { return Math.round(n).toLocaleString('en-US'); }
+    function fmtVoice(min) {
+        min = Math.round(min);
+        if (min >= 1440) return Math.floor(min / 1440) + 'd ' + Math.floor((min % 1440) / 60) + 'h';
+        if (min >= 60) return Math.floor(min / 60) + 'h ' + (min % 60) + 'm';
+        return min + 'm';
     }
-};
-Chart.register(crosshairPlugin);
+    function fmtCompact(n) {
+        n = n || 0;
+        const abs = Math.abs(n);
+        if (abs >= 1e9) return (n / 1e9).toFixed(1) + 'B';
+        if (abs >= 1e6) return (n / 1e6).toFixed(1) + 'M';
+        if (abs >= 1e4) return (n / 1e3).toFixed(1) + 'K';
+        return n.toLocaleString('en-US');
+    }
 
-function syncCharts(src) {
-    const active = src.getActiveElements();
-    const index = active.length ? active[0].index : -1;
-    charts.forEach(c => {
-        if (c === src) { c.draw(); return; }
-        const meta = c.getDatasetMeta(0);
-        if (index >= 0 && meta.data[index] && meta.data[index].hasValue()) {
-            c.setActiveElements([{ datasetIndex: 0, index }]);
-        } else {
-            c.setActiveElements([]);
+    async function fetchSeries(range) {
+        if (seriesCache[range]) return seriesCache[range];
+        const res = await fetch('/api/stats/history?range=' + range);
+        const data = await res.json();
+        seriesCache[range] = data;
+        return data;
+    }
+
+    const allReady = fetchSeries('all').then(function(d) {
+        const el = document.getElementById('statsUpdated');
+        if (el && d.meta && d.meta.last_ts) {
+            const date = new Date(d.meta.last_ts);
+            el.textContent = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ', ' + date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
         }
-        c.draw();
+        return d;
     });
-}
 
-function clearAll() {
-    charts.forEach(c => { c.setActiveElements([]); c.draw(); });
-}
-
-const raw = {{ history | tojson }};
-
-const chartOpts = () => ({
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-        legend: { display: false },
-        tooltip: false,
-        zoom: {
-            pan: {
-                enabled: true,
-                mode: 'x',
-                threshold: 5
-            },
-            zoom: {
-                wheel: { enabled: true, speed: 0.1 },
-                drag: {
-                    enabled: true,
-                    backgroundColor: 'rgba(255,255,255,0.05)',
-                    borderColor: 'rgba(255,255,255,0.3)',
-                    borderWidth: 1
-                },
-                pinch: { enabled: true },
-                mode: 'x'
+    /* ---- shared chart options ---- */
+    const axisColor = '#606070';
+    const xScale = {
+        type: 'time',
+        time: {
+            displayFormats: {
+                millisecond: 'HH:mm:ss.SSS', second: 'HH:mm:ss', minute: 'HH:mm',
+                hour: 'MMM d HH:mm', day: 'MMM d', week: 'MMM d', month: 'MMM yyyy',
+                quarter: '[Q]Q yyyy', year: 'yyyy'
             }
+        },
+        ticks: { color: axisColor, maxTicksLimit: 8, font: { size: 11 } },
+        grid: { color: 'rgba(255,255,255,0.03)' }
+    };
+    const yScale = {
+        ticks: { color: axisColor, font: { size: 11 } },
+        grid: { color: 'rgba(255,255,255,0.04)' }
+    };
+    const zoomOpts = {
+        pan: { enabled: true, mode: 'x', threshold: 5 },
+        zoom: {
+            wheel: { enabled: true, speed: 0.1 },
+            drag: { enabled: true, backgroundColor: 'rgba(255,255,255,0.05)', borderColor: 'rgba(255,255,255,0.3)', borderWidth: 1 },
+            pinch: { enabled: true },
+            mode: 'x'
         }
-    },
-    scales: {
-        x: {
-            type: 'time',
-            time: {
-                displayFormats: {
-                    millisecond: 'HH:mm:ss.SSS',
-                    second: 'HH:mm:ss',
-                    minute: 'HH:mm',
-                    hour: 'MMM d HH:mm',
-                    day: 'MMM d',
-                    week: 'MMM d',
-                    month: 'MMM yyyy',
-                    quarter: '[Q]Q yyyy',
-                    year: 'yyyy'
-                }
+    };
+
+    function baseOpts() {
+        return {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: false,
+            devicePixelRatio: 1,
+            plugins: {
+                legend: { display: false },
+                tooltip: false,
+                zoom: Object.assign({}, zoomOpts)
             },
-            ticks: { color: '#606070', maxTicksLimit: 10, font: { size: 11 } },
-            grid: { color: 'rgba(255,255,255,0.03)' }
-        },
-        y: {
-            ticks: { color: '#606070', font: { size: 11 } },
-            grid: { color: 'rgba(255,255,255,0.04)' }
+            scales: { x: Object.assign({}, xScale), y: Object.assign({}, yScale) },
+            elements: { point: { radius: 0, hoverRadius: 4 }, line: { tension: 0.3, borderWidth: 2 } },
+            interaction: { mode: 'nearest', axis: 'x', intersect: false }
+        };
+    }
+
+    /* ---- crosshair + hover sync (rAF throttled) ---- */
+    const crosshairPlugin = {
+        id: 'crosshair',
+        afterDraw(chart) {
+            const active = chart.getActiveElements();
+            if (!active.length) return;
+            const el = active[0].element;
+            const { ctx, chartArea: ca, data } = chart;
+            ctx.save();
+            ctx.setLineDash([5, 5]);
+            ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+            ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.moveTo(el.x, ca.top); ctx.lineTo(el.x, ca.bottom); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(ca.left, el.y); ctx.lineTo(ca.right, el.y); ctx.stroke();
+            const point = data.datasets[0].data[active[0].index];
+            const val = typeof point.y === 'number' ? point.y.toLocaleString() : point.y;
+            const d = new Date(point.x);
+            const range = chart.scales.x.max - chart.scales.x.min;
+            const dateStr = range < 86400000
+                ? d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+                : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            const text = dateStr + '  ' + val;
+            ctx.font = 'bold 13px system-ui, sans-serif';
+            const tw = ctx.measureText(text).width;
+            const pad = 8, bh = 26, bw = tw + pad * 2;
+            let bx = el.x + 12, by = el.y - 36;
+            if (bx + bw > ca.right) bx = ca.right - bw - 4;
+            if (by < ca.top + 4) by = ca.top + 4;
+            ctx.fillStyle = 'rgba(20,20,30,0.9)';
+            ctx.beginPath(); ctx.roundRect(bx, by, bw, bh, 6); ctx.fill();
+            ctx.fillStyle = 'rgba(255,255,255,0.9)';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(text, bx + pad, by + bh / 2);
+            ctx.restore();
         }
-    },
-    elements: {
-        point: { radius: 0, hoverRadius: 4 },
-        line: { tension: 0.3, borderWidth: 2 }
-    },
-    interaction: { mode: 'nearest', axis: 'x', intersect: false }
-});
+    };
+    Chart.register(crosshairPlugin);
 
-function makeGradient(ctx, color) {
-    const g = ctx.createLinearGradient(0, 0, 0, 250);
-    g.addColorStop(0, color);
-    g.addColorStop(1, 'transparent');
-    return g;
-}
+    let hoverRaf = null;
+    function syncCharts(src) {
+        const active = src.getActiveElements();
+        const index = active.length ? active[0].index : -1;
+        charts.forEach(c => {
+            if (c === src) { c.draw(); return; }
+            const meta = c.getDatasetMeta(0);
+            if (index >= 0 && meta.data[index] && meta.data[index].hasValue()) {
+                c.setActiveElements([{ datasetIndex: 0, index }]);
+            } else {
+                c.setActiveElements([]);
+            }
+            c.draw();
+        });
+    }
+    function throttledSync(src) {
+        if (hoverRaf) return;
+        hoverRaf = requestAnimationFrame(function() { hoverRaf = null; syncCharts(src); });
+    }
+    function clearAll() {
+        charts.forEach(c => { c.setActiveElements([]); c.draw(); });
+    }
+    function resetAllZoom() {
+        charts.forEach(c => {
+            c.options.scales.x.min = undefined;
+            c.options.scales.x.max = undefined;
+            if (c.resetZoom) c.resetZoom();
+            c.update('none');
+        });
+    }
+    function syncZoom(chart) {
+        const xScale = chart.scales.x;
+        charts.forEach(c => {
+            if (c === chart) return;
+            c.options.scales.x.min = xScale.min;
+            c.options.scales.x.max = xScale.max;
+            c.update('none');
+        });
+    }
 
-function createChart(id, key, color) {
-    const canvas = document.getElementById(id);
-    const ctx = canvas.getContext('2d');
-    const chart = new Chart(ctx, {
-        type: 'line',
-        data: {
-            datasets: [{
-                data: raw.map(d => ({ x: new Date(d.timestamp).getTime(), y: d[key] })),
-                borderColor: color,
-                backgroundColor: makeGradient(ctx, color.replace('1)', '0.25)')),
-                fill: true
-            }]
-        },
-        options: Object.assign(chartOpts(color), {
-            onHover: function() { syncCharts(this); }
-        })
-    });
-    chart.options.plugins.zoom.onZoomComplete = function({chart}) { syncZoom(chart); };
-    charts.push(chart);
-    canvas.addEventListener('mouseleave', clearAll);
-    canvas.addEventListener('dblclick', resetAllZoom);
-}
+    function makeGradient(ctx, color) {
+        const g = ctx.createLinearGradient(0, 0, 0, 250);
+        g.addColorStop(0, color);
+        g.addColorStop(1, 'transparent');
+        return g;
+    }
+    function pointData(pairs) {
+        return pairs.map(function(p) { return { x: p[0], y: p[1] }; });
+    }
 
-createChart('chartGuilds', 'total_guilds', 'rgba(132, 56, 252, 1)');
-createChart('chartMembers', 'total_members', 'rgba(192, 132, 236, 1)');
-createChart('chartUsers', 'total_users', 'rgba(96, 165, 250, 1)');
-createChart('chartMessages', 'total_messages', 'rgba(34, 197, 94, 1)');
-createChart('chartXP', 'total_xp', 'rgba(251, 191, 36, 1)');
-createChart('chartVC', 'total_vc_minutes', 'rgba(244, 114, 182, 1)');
+    /* ---- KPI count-up ---- */
+    function animateCount(el, target, fmt, duration) {
+        const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        if (reduce || !target) { el.textContent = fmt(target); return; }
+        const start = performance.now();
+        (function tick(now) {
+            const p = Math.min((now - start) / duration, 1);
+            const eased = 1 - Math.pow(1 - p, 4);
+            el.textContent = fmt(target * eased);
+            if (p < 1) requestAnimationFrame(tick);
+            else el.textContent = fmt(target);
+        })(start);
+    }
+    function initCountups() {
+        const items = [
+            ['kpiGuilds', {{ guilds }}, fmtCount], ['kpiMembers', {{ members }}, fmtCount],
+            ['kpiMessages', {{ messages }}, fmtCount], ['kpiXP', {{ xp }}, fmtCount],
+            ['kpiUsers', {{ users }}, fmtCount], ['kpiVoice', {{ vc_minutes }}, fmtVoice],
+            ['kpiRatings', {{ total_ratings }}, fmtCount],
+        ];
+        items.forEach(function(it, i) {
+            const el = document.getElementById(it[0]);
+            if (el) animateCount(el, it[1], it[2], 750 + i * 60);
+        });
+    }
 
-const ratingDist = {{ rating_distribution | tojson }};
-new Chart(document.getElementById('chartRatings'), {
-    type: 'bar',
-    data: {
-        labels: [1, 2, 3, 4, 5].map(s => s + ' star' + (s > 1 ? 's' : '')),
-        datasets: [{
-            data: [1, 2, 3, 4, 5].map(s => ratingDist[s] || 0),
-            backgroundColor: 'rgba(132, 56, 252, 0.6)',
-            borderColor: 'rgba(132, 56, 252, 1)',
-            borderWidth: 1,
-            borderRadius: 6
-        }]
-    },
-    options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: { legend: { display: false } },
-        scales: {
-            x: { ticks: { color: '#606070', font: { size: 11 } }, grid: { color: 'rgba(255,255,255,0.03)' } },
-            y: { beginAtZero: true, ticks: { color: '#606070', font: { size: 11 } }, grid: { color: 'rgba(255,255,255,0.04)' } }
+    /* ---- KPI sparklines ---- */
+    function sparkSamples(pairs, max) {
+        const n = pairs.length;
+        if (!n) return [];
+        if (n <= max) return pairs.map(function(p) { return p[1]; });
+        const out = [pairs[0][1]];
+        const seg = (n - 1) / (max - 2);
+        let toggle = 0;
+        for (let i = 1; i < max - 1; i++) {
+            const s = Math.floor(i * seg);
+            const e = Math.max(s + 1, Math.floor((i + 1) * seg));
+            let best = pairs[s][1];
+            for (let j = s; j < Math.min(e, n - 1); j++) {
+                const v = pairs[j][1];
+                best = (toggle % 2 === 0) ? Math.max(best, v) : Math.min(best, v);
+            }
+            out.push(best);
+            toggle++;
+        }
+        out.push(pairs[n - 1][1]);
+        return out;
+    }
+    function drawSpark(el, pairs, hex) {
+        const vals = sparkSamples(pairs, 56);
+        if (vals.length < 2) return;
+        let lo = Math.min.apply(null, vals), hi = Math.max.apply(null, vals);
+        if (lo === hi) { lo -= 1; hi += 1; }
+        const W = 100, H = 34, P = 3;
+        const xs = i => (i / (vals.length - 1)) * W;
+        const ys = v => H - P - ((v - lo) / (hi - lo)) * (H - P * 2);
+        const line = vals.map((v, i) => xs(i).toFixed(2) + ',' + ys(v).toFixed(2)).join(' ');
+        el.innerHTML = '<svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" aria-hidden="true">'
+            + '<polygon points="0,' + H + ' ' + line + ' ' + W + ',' + H + '" fill="' + hex + '22"></polygon>'
+            + '<polyline points="' + line + '" fill="none" stroke="' + hex + '" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"></polyline>'
+            + '</svg>';
+    }
+    function initSparks(data) {
+        document.querySelectorAll('[data-spark]').forEach(function(el) {
+            const key = el.getAttribute('data-spark');
+            const s = data.series[key];
+            const hex = SPARK_HEX[key];
+            if (s && hex) drawSpark(el, s, hex);
+        });
+    }
+
+    /* ---- trend card header values ---- */
+    function initTrendValues(data) {
+        CARDS.forEach(function(c) {
+            const el = document.getElementById('tv-' + c.id);
+            if (!el || !data.series[c.key].length) return;
+            const v = data.series[c.key][data.series[c.key].length - 1][1];
+            el.textContent = c.key === 'total_vc_minutes' ? fmtVoice(v) : fmtCount(v);
+        });
+    }
+
+    /* ---- per-metric trend charts (lazy) ---- */
+    async function createCard(card) {
+        const canvas = document.getElementById(card.id);
+        if (!canvas) return;
+        const data = await allReady;
+        const s = data.series[card.key];
+        const ctx = canvas.getContext('2d');
+        const chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                datasets: [{
+                    label: card.key,
+                    data: pointData(s),
+                    borderColor: card.color,
+                    backgroundColor: makeGradient(ctx, card.color.replace('1)', '0.25)')),
+                    fill: true
+                }]
+            },
+            options: Object.assign(baseOpts(), {
+                onHover: function() { throttledSync(this); }
+            })
+        });
+        chart.options.plugins.zoom.onZoomComplete = function({ chart }) { syncZoom(chart); };
+        charts.push(chart);
+        canvas.addEventListener('mouseleave', clearAll);
+        canvas.addEventListener('dblclick', resetAllZoom);
+        const sk = document.getElementById('sk-' + card.id);
+        if (sk) sk.remove();
+    }
+
+    function initCards() {
+        if ('IntersectionObserver' in window) {
+            const io = new IntersectionObserver(function(entries) {
+                entries.forEach(function(en) {
+                    if (en.isIntersecting) {
+                        const card = CARDS.find(c => c.id === en.target.id);
+                        if (card) createCard(card);
+                        io.unobserve(en.target);
+                    }
+                });
+            }, { rootMargin: '250px' });
+            CARDS.forEach(c => {
+                const el = document.getElementById(c.id);
+                if (el) io.observe(el);
+            });
+        } else {
+            CARDS.forEach(createCard);
         }
     }
-});
+
+    /* ---- combined growth chart ---- */
+    function renderSummary(range) {
+        const box = document.getElementById('growthSummary');
+        if (!box) return;
+        const d = seriesCache[range];
+        if (!d) return;
+        const frag = document.createDocumentFragment();
+        GROWTH_META.forEach(function(m) {
+            const s = d.series[m.key];
+            if (!s.length) return;
+            const first = s[0][1], last = s[s.length - 1][1];
+            const diff = last - first;
+            const chip = document.createElement('span');
+            chip.className = 'range-chip';
+            const strong = document.createElement('strong');
+            strong.textContent = m.label;
+            chip.appendChild(strong);
+            chip.appendChild(document.createTextNode(' ' + fmtCompact(first) + ' \u2192 ' + fmtCompact(last)));
+            const delta = document.createElement('span');
+            delta.className = diff >= 0 ? 'delta-up' : 'delta-down';
+            delta.textContent = (diff >= 0 ? '+' : '') + fmtCompact(diff);
+            chip.appendChild(delta);
+            frag.appendChild(chip);
+        });
+        box.replaceChildren(frag);
+    }
+
+    function buildGrowthChart(range) {
+        const d = seriesCache[range];
+        const canvas = document.getElementById('chartGrowth');
+        if (!d || !canvas) return;
+        const scales = { x: Object.assign({}, xScale) };
+        const datasets = GROWTH_META.map(function(m) {
+            const pts = pointData(d.series[m.key]);
+            let lo = Infinity, hi = -Infinity;
+            pts.forEach(function(p) {
+                if (p.y < lo) lo = p.y;
+                if (p.y > hi) hi = p.y;
+            });
+            if (!isFinite(lo)) { lo = 0; hi = 1; }
+            if (lo === hi) { lo = lo - 1; hi = hi + 1; }
+            scales['ax_' + m.key] = { display: false, min: lo, max: hi };
+            return {
+                label: m.label,
+                data: pts,
+                borderColor: m.color,
+                backgroundColor: m.color,
+                borderWidth: 2,
+                pointRadius: 0,
+                pointHoverRadius: 4,
+                tension: 0.25,
+                yAxisID: 'ax_' + m.key
+            };
+        });
+        if (growthChart) growthChart.destroy();
+        growthChart = new Chart(canvas.getContext('2d'), {
+            type: 'line',
+            data: { datasets: datasets },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: false,
+                devicePixelRatio: 1,
+                interaction: { mode: 'nearest', axis: 'x', intersect: false },
+                plugins: {
+                    legend: {
+                        labels: { color: axisColor, boxWidth: 12, font: { size: 11 } },
+                        onClick: function(e, legendItem, legend) {
+                            Chart.defaults.plugins.legend.onClick.call(this, e, legendItem, legend);
+                            if (growthChart.resetZoom) growthChart.resetZoom();
+                        }
+                    },
+                    tooltip: {
+                        callbacks: { label: function(c) { return c.dataset.label + ': ' + fmtCompact(c.parsed.y); } }
+                    },
+                    zoom: Object.assign({}, zoomOpts)
+                },
+                scales: scales
+            }
+        });
+        const sk = document.getElementById('sk-chartGrowth');
+        if (sk) sk.remove();
+    }
+
+    function initTabs() {
+        const tabs = document.getElementById('growthTabs');
+        if (!tabs) return;
+        tabs.addEventListener('click', function(e) {
+            const btn = e.target.closest('button[data-range]');
+            if (!btn || btn.dataset.range === growthRange) return;
+            growthRange = btn.dataset.range;
+            this.querySelectorAll('button').forEach(function(b) { b.classList.toggle('on', b === btn); });
+            fetchSeries(growthRange).then(function() {
+                buildGrowthChart(growthRange);
+                renderSummary(growthRange);
+            });
+        });
+    }
+
+    /* ---- ratings bar ---- */
+    function initRatings() {
+        const ratingDist = {{ rating_distribution | tojson }};
+        new Chart(document.getElementById('chartRatings'), {
+            type: 'bar',
+            data: {
+                labels: [1, 2, 3, 4, 5].map(function(s) { return s + ' star' + (s > 1 ? 's' : ''); }),
+                datasets: [{
+                    data: [1, 2, 3, 4, 5].map(function(s) { return ratingDist[s] || 0; }),
+                    backgroundColor: 'rgba(132, 56, 252, 0.55)',
+                    borderColor: 'rgba(132, 56, 252, 1)',
+                    borderWidth: 1,
+                    borderRadius: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: false,
+                devicePixelRatio: 1,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { ticks: { color: axisColor, font: { size: 11 } }, grid: { color: 'rgba(255,255,255,0.03)' } },
+                    y: Object.assign({}, yScale, { beginAtZero: true })
+                }
+            }
+        });
+    }
+
+    initCountups();
+    initTabs();
+    initCards();
+    initRatings();
+    allReady.then(function(d) {
+        buildGrowthChart('all');
+        renderSummary('all');
+        initSparks(d);
+        initTrendValues(d);
+    });
+})();
 </script>
 {% endblock %}
