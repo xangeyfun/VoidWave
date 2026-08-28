@@ -16,6 +16,7 @@ from utils import (
     http_session as _http_session, log_admin_event, qotd_now, qotd_minutes,
     is_blocked, block_reply,
 )
+from cogs.rating import send_rating_prompt
 import utils
 
 
@@ -95,6 +96,40 @@ class EventsCog(commands.Cog):
                 guild_id=interaction.guild.id if interaction.guild else None,
                 user_id=interaction.user.id if interaction.user else None,
             )
+
+            try:
+                if interaction.guild and interaction.user and not interaction.user.bot:
+                    conn = get_db()
+                    try:
+                        cur = conn.cursor()
+                        cur.execute("""
+                            INSERT INTO users (guild_id, user_id, display_name, username,
+                                               level, progress, out_of, command_uses)
+                            VALUES (?, ?, ?, ?, 0, 0, 100, 1)
+                            ON CONFLICT(guild_id, user_id) DO UPDATE SET
+                                command_uses = command_uses + 1,
+                                display_name = excluded.display_name,
+                                username = excluded.username
+                        """, (interaction.guild.id, interaction.user.id, interaction.user.display_name, interaction.user.name))
+                        conn.commit()
+
+                        total = cur.execute(
+                            "SELECT COALESCE(SUM(command_uses), 0) FROM users WHERE user_id=?",
+                            (interaction.user.id,)
+                        ).fetchone()[0]
+                        flags = cur.execute(
+                            "SELECT COALESCE(MAX(rated), 0) AS rated, COALESCE(MAX(prompt_sent), 0) AS prompt_sent FROM users WHERE user_id=?",
+                            (interaction.user.id,)
+                        ).fetchone()
+
+                        if total >= 10 and not flags["rated"] and not flags["prompt_sent"]:
+                            await send_rating_prompt(self.bot, interaction.user.id, interaction.guild.name)
+                            cur.execute("UPDATE users SET prompt_sent = 1 WHERE user_id = ?", (interaction.user.id,))
+                            conn.commit()
+                    finally:
+                        conn.close()
+            except Exception as e:
+                print(f"{date()} ERROR  Failed to update command usage stats: {e}")
 
     @commands.Cog.listener()
     async def on_message(self, message):
