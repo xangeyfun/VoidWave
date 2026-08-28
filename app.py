@@ -267,6 +267,9 @@ def botstats():
         messages=latest.get('total_messages', 0),
         vc_minutes=latest.get('total_vc_minutes', 0),
         avg_level=latest.get('avg_level', 0),
+        total_ratings=latest.get('total_ratings', 0),
+        avg_rating=latest.get('avg_rating', 0),
+        rating_distribution=latest.get('rating_distribution', {}),
     ), 200
 
 @app.route('/api/leaderboard')
