@@ -50,6 +50,8 @@ TICTACTOE_EMPTY = "\u200b"
 
 
 class RPSView(discord.ui.View):
+    command_name = "/rps"
+
     def __init__(self, player: discord.User):
         super().__init__(timeout=120)
         self.player = player
@@ -57,7 +59,7 @@ class RPSView(discord.ui.View):
 
     async def _finish(self, interaction: discord.Interaction, player_choice: str):
         if interaction.user.id != self.player.id:
-            await interaction.response.send_message("This isn't your game!", ephemeral=True)
+            await interaction.response.send_message(f"This isn't your game! Start your own game with **`{self.command_name}`**", ephemeral=True)
             return
 
         for child in self.children:
@@ -118,6 +120,8 @@ TICTACTOE_WIN_LINES = (
 
 
 class TicTacToeView(discord.ui.View):
+    command_name = "/tictactoe"
+
     def __init__(self, player: discord.User):
         super().__init__(timeout=120)
         self.player = player
@@ -212,7 +216,7 @@ class TicTacToeView(discord.ui.View):
 
     async def _player_move(self, interaction: discord.Interaction, index: int):
         if interaction.user.id != self.player.id:
-            await interaction.response.send_message("This isn't your game!", ephemeral=True)
+            await interaction.response.send_message(f"This isn't your game! Start your own game with **`{self.command_name}`**", ephemeral=True)
             return
 
         if self.board[index] != TICTACTOE_EMPTY or self.winner is not None:
@@ -404,7 +408,7 @@ class _TriviaButton(discord.ui.Button):
 
     async def callback(self, interaction: discord.Interaction):
         if interaction.user.id != self.host_view.interaction.user.id:
-            await interaction.response.send_message("This isn't your trivia game!", ephemeral=True)
+            await interaction.response.send_message(f"This isn't your trivia game! Start your own game with **`{self.host_view.command_name}`**", ephemeral=True)
             return
         if self.host_view.answered:
             return
@@ -418,7 +422,7 @@ class _TriviaAgainButton(discord.ui.Button):
 
     async def callback(self, interaction: discord.Interaction):
         if interaction.user.id != self.host_view.interaction.user.id:
-            await interaction.response.send_message("This isn't your trivia game!", ephemeral=True)
+            await interaction.response.send_message(f"This isn't your trivia game! Start your own game with **`{self.host_view.command_name}`**", ephemeral=True)
             return
         await self.host_view.start_again(interaction)
 
@@ -431,6 +435,8 @@ CONNECT_FOUR_BOT = "🟣"
 
 
 class ConnectFourView(discord.ui.View):
+    command_name = "/connectfour"
+
     def __init__(self, player: discord.User):
         super().__init__(timeout=120)
         self.player = player
@@ -510,7 +516,7 @@ class ConnectFourView(discord.ui.View):
 
     async def _player_turn(self, interaction: discord.Interaction, col: int):
         if interaction.user.id != self.player.id:
-            await interaction.response.send_message("This isn't your game!", ephemeral=True)
+            await interaction.response.send_message(f"This isn't your game! Start your own game with **`{self.command_name}`**", ephemeral=True)
             return
         if self.winner is not None:
             return
@@ -681,6 +687,8 @@ HANGMAN_MAX_WRONG = 6
 
 
 class HangmanView(discord.ui.View):
+    command_name = "/hangman"
+
     def __init__(self, player: discord.User):
         super().__init__(timeout=120)
         self.player = player
@@ -735,7 +743,7 @@ class HangmanView(discord.ui.View):
 
     async def _guess(self, interaction: discord.Interaction, letter: str):
         if interaction.user.id != self.player.id:
-            await interaction.response.send_message("This isn't your game!", ephemeral=True)
+            await interaction.response.send_message(f"This isn't your game! Start your own game with **`{self.command_name}`**", ephemeral=True)
             return
         if self.done or letter in self.guessed:
             return
@@ -819,6 +827,8 @@ def _hand_value(hand):
 
 
 class BlackjackView(discord.ui.View):
+    command_name = "/blackjack"
+
     def __init__(self, player: discord.User):
         super().__init__(timeout=120)
         self.player = player
@@ -860,7 +870,7 @@ class BlackjackView(discord.ui.View):
 
     async def _hit(self, interaction: discord.Interaction):
         if interaction.user.id != self.player.id:
-            await interaction.response.send_message("This isn't your game!", ephemeral=True)
+            await interaction.response.send_message(f"This isn't your game! Start your own game with **`{self.command_name}`**", ephemeral=True)
             return
         if self.over:
             return
@@ -873,7 +883,7 @@ class BlackjackView(discord.ui.View):
 
     async def _stand(self, interaction: discord.Interaction):
         if interaction.user.id != self.player.id:
-            await interaction.response.send_message("This isn't your game!", ephemeral=True)
+            await interaction.response.send_message(f"This isn't your game! Start your own game with **`{self.command_name}`**", ephemeral=True)
             return
         if self.over:
             return
@@ -950,6 +960,8 @@ class _WordleGuessModal(discord.ui.Modal, title="Wordle Guess"):
 
 
 class WordleView(discord.ui.View):
+    command_name = "/wordle"
+
     def __init__(self, player: discord.User):
         super().__init__(timeout=300)
         self.player = player
@@ -993,7 +1005,7 @@ class WordleView(discord.ui.View):
 
     async def _submit_guess(self, interaction: discord.Interaction, guess: str):
         if interaction.user.id != self.player.id:
-            await interaction.response.send_message("This isn't your game!", ephemeral=True)
+            await interaction.response.send_message(f"This isn't your game! Start your own game with **`{self.command_name}`**", ephemeral=True)
             return
         if self.done or len(self.guesses) >= WORDLE_MAX_GUESSES:
             await interaction.response.send_message("This game is already over.", ephemeral=True)
@@ -1011,7 +1023,7 @@ class WordleView(discord.ui.View):
 
     async def _reveal(self, interaction: discord.Interaction):
         if interaction.user.id != self.player.id:
-            await interaction.response.send_message("This isn't your game!", ephemeral=True)
+            await interaction.response.send_message(f"This isn't your game! Start your own game with **`{self.command_name}`**", ephemeral=True)
             return
         if self.done:
             return
@@ -1046,7 +1058,7 @@ class _WordleGuessButton(discord.ui.Button):
 
     async def callback(self, interaction: discord.Interaction):
         if interaction.user.id != self.host_view.player.id:
-            await interaction.response.send_message("This isn't your game!", ephemeral=True)
+            await interaction.response.send_message(f"This isn't your game! Start your own game with **`{self.host_view.command_name}`**", ephemeral=True)
             return
         if self.host_view.done:
             return
@@ -1090,6 +1102,8 @@ def _ms_neighbors(idx):
 
 
 class MinesweeperView(discord.ui.View):
+    command_name = "/minesweeper"
+
     def __init__(self, player: discord.User, mine_count: int = MS_MINES):
         super().__init__(timeout=300)
         self.player = player
@@ -1206,7 +1220,7 @@ class MinesweeperView(discord.ui.View):
 
     async def _handle_cell(self, interaction: discord.Interaction, idx: int):
         if interaction.user.id != self.player.id:
-            await interaction.response.send_message("This isn't your game!", ephemeral=True)
+            await interaction.response.send_message(f"This isn't your game! Start your own game with **`{self.command_name}`**", ephemeral=True)
             return
         if self.over or self.won:
             return
@@ -1230,7 +1244,7 @@ class MinesweeperView(discord.ui.View):
 
     async def _toggle_flag_mode(self, interaction: discord.Interaction):
         if interaction.user.id != self.player.id:
-            await interaction.response.send_message("This isn't your game!", ephemeral=True)
+            await interaction.response.send_message(f"This isn't your game! Start your own game with **`{self.command_name}`**", ephemeral=True)
             return
         if self.over or self.won:
             return
@@ -1239,7 +1253,7 @@ class MinesweeperView(discord.ui.View):
 
     async def _new_game(self, interaction: discord.Interaction):
         if interaction.user.id != self.player.id:
-            await interaction.response.send_message("This isn't your game!", ephemeral=True)
+            await interaction.response.send_message(f"This isn't your game! Start your own game with **`{self.command_name}`**", ephemeral=True)
             return
         self.mines = set()
         self.revealed = set()
@@ -1292,6 +1306,8 @@ PUZZLE_SOLVED = tuple(range(1, PUZZLE_CELLS)) + (0,)
 
 
 class PuzzleView(discord.ui.View):
+    command_name = "/15puzzle"
+
     def __init__(self, player: discord.User):
         super().__init__(timeout=300)
         self.player = player
@@ -1348,7 +1364,7 @@ class PuzzleView(discord.ui.View):
 
     async def _handle_tile(self, interaction: discord.Interaction, idx: int):
         if interaction.user.id != self.player.id:
-            await interaction.response.send_message("This isn't your game!", ephemeral=True)
+            await interaction.response.send_message(f"This isn't your game! Start your own game with **`{self.command_name}`**", ephemeral=True)
             return
         if self.won:
             return
@@ -1381,7 +1397,7 @@ class PuzzleView(discord.ui.View):
 
     async def _new_game(self, interaction: discord.Interaction):
         if interaction.user.id != self.player.id:
-            await interaction.response.send_message("This isn't your game!", ephemeral=True)
+            await interaction.response.send_message(f"This isn't your game! Start your own game with **`{self.command_name}`**", ephemeral=True)
             return
         self.board = list(PUZZLE_SOLVED)
         self._shuffle()
@@ -1453,6 +1469,8 @@ def _bs_place_ships(exclude=frozenset()):
 
 
 class BattleshipView(discord.ui.View):
+    command_name = "/battleship"
+
     def __init__(self, player: discord.User):
         super().__init__(timeout=300)
         self.player = player
@@ -1536,7 +1554,7 @@ class BattleshipView(discord.ui.View):
 
     async def _move(self, interaction: discord.Interaction, dr: int, dc: int):
         if interaction.user.id != self.player.id:
-            await interaction.response.send_message("This isn't your game!", ephemeral=True)
+            await interaction.response.send_message(f"This isn't your game! Start your own game with **`{self.command_name}`**", ephemeral=True)
             return
         if self.over:
             return
@@ -1553,7 +1571,7 @@ class BattleshipView(discord.ui.View):
 
     async def _do_fire(self, interaction: discord.Interaction):
         if interaction.user.id != self.player.id:
-            await interaction.response.send_message("This isn't your game!", ephemeral=True)
+            await interaction.response.send_message(f"This isn't your game! Start your own game with **`{self.command_name}`**", ephemeral=True)
             return
         if self.over:
             return
@@ -1632,7 +1650,7 @@ class BattleshipView(discord.ui.View):
 
     async def _new_game(self, interaction: discord.Interaction):
         if interaction.user.id != self.player.id:
-            await interaction.response.send_message("This isn't your game!", ephemeral=True)
+            await interaction.response.send_message(f"This isn't your game! Start your own game with **`{self.command_name}`**", ephemeral=True)
             return
         self.player_ships = _bs_place_ships()
         self.ship_colors = random.sample(BS_COLORS, len(BS_SHIPS))
@@ -1652,7 +1670,7 @@ class BattleshipView(discord.ui.View):
 
     async def _surrender(self, interaction: discord.Interaction):
         if interaction.user.id != self.player.id:
-            await interaction.response.send_message("This isn't your game!", ephemeral=True)
+            await interaction.response.send_message(f"This isn't your game! Start your own game with **`{self.command_name}`**", ephemeral=True)
             return
         if self.over:
             return
