@@ -2621,6 +2621,28 @@ a:hover {
         padding: 0.6rem 1rem;
         min-width: 100px;
     }
+
+    /* bot stats mobile */
+    .bs-title {
+        font-size: 2.5rem;
+    }
+
+    .bs-kpis,
+    .bs-trends {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .bs-ratings {
+        grid-template-columns: 1fr;
+    }
+
+    .bs-card-lg {
+        padding: 1.25rem 1.15rem;
+    }
+
+    .bs-chart-lg {
+        height: 300px;
+    }
 }
 
 @media (max-width: 480px) {
@@ -2687,5 +2709,110 @@ a:hover {
         width: 36px;
         height: 36px;
         font-size: 1rem;
+    }
+
+    /* bot stats small screens */
+    .bs-page {
+        padding: 1.5rem 0 2.5rem;
+    }
+
+    .bs-hero {
+        padding: 0.5rem 0 1.5rem;
+    }
+
+    .bs-title {
+        font-size: 2rem;
+    }
+
+    .bs-sub {
+        font-size: 0.95rem;
+    }
+
+    .bs-kpis {
+        gap: 0.75rem;
+    }
+
+    .bs-kpi {
+        padding: 0.9rem 0.9rem 0.7rem;
+        border-radius: 14px;
+    }
+
+    .bs-kpi-value {
+        font-size: 1.35rem;
+    }
+
+    .bs-kpi-value.bs-kpi-rating {
+        font-size: 1.2rem;
+    }
+
+    .bs-kpi-icon {
+        width: 28px;
+        height: 28px;
+        border-radius: 8px;
+    }
+
+    .bs-kpi-icon svg {
+        width: 14px;
+        height: 14px;
+    }
+
+    .bs-kpi-delta {
+        font-size: 0.62rem;
+        padding: 0.15rem 0.45rem;
+    }
+
+    .bs-kpi-label {
+        font-size: 0.65rem;
+    }
+
+    .bs-kpi-spark {
+        height: 26px;
+    }
+
+    .bs-trends {
+        grid-template-columns: 1fr;
+        gap: 0.75rem;
+        margin-top: 1.25rem;
+    }
+
+    .bs-trend .bs-chart {
+        height: 150px;
+    }
+
+    .bs-chart-lg {
+        height: 260px;
+    }
+
+    .bs-growth {
+        margin-top: 1.25rem;
+    }
+
+    .bs-card-lg {
+        padding: 1rem 1rem;
+    }
+
+    .bs-card-head h2 {
+        font-size: 1rem;
+    }
+
+    .range-tabs button {
+        padding: 0.4rem 0.6rem;
+        font-size: 0.75rem;
+    }
+
+    .range-chip {
+        font-size: 0.72rem;
+    }
+
+    .bs-ratings .bs-card {
+        padding: 1.1rem 1.2rem;
+    }
+
+    .bs-rating-num {
+        font-size: 2.1rem;
+    }
+
+    .bs-stars {
+        font-size: 1.15rem;
     }
 }
