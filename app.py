@@ -260,12 +260,59 @@ def stats(guild_id: int, user_id: int):
         avatar_url=f'https://cdn.discordapp.com/avatars/{user_id}/{user_data["avatar_hash"]}.png?size=128' if user_data['avatar_hash'] else 'https://cdn.discordapp.com/embed/avatars/0.png'
     ), 200
 
+def _lb_find_rank(username_query, guild_id, sort_by, direction):
+    valid_sorts = {'level', 'total_xp', 'total_messages', 'vc_minutes'}
+    if sort_by not in valid_sorts:
+        sort_by = 'level'
+    dir_sql = 'DESC' if direction == 'desc' else 'ASC'
+    where_sql = 'WHERE guild_id=?' if guild_id else ''
+    params = (guild_id,) if guild_id else ()
+    base = f"""
+        SELECT user_id, guild_id, username, rk FROM (
+            SELECT user_id, guild_id, username,
+                   ROW_NUMBER() OVER (ORDER BY {sort_by} {dir_sql}) AS rk
+            FROM users {where_sql}
+        ) AS ranked
+    """
+    key = f"lb_find:{guild_id}:{sort_by}:{direction}:{username_query}"
+    for cond in ("LOWER(username) = LOWER(?)", "LOWER(username) LIKE LOWER(?)"):
+        match = '%' if cond.startswith('LOWER(username) LIKE') else ''
+        rows = cached_query(
+            key + (':exact' if not match else ':like'),
+            base + f" WHERE {cond} ORDER BY rk LIMIT 1",
+            params + (f"{match}{username_query}{match}",),
+            ttl=30
+        )
+        if rows:
+            return {
+                'user_id': rows[0]['user_id'],
+                'guild_id': rows[0]['guild_id'],
+                'username': rows[0]['username'],
+                'rank': rows[0]['rk'],
+            }
+    return None
+
 @app.route('/leaderboard')
 def leaderboard():
     guild_id = request.args.get('guild', 0, type=int)
     sort_by = request.args.get('sort', 'level')
     direction = request.args.get('dir', 'desc')
     page = request.args.get('page', 1, type=int)
+
+    find_query = (request.args.get('find') or '').strip()
+    find_user_id = None
+    find_guild_id = None
+    find_rank = None
+    find_username = None
+
+    if find_query:
+        found = _lb_find_rank(find_query, guild_id, sort_by, direction)
+        if found:
+            find_user_id = found['user_id']
+            find_guild_id = found['guild_id']
+            find_username = found['username']
+            find_rank = found['rank']
+            page = max(1, (find_rank + 49) // 50)
     
     entries, total = get_leaderboard(guild_id=guild_id, sort_by=sort_by, direction=direction, page=page, per_page=50)
     
@@ -310,7 +357,12 @@ def leaderboard():
         total_pages=total_pages,
         agg_xp=f"{agg_xp:,}",
         agg_messages=f"{agg_messages:,}",
-        agg_vc=agg_vc_str
+        agg_vc=agg_vc_str,
+        find_query=find_query,
+        find_user_id=find_user_id,
+        find_guild_id=find_guild_id,
+        find_rank=find_rank,
+        find_username=find_username
     ), 200
 
 @app.route('/stats')
