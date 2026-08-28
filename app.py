@@ -9,6 +9,8 @@ import os
 import json
 import hmac
 import hashlib
+import subprocess
+import re
 
 load_dotenv()
 
@@ -110,6 +112,72 @@ def _range_history(history, range_name):
         return history
     cutoff = (datetime.now() - timedelta(days=days)).isoformat()
     return [s for s in history if s.get('timestamp', '') >= cutoff]
+
+_sysctl_cache = {'key': None, 'data': None, 'time': 0}
+_SYSCTL_TTL = 5
+
+def _service_status(service):
+    now = time.time()
+    if _sysctl_cache['key'] != service or now - _sysctl_cache['time'] > _SYSCTL_TTL:
+        status = {'active': None, 'uptime': None}
+        try:
+            r = subprocess.run(['systemctl', 'is-active', service],
+                               capture_output=True, text=True, timeout=2)
+            status['active'] = r.stdout.strip() == 'active'
+            if status['active']:
+                ts = subprocess.run(['systemctl', 'show', service, '-p', 'ActiveEnterTimestamp', '--value'],
+                                    capture_output=True, text=True, timeout=2).stdout.strip()
+                m = re.search(r'(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})', ts)
+                if m:
+                    status['uptime'] = datetime.now() - datetime(*map(int, m.groups()))
+        except Exception:
+            status['active'] = None
+        _sysctl_cache['key'] = service
+        _sysctl_cache['data'] = status
+        _sysctl_cache['time'] = now
+    return _sysctl_cache['data']
+
+def _fmt_uptime(delta):
+    if not delta or delta.total_seconds() < 0:
+        return None
+    total = int(delta.total_seconds())
+    d, rem = divmod(total, 86400)
+    h, m = divmod(rem, 3600)
+    m //= 60
+    if d:
+        return f"{d}d {h}h {m}m"
+    if h:
+        return f"{h}h {m}m"
+    return f"{m}m"
+
+_db_health_cache = {'time': 0, 'data': None}
+_DB_HEALTH_TTL = 60
+
+def _db_health():
+    now = time.time()
+    if now - _db_health_cache['time'] < _DB_HEALTH_TTL:
+        return _db_health_cache['data']
+    info = {'ok': False, 'size_mb': None, 'detail': 'could not check'}
+    try:
+        p = Path('database.db')
+        if not p.exists():
+            info['detail'] = 'file missing'
+        else:
+            info['size_mb'] = round(p.stat().st_size / 1024 / 1024, 1)
+            conn = get_db()
+            try:
+                rows = conn.execute("PRAGMA quick_check").fetchall()
+                failures = [str(r[0]) for r in rows if r[0] != 'ok']
+                info['ok'] = not failures
+                info['detail'] = (f"{info['size_mb']} MB" if info['ok']
+                                  else ', '.join(failures)[:60])
+            finally:
+                conn.close()
+    except Exception as e:
+        info['detail'] = str(e)[:60]
+    _db_health_cache['time'] = now
+    _db_health_cache['data'] = info
+    return info
 
 @app.before_request
 def remove_trailing_slash():
@@ -218,6 +286,40 @@ def terms():
 @app.route('/privacy')
 def privacy():
     return render_template('privacy.html'), 200
+
+@app.route('/faq')
+def faq():
+    return render_template('faq.html'), 200
+
+@app.route('/status')
+def status_page():
+    bot = cached_query('bot_stats', "SELECT * FROM bot_stats")
+    bot = dict(bot[0]) if bot else {}
+
+    hist = _load_stats_history()
+    latest = hist[-1] if hist else {}
+    last_ts = latest.get('timestamp')
+    if last_ts:
+        try:
+            last_ts = datetime.fromisoformat(last_ts).strftime('%b %d, %Y %H:%M')
+        except ValueError:
+            pass
+
+    bot_svc = _service_status('voidwave.service')
+    web_svc = _service_status('voidwave_website.service')
+    db = _db_health()
+
+    return render_template('status.html',
+        bot_stats=bot,
+        latest=latest,
+        last_stats_ts=last_ts,
+        bot_active=bot_svc['active'],
+        bot_uptime=_fmt_uptime(bot_svc['uptime']),
+        web_active=web_svc['active'],
+        web_uptime=_fmt_uptime(web_svc['uptime']),
+        db_ok=db['ok'],
+        db_detail=db['detail'],
+    ), 200
 
 @app.route('/stats/<int:guild_id>/<int:user_id>')
 def stats(guild_id: int, user_id: int):
