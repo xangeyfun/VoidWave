@@ -16,6 +16,7 @@
 {% block body_attrs %}class="lb-page-mode"{% endblock %}
 
 {% block content %}
+{% import "_icons.html" as icons %}
 <div class="lb-page">
     <header class="bs-hero">
         <h1 class="bs-title">Global <span>Leaderboard</span></h1>
@@ -92,7 +93,7 @@
             {% for entry in leaderboard %}
             <div class="leaderboard-row {% if entry.rank == 1 %}top-1{% elif entry.rank == 2 %}top-2{% elif entry.rank == 3 %}top-3{% endif %}{% if find_user_id and entry.user_id == find_user_id and entry.guild_id == find_guild_id %} find-highlight lb-located{% endif %}" data-level="{{ entry.level }}" data-xp="{{ entry.total_xp }}" data-messages="{{ entry.total_messages }}" data-voice="{{ entry.vc_minutes }}" data-username="{{ entry.username|lower }}">
                 <span class="rank {% if entry.rank == 1 %}rank-1{% elif entry.rank == 2 %}rank-2{% elif entry.rank == 3 %}rank-3{% endif %}">
-                    {% if entry.rank == 1 %}&#x1F947;{% elif entry.rank == 2 %}&#x1F948;{% elif entry.rank == 3 %}&#x1F949;{% else %}#{{ entry.rank }}{% endif %}
+                    {% if entry.rank <= 3 %}{{ icons.medal() }}{% else %}#{{ entry.rank }}{% endif %}
                 </span>
                 <div class="user-cell">
                     <img class="user-avatar" src="{% if entry.avatar_hash %}https://cdn.discordapp.com/avatars/{{ entry.user_id }}/{{ entry.avatar_hash }}.png?size=128{% else %}https://cdn.discordapp.com/embed/avatars/0.png{% endif %}" onerror="this.onerror=null;this.src='https://cdn.discordapp.com/embed/avatars/0.png'" alt="{{ entry.username }}">
