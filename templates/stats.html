@@ -1,36 +1,41 @@
 {% extends "base.html" %}
 
-{% block title %}{{ username }}{% endblock %}
+{% block title %}{{ display_name }} · Level {{ level }}{% endblock %}
 
 {% block og_tags %}
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://voidwave.xangey.dev/stats/{{ guild_id }}/{{ user_id }}">
-<meta property="og:title" content="{{ username }} - Level {{ level }}">
-<meta property="og:description" content="Level {{ level }} - {{ total_xp|default(0)|int }} XP - Rank #{{ rank|default('?') }}">
+<meta property="og:title" content="{{ display_name }} - Level {{ level }}">
+<meta property="og:description" content="Level {{ level }} - {{ total_xp|default(0)|int }} XP - Rank #{{ rank|default('?') }} in server - Top {{ server_top_pct|default(0, true) }}%">
+<meta property="og:image" content="{{ avatar_url }}">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="{{ username }} - Level {{ level }}">
+<meta name="twitter:title" content="{{ display_name }} - Level {{ level }}">
 <meta name="twitter:description" content="Level {{ level }} - {{ total_xp|default(0)|int }} XP - Rank #{{ rank|default('?') }}">
+<meta name="twitter:image" content="{{ avatar_url }}">
 {% endblock %}
 
 {% block content %}
 <section class="stats-page">
     <div class="stats-card">
         <div class="stats-avatar-wrap">
-            <img src="{{ avatar_url }}" alt="{{ username }}" class="stats-avatar" onerror="this.onerror=null;this.src='https://cdn.discordapp.com/embed/avatars/0.png'">
+            <img src="{{ avatar_url }}" alt="{{ display_name }}" class="stats-avatar" onerror="this.onerror=null;this.src='https://cdn.discordapp.com/embed/avatars/0.png'">
             {% if rank <= 3 %}
             <span class="stats-rank-badge rank-badge-{{ rank }}">
                 {% if rank == 1 %}&#x1F947;{% elif rank == 2 %}&#x1F948;{% elif rank == 3 %}&#x1F949;{% endif %}
             </span>
             {% endif %}
         </div>
-        <h1 class="stats-username">{{ username }}</h1>
-        <p class="stats-level">Level {{ level }}</p>
+        <h1 class="stats-username">{{ display_name }}</h1>
+        <p class="stats-username-sub">@{{ username }}</p>
+        <p class="stats-level">
+            Level {{ level }}
+            {% if last_active %}<span class="stats-level-meta">Active {{ last_active }}</span>{% endif %}
+        </p>
         
         <div class="xp-bar-container">
             <div class="xp-bar" style="width: {{ progress_percent }}%"></div>
             <span class="xp-bar-text">{{ progress|default(0)|int }} / {{ out_of|default(100)|int }} XP</span>
         </div>
-        <p class="xp-progress-label">{{ progress_percent|round(1) }}% to next level</p>
         
         <div class="stats-grid">
             <div class="stat-card-lg">
@@ -52,17 +57,30 @@
                 <span class="stat-card-icon">&#x1F3C6;</span>
                 <p class="stat-card-value {% if rank == 1 %}rank-1{% elif rank == 2 %}rank-2{% elif rank == 3 %}rank-3{% endif %}">#{{ rank|default('?') }}</p>
                 <p class="stat-card-label">Server Rank</p>
+                {% if server_top_pct %}<span class="stat-rank-pill">Top {{ server_top_pct }}%</span>{% endif %}
             </div>
             <div class="stat-card-lg">
                 <span class="stat-card-icon">&#x1F310;</span>
                 <p class="stat-card-value">#{{ global_rank|default('?') }}</p>
                 <p class="stat-card-label">Global Rank</p>
+                {% if global_top_pct %}<span class="stat-rank-pill">Top {{ global_top_pct }}%</span>{% endif %}
             </div>
             <div class="stat-card-lg">
                 <span class="stat-card-icon">&#x1F4C8;</span>
                 <p class="stat-card-value">{{ progress_percent|round(1) }}%</p>
                 <p class="stat-card-label">Progress</p>
             </div>
+        </div>
+
+        {% if xp_to_overtake %}
+        <div class="stats-rank-up">
+            <span>{{ "{:,}".format(xp_to_overtake|int) }} XP away from overtaking server rank #{{ rank - 1 }}</span>
+        </div>
+        {% endif %}
+
+        <div class="stats-actions">
+            <button class="btn btn-secondary btn-sm" data-copy="{{ request.url }}">&#128279; Copy link</button>
+            <a class="btn btn-primary btn-sm" href="/leaderboard?guild={{ guild_id }}&find={{ username|urlencode }}">&#128202; View server leaderboard</a>
         </div>
     </div>
 </section>

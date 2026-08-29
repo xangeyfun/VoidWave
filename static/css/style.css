@@ -1888,7 +1888,7 @@ a:hover {
     height: 24px;
     width: 100%;
     overflow: hidden;
-    margin-bottom: 0.5rem;
+    margin-bottom: 2rem;
     position: relative;
 }
 
@@ -1960,6 +1960,55 @@ a:hover {
 .stat-card-value.rank-1 { color: #ffd700; }
 .stat-card-value.rank-2 { color: #c0c0c0; }
 .stat-card-value.rank-3 { color: #cd7f32; }
+
+/* Stats Profile Page extras */
+.stats-username-sub {
+    font-size: 1rem;
+    color: var(--text-muted);
+    font-weight: 500;
+    margin: -0.25rem 0 0.25rem;
+}
+
+.stats-level-meta {
+    color: var(--text-muted);
+    font-weight: 500;
+    font-size: 0.95rem;
+}
+
+.stats-level-meta::before {
+    content: '\00b7';
+    margin: 0 0.5rem;
+}
+
+.stat-rank-pill {
+    display: inline-block;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--primary);
+    background: var(--bg-card);
+    border: 1px solid var(--border-light);
+    border-radius: 999px;
+    padding: 0.15rem 0.6rem;
+    margin-top: 0.35rem;
+}
+
+.stats-rank-up {
+    margin-top: 1.25rem;
+    background: var(--bg-tertiary);
+    border: 1px dashed var(--border-light);
+    border-radius: 12px;
+    padding: 0.75rem 1rem;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+.stats-actions {
+    display: flex;
+    gap: 0.75rem;
+    justify-content: center;
+    margin-top: 1.5rem;
+    flex-wrap: wrap;
+}
 
 /* Leaderboard Page */
 .lb-page {

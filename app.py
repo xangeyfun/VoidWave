@@ -150,6 +150,27 @@ def _fmt_uptime(delta):
         return f"{h}h {m}m"
     return f"{m}m"
 
+def _fmt_last_active(value):
+    if not value:
+        return None
+    try:
+        dt = datetime.fromisoformat(str(value))
+        if dt.tzinfo is None:
+            seconds = (datetime.now() - dt).total_seconds()
+        else:
+            seconds = (datetime.now(dt.tzinfo) - dt).total_seconds()
+    except (ValueError, TypeError):
+        return None
+    if seconds < 0:
+        return "just now"
+    if seconds < 3600:
+        return f"{int(seconds // 60)}m ago"
+    if seconds < 86400:
+        return f"{int(seconds // 3600)}h ago"
+    if seconds < 604800:
+        return f"{int(seconds // 86400)}d ago"
+    return f"{int(seconds // 604800)}w ago"
+
 _db_health_cache = {'time': 0, 'data': None}
 _DB_HEALTH_TTL = 60
 
@@ -213,7 +234,18 @@ def get_user_stats(user_id: int, guild_id: int):
             "SELECT COUNT(*) + 1 FROM users WHERE total_xp > ?",
             (user['total_xp'],)
         ).fetchone()[0]
-        
+
+        server_total = cur.execute(
+            "SELECT COUNT(*) FROM users WHERE guild_id=?", (guild_id,)
+        ).fetchone()[0]
+
+        global_total = cur.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+
+        above = cur.execute(
+            "SELECT total_xp FROM users WHERE guild_id=? AND total_xp > ? ORDER BY total_xp ASC LIMIT 1",
+            (guild_id, user['total_xp'])
+        ).fetchone()
+
         return {
             'username': user['username'],
             'display_name': user['display_name'],
@@ -222,11 +254,17 @@ def get_user_stats(user_id: int, guild_id: int):
             'out_of': user['out_of'],
             'total_xp': user['total_xp'],
             'total_messages': user['total_messages'],
+            'total_messages_xp': user['total_messages_xp'],
             'vc_minutes': user['vc_minutes'],
             'vc_xp_minutes': user['vc_xp_minutes'],
+            'command_uses': user['command_uses'],
+            'last_message': user['last_message'],
             'avatar_hash': user['avatar_hash'],
             'rank': rank,
-            'global_rank': global_rank
+            'global_rank': global_rank,
+            'server_total': server_total,
+            'global_total': global_total,
+            'xp_to_overtake': (above[0] - user['total_xp']) if above else None
         }
     except Exception as e:
         print(f"Error fetching user stats: {e}")
@@ -328,6 +366,7 @@ def stats(guild_id: int, user_id: int):
     if not user_data:
         return render_template('stats.html', 
             username='Unknown User',
+            display_name='Unknown User',
             level=0,
             progress=0,
             out_of=100,
@@ -337,7 +376,10 @@ def stats(guild_id: int, user_id: int):
             global_rank=0,
             progress_percent=0,
             vc_minutes=0,
-            vc_xp_minutes=0,
+            last_active=None,
+            server_top_pct=None,
+            global_top_pct=None,
+            xp_to_overtake=None,
             guild_id=guild_id,
             user_id=user_id,
             avatar_url='https://cdn.discordapp.com/embed/avatars/0.png'
@@ -345,8 +387,12 @@ def stats(guild_id: int, user_id: int):
     
     progress_percent = (user_data['progress'] / user_data['out_of'] * 100) if user_data['out_of'] > 0 else 0
     
+    avatar_ext = 'gif' if (user_data['avatar_hash'] or '').startswith('a_') else 'png'
+    avatar_url = f'https://cdn.discordapp.com/avatars/{user_id}/{user_data["avatar_hash"]}.{avatar_ext}?size=128' if user_data['avatar_hash'] else 'https://cdn.discordapp.com/embed/avatars/0.png'
+    
     return render_template('stats.html',
         username=user_data['username'],
+        display_name=user_data['display_name'] or user_data['username'],
         level=user_data['level'],
         progress=user_data['progress'],
         out_of=user_data['out_of'],
@@ -356,10 +402,13 @@ def stats(guild_id: int, user_id: int):
         global_rank=user_data['global_rank'],
         progress_percent=progress_percent,
         vc_minutes=user_data['vc_minutes'],
-        vc_xp_minutes=user_data['vc_xp_minutes'],
+        last_active=_fmt_last_active(user_data['last_message']),
+        server_top_pct=round(user_data['rank'] / user_data['server_total'] * 100, 1) if user_data['server_total'] else None,
+        global_top_pct=round(user_data['global_rank'] / user_data['global_total'] * 100, 1) if user_data['global_total'] else None,
+        xp_to_overtake=user_data['xp_to_overtake'],
         guild_id=guild_id,
         user_id=user_id,
-        avatar_url=f'https://cdn.discordapp.com/avatars/{user_id}/{user_data["avatar_hash"]}.png?size=128' if user_data['avatar_hash'] else 'https://cdn.discordapp.com/embed/avatars/0.png'
+        avatar_url=avatar_url
     ), 200
 
 def _lb_find_rank(username_query, guild_id, sort_by, direction):

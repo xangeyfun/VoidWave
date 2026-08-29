@@ -638,6 +638,39 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // Stats page: count-up number animation
+    const statValues = document.querySelectorAll('.stat-card-value[data-stat]');
+    if (statValues.length) {
+        function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
+        function animateCount(el, target, duration) {
+            const startTime = performance.now();
+            function tick(now) {
+                const progress = Math.min((now - startTime) / duration, 1);
+                const current = Math.round(target * easeOutCubic(progress));
+                el.textContent = current.toLocaleString();
+                if (progress < 1) requestAnimationFrame(tick);
+            }
+            requestAnimationFrame(tick);
+        }
+        statValues.forEach(el => {
+            const target = parseInt(el.getAttribute('data-stat'), 10) || 0;
+            animateCount(el, target, 1200);
+        });
+    }
+
+    // Copy-to-clipboard for elements with data-copy
+    document.querySelectorAll('[data-copy]').forEach(el => {
+        el.addEventListener('click', () => {
+            const text = el.getAttribute('data-copy');
+            if (!navigator.clipboard) return;
+            navigator.clipboard.writeText(text).then(() => {
+                const old = el.textContent;
+                el.textContent = '\u2713 Copied!';
+                setTimeout(() => { el.textContent = old; }, 1200);
+            }).catch(() => {});
+        });
+    });
+
     // Footer year
     const footerYear = document.getElementById('footerYear');
     if (footerYear) {
