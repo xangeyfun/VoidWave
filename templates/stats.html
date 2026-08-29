@@ -15,13 +15,14 @@
 {% endblock %}
 
 {% block content %}
+{% import "_icons.html" as icons %}
 <section class="stats-page">
     <div class="stats-card">
         <div class="stats-avatar-wrap">
-            <img src="{{ avatar_url }}" alt="{{ display_name }}" class="stats-avatar" onerror="this.onerror=null;this.src='https://cdn.discordapp.com/embed/avatars/0.png'">
+            <img src="{{ avatar_url }}" alt="{{ display_name }}" class="stats-avatar" crossorigin="anonymous" onerror="this.onerror=null;this.src='https://cdn.discordapp.com/embed/avatars/0.png'">
             {% if rank <= 3 %}
             <span class="stats-rank-badge rank-badge-{{ rank }}">
-                {% if rank == 1 %}&#x1F947;{% elif rank == 2 %}&#x1F948;{% elif rank == 3 %}&#x1F949;{% endif %}
+                {{ icons.medal() }}
             </span>
             {% endif %}
         </div>
@@ -39,34 +40,34 @@
         
         <div class="stats-grid">
             <div class="stat-card-lg">
-                <span class="stat-card-icon">&#x1F3AF;</span>
+                <span class="stat-card-icon">{{ icons.target() }}</span>
                 <p class="stat-card-value" data-stat="{{ total_xp|default(0)|int }}">{{ "{:,}".format(total_xp|default(0)|int) }}</p>
                 <p class="stat-card-label">Total XP</p>
             </div>
             <div class="stat-card-lg">
-                <span class="stat-card-icon">&#x1F4AC;</span>
+                <span class="stat-card-icon">{{ icons.message() }}</span>
                 <p class="stat-card-value" data-stat="{{ total_messages|default(0)|int }}">{{ "{:,}".format(total_messages|default(0)|int) }}</p>
                 <p class="stat-card-label">Messages</p>
             </div>
             <div class="stat-card-lg">
-                <span class="stat-card-icon">&#x1F3A4;</span>
+                <span class="stat-card-icon">{{ icons.mic() }}</span>
                 <p class="stat-card-value">{% if vc_minutes|default(0) >= 1440 %}{{ "%dd %dh" | format(vc_minutes // 1440, (vc_minutes % 1440) // 60) }}{% elif vc_minutes|default(0) >= 60 %}{{ "%dh %dm" | format(vc_minutes // 60, vc_minutes % 60) }}{% else %}{{ vc_minutes|default(0) }}m{% endif %}</p>
                 <p class="stat-card-label">Voice Time</p>
             </div>
             <div class="stat-card-lg">
-                <span class="stat-card-icon">&#x1F3C6;</span>
+                <span class="stat-card-icon">{{ icons.trophy() }}</span>
                 <p class="stat-card-value {% if rank == 1 %}rank-1{% elif rank == 2 %}rank-2{% elif rank == 3 %}rank-3{% endif %}">#{{ rank|default('?') }}</p>
                 <p class="stat-card-label">Server Rank</p>
                 {% if server_top_pct %}<span class="stat-rank-pill">Top {{ server_top_pct }}%</span>{% endif %}
             </div>
             <div class="stat-card-lg">
-                <span class="stat-card-icon">&#x1F310;</span>
+                <span class="stat-card-icon">{{ icons.globe() }}</span>
                 <p class="stat-card-value">#{{ global_rank|default('?') }}</p>
                 <p class="stat-card-label">Global Rank</p>
                 {% if global_top_pct %}<span class="stat-rank-pill">Top {{ global_top_pct }}%</span>{% endif %}
             </div>
             <div class="stat-card-lg">
-                <span class="stat-card-icon">&#x1F4C8;</span>
+                <span class="stat-card-icon">{{ icons.trend() }}</span>
                 <p class="stat-card-value">{{ progress_percent|round(1) }}%</p>
                 <p class="stat-card-label">Progress</p>
             </div>
@@ -79,9 +80,12 @@
         {% endif %}
 
         <div class="stats-actions">
-            <button class="btn btn-secondary btn-sm" data-copy="{{ request.url }}">&#128279; Copy link</button>
-            <a class="btn btn-primary btn-sm" href="/leaderboard?guild={{ guild_id }}&find={{ username|urlencode }}">&#128202; View server leaderboard</a>
+            <button class="btn btn-secondary btn-sm" id="copyImageBtn">{{ icons.camera() }}Copy image</button>
+            <button class="btn btn-secondary btn-sm" data-copy="{{ request.url }}">{{ icons.link() }}Copy link</button>
+            <a class="btn btn-primary btn-sm" href="/leaderboard?guild={{ guild_id }}&find={{ username|urlencode }}">{{ icons.chart() }}View server leaderboard</a>
         </div>
     </div>
 </section>
+
+<script src="{{ url_for('static', filename='js/html-to-image.min.js') }}"></script>
 {% endblock %}
