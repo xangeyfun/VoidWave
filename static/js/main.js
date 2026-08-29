@@ -671,6 +671,167 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
+    // Stats page: copy the stats card as an image (client-side screenshot)
+    const copyImageBtn = document.getElementById('copyImageBtn');
+    const statsCard = document.querySelector('.stats-card');
+    if (copyImageBtn && statsCard && window.htmlToImage) {
+        const BASE_LABEL = '\u{1F4F8} Copy image';
+        let pendingBlob = null;
+
+        function setBtn(text, restartMs) {
+            copyImageBtn.textContent = text;
+            if (restartMs) {
+                setTimeout(() => {
+                    copyImageBtn.textContent = BASE_LABEL;
+                    copyImageBtn.disabled = false;
+                }, restartMs);
+            }
+        }
+
+        function downloadBlob(blob, name) {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = name;
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 1000);
+        }
+
+        function buildShareClone() {
+            const clone = statsCard.cloneNode(true);
+            clone.classList.add('stats-card--share');
+            clone.querySelector('.stats-actions')?.remove();
+            const avatarImg = clone.querySelector('.stats-avatar');
+            if (avatarImg?.src) avatarImg.src = avatarImg.src.replace('size=128', 'size=512');
+
+            const mark = document.createElement('div');
+            mark.className = 'stats-share-mark';
+            mark.textContent = 'VOIDWAVE';
+            clone.querySelector('.stats-avatar-wrap').insertAdjacentElement('beforebegin', mark);
+
+            const values = clone.querySelectorAll('.stats-grid .stat-card-lg .stat-card-value');
+            const totalXp = parseInt(String(values[0]?.textContent || '0').replace(/\D/g, ''), 10) || 0;
+
+            const xpLine = document.createElement('div');
+            xpLine.className = 'stats-xp-line';
+            const cur = document.createElement('span');
+            cur.className = 'xp-cur';
+            cur.textContent = (clone.querySelector('.xp-bar-text')?.textContent || '').trim();
+            xpLine.appendChild(cur);
+            if (totalXp) {
+                const tot = document.createElement('span');
+                tot.className = 'xp-tot';
+                tot.textContent = '\u00b7 ' + totalXp.toLocaleString('en-US') + ' XP total';
+                xpLine.appendChild(tot);
+            }
+            clone.querySelector('.xp-bar-container')?.insertAdjacentElement('afterend', xpLine);
+
+            let rankUp = clone.querySelector('.stats-rank-up');
+            let fillPct = 0;
+            if (rankUp) {
+                const m = rankUp.textContent.match(/[\d,]+/);
+                const xpToOvertake = m ? parseInt(m[0].replace(/,/g, ''), 10) : 0;
+                const above = totalXp + xpToOvertake;
+                fillPct = above > 0 ? Math.min(100, Math.round(totalXp / above * 100)) : 0;
+            } else {
+                rankUp = document.createElement('div');
+                rankUp.className = 'stats-rank-up';
+                const span = document.createElement('span');
+                span.textContent = 'You hold the #1 server rank';
+                rankUp.appendChild(span);
+                fillPct = 100;
+                clone.appendChild(rankUp);
+            }
+            const bar = document.createElement('div');
+            bar.className = 'rank-up-bar';
+            const fill = document.createElement('div');
+            fill.className = 'rank-up-fill';
+            fill.style.width = fillPct + '%';
+            bar.appendChild(fill);
+            rankUp.insertBefore(bar, rankUp.firstChild);
+
+            const foot = document.createElement('div');
+            foot.className = 'stats-share-foot';
+            foot.textContent = 'voidwave.xangey.dev';
+            clone.appendChild(foot);
+
+            return clone;
+        }
+
+        async function renderCard() {
+            await document.fonts.ready;
+            const clone = buildShareClone();
+            const wrap = document.createElement('div');
+            wrap.style.cssText = 'position:fixed;left:-99999px;top:0;z-index:-1;pointer-events:none;';
+            wrap.appendChild(clone);
+            document.body.appendChild(wrap);
+            try {
+                return await htmlToImage.toPng(clone, { pixelRatio: 1 });
+            } finally {
+                wrap.remove();
+            }
+        }
+
+        window.__renderCard = renderCard;
+        window.__cardRect = async () => {
+            await document.fonts.ready;
+            const clone = buildShareClone();
+            const wrap = document.createElement('div');
+            wrap.style.cssText = 'position:fixed;left:-99999px;top:0;';
+            wrap.appendChild(clone);
+            document.body.appendChild(wrap);
+            const box = (sel) => {
+                const el = clone.querySelector(sel);
+                if (!el) return null;
+                const b = el.getBoundingClientRect();
+                return { x: Math.round(b.x), y: Math.round(b.y), w: Math.round(b.width), h: Math.round(b.height) };
+            };
+            const cRect = clone.getBoundingClientRect();
+            const rel = (b) => ({ x: Math.round(b.x - cRect.x), y: Math.round(b.y - cRect.y), w: Math.round(b.width), h: Math.round(b.height) });
+            const out = {};
+            for (const s of ['.stats-share-mark', '.stats-avatar', '.stats-username', '.stats-username-sub', '.stats-level', '.xp-bar-container', '.stats-xp-line', '.stats-grid', '.stat-card-lg', '.stats-rank-up', '.rank-up-bar', '.rank-up-fill', '.stats-share-foot', '.stats-rank-badge']) {
+                const el = clone.querySelector(s);
+                out[s] = el ? rel(el.getBoundingClientRect()) : null;
+            }
+            out['.stat-card-icon'] = [...clone.querySelectorAll('.stat-card-icon')].map((el) => rel(el.getBoundingClientRect()));
+            out['.card'] = { w: clone.offsetWidth, h: clone.offsetHeight };
+            wrap.remove();
+            return out;
+        }
+
+        copyImageBtn.addEventListener('click', async () => {
+            if (pendingBlob) {
+                const blob = pendingBlob;
+                pendingBlob = null;
+                setBtn('\u{2B07} Downloading\u2026');
+                const name = (document.querySelector('.stats-username')?.textContent || 'user').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-') + '-stats.png';
+                downloadBlob(blob, name);
+                setBtn('\u{2B07} Downloaded!', 1600);
+                return;
+            }
+
+            copyImageBtn.disabled = true;
+            setBtn('\u{1F4F8} Rendering\u2026');
+            try {
+                const dataUrl = await renderCard();
+                const blob = await (await fetch(dataUrl)).blob();
+                if (navigator.clipboard && window.ClipboardItem) {
+                    try {
+                        await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+                        setBtn('\u2713 Copied!', 1600);
+                        return;
+                    } catch (e) { /* clipboard rejected, offer download below */ }
+                }
+                pendingBlob = blob;
+                copyImageBtn.disabled = false;
+                setBtn('\u{2B07} Save image');
+            } catch (err) {
+                setBtn('\u2717 Couldn\u2019t render', 2000);
+            }
+        });
+    }
+
     // Footer year
     const footerYear = document.getElementById('footerYear');
     if (footerYear) {
