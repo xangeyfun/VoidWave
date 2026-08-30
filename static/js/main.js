@@ -343,31 +343,60 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (findMeBtn && findMeInput) {
+            let findOffset = 0;
+            let findRows = [];
+
+            function goServerFind(query) {
+                findRows = [];
+                findOffset = 0;
+                const params = getParams();
+                params.find = query;
+                params.fi = '0';
+                params.page = '1';
+                window.location.href = buildUrl(params);
+            }
+
             function doFindMe() {
                 const query = findMeInput.value.toLowerCase().trim();
                 if (!query) return;
 
-                const rows = document.querySelectorAll('.leaderboard-row:not(.header)');
-                for (const row of rows) {
-                    const username = row.dataset.username || '';
-                    if (username.includes(query)) {
-                        row.classList.add('find-highlight');
-                        row.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                        setTimeout(() => row.classList.remove('find-highlight'), 2000);
-                        return;
+                const onlyUsername = query.startsWith('@');
+                const term = onlyUsername ? query.slice(1) : query;
+
+                const rows = Array.from(document.querySelectorAll('.leaderboard-row:not(.header)'));
+                const matches = rows.filter(row => {
+                    if (onlyUsername) {
+                        return (row.dataset.usern || '').includes(term);
                     }
+                    return (row.dataset.username || '').includes(term) || (row.dataset.usern || '').includes(term);
+                });
+
+                if (matches.length) {
+                    if (findRows !== matches || findOffset >= matches.length) findOffset = 0;
+                    findRows = matches;
+                    const row = matches[findOffset];
+                    matches.forEach(r => r.classList.remove('find-highlight'));
+                    row.classList.add('find-highlight');
+                    row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    findOffset = (findOffset + 1) % matches.length;
+                    if (findOffset === 0) {
+                        setTimeout(() => matches.forEach(r => r.classList.remove('find-highlight')), 2500);
+                        // Cycled through all in-page matches -> reload with server search
+                        // so matches on other pages and the full count become available.
+                        goServerFind(query);
+                    }
+                    return;
                 }
 
-                const params = getParams();
-                params.find = query;
-                params.page = '1';
-                window.location.href = buildUrl(params);
+                goServerFind(query);
             }
 
             findMeBtn.addEventListener('click', doFindMe);
             findMeInput.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter') doFindMe();
             });
+            findMeInput.addEventListener('focus', () => document.body.classList.add('lb-keyboard-open'));
+            findMeInput.addEventListener('blur', () => document.body.classList.remove('lb-keyboard-open'));
         }
     } catch (e) {
         console.error('Leaderboard error:', e);

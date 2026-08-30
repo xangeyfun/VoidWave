@@ -418,30 +418,56 @@ def _lb_find_rank(username_query, guild_id, sort_by, direction):
     dir_sql = 'DESC' if direction == 'desc' else 'ASC'
     where_sql = 'WHERE guild_id=?' if guild_id else ''
     params = (guild_id,) if guild_id else ()
+
+    # A leading @ restricts search to usernames only
+    only_username = username_query.startswith('@')
+    term = username_query[1:] if only_username else username_query
+    if not term:
+        return []
+
     base = f"""
-        SELECT user_id, guild_id, username, rk FROM (
-            SELECT user_id, guild_id, username,
+        SELECT user_id, guild_id, username, display_name, avatar_hash, rk FROM (
+            SELECT user_id, guild_id, username, display_name, avatar_hash,
                    ROW_NUMBER() OVER (ORDER BY {sort_by} {dir_sql}) AS rk
             FROM users {where_sql}
         ) AS ranked
     """
-    key = f"lb_find:{guild_id}:{sort_by}:{direction}:{username_query}"
-    for cond in ("LOWER(username) = LOWER(?)", "LOWER(username) LIKE LOWER(?)"):
-        match = '%' if cond.startswith('LOWER(username) LIKE') else ''
+    key = f"lb_find:{guild_id}:{sort_by}:{direction}:{only_username}:{term}"
+
+    if only_username:
+        order = (
+            "LOWER(username) = LOWER(?)",
+            "LOWER(username) LIKE LOWER(?)",
+        )
+    else:
+        order = (
+            "LOWER(COALESCE(display_name, '')) = LOWER(?)",
+            "LOWER(COALESCE(display_name, '')) LIKE LOWER(?)",
+            "LOWER(username) = LOWER(?)",
+            "LOWER(username) LIKE LOWER(?)",
+        )
+
+    for cond in order:
+        match = '%' if 'LIKE' in cond else ''
         rows = cached_query(
-            key + (':exact' if not match else ':like'),
-            base + f" WHERE {cond} ORDER BY rk LIMIT 1",
-            params + (f"{match}{username_query}{match}",),
+            key + ':' + cond,
+            base + f" WHERE {cond} ORDER BY rk",
+            params + (f"{match}{term}{match}",),
             ttl=30
         )
         if rows:
-            return {
-                'user_id': rows[0]['user_id'],
-                'guild_id': rows[0]['guild_id'],
-                'username': rows[0]['username'],
-                'rank': rows[0]['rk'],
-            }
-    return None
+            return [
+                {
+                    'user_id': r['user_id'],
+                    'guild_id': r['guild_id'],
+                    'username': r['username'],
+                    'display_name': r['display_name'],
+                    'avatar_hash': r['avatar_hash'],
+                    'rank': r['rk'],
+                }
+                for r in rows
+            ]
+    return []
 
 @app.route('/leaderboard')
 def leaderboard():
@@ -455,13 +481,22 @@ def leaderboard():
     find_guild_id = None
     find_rank = None
     find_username = None
+    find_display_name = None
+    find_avatar_hash = None
+    find_matches = []
+    find_idx = 0
 
     if find_query:
-        found = _lb_find_rank(find_query, guild_id, sort_by, direction)
-        if found:
+        matches = _lb_find_rank(find_query, guild_id, sort_by, direction)
+        if matches:
+            find_matches = matches
+            find_idx = request.args.get('fi', 0, type=int) % len(matches)
+            found = matches[find_idx]
             find_user_id = found['user_id']
             find_guild_id = found['guild_id']
             find_username = found['username']
+            find_display_name = found['display_name']
+            find_avatar_hash = found['avatar_hash']
             find_rank = found['rank']
             page = max(1, (find_rank + 49) // 50)
     
@@ -474,6 +509,7 @@ def leaderboard():
             'rank': rank,
             'user_id': entry['user_id'],
             'username': entry['username'],
+            'display_name': entry['display_name'],
             'avatar_hash': entry['avatar_hash'],
             'guild_id': entry['guild_id'],
             'level': entry['level'],
@@ -513,7 +549,11 @@ def leaderboard():
         find_user_id=find_user_id,
         find_guild_id=find_guild_id,
         find_rank=find_rank,
-        find_username=find_username
+        find_username=find_username,
+        find_display_name=find_display_name,
+        find_avatar_hash=find_avatar_hash,
+        find_matches=find_matches,
+        find_idx=find_idx
     ), 200
 
 @app.route('/stats')

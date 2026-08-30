@@ -64,17 +64,35 @@
             <button class="find-btn" id="guildBtn">Go</button>
         </div>
         <div class="find-me">
-            <input type="text" id="findMeInput" placeholder="Find a user..." class="find-input">
+            <input type="text" id="findMeInput" placeholder="Find a user... (@ for username)" class="find-input" value="{{ find_query if find_query else '' }}" autocomplete="off">
             <button class="find-btn" id="findMeBtn">Locate</button>
         </div>
     </div>
 
     {% if find_query %}
-    <div class="lb-locate-note {% if not find_user_id %}lb-locate-miss{% endif %}">
+    <div id="lbLocateBar" class="lb-locate-float {% if not find_user_id %}lb-locate-miss{% endif %}" role="status">
         {% if find_user_id %}
-        Found <strong>{{ find_username }}</strong> at rank <strong>#{{ find_rank }}</strong> &middot; <a href="?guild={{ guild_id }}&sort={{ sort_by }}&dir={{ direction }}&page={{ page }}">clear</a>
+            {% set shown = find_display_name or find_username %}
+            <img class="lb-float-avatar" src="{% if find_avatar_hash %}https://cdn.discordapp.com/avatars/{{ find_user_id }}/{{ find_avatar_hash }}.png?size=64{% else %}https://cdn.discordapp.com/embed/avatars/0.png{% endif %}" alt="" onerror="this.onerror=null;this.src='https://cdn.discordapp.com/embed/avatars/0.png'">
+            <span class="lb-float-info">
+                {% if find_matches|length > 1 %}
+                <span class="lb-match-count">{{ find_idx + 1 }}/{{ find_matches|length }}</span>
+                {% endif %}
+                <strong>{{ shown }}</strong>
+                <span class="lb-float-rank">#{{ find_rank }}</span>
+            </span>
+            {% if find_matches|length > 1 %}
+            <span class="lb-match-nav">
+                {% set prev = (find_idx - 1) % find_matches|length %}
+                {% set next = (find_idx + 1) % find_matches|length %}
+                <a class="lb-nav-btn" href="?guild={{ guild_id }}&sort={{ sort_by }}&dir={{ direction }}&find={{ find_query|urlencode }}&fi={{ prev }}" aria-label="Previous match">&#x2190;</a>
+                <a class="lb-nav-btn" href="?guild={{ guild_id }}&sort={{ sort_by }}&dir={{ direction }}&find={{ find_query|urlencode }}&fi={{ next }}" aria-label="Next match">&#x2192;</a>
+            </span>
+            {% endif %}
+            <a class="lb-nav-btn lb-clear" href="?guild={{ guild_id }}&sort={{ sort_by }}&dir={{ direction }}&page={{ page }}" aria-label="Clear search">&times;</a>
         {% else %}
-        No match found for &ldquo;<strong>{{ find_query }}</strong>&rdquo;
+            <span class="lb-float-info">No match found for &ldquo;<strong>{{ find_query }}</strong>&rdquo;</span>
+            <a class="lb-nav-btn lb-clear" href="?guild={{ guild_id }}&sort={{ sort_by }}&dir={{ direction }}&page={{ page }}" aria-label="Clear search">&times;</a>
         {% endif %}
     </div>
     {% endif %}
@@ -91,13 +109,16 @@
             </div>
 
             {% for entry in leaderboard %}
-            <div class="leaderboard-row {% if entry.rank == 1 %}top-1{% elif entry.rank == 2 %}top-2{% elif entry.rank == 3 %}top-3{% endif %}{% if find_user_id and entry.user_id == find_user_id and entry.guild_id == find_guild_id %} find-highlight lb-located{% endif %}" data-level="{{ entry.level }}" data-xp="{{ entry.total_xp }}" data-messages="{{ entry.total_messages }}" data-voice="{{ entry.vc_minutes }}" data-username="{{ entry.username|lower }}">
+            <div class="leaderboard-row {% if entry.rank == 1 %}top-1{% elif entry.rank == 2 %}top-2{% elif entry.rank == 3 %}top-3{% endif %}{% if find_user_id and entry.user_id == find_user_id and entry.guild_id == find_guild_id %} find-highlight lb-located{% endif %}" data-level="{{ entry.level }}" data-xp="{{ entry.total_xp }}" data-messages="{{ entry.total_messages }}" data-voice="{{ entry.vc_minutes }}" data-username="{{ (entry.display_name or entry.username)|lower }}" data-usern="{{ entry.username|lower }}">
                 <span class="rank {% if entry.rank == 1 %}rank-1{% elif entry.rank == 2 %}rank-2{% elif entry.rank == 3 %}rank-3{% endif %}">
                     {% if entry.rank <= 3 %}{{ icons.medal() }}{% else %}#{{ entry.rank }}{% endif %}
                 </span>
                 <div class="user-cell">
-                    <img class="user-avatar" src="{% if entry.avatar_hash %}https://cdn.discordapp.com/avatars/{{ entry.user_id }}/{{ entry.avatar_hash }}.png?size=128{% else %}https://cdn.discordapp.com/embed/avatars/0.png{% endif %}" onerror="this.onerror=null;this.src='https://cdn.discordapp.com/embed/avatars/0.png'" alt="{{ entry.username }}">
-                    <span class="user-name"><a href="/stats/{{ entry.guild_id }}/{{ entry.user_id }}">{{ entry.username }}</a></span>
+                    <img class="user-avatar" src="{% if entry.avatar_hash %}https://cdn.discordapp.com/avatars/{{ entry.user_id }}/{{ entry.avatar_hash }}.png?size=128{% else %}https://cdn.discordapp.com/embed/avatars/0.png{% endif %}" onerror="this.onerror=null;this.src='https://cdn.discordapp.com/embed/avatars/0.png'" alt="{{ entry.display_name or entry.username }}">
+                    <span class="user-name">
+                        <a href="/stats/{{ entry.guild_id }}/{{ entry.user_id }}">{{ entry.display_name or entry.username }}</a>
+                        {% if entry.display_name and entry.display_name != entry.username %}<span class="user-user">@{{ entry.username }}</span>{% endif %}
+                    </span>
                 </div>
                 <span class="stat-cell level-cell">{{ entry.level }}</span>
                 <span class="stat-cell xp-cell">{{ "{:,}".format(entry.total_xp) }}</span>
