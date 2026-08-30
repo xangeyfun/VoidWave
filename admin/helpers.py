@@ -1,7 +1,7 @@
 import sqlite3
 import time
 import os
-import re
+import ipaddress
 import hmac
 import hashlib
 import secrets
@@ -159,15 +159,16 @@ def _read_log_lines():
         return []
 
 
-_LOG_IP_RE = re.compile(r"^(\d{1,3}\.){3}\d{1,3}$")
-
-
 def _looks_like_ip(token):
     if not token:
         return False
     if token.lower() == "unknown":
         return True
-    return bool(_LOG_IP_RE.match(token))
+    try:
+        ipaddress.ip_address(token)
+        return True
+    except ValueError:
+        return False
 
 
 def _parse_log_line(line):
