@@ -58,6 +58,32 @@
         </div>
     </section>
 
+    {% if top_users|length >= 3 %}
+    <section class="lb-podium" aria-label="Top performers">
+        <div class="lb-podium-place lb-podium-1">
+            <a class="lb-podium-link" href="/stats/{{ top_users[0].guild_id }}/{{ top_users[0].user_id }}">
+                <img class="lb-podium-avatar" src="{% if top_users[0].avatar_hash %}https://cdn.discordapp.com/avatars/{{ top_users[0].user_id }}/{{ top_users[0].avatar_hash }}.png?size=96{% else %}https://cdn.discordapp.com/embed/avatars/0.png{% endif %}" alt="" onerror="this.onerror=null;this.src='https://cdn.discordapp.com/embed/avatars/0.png'">
+                <span class="lb-podium-medal lb-podium-medal-1">1</span>
+                <span class="lb-podium-name">{{ top_users[0].display_name or top_users[0].username }}</span>
+            </a>
+        </div>
+        <div class="lb-podium-place lb-podium-2">
+            <a class="lb-podium-link" href="/stats/{{ top_users[1].guild_id }}/{{ top_users[1].user_id }}">
+                <img class="lb-podium-avatar" src="{% if top_users[1].avatar_hash %}https://cdn.discordapp.com/avatars/{{ top_users[1].user_id }}/{{ top_users[1].avatar_hash }}.png?size=96{% else %}https://cdn.discordapp.com/embed/avatars/0.png{% endif %}" alt="" onerror="this.onerror=null;this.src='https://cdn.discordapp.com/embed/avatars/0.png'">
+                <span class="lb-podium-medal lb-podium-medal-2">2</span>
+                <span class="lb-podium-name">{{ top_users[1].display_name or top_users[1].username }}</span>
+            </a>
+        </div>
+        <div class="lb-podium-place lb-podium-3">
+            <a class="lb-podium-link" href="/stats/{{ top_users[2].guild_id }}/{{ top_users[2].user_id }}">
+                <img class="lb-podium-avatar" src="{% if top_users[2].avatar_hash %}https://cdn.discordapp.com/avatars/{{ top_users[2].user_id }}/{{ top_users[2].avatar_hash }}.png?size=96{% else %}https://cdn.discordapp.com/embed/avatars/0.png{% endif %}" alt="" onerror="this.onerror=null;this.src='https://cdn.discordapp.com/embed/avatars/0.png'">
+                <span class="lb-podium-medal lb-podium-medal-3">3</span>
+                <span class="lb-podium-name">{{ top_users[2].display_name or top_users[2].username }}</span>
+            </a>
+        </div>
+    </section>
+    {% endif %}
+
     <div class="lb-controls-bar">
         <div class="guild-input">
             <input type="text" id="guildInput" placeholder="Filter by server ID" class="find-input" value="{{ guild_id if guild_id else '' }}">
@@ -66,6 +92,7 @@
         <div class="find-me">
             <input type="text" id="findMeInput" placeholder="Find a user... (@ for username)" class="find-input" value="{{ find_query if find_query else '' }}" autocomplete="off">
             <button class="find-btn" id="findMeBtn">Locate</button>
+            <div class="lb-autocomplete" id="lbAutocomplete" hidden></div>
         </div>
     </div>
 
@@ -102,10 +129,10 @@
             <div class="leaderboard-row header">
                 <span>Rank</span>
                 <span>User</span>
-                <span class="sortable-header {% if sort_by == 'level' %}active{% endif %}" data-sort="level" data-dir="{% if sort_by == 'level' and direction == 'desc' %}asc{% else %}desc{% endif %}">Level {% if sort_by == 'level' %}{% if direction == 'desc' %}&#x2193;{% else %}&#x2191;{% endif %}{% endif %}</span>
-                <span class="sortable-header {% if sort_by == 'total_xp' %}active{% endif %}" data-sort="total_xp" data-dir="{% if sort_by == 'total_xp' and direction == 'desc' %}asc{% else %}desc{% endif %}">XP {% if sort_by == 'total_xp' %}{% if direction == 'desc' %}&#x2193;{% else %}&#x2191;{% endif %}{% endif %}</span>
-                <span class="sortable-header {% if sort_by == 'total_messages' %}active{% endif %}" data-sort="total_messages" data-dir="{% if sort_by == 'total_messages' and direction == 'desc' %}asc{% else %}desc{% endif %}">Messages {% if sort_by == 'total_messages' %}{% if direction == 'desc' %}&#x2193;{% else %}&#x2191;{% endif %}{% endif %}</span>
-                <span class="sortable-header {% if sort_by == 'vc_minutes' %}active{% endif %}" data-sort="vc_minutes" data-dir="{% if sort_by == 'vc_minutes' and direction == 'desc' %}asc{% else %}desc{% endif %}">Voice {% if sort_by == 'vc_minutes' %}{% if direction == 'desc' %}&#x2193;{% else %}&#x2191;{% endif %}{% endif %}</span>
+                <span class="sortable-header {% if sort_by == 'level' %}active{% endif %}" data-sort="level" data-dir="{% if sort_by == 'level' and direction == 'desc' %}asc{% else %}desc{% endif %}">Level<span class="sort-arrow{% if sort_by == 'level' %}{% if direction == 'desc' %} desc{% else %} asc{% endif %}{% endif %}"></span></span>
+                <span class="sortable-header {% if sort_by == 'total_xp' %}active{% endif %}" data-sort="total_xp" data-dir="{% if sort_by == 'total_xp' and direction == 'desc' %}asc{% else %}desc{% endif %}">XP<span class="sort-arrow{% if sort_by == 'total_xp' %}{% if direction == 'desc' %} desc{% else %} asc{% endif %}{% endif %}"></span></span>
+                <span class="sortable-header {% if sort_by == 'total_messages' %}active{% endif %}" data-sort="total_messages" data-dir="{% if sort_by == 'total_messages' and direction == 'desc' %}asc{% else %}desc{% endif %}">Messages<span class="sort-arrow{% if sort_by == 'total_messages' %}{% if direction == 'desc' %} desc{% else %} asc{% endif %}{% endif %}"></span></span>
+                <span class="sortable-header {% if sort_by == 'vc_minutes' %}active{% endif %}" data-sort="vc_minutes" data-dir="{% if sort_by == 'vc_minutes' and direction == 'desc' %}asc{% else %}desc{% endif %}">Voice<span class="sort-arrow{% if sort_by == 'vc_minutes' %}{% if direction == 'desc' %} desc{% else %} asc{% endif %}{% endif %}"></span></span>
             </div>
 
             {% for entry in leaderboard %}

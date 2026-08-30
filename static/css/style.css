@@ -2549,6 +2549,152 @@ a:hover {
     overflow: hidden;
 }
 
+.lb-podium {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    max-width: 720px;
+    margin: 1.75rem auto 1.5rem;
+    align-items: end;
+}
+
+.lb-podium-place {
+    text-align: center;
+}
+
+.lb-podium-1 { order: 2; }
+.lb-podium-2 { order: 1; }
+.lb-podium-3 { order: 3; }
+
+.lb-podium-link {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.45rem;
+    text-decoration: none;
+}
+
+.lb-podium-avatar {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 3px solid var(--border);
+    box-shadow: 0 8px 22px -10px rgba(0, 0, 0, 0.5);
+    transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.lb-podium-1 .lb-podium-avatar {
+    width: 92px;
+    height: 92px;
+    border-color: #fbbf24;
+    box-shadow: 0 0 0 2px rgba(251, 191, 36, 0.35), 0 8px 26px -10px rgba(251, 191, 36, 0.4);
+}
+
+.lb-podium-2 .lb-podium-avatar { border-color: #94a3b8; }
+.lb-podium-3 .lb-podium-avatar { border-color: #c98a5b; }
+
+.lb-podium-link:hover .lb-podium-avatar {
+    transform: translateY(-4px);
+}
+
+.lb-podium-medal {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    margin-top: -0.25rem;
+    border-radius: 50%;
+    font-weight: 800;
+    font-size: 0.95rem;
+    color: #1a1425;
+}
+
+.lb-podium-medal-1 { background: linear-gradient(135deg, #fde047, #f59e0b); }
+.lb-podium-medal-2 { background: linear-gradient(135deg, #e2e8f0, #94a3b8); }
+.lb-podium-medal-3 { background: linear-gradient(135deg, #fdba74, #c98a5b); }
+
+.lb-podium-name {
+    font-weight: 600;
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    max-width: 130px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.find-me {
+    position: relative;
+}
+
+.lb-autocomplete {
+    position: absolute;
+    top: calc(100% + 0.5rem);
+    left: 0;
+    right: 0;
+    z-index: 1200;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    box-shadow: 0 18px 44px -14px rgba(0, 0, 0, 0.6);
+    overflow: hidden;
+    max-height: 320px;
+    overflow-y: auto;
+}
+
+.lb-autocomplete-item {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    padding: 0.55rem 0.85rem;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.lb-autocomplete-item:hover,
+.lb-autocomplete-item.highlighted {
+    background: var(--bg-tertiary);
+}
+
+.lb-autocomplete-item img {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+    border: 1px solid var(--border);
+}
+
+.lb-autocomplete-item .ac-name {
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.lb-autocomplete-item .ac-user {
+    color: var(--text-muted);
+    font-size: 0.8rem;
+}
+
+.lb-autocomplete-item .ac-rank {
+    margin-left: auto;
+    color: var(--primary);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    font-size: 0.85rem;
+    flex-shrink: 0;
+}
+
+.lb-autocomplete-empty {
+    padding: 0.75rem 0.85rem;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+}
+
 .leaderboard-table {
     width: 100%;
 }
@@ -2602,6 +2748,38 @@ a:hover {
 
 .sortable-header.active {
     color: var(--primary);
+}
+
+.sortable-header .sort-arrow {
+    width: 0.55rem;
+    height: 0.55rem;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.sortable-header:hover .sort-arrow {
+    opacity: 0.35;
+}
+
+.sortable-header.active .sort-arrow {
+    opacity: 1;
+}
+
+.sortable-header .sort-arrow::before {
+    content: '';
+    display: block;
+    width: 0.55rem;
+    height: 0.55rem;
+    border-right: 2px solid currentColor;
+    border-bottom: 2px solid currentColor;
+}
+
+.sortable-header .sort-arrow.desc::before {
+    transform: rotate(45deg);
+}
+
+.sortable-header .sort-arrow.asc::before {
+    transform: rotate(-135deg);
 }
 
 .leaderboard-row.top-1 { background: linear-gradient(90deg, rgba(255, 215, 0, 0.1), transparent 72%); }
@@ -3285,6 +3463,26 @@ a:hover {
 
     .lb-locate-float .lb-float-info strong {
         max-width: 140px;
+    }
+
+    .lb-podium {
+        gap: 0.6rem;
+        padding: 0 0.5rem;
+    }
+
+    .lb-podium-avatar {
+        width: 56px;
+        height: 56px;
+    }
+
+    .lb-podium-1 .lb-podium-avatar {
+        width: 72px;
+        height: 72px;
+    }
+
+    .lb-podium-name {
+        font-size: 0.78rem;
+        max-width: 90px;
     }
     
     .stats-card {

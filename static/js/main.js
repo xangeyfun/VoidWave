@@ -317,14 +317,71 @@ document.addEventListener('DOMContentLoaded', () => {
             };
         }
 
+        const table = document.getElementById('leaderboardTable');
+
+        function liveSort(sortKey, dir) {
+            if (!table) return;
+            const dirMul = dir === 'desc' ? -1 : 1;
+            const sorters = {
+                level: r => parseFloat(r.dataset.level || 0),
+                total_xp: r => parseFloat(r.dataset.xp || 0),
+                total_messages: r => parseFloat(r.dataset.messages || 0),
+                vc_minutes: r => parseFloat(r.dataset.voice || 0),
+            };
+            const get = sorters[sortKey];
+            if (!get) return;
+
+            const rows = Array.from(table.querySelectorAll('.leaderboard-row:not(.header)'));
+            rows.sort((a, b) => {
+                const av = get(a), bv = get(b);
+                if (av === bv) return 0;
+                return (av > bv ? 1 : -1) * dirMul;
+            });
+            rows.forEach(r => table.appendChild(r));
+
+            // Re-apply medal/top styling and renumber
+            const medalSvg = rows.map(r => r.querySelector('.rank svg')).find(Boolean);
+            rows.forEach((r, i) => {
+                r.classList.remove('top-1', 'top-2', 'top-3');
+                const rankEl = r.querySelector('.rank');
+                rankEl.classList.remove('rank-1', 'rank-2', 'rank-3');
+                if (i < 3) {
+                    r.classList.add('top-' + (i + 1));
+                    rankEl.classList.add('rank-' + (i + 1));
+                    if (medalSvg && !rankEl.querySelector('svg')) {
+                        rankEl.innerHTML = '';
+                        rankEl.appendChild(medalSvg.cloneNode(true));
+                    }
+                } else {
+                    rankEl.innerHTML = '#' + (i + 1);
+                }
+            });
+
+            filterBtns.forEach(h => {
+                const active = h.dataset.sort === sortKey;
+                h.classList.toggle('active', active);
+                const arrow = h.querySelector('.sort-arrow');
+                if (arrow) arrow.className = 'sort-arrow' + (active ? (dir === 'desc' ? ' desc' : ' asc') : '');
+                h.dataset.dir = active ? (dir === 'desc' ? 'asc' : 'desc') : 'desc';
+            });
+
+            const params = getParams();
+            params.sort = sortKey;
+            params.dir = dir;
+            const url = new URL(window.location.href);
+            Object.entries(params).forEach(([k, v]) => v ? url.searchParams.set(k, v) : url.searchParams.delete(k));
+            history.replaceState({}, '', url.pathname + url.search);
+        }
+
         if (filterBtns.length) {
             filterBtns.forEach(btn => {
                 btn.addEventListener('click', () => {
                     const params = getParams();
-                    params.sort = btn.dataset.sort;
-                    params.dir = btn.dataset.dir;
-                    params.page = '1';
-                    window.location.href = buildUrl(params);
+                    const sortKey = btn.dataset.sort;
+                    let dir = params.sort === sortKey ? (params.dir === 'desc' ? 'asc' : 'desc') : 'desc';
+                    // data-dir bakes in the same toggle; use it as the authoritative target
+                    if (btn.dataset.dir === 'asc' || btn.dataset.dir === 'desc') dir = btn.dataset.dir;
+                    liveSort(sortKey, dir);
                 });
             });
         }
@@ -343,60 +400,196 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (findMeBtn && findMeInput) {
+            const acBox = document.getElementById('lbAutocomplete');
             let findOffset = 0;
             let findRows = [];
+            let acItems = [];
+            let acIndex = -1;
+            let acDebounce = null;
 
-            function goServerFind(query) {
+            function goServerFind(query, guildOverride) {
                 findRows = [];
                 findOffset = 0;
                 const params = getParams();
                 params.find = query;
+                if (guildOverride) params.guild = String(guildOverride);
                 params.fi = '0';
                 params.page = '1';
                 window.location.href = buildUrl(params);
             }
 
-            function doFindMe() {
-                const query = findMeInput.value.toLowerCase().trim();
-                if (!query) return;
-
-                const onlyUsername = query.startsWith('@');
-                const term = onlyUsername ? query.slice(1) : query;
-
+            function matchRows(term, onlyUsername) {
                 const rows = Array.from(document.querySelectorAll('.leaderboard-row:not(.header)'));
-                const matches = rows.filter(row => {
-                    if (onlyUsername) {
-                        return (row.dataset.usern || '').includes(term);
-                    }
+                return rows.filter(row => {
+                    if (onlyUsername) return (row.dataset.usern || '').includes(term);
                     return (row.dataset.username || '').includes(term) || (row.dataset.usern || '').includes(term);
                 });
+            }
 
+            function setActiveMatch(matches, idx) {
+                matches.forEach(r => r.classList.remove('find-highlight'));
+                const row = matches[idx];
+                if (!row) return;
+                row.classList.add('find-highlight');
+                row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+
+            function currentMatches() {
+                const q = findMeInput.value.toLowerCase().trim();
+                if (!q) return [];
+                const onlyUsername = q.startsWith('@');
+                const term = onlyUsername ? q.slice(1) : q;
+                return matchRows(term, onlyUsername);
+            }
+
+            function stepFind(step) {
+                const matches = currentMatches();
+                if (!matches.length) return;
+                if (findRows !== matches) { findRows = matches; findOffset = 0; }
+                findOffset = (findOffset + step + matches.length) % matches.length;
+                setActiveMatch(matches, findOffset);
+            }
+
+            function doFindMe() {
+                const query = findMeInput.value;
+                const matches = currentMatches();
                 if (matches.length) {
                     if (findRows !== matches || findOffset >= matches.length) findOffset = 0;
                     findRows = matches;
-                    const row = matches[findOffset];
-                    matches.forEach(r => r.classList.remove('find-highlight'));
-                    row.classList.add('find-highlight');
-                    row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    setActiveMatch(matches, findOffset);
                     findOffset = (findOffset + 1) % matches.length;
                     if (findOffset === 0) {
                         setTimeout(() => matches.forEach(r => r.classList.remove('find-highlight')), 2500);
                         // Cycled through all in-page matches -> reload with server search
                         // so matches on other pages and the full count become available.
-                        goServerFind(query);
+                        goServerFind(query.trim());
                     }
                     return;
                 }
+                goServerFind(query.trim());
+            }
 
-                goServerFind(query);
+            function updateAcHighlight() {
+                Array.from(acBox.querySelectorAll('.lb-autocomplete-item')).forEach((el, i) => {
+                    el.classList.toggle('highlighted', i === acIndex);
+                });
+            }
+
+            function hideAc() {
+                acBox.hidden = true;
+                acItems = [];
+                acIndex = -1;
+            }
+
+            function renderAc(results) {
+                acBox.innerHTML = '';
+                acItems = results;
+                acIndex = -1;
+                acBox.hidden = false;
+                if (!results.length) {
+                    const e = document.createElement('div');
+                    e.className = 'lb-autocomplete-empty';
+                    e.textContent = 'No users found';
+                    acBox.appendChild(e);
+                    return;
+                }
+                results.forEach((r, i) => {
+                    const item = document.createElement('div');
+                    item.className = 'lb-autocomplete-item';
+                    const img = document.createElement('img');
+                    img.src = r.avatar;
+                    img.alt = '';
+                    const name = document.createElement('span');
+                    name.className = 'ac-name';
+                    name.textContent = r.display_name || r.username;
+                    if (r.display_name && r.display_name !== r.username) {
+                        const uname = document.createElement('span');
+                        uname.className = 'ac-user';
+                        uname.textContent = ' @' + r.username;
+                        name.appendChild(uname);
+                    }
+                    const rank = document.createElement('span');
+                    rank.className = 'ac-rank';
+                    rank.textContent = '#' + r.rank;
+                    item.append(img, name, rank);
+                    const select = () => {
+                        const guildOverride = r.guild_id;
+                        hideAc();
+                        goServerFind((r.display_name || r.username).toLowerCase(), guildOverride);
+                    };
+                    item.addEventListener('mousedown', (e) => { e.preventDefault(); select(); });
+                    item.addEventListener('mousemove', () => { acIndex = i; updateAcHighlight(); });
+                    acBox.appendChild(item);
+                });
+            }
+
+            async function fetchAc() {
+                const raw = findMeInput.value.trim();
+                if (!raw) { hideAc(); return; }
+                const params = getParams();
+                const url = '/api/leaderboard/search?q=' + encodeURIComponent(raw) + '&guild=' + params.guild;
+                try {
+                    const resp = await fetch(url, { headers: { 'X-Requested-With': 'fetch' } });
+                    const data = await resp.json();
+                    renderAc(data.results || []);
+                } catch (e) {
+                    hideAc();
+                }
             }
 
             findMeBtn.addEventListener('click', doFindMe);
-            findMeInput.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter') doFindMe();
+            findMeInput.addEventListener('input', () => {
+                clearTimeout(acDebounce);
+                findRows = [];
+                findOffset = 0;
+                acDebounce = setTimeout(fetchAc, 180);
             });
-            findMeInput.addEventListener('focus', () => document.body.classList.add('lb-keyboard-open'));
-            findMeInput.addEventListener('blur', () => document.body.classList.remove('lb-keyboard-open'));
+            findMeInput.addEventListener('keydown', (e) => {
+                if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    if (!acBox.hidden && acItems.length) {
+                        acIndex = (acIndex + 1) % acItems.length;
+                        updateAcHighlight();
+                        const el = acBox.querySelectorAll('.lb-autocomplete-item')[acIndex];
+                        if (el) el.scrollIntoView({ block: 'nearest' });
+                    } else {
+                        stepFind(1);
+                    }
+                } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    if (!acBox.hidden && acItems.length) {
+                        acIndex = (acIndex - 1 + acItems.length) % acItems.length;
+                        updateAcHighlight();
+                        const el = acBox.querySelectorAll('.lb-autocomplete-item')[acIndex];
+                        if (el) el.scrollIntoView({ block: 'nearest' });
+                    } else {
+                        stepFind(-1);
+                    }
+                } else if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (!acBox.hidden && acItems.length && acIndex >= 0) {
+                        const r = acItems[acIndex];
+                        hideAc();
+                        goServerFind((r.display_name || r.username).toLowerCase(), r.guild_id);
+                    } else {
+                        doFindMe();
+                    }
+                } else if (e.key === 'Escape') {
+                    hideAc();
+                    findMeInput.blur();
+                }
+            });
+            findMeInput.addEventListener('focus', () => {
+                document.body.classList.add('lb-keyboard-open');
+                if (findMeInput.value.trim()) fetchAc();
+            });
+            findMeInput.addEventListener('blur', () => {
+                document.body.classList.remove('lb-keyboard-open');
+                setTimeout(hideAc, 120);
+            });
+            document.addEventListener('click', (e) => {
+                if (!e.target.closest('.find-me')) hideAc();
+            });
         }
     } catch (e) {
         console.error('Leaderboard error:', e);
