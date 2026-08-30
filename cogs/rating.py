@@ -50,10 +50,14 @@ class RatingView(discord.ui.View):
             description=f"Thanks! You rated VoidWave {stars}\n\nWould you like to tell us why?",
             color=0x7128fc,
         )
+        for item in self.children:
+            item.disabled = True
         await interaction.response.edit_message(
             embed=embed,
             view=FeedbackView(self.bot, self.user_id, self.guild_name, rating),
         )
+        save_rating(self.user_id, rating, "", self.guild_name)
+        await forward_rating_to_channel(self.bot, interaction.user, rating, "", self.guild_name)
 
     @discord.ui.button(label="⭐", style=discord.ButtonStyle.secondary)
     async def one(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -83,29 +87,19 @@ class FeedbackView(discord.ui.View):
         self.user_id = user_id
         self.guild_name = guild_name
         self.rating = rating
-        self.saved = False
 
-    async def _finish(self, interaction: discord.Interaction, feedback):
+    async def _finish(self, interaction: discord.Interaction):
         if interaction.user.id != self.user_id:
             await interaction.response.send_message("This rating prompt isn't for you.", ephemeral=True)
             return
-        if not self.saved:
-            if not save_rating(self.user_id, self.rating, feedback, self.guild_name):
-                await interaction.response.send_message(
-                    "Something went wrong while saving your rating, please try again.",
-                    ephemeral=True,
-                )
-                return
-            self.saved = True
-            await forward_rating_to_channel(self.bot, interaction.user, self.rating, feedback or "", self.guild_name)
         for item in self.children:
             item.disabled = True
         embed = discord.Embed(description="Thanks for the feedback! 💜", color=0x7128fc)
         await interaction.response.edit_message(embed=embed, view=self)
 
-    @discord.ui.button(label="Send", style=discord.ButtonStyle.primary)
-    async def send(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await self._finish(interaction, "")
+    @discord.ui.button(label="Looks good", style=discord.ButtonStyle.primary)
+    async def done(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self._finish(interaction)
 
     @discord.ui.button(label="Add optional feedback", style=discord.ButtonStyle.secondary)
     async def add_feedback(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -132,23 +126,15 @@ class FeedbackModal(discord.ui.Modal, title="VoidWave Rating"):
         self.add_item(self.feedback_input)
 
     async def on_submit(self, interaction: discord.Interaction):
-        if self.view_ref.saved:
-            embed = discord.Embed(description="Thanks for the feedback! 💜", color=0x7128fc)
-            await interaction.response.edit_message(embed=embed, view=self.view_ref)
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("This rating prompt isn't for you.", ephemeral=True)
             return
         feedback = (self.feedback_input.value or "").strip()
-        if not save_rating(self.user_id, self.rating, feedback, self.guild_name):
-            await interaction.response.send_message(
-                "Something went wrong while saving your rating, please try again.",
-                ephemeral=True,
-            )
-            return
-        self.view_ref.saved = True
+        update_feedback(self.user_id, feedback)
         for item in self.view_ref.children:
             item.disabled = True
         embed = discord.Embed(description="Thanks for the feedback! 💜", color=0x7128fc)
         await interaction.response.edit_message(embed=embed, view=self.view_ref)
-        await forward_rating_to_channel(self.bot, interaction.user, self.rating, feedback, self.guild_name)
 
 
 def save_rating(user_id, rating, feedback, guild_name):
@@ -165,6 +151,21 @@ def save_rating(user_id, rating, feedback, guild_name):
     except Exception as e:
         print(f"{date()} ERROR  Failed to save rating from {user_id}: {e}")
         return False
+    finally:
+        conn.close()
+
+
+def update_feedback(user_id, feedback):
+    conn = get_db()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "UPDATE user_ratings SET feedback=? WHERE id=(SELECT MAX(id) FROM user_ratings WHERE user_id=?)",
+            (feedback, user_id),
+        )
+        conn.commit()
+    except Exception as e:
+        print(f"{date()} ERROR  Failed to update feedback from {user_id}: {e}")
     finally:
         conn.close()
 
