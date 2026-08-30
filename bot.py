@@ -39,6 +39,7 @@ async def setup_hook():
     await bot.load_extension("cogs.events")
     await bot.load_extension("cogs.rating")
     await bot.load_extension("cogs.moderation")
+    await bot.load_extension("cogs.akinator")
 
 bot.setup_hook = setup_hook
 
