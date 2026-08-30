@@ -83,8 +83,7 @@ class GeneralCog(commands.Cog):
                     "`/wordle` - Guess the 5-letter word in 6 tries\n"
                     "`/minesweeper [mines]` - Clear the minefield without hitting a bomb\n"
                     "`/battleship` - Sink the enemy fleet before they sink yours\n"
-                    "`/15puzzle` - Slide the tiles to solve the 15-puzzle\n"
-                    "`/akinator <theme>` - Let VoidWave guess what you're thinking of"
+                    "`/15puzzle` - Slide the tiles to solve the 15-puzzle"
                 ),
                 inline=False
             )
@@ -141,7 +140,7 @@ class GeneralCog(commands.Cog):
             )
             embed.add_field(
                 name="🎮 Games",
-                value="`/8ball`, `/rps`, `/tictactoe`, `/connectfour`, `/hangman`, `/blackjack`, `/trivia`, `/wordle`, `/minesweeper`, `/battleship`, `/15puzzle`, `/akinator`",
+                value="`/8ball`, `/rps`, `/tictactoe`, `/connectfour`, `/hangman`, `/blackjack`, `/trivia`, `/wordle`, `/minesweeper`, `/battleship`, `/15puzzle`",
                 inline=True
             )
             embed.add_field(
