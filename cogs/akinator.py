@@ -105,7 +105,7 @@ class AkinatorView(discord.ui.View):
             await interaction.response.defer()
             return
         if interaction.user.id != self.user.id:
-            await interaction.response.send_message("This isn't your game!", ephemeral=True)
+            await interaction.response.send_message("This isn't your game! Start your own game with **`/akinator`**", ephemeral=True)
             return
 
         self.busy = True
@@ -140,7 +140,7 @@ class AkinatorView(discord.ui.View):
             await interaction.response.defer()
             return
         if interaction.user.id != self.user.id:
-            await interaction.response.send_message("This isn't your game!", ephemeral=True)
+            await interaction.response.send_message("This isn't your game! Start your own game with **`/akinator`**", ephemeral=True)
             return
         if self.aki.step == 0:
             await interaction.response.send_message("You can't go back any further!", ephemeral=True)
@@ -173,7 +173,7 @@ class AkinatorView(discord.ui.View):
 
     async def _on_guess(self, interaction: discord.Interaction, correct: bool):
         if interaction.user.id != self.user.id:
-            await interaction.response.send_message("This isn't your game!", ephemeral=True)
+            await interaction.response.send_message("This isn't your game! Start your own game with **`/akinator`**", ephemeral=True)
             return
 
         self.busy = True
@@ -230,7 +230,7 @@ class AkinatorView(discord.ui.View):
 
     async def _end(self, interaction: discord.Interaction):
         if interaction.user.id != self.user.id:
-            await interaction.response.send_message("This isn't your game!", ephemeral=True)
+            await interaction.response.send_message("This isn't your game! Start your own game with **`/akinator`**", ephemeral=True)
             return
 
         _ACTIVE_GAMES.pop(self.user.id, None)
