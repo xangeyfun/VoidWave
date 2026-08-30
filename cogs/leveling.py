@@ -38,6 +38,9 @@ class LevelingCog(commands.Cog):
 
             boost = cur.execute("SELECT multiplier, expires_at FROM vote_boosts WHERE user_id=? AND expires_at > ?", (user.id, int(time.time()))).fetchone()
 
+            level_roles = cur.execute("SELECT level, role_id FROM level_roles WHERE guild_id = ?", (interaction.guild.id,)).fetchall()
+            level_roles = dict(level_roles) if level_roles else None
+
         except Exception as e:
             print(f"{date()} ERROR  Failed to fetch level data for {user} in guild {interaction.guild.id}: {e}")
             await interaction.followup.send("Something went wrong while fetching your level data. Please try again later.", ephemeral=hidden, allowed_mentions=discord.AllowedMentions(users=False))
@@ -87,6 +90,19 @@ class LevelingCog(commands.Cog):
             ),
             inline=True
         )
+
+        if level_roles and interaction.guild:
+            for req_level, role_id in sorted(level_roles.items()):
+                if req_level > data["level"]:
+                    role = interaction.guild.get_role(role_id)
+                    if role:
+                        levels_left = req_level - data["level"]
+                        embed.add_field(
+                            name="🏅 Next Level Reward",
+                            value=f"Reach **Level {req_level}** to earn {role.mention} ({levels_left} level{'s' if levels_left != 1 else ''} away)!",
+                            inline=False
+                        )
+                    break
 
         embed.add_field(
             name="🔗 Website",
