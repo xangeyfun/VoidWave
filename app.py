@@ -652,7 +652,7 @@ def api_stats_history():
 def api_leaderboard_search():
     q = (request.args.get('q') or '').strip()
     guild_id = request.args.get('guild', 0, type=int)
-    limit = max(1, min(request.args.get('limit', 8, type=int) or 8, 25))
+    limit = max(1, min(request.args.get('limit', 5, type=int) or 5, 25))
 
     if not q:
         return jsonify({'results': []})
