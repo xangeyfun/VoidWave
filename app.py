@@ -26,7 +26,7 @@ app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=8)
 app.register_blueprint(admin_bp)
 
 cache = {}
-CACHE_TTL = 30
+CACHE_TTL = 15
 
 def cached_query(key, query, params=(), ttl=CACHE_TTL):
     now = time.time()

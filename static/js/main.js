@@ -679,15 +679,15 @@ document.addEventListener('DOMContentLoaded', () => {
             liveIndicator.classList.add('flash');
             setTimeout(() => liveIndicator.classList.remove('flash'), 600);
 
-            if (liveCountdown) liveCountdown.textContent = '30s';
+            if (liveCountdown) liveCountdown.textContent = '15s';
             if (liveProgressBar) liveProgressBar.style.width = '100%';
 
             clearInterval(progressInterval);
             const startTime = Date.now();
             progressInterval = setInterval(() => {
                 const elapsed = Date.now() - startTime;
-                const pct = Math.max(100 - (elapsed / 30000) * 100, 0);
-                const remaining = Math.max(30 - Math.floor(elapsed / 1000), 0);
+                const pct = Math.max(100 - (elapsed / 15000) * 100, 0);
+                const remaining = Math.max(15 - Math.floor(elapsed / 1000), 0);
                 if (liveProgressBar) liveProgressBar.style.width = pct + '%';
                 if (liveCountdown) liveCountdown.textContent = remaining + 's';
                 if (remaining <= 0) clearInterval(progressInterval);
@@ -696,7 +696,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         updateStats();
         resetLiveIndicator();
-        setInterval(updateStats, 30000);
+        setInterval(updateStats, 15000);
     }
 
     // Setup page: timeline scroll reveal
