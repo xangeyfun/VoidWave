@@ -33,10 +33,4 @@ time: {now}
 message:
 {user_message}
 
-CRITICAL RULES:
-- If the user asks about commands or what the bot can do, respond with ONLY /help
-- If the user asks about setup or config, respond with ONLY /config help
-- Never output any command other than /help, /config help, or /config view
-- Never include usernames or extra text in command responses
-
 response:
