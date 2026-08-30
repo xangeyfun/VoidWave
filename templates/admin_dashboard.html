@@ -189,9 +189,13 @@
 <div class="admin-card" style="margin-bottom:1.25rem;">
     <div class="card-head">
         <h2>&#11088; Ratings</h2>
-        <a href="{{ url_for('admin.stats') }}" class="btn btn-secondary btn-sm">Full Statistics</a>
+        <div class="card-head-actions">
+            <span class="badge muted">server time (CEST)</span>
+            <a href="{{ url_for('admin.stats') }}" class="btn btn-secondary btn-sm">Full Statistics</a>
+        </div>
     </div>
-    <div class="admin-grid cols-2" style="margin-bottom:0.75rem;">
+
+    <div class="admin-grid cols-2" style="margin-bottom:1rem;">
         <div class="stat-card">
             <div class="stat-icon">&#128172;</div>
             <div class="stat-value">{{ "{:,}".format(ratings.total) }}</div>
@@ -199,58 +203,60 @@
         </div>
         <div class="stat-card">
             <div class="stat-icon">&#11088;</div>
-            <div class="stat-value">{{ ratings.avg }} / 5</div>
+            <div class="stat-value">{{ "%.1f"|format(ratings.avg) }} <span style="font-size:0.7em;color:var(--muted);">/5</span></div>
             <div class="stat-label">Average Rating</div>
         </div>
     </div>
+
     <div class="admin-grid cols-2">
         <div>
-            <h3 style="font-size:0.9rem; margin-bottom:0.5rem;">Distribution</h3>
-            <div class="admin-table-wrap">
-                <table class="admin-table compact">
-                    <thead><tr><th>Stars</th><th class="num">Submissions</th><th>Share</th></tr></thead>
-                    <tbody>
-                        {% for star in range(1, 6) %}
-                        <tr>
-                            <td>{{ '⭐' * star }}</td>
-                            <td class="num">{{ "{:,}".format(ratings.distribution[star]) }}</td>
-                            <td style="min-width:140px;">
-                                {% set pct = (ratings.distribution[star] / ratings.total * 100)|round(1) if ratings.total else 0 %}
-                                <div class="progress-track"><div class="progress-fill" style="width: {{ pct }}%;"></div></div>
-                                <span class="muted" style="font-size:0.7rem;">{{ pct }}%</span>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+            <h3 style="font-size:0.9rem; margin-bottom:0.6rem;">Distribution</h3>
+            <div class="rating-dist">
+                {% for star in range(1, 6) %}
+                {% set pct = (ratings.distribution[star] / ratings.total * 100)|round(1) if ratings.total else 0 %}
+                <div class="rating-dist-row" style="display:flex; align-items:center; gap:.6rem; margin-bottom:.35rem;">
+                    <span style="width:5rem; font-size:.8rem; color:var(--muted); white-space:nowrap; text-align:center;">{{ '⭐' * star }}</span>
+                    <div class="progress-track" style="flex:1;"><div class="progress-fill" style="width: {{ pct }}%;"></div></div>
+                    <span class="num" style="min-width:2.4rem; text-align:right; font-size:.8rem;">{{ "{:,}".format(ratings.distribution[star]) }}</span>
+                    <span class="muted" style="min-width:3rem; text-align:right; font-size:.75rem;">{{ pct }}%</span>
+                </div>
+                {% endfor %}
             </div>
         </div>
+
         <div>
-            <h3 style="font-size:0.9rem; margin-bottom:0.5rem;">Recent Ratings</h3>
-            <div class="admin-table-wrap">
-                <table class="admin-table compact">
-                    <thead><tr><th>User</th><th>Stars</th><th>Feedback</th><th>Guild</th><th>Date</th><th></th></tr></thead>
-                    <tbody>
-                        {% for r in ratings.recent %}
-                        <tr>
-                            <td><a href="{{ url_for('admin.user_profile', user_id=r.user_id) }}" class="mono">{{ r.user_id }}</a></td>
-                            <td>{{ '⭐' * r.rating }}</td>
-                            <td class="muted" title="{{ r.feedback or '' }}">{{ (r.feedback or 'No written feedback') | truncate(60) }}</td>
-                            <td>{{ r.guild_name or 'DMs' }}</td>
-                            <td>{{ r.created_at | dt }}</td>
-                            <td>
-                                <form method="post" action="{{ url_for('admin.rating_delete', rating_id=r.id) }}" onsubmit="return confirm('Delete this rating?');">
-                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                    <button type="submit" class="btn btn-danger btn-sm" title="Delete rating">&#128465;</button>
-                                </form>
-                            </td>
-                        </tr>
-                        {% else %}
-                        <tr><td colspan="6"><div class="empty-state" style="padding:1rem;">No ratings yet.</div></td></tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:.6rem;">
+                <h3 style="font-size:0.9rem;">Recent Ratings</h3>
+                <span class="badge muted">{{ ratings.recent|length }} shown</span>
             </div>
+            {% if ratings.recent %}
+            <div class="rating-list">
+                {% for r in ratings.recent %}
+                <div class="rating-item" style="display:flex; gap:.7rem; align-items:flex-start; padding:.5rem 0; border-bottom:1px solid var(--border, rgba(255,255,255,.06));">
+                    <img src="{% if r['avatar_hash'] %}https://cdn.discordapp.com/avatars/{{ r['user_id'] }}/{{ r['avatar_hash'] }}.png?size=64{% else %}https://cdn.discordapp.com/embed/avatars/0.png{% endif %}"
+                         onerror="this.onerror=null;this.src='https://cdn.discordapp.com/embed/avatars/0.png'"
+                         alt="" style="width:34px; height:34px; border-radius:50%; flex-shrink:0;">
+                    <div style="flex:1; min-width:0;">
+                        <div style="display:flex; align-items:center; gap:.5rem; flex-wrap:wrap;">
+                            <a href="{{ url_for('admin.user_profile', user_id=r['user_id']) }}" style="font-weight:600;">{{ r['display_name'] or r['username'] or r['user_id'] }}</a>
+                            <span class="muted" style="font-size:.8rem;">{{ '⭐' * r['rating'] }}</span>
+                            <span class="muted" style="font-size:.75rem;">{{ r['created_at'] | ago }}</span>
+                        </div>
+                        <div class="muted" style="font-size:.8rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="{{ r['feedback'] or '' }}">
+                            {% if r['feedback'] %}&ldquo;{{ r['feedback'] | truncate(80) }}&rdquo;{% else %}<em>No written feedback</em>{% endif %}
+                        </div>
+                        <div class="muted" style="font-size:.72rem;">{{ r['guild_name'] or 'DMs' }} &middot; <a href="{{ url_for('admin.user_profile', user_id=r['user_id']) }}" class="mono" title="{{ r['user_id'] }}">{{ r['user_id'] }}</a></div>
+                    </div>
+                    <form method="post" action="{{ url_for('admin.rating_delete', rating_id=r['rating_id']) }}" onsubmit="return confirm('Delete this rating?');">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn btn-danger btn-sm" title="Delete rating">&#128465;</button>
+                    </form>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="empty-state" style="padding:1.5rem;">No ratings yet.</div>
+            {% endif %}
         </div>
     </div>
 </div>
