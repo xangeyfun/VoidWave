@@ -5,4 +5,3 @@ aiohttp>=3.9
 requests>=2.32
 simpleeval>=1.0
 matplotlib>=3.8
-akinator>=2.1
