@@ -332,60 +332,11 @@ document.addEventListener('DOMContentLoaded', () => {
             };
         }
 
-        const table = document.getElementById('leaderboardTable');
-
-        function liveSort(sortKey, dir) {
-            if (!table) return;
-            const dirMul = dir === 'desc' ? -1 : 1;
-            const sorters = {
-                level: r => parseFloat(r.dataset.level || 0),
-                total_xp: r => parseFloat(r.dataset.xp || 0),
-                total_messages: r => parseFloat(r.dataset.messages || 0),
-                vc_minutes: r => parseFloat(r.dataset.voice || 0),
-            };
-            const get = sorters[sortKey];
-            if (!get) return;
-
-            const rows = Array.from(table.querySelectorAll('.leaderboard-row:not(.header)'));
-            rows.sort((a, b) => {
-                const av = get(a), bv = get(b);
-                if (av === bv) return 0;
-                return (av > bv ? 1 : -1) * dirMul;
-            });
-            rows.forEach(r => table.appendChild(r));
-
-            // Re-apply medal/top styling and renumber
-            const medalSvg = rows.map(r => r.querySelector('.rank svg')).find(Boolean);
-            rows.forEach((r, i) => {
-                r.classList.remove('top-1', 'top-2', 'top-3');
-                const rankEl = r.querySelector('.rank');
-                rankEl.classList.remove('rank-1', 'rank-2', 'rank-3');
-                if (i < 3) {
-                    r.classList.add('top-' + (i + 1));
-                    rankEl.classList.add('rank-' + (i + 1));
-                    if (medalSvg && !rankEl.querySelector('svg')) {
-                        rankEl.innerHTML = '';
-                        rankEl.appendChild(medalSvg.cloneNode(true));
-                    }
-                } else {
-                    rankEl.innerHTML = '#' + (i + 1);
-                }
-            });
-
-            filterBtns.forEach(h => {
-                const active = h.dataset.sort === sortKey;
-                h.classList.toggle('active', active);
-                const arrow = h.querySelector('.sort-arrow');
-                if (arrow) arrow.className = 'sort-arrow' + (active ? (dir === 'desc' ? ' desc' : ' asc') : '');
-                h.dataset.dir = active ? (dir === 'desc' ? 'asc' : 'desc') : 'desc';
-            });
-
-            const params = getParams();
+        function goSort(sortKey, dir) {            const params = getParams();
             params.sort = sortKey;
             params.dir = dir;
-            const url = new URL(window.location.href);
-            Object.entries(params).forEach(([k, v]) => v ? url.searchParams.set(k, v) : url.searchParams.delete(k));
-            history.replaceState({}, '', url.pathname + url.search);
+            params.page = '1';
+            window.location.href = buildUrl(params);
         }
 
         if (filterBtns.length) {
@@ -396,7 +347,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     let dir = params.sort === sortKey ? (params.dir === 'desc' ? 'asc' : 'desc') : 'desc';
                     // data-dir bakes in the same toggle; use it as the authoritative target
                     if (btn.dataset.dir === 'asc' || btn.dataset.dir === 'desc') dir = btn.dataset.dir;
-                    liveSort(sortKey, dir);
+                    goSort(sortKey, dir);
                 });
             });
         }
