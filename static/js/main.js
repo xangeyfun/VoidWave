@@ -181,10 +181,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Floating particles
     const canvas = document.getElementById('particles-canvas');
-    if (canvas) {
+    // Skip the animation entirely on data-dense pages (e.g. leaderboard) and
+    // on touch devices where it would drain battery.
+    const isDataPage = document.body.classList.contains('lb-page-mode');
+    const isTouch = window.matchMedia && window.matchMedia('(hover: none)').matches;
+    if (canvas && !isDataPage && !isTouch) {
         const ctx = canvas.getContext('2d');
         let particles = [];
         let w, h;
+        let rafId = null;
 
         function resize() {
             const hero = canvas.parentElement;
@@ -221,12 +226,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 ctx.fillStyle = `rgba(132, 56, 252, ${p.alpha})`;
                 ctx.fill();
             }
-            requestAnimationFrame(drawParticles);
+            rafId = requestAnimationFrame(drawParticles);
+        }
+
+        function start() {
+            if (!rafId) rafId = requestAnimationFrame(drawParticles);
+        }
+        function stop() {
+            if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
         }
 
         resize();
         createParticles();
-        drawParticles();
+        start();
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) stop(); else start();
+        });
         window.addEventListener('resize', () => { resize(); createParticles(); });
     }
 
