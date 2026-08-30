@@ -111,7 +111,11 @@ class AkinatorView(discord.ui.View):
         self.busy = True
         for child in self.children:
             child.disabled = True
-        await interaction.response.edit_message(view=self)
+        await interaction.response.defer()
+        try:
+            await interaction.edit_original_response(view=self)
+        except discord.HTTPException:
+            pass
 
         try:
             await self.aki.answer(ANSWER_VALUES[answer_key])
@@ -122,8 +126,12 @@ class AkinatorView(discord.ui.View):
                 description=f"Something went wrong talking to Akinator.\n> {e}",
                 color=discord.Color.dark_red(),
             )
-            await interaction.edit_original_response(embed=embed, view=None)
+            try:
+                await interaction.edit_original_response(embed=embed, view=None)
+            except discord.HTTPException:
+                pass
             _ACTIVE_GAMES.pop(self.user.id, None)
+            self.busy = False
             return
 
         self.busy = False
@@ -133,7 +141,10 @@ class AkinatorView(discord.ui.View):
         else:
             for child in self.children:
                 child.disabled = False
-            await interaction.edit_original_response(embed=self._question_embed(), view=self)
+            try:
+                await interaction.edit_original_response(embed=self._question_embed(), view=self)
+            except discord.HTTPException:
+                pass
 
     async def _back(self, interaction: discord.Interaction):
         if self.busy:
@@ -149,7 +160,11 @@ class AkinatorView(discord.ui.View):
         self.busy = True
         for child in self.children:
             child.disabled = True
-        await interaction.response.edit_message(view=self)
+        await interaction.response.defer()
+        try:
+            await interaction.edit_original_response(view=self)
+        except discord.HTTPException:
+            pass
 
         try:
             await self.aki.back()
@@ -163,13 +178,19 @@ class AkinatorView(discord.ui.View):
                 color=discord.Color.dark_red(),
             )
             embed.set_footer(text="Vote for 2x XP! /vote")
-            await interaction.edit_original_response(embed=embed, view=self)
+            try:
+                await interaction.edit_original_response(embed=embed, view=self)
+            except discord.HTTPException:
+                pass
             return
 
         self.busy = False
         for child in self.children:
             child.disabled = False
-        await interaction.edit_original_response(embed=self._question_embed(), view=self)
+        try:
+            await interaction.edit_original_response(embed=self._question_embed(), view=self)
+        except discord.HTTPException:
+            pass
 
     async def _on_guess(self, interaction: discord.Interaction, correct: bool):
         if interaction.user.id != self.user.id:
@@ -179,7 +200,11 @@ class AkinatorView(discord.ui.View):
         self.busy = True
         for child in self.children:
             child.disabled = True
-        await interaction.response.edit_message(view=self)
+        await interaction.response.defer()
+        try:
+            await interaction.edit_original_response(view=self)
+        except discord.HTTPException:
+            pass
 
         try:
             await (self.aki.choose() if correct else self.aki.exclude())
@@ -189,8 +214,12 @@ class AkinatorView(discord.ui.View):
                 description=f"Something went wrong recording your answer.\n> {e}",
                 color=discord.Color.dark_red(),
             )
-            await interaction.edit_original_response(embed=embed, view=None)
+            try:
+                await interaction.edit_original_response(embed=embed, view=None)
+            except discord.HTTPException:
+                pass
             _ACTIVE_GAMES.pop(self.user.id, None)
+            self.busy = False
             return
 
         self.busy = False
@@ -204,13 +233,19 @@ class AkinatorView(discord.ui.View):
             if not correct:
                 embed.description = f"You defeated me!\n\n**{self.aki.question}**"
             embed.set_footer(text="Vote for 2x XP! /vote")
-            await interaction.edit_original_response(embed=embed, view=None)
+            try:
+                await interaction.edit_original_response(embed=embed, view=None)
+            except discord.HTTPException:
+                pass
             _ACTIVE_GAMES.pop(self.user.id, None)
         else:
             self.clear_items()
             self._build_answer_row()
             self._build_back_row()
-            await interaction.edit_original_response(embed=self._question_embed(), view=self)
+            try:
+                await interaction.edit_original_response(embed=self._question_embed(), view=self)
+            except discord.HTTPException:
+                pass
 
     async def _disable_all(self, interaction: discord.Interaction):
         for child in self.children:
