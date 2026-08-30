@@ -697,8 +697,17 @@ def api_leaderboard_search():
         ttl=30
     )
 
-    results = []
+    # De-duplicate to one suggestion per username
+    seen = {}
     for r in rows:
+        uname = (r['username'] or '').lower()
+        if uname in seen:
+            continue
+        seen[uname] = r
+    deduped = list(seen.values())
+
+    results = []
+    for r in deduped:
         ext = 'gif' if (r['avatar_hash'] or '').startswith('a_') else 'png'
         results.append({
             'user_id': r['user_id'],
