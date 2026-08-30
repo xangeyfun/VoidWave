@@ -59,7 +59,7 @@ def ask_llm(prompt, username, user_id, reply_info=None):
                 "top_p": 0.9,
                 "repeat_penalty": 1.2,
                 "num_predict": max_tokens,
-                "stop": ["<|user|>", "<|assistant|>", "<|system|>", "<|bot|>"] 
+                "stop": ["<|user|>", "<|assistant|>", "<|system|>", "<|bot|>", "\n"] 
             },
         },
         timeout=120,
