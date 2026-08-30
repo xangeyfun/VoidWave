@@ -515,7 +515,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const select = () => {
                         const guildOverride = r.guild_id;
                         hideAc();
-                        goServerFind((r.display_name || r.username).toLowerCase(), guildOverride);
+                        goServerFind(r.username.toLowerCase(), guildOverride);
                     };
                     item.addEventListener('mousedown', (e) => { e.preventDefault(); select(); });
                     item.addEventListener('mousemove', () => { acIndex = i; updateAcHighlight(); });
@@ -570,7 +570,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (!acBox.hidden && acItems.length && acIndex >= 0) {
                         const r = acItems[acIndex];
                         hideAc();
-                        goServerFind((r.display_name || r.username).toLowerCase(), r.guild_id);
+                        goServerFind(r.username.toLowerCase(), r.guild_id);
                     } else {
                         doFindMe();
                     }

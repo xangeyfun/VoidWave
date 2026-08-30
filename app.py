@@ -520,20 +520,6 @@ def leaderboard():
     
     total_pages = max(1, (total + 49) // 50)
 
-    top_users = []
-    if sort_by in ('level', 'total_xp', 'total_messages', 'vc_minutes'):
-        top_entries, _ = get_leaderboard(guild_id=guild_id, sort_by=sort_by, direction='desc', page=1, per_page=3)
-        for i, top in enumerate(top_entries):
-            top_users.append({
-                'rank': i + 1,
-                'user_id': top['user_id'],
-                'guild_id': top['guild_id'],
-                'display_name': top['display_name'],
-                'username': top['username'],
-                'avatar_hash': top['avatar_hash'],
-                'value': top[sort_by] if sort_by in top.keys() else 0,
-            })
-
     where = "WHERE guild_id = ?" if guild_id else ""
     params = (guild_id,) if guild_id else ()
     agg = cached_query(f"lb_agg:{guild_id}", f"SELECT COALESCE(SUM(total_xp),0), COALESCE(SUM(total_messages),0), COALESCE(SUM(vc_minutes),0) FROM users {where}", params)
@@ -551,7 +537,6 @@ def leaderboard():
     return render_template('leaderboard.html',
         leaderboard=leaderboard_list,
         total=total,
-        top_users=top_users,
         guild_id=guild_id,
         sort_by=sort_by,
         direction=direction,

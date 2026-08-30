@@ -58,32 +58,6 @@
         </div>
     </section>
 
-    {% if top_users|length >= 3 %}
-    <section class="lb-podium" aria-label="Top performers">
-        <div class="lb-podium-place lb-podium-1">
-            <a class="lb-podium-link" href="/stats/{{ top_users[0].guild_id }}/{{ top_users[0].user_id }}">
-                <img class="lb-podium-avatar" src="{% if top_users[0].avatar_hash %}https://cdn.discordapp.com/avatars/{{ top_users[0].user_id }}/{{ top_users[0].avatar_hash }}.png?size=96{% else %}https://cdn.discordapp.com/embed/avatars/0.png{% endif %}" alt="" onerror="this.onerror=null;this.src='https://cdn.discordapp.com/embed/avatars/0.png'">
-                <span class="lb-podium-medal lb-podium-medal-1">1</span>
-                <span class="lb-podium-name">{{ top_users[0].display_name or top_users[0].username }}</span>
-            </a>
-        </div>
-        <div class="lb-podium-place lb-podium-2">
-            <a class="lb-podium-link" href="/stats/{{ top_users[1].guild_id }}/{{ top_users[1].user_id }}">
-                <img class="lb-podium-avatar" src="{% if top_users[1].avatar_hash %}https://cdn.discordapp.com/avatars/{{ top_users[1].user_id }}/{{ top_users[1].avatar_hash }}.png?size=96{% else %}https://cdn.discordapp.com/embed/avatars/0.png{% endif %}" alt="" onerror="this.onerror=null;this.src='https://cdn.discordapp.com/embed/avatars/0.png'">
-                <span class="lb-podium-medal lb-podium-medal-2">2</span>
-                <span class="lb-podium-name">{{ top_users[1].display_name or top_users[1].username }}</span>
-            </a>
-        </div>
-        <div class="lb-podium-place lb-podium-3">
-            <a class="lb-podium-link" href="/stats/{{ top_users[2].guild_id }}/{{ top_users[2].user_id }}">
-                <img class="lb-podium-avatar" src="{% if top_users[2].avatar_hash %}https://cdn.discordapp.com/avatars/{{ top_users[2].user_id }}/{{ top_users[2].avatar_hash }}.png?size=96{% else %}https://cdn.discordapp.com/embed/avatars/0.png{% endif %}" alt="" onerror="this.onerror=null;this.src='https://cdn.discordapp.com/embed/avatars/0.png'">
-                <span class="lb-podium-medal lb-podium-medal-3">3</span>
-                <span class="lb-podium-name">{{ top_users[2].display_name or top_users[2].username }}</span>
-            </a>
-        </div>
-    </section>
-    {% endif %}
-
     <div class="lb-controls-bar">
         <div class="guild-input">
             <input type="text" id="guildInput" placeholder="Filter by server ID" class="find-input" value="{{ guild_id if guild_id else '' }}">

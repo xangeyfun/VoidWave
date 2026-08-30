@@ -2502,6 +2502,10 @@ a:hover {
     min-width: 240px;
 }
 
+.find-me {
+    position: relative;
+}
+
 .find-input {
     flex: 1;
     min-width: 0;
@@ -2547,82 +2551,6 @@ a:hover {
     border: 1px solid var(--border-light);
     border-radius: 18px;
     overflow: hidden;
-}
-
-.lb-podium {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 1rem;
-    max-width: 720px;
-    margin: 1.75rem auto 1.5rem;
-    align-items: end;
-}
-
-.lb-podium-place {
-    text-align: center;
-}
-
-.lb-podium-1 { order: 2; }
-.lb-podium-2 { order: 1; }
-.lb-podium-3 { order: 3; }
-
-.lb-podium-link {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 0.45rem;
-    text-decoration: none;
-}
-
-.lb-podium-avatar {
-    width: 72px;
-    height: 72px;
-    border-radius: 50%;
-    object-fit: cover;
-    border: 3px solid var(--border);
-    box-shadow: 0 8px 22px -10px rgba(0, 0, 0, 0.5);
-    transition: transform 0.2s ease, border-color 0.2s ease;
-}
-
-.lb-podium-1 .lb-podium-avatar {
-    width: 92px;
-    height: 92px;
-    border-color: #fbbf24;
-    box-shadow: 0 0 0 2px rgba(251, 191, 36, 0.35), 0 8px 26px -10px rgba(251, 191, 36, 0.4);
-}
-
-.lb-podium-2 .lb-podium-avatar { border-color: #94a3b8; }
-.lb-podium-3 .lb-podium-avatar { border-color: #c98a5b; }
-
-.lb-podium-link:hover .lb-podium-avatar {
-    transform: translateY(-4px);
-}
-
-.lb-podium-medal {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 30px;
-    height: 30px;
-    margin-top: -0.25rem;
-    border-radius: 50%;
-    font-weight: 800;
-    font-size: 0.95rem;
-    color: #1a1425;
-}
-
-.lb-podium-medal-1 { background: linear-gradient(135deg, #fde047, #f59e0b); }
-.lb-podium-medal-2 { background: linear-gradient(135deg, #e2e8f0, #94a3b8); }
-.lb-podium-medal-3 { background: linear-gradient(135deg, #fdba74, #c98a5b); }
-
-.lb-podium-name {
-    font-weight: 600;
-    color: var(--text-primary);
-    font-size: 0.9rem;
-    max-width: 130px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
 }
 
 .find-me {
@@ -3463,26 +3391,6 @@ a:hover {
 
     .lb-locate-float .lb-float-info strong {
         max-width: 140px;
-    }
-
-    .lb-podium {
-        gap: 0.6rem;
-        padding: 0 0.5rem;
-    }
-
-    .lb-podium-avatar {
-        width: 56px;
-        height: 56px;
-    }
-
-    .lb-podium-1 .lb-podium-avatar {
-        width: 72px;
-        height: 72px;
-    }
-
-    .lb-podium-name {
-        font-size: 0.78rem;
-        max-width: 90px;
     }
     
     .stats-card {
