@@ -228,6 +228,23 @@ if __name__ == "__main__":
     conn.commit()
 
     cur.execute("""
+    CREATE TABLE IF NOT EXISTS pending_vote_announcements (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER,
+        username TEXT,
+        payload TEXT,
+        created_at INTEGER
+    )
+    """)
+    conn.commit()
+
+    try:
+        cur.execute("ALTER TABLE guild_settings ADD COLUMN vote_announce_enabled BOOLEAN DEFAULT 1")
+    except sqlite3.OperationalError:
+        pass
+    conn.commit()
+
+    cur.execute("""
     CREATE TABLE IF NOT EXISTS user_blocks (
         user_id INTEGER,
         feature TEXT,
