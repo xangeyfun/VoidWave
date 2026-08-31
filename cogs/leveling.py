@@ -60,7 +60,7 @@ class LevelingCog(commands.Cog):
             minutes = int((boost["expires_at"] - time.time()) // 60)
             boost_line = f"\n⚡ **{boost['multiplier']:.1f}x XP boost** active for **{minutes} min**!"
         else:
-            boost_line = "\n⚡ Vote for **2x XP** for **2 hours**! `/vote`"
+            boost_line = "\n⚡ Vote for **2x XP** for **4 hours**! `/vote`"
 
         embed = discord.Embed(
             title=f"{user.display_name}'s Level", # type: ignore
@@ -132,7 +132,8 @@ class LevelingCog(commands.Cog):
             app_commands.Choice(name="Level", value="Level"),
             app_commands.Choice(name="Total XP", value="Total XP"),
             app_commands.Choice(name="Total Messages", value="Total Messages"),
-            app_commands.Choice(name="Total Voice", value="Total Voice")
+            app_commands.Choice(name="Total Voice", value="Total Voice"),
+            app_commands.Choice(name="Voters", value="Voters")
         ]
     )
     async def leaderboard(self, interaction: discord.Interaction, sort: str, global_lb: bool = False, hidden: bool = False):
@@ -145,7 +146,13 @@ class LevelingCog(commands.Cog):
         cur = conn.cursor()
 
         try:
-            if not global_lb:
+            if sort == "Voters":
+                leaderboard_data = cur.execute(
+                    "SELECT u.username, v.last_vote_at AS value FROM vote_boosts v "
+                    "LEFT JOIN (SELECT user_id, MAX(total_xp) AS total_xp, username FROM users GROUP BY user_id) u ON u.user_id = v.user_id "
+                    "WHERE v.last_vote_at IS NOT NULL ORDER BY v.last_vote_at DESC LIMIT 10"
+                ).fetchall()
+            elif not global_lb:
                 if sort == "Level":
                     leaderboard_data = cur.execute("SELECT username, level, guild_id FROM users WHERE guild_id=? ORDER BY level DESC LIMIT 10", (interaction.guild.id,)).fetchall()
                 elif sort == "Total XP":
@@ -172,7 +179,7 @@ class LevelingCog(commands.Cog):
             conn.close()
 
         embed = discord.Embed(
-            title=f"🏆 {'Global' if global_lb else 'Server'} {sort} Leaderboard",
+            title=f"🏆 {'Global' if (global_lb or sort == 'Voters') else 'Server'} {sort} Leaderboard",
             color=discord.Color(0x7128fc),
             timestamp=discord.utils.utcnow()
         )
@@ -192,20 +199,24 @@ class LevelingCog(commands.Cog):
             else:
                 rank = f"`#{i+1}`"
 
-            line = f"{rank} **{username}** | `{format_minutes(value) if sort == 'Total Voice' else f'{value:,}'}`"
+            if sort == "Voters":
+                line = f"{rank} **{username}** | <t:{int(value)}:R>"
+            else:
+                line = f"{rank} **{username}** | `{format_minutes(value) if sort == 'Total Voice' else f'{value:,}'}`"
             lines.append(line)
 
-        link = f"https://voidwave.xangey.dev/leaderboard?guild={interaction.guild.id}" if not global_lb else "https://voidwave.xangey.dev/leaderboard"
+        is_global = global_lb or sort == "Voters"
+        link = f"https://voidwave.xangey.dev/leaderboard?guild={interaction.guild.id}" if not is_global else "https://voidwave.xangey.dev/leaderboard"
 
         embed.description = "\n".join(lines) + f"\n\n**View online:** [Leaderboard]({link})" if lines else "no data yet :("
 
         embed.set_thumbnail(
-            url=interaction.guild.icon.url if interaction.guild and interaction.guild.icon and not global_lb else self.bot.user.display_avatar.url
+            url=interaction.guild.icon.url if interaction.guild and interaction.guild.icon and not is_global else self.bot.user.display_avatar.url
         )
 
         embed.set_footer(
-            text=f"{interaction.guild.name if interaction.guild and not global_lb else 'Global'} Leaderboard • Vote for 2x XP! /vote",
-            icon_url=interaction.guild.icon.url if interaction.guild and interaction.guild.icon and not global_lb else None
+            text=f"{interaction.guild.name if interaction.guild and not is_global else 'Global'} Leaderboard • Vote for 2x XP! /vote",
+            icon_url=interaction.guild.icon.url if interaction.guild and interaction.guild.icon and not is_global else None
         )
 
         await interaction.followup.send(embed=embed, ephemeral=hidden)
