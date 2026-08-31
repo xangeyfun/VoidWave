@@ -346,7 +346,7 @@ class EventsCog(commands.Cog):
             description=(
                 "I'm here to make your server more fun with **levels**, **questions of the day**, and more.\n\n"
                 "**Love VoidWave? Help it grow!**\n"
-                "Voting is free and takes 5 seconds. You'll get **2x XP for 2 hours** (3h on weekends) and it helps VoidWave reach more servers.\n"
+                "Voting is free and takes 5 seconds. You'll get **2x XP for 4 hours** (6h on weekends) and it helps VoidWave reach more servers.\n"
                 "Run `/vote` in any channel to claim your boost!\n\n"
                 "**Leveling works automatically**\n"
                 "Members earn XP just by chatting and hanging out in voice channels. No setup needed.\n\n"
@@ -490,6 +490,12 @@ class EventsCog(commands.Cog):
                 await self.send_vote_reminder(row["user_id"])
                 cur.execute("UPDATE vote_reminders SET remind_at = NULL WHERE user_id = ?", (row["user_id"],))
                 conn.commit()
+
+            announcements = cur.execute("SELECT id, user_id, username, payload FROM pending_vote_announcements ORDER BY id LIMIT 10").fetchall()
+            for ann in announcements:
+                await self.send_vote_announcement(ann["user_id"], ann["username"], ann["payload"])
+                cur.execute("DELETE FROM pending_vote_announcements WHERE id = ?", (ann["id"],))
+                conn.commit()
         except Exception as e:
             print(f"{date()} ERROR  Vote DM loop failed: {e}")
         finally:
@@ -497,9 +503,9 @@ class EventsCog(commands.Cog):
 
     async def send_vote_thanks(self, user_id, payload):
         try:
-            hours = json.loads(payload or "{}").get("hours", 2)
+            hours = json.loads(payload or "{}").get("hours", 4)
         except ValueError:
-            hours = 2
+            hours = 4
 
         embed = discord.Embed(
             title="🗳️ Thanks for voting!",
@@ -531,7 +537,7 @@ class EventsCog(commands.Cog):
             title="⏰ Time to vote again!",
             description=(
                 "Hey! You asked me to remind you. Your Top.gg vote cooldown is over, so you can vote for VoidWave again! 🗳️\n\n"
-                "Voting gets you **2x XP for 2 hours** (**3h on weekends**). Thanks for supporting VoidWave! 💜"
+                "Voting gets you **2x XP for 4 hours** (**6h on weekends**). Thanks for supporting VoidWave! 💜"
             ),
             color=0x7128fc,
         )
@@ -551,6 +557,65 @@ class EventsCog(commands.Cog):
             print(f"{date()} WARN  Could not DM vote reminder to {user_id} (DMs closed)")
         except (discord.NotFound, discord.HTTPException) as e:
             print(f"{date()} ERROR  Failed to send vote reminder DM to {user_id}: {e}")
+
+    async def send_vote_announcement(self, user_id, username, payload):
+        try:
+            hours = json.loads(payload or "{}").get("hours", 4)
+        except ValueError:
+            hours = 4
+
+        if not username:
+            try:
+                user = self.bot.get_user(user_id) or await self.bot.fetch_user(user_id)
+                username = user.name if user else str(user_id)
+            except (discord.NotFound, discord.HTTPException):
+                username = str(user_id)
+
+        display = f"<@{user_id}>" if username != str(user_id) else str(user_id)
+
+        embed = discord.Embed(
+            title=f"🗳️ {display} just voted!",
+            description=(
+                f"**{display}** just voted for VoidWave on **Top.gg**! 💜\n\n"
+                f"They now have **{hours} hours of 2x XP** ⚡\n"
+                f"Want it too? <https://top.gg/bot/1442229230384709752/vote>"
+            ),
+            color=0x7128fc,
+            timestamp=datetime.datetime.now(datetime.timezone.utc),
+        )
+        embed.set_footer(text="VoidWave • Vote for 2x XP! /vote")
+
+        member = self.bot.get_user(user_id)
+        if member:
+            embed.set_thumbnail(url=member.display_avatar.url)
+
+        conn = get_db()
+        try:
+            cur = conn.cursor()
+            guilds = cur.execute(
+                "SELECT guild_id, level_channel_id FROM guild_settings "
+                "WHERE level_channel_enabled = 1 AND vote_announce_enabled = 1 AND level_channel_id IS NOT NULL"
+            ).fetchall()
+        finally:
+            conn.close()
+
+        sent = 0
+        for g in guilds:
+            channel = self.bot.get_channel(g["level_channel_id"])
+            if not channel or not isinstance(channel, discord.TextChannel):
+                continue
+            guild = channel.guild
+            if guild and guild.get_member(user_id) is None:
+                continue
+            try:
+                await channel.send(embed=embed)
+                sent += 1
+            except discord.Forbidden:
+                continue
+            except discord.HTTPException as e:
+                print(f"{date()} ERROR  Failed to send vote announcement in {channel.id}: {e}")
+
+        print(f"{date()} INFO  Sent vote announcement for user {user_id} to {sent} guild(s)")
 
     @tasks.loop(minutes=30)
     async def update_topgg(self):
