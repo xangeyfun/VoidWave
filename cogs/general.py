@@ -157,6 +157,7 @@ class GeneralCog(commands.Cog):
                     "`/rps [opponent]` - Rock, paper, scissors\n"
                     "`/tictactoe [opponent]` - Tic-tac-toe\n"
                     "`/connectfour [opponent]` - Connect four\n"
+                    "`/trivia-battle` - Multiplayer trivia battle\n"
                     "`/blackjack [max_players]` - Multiplayer blackjack table"
                 ),
             ).add_field(
@@ -236,9 +237,9 @@ class GeneralCog(commands.Cog):
         if topic is None:
             view = HelpView(self, self._help_select(category))
             view.author_id = interaction.user.id
+            await interaction.response.send_message(embed=embed, ephemeral=True, view=view)
         else:
-            view = None
-        await interaction.response.send_message(embed=embed, ephemeral=True, view=view)
+            await interaction.response.send_message(embed=embed, ephemeral=True)
 
     @discord.app_commands.allowed_installs(guilds=True, users=True)
     @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
