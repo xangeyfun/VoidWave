@@ -574,7 +574,7 @@ class EventsCog(commands.Cog):
         display = f"<@{user_id}>" if username != str(user_id) else str(user_id)
 
         embed = discord.Embed(
-            title=f"🗳️ {display} just voted!",
+            title=f"🗳️ {username} just voted!",
             description=(
                 f"**{display}** just voted for VoidWave on **Top.gg**! 💜\n\n"
                 f"They now have **{hours} hours of 2x XP** ⚡\n"
