@@ -812,14 +812,16 @@ def topgg_webhook():
 
     if data.get('type') == 'vote.create':
         vote_data = data.get('data') or {}
-        user_id = (vote_data.get('user') or {}).get('platform_id')
+        user = vote_data.get('user') or {}
+        user_id = user.get('platform_id')
+        username = user.get('username')
 
         if not user_id:
             print(f"{time.strftime('%Y-%m-%d %H:%M:%S')} WARN  Top.gg vote.create without a Discord user id")
             return 'OK', 200
 
         weight = vote_data.get('weight', 1)
-        duration = 10800 if weight == 2 else 7200
+        duration = 21600 if weight == 2 else 14400
 
         conn = get_db()
         try:
@@ -852,7 +854,7 @@ def topgg_webhook():
             """)
             cur.execute(
                 "INSERT INTO pending_dms (user_id, kind, payload, created_at) VALUES (?, 'vote_thanks', ?, ?)",
-                (int(user_id), json.dumps({"hours": 3 if weight == 2 else 2}), int(time.time()))
+                (int(user_id), json.dumps({"hours": 6 if weight == 2 else 4}), int(time.time()))
             )
 
             cur.execute("""
@@ -864,8 +866,22 @@ def topgg_webhook():
             # only refresh reminders for users who opted in via /vote-remind
             cur.execute("UPDATE vote_reminders SET remind_at = ? WHERE user_id = ?", (int(time.time()) + 12 * 3600, int(user_id)))
 
+            cur.execute("""
+            CREATE TABLE IF NOT EXISTS pending_vote_announcements (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER,
+                username TEXT,
+                payload TEXT,
+                created_at INTEGER
+            )
+            """)
+            cur.execute(
+                "INSERT INTO pending_vote_announcements (user_id, username, payload, created_at) VALUES (?, ?, ?, ?)",
+                (int(user_id), username, json.dumps({"hours": 6 if weight == 2 else 4}), int(time.time()))
+            )
+
             conn.commit()
-            print(f"{time.strftime('%Y-%m-%d %H:%M:%S')} WEBHOOK  Top.gg vote from discord user {user_id} ({'3h weekend' if weight == 2 else '2h'} boost)")
+            print(f"{time.strftime('%Y-%m-%d %H:%M:%S')} WEBHOOK  Top.gg vote from discord user {user_id} ({'6h weekend' if weight == 2 else '4h'} boost)")
         except Exception as e:
             print(f"Top.gg webhook error: {e}")
             return 'Internal Server Error', 500
