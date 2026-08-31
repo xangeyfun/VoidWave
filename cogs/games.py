@@ -4,12 +4,12 @@ import discord
 import random
 import html as html_module
 import asyncio
+import time
 import utils
 
 
 VOIDWAVE_COLOR = 0x7128fc
 
-_trivia_token = None
 _trivia_headers = {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) VoidWave/1.0"}
 
 TEAM_EMOJI = {
@@ -250,187 +250,454 @@ class TicTacToeView(discord.ui.View):
             child.disabled = True
 
 
-class TriviaView(discord.ui.View):
-    command_name = "/trivia"
+class TriviaBattleView(discord.ui.View):
+    command_name = "/trivia-battle"
 
-    def __init__(self, interaction: discord.Interaction, question, options, answer):
-        super().__init__(timeout=60)
+    CATEGORIES = {
+        -1: "Any",
+        9: "General Knowledge",
+        15: "Video Games",
+        12: "Music",
+        17: "Science & Nature",
+        18: "Computers",
+        22: "Geography",
+        23: "History",
+        27: "Animals",
+        11: "Films",
+        10: "Books",
+    }
+    DIFFICULTIES = {"any": "Any", "easy": "Easy", "medium": "Medium", "hard": "Hard"}
+
+    def __init__(self, interaction, rounds=5, max_players=4, category=9, difficulty="easy", answer_time=20):
+        super().__init__(timeout=30 + rounds * 40)
         self.interaction = interaction
-        self.question = question
-        self.options = options
-        self.answer = answer
-        self.answered = False
-        self._loading = False
+        self.host = interaction.user
+        self.players = [interaction.user]
+        self.rounds = rounds
+        self.max_players = max_players
+        self.category = category
+        self.difficulty = difficulty
+        self.answer_time = answer_time
+        self.current_round = 1
+        self.scores = {interaction.user.id: 0}
+        self.started = False
+        self.running = False
+        self.round_event = asyncio.Event()
+        self.round_answers = {}
+        self.round_resolved = False
+        self.question = None
+        self.options = []
+        self.answer = ""
+        self.task = None
+        self.auto_task = None
+        self.answer_view = None
+        self.used_questions = set()
 
-        for label in options:
-            self.add_item(_TriviaButton(label, self))
+        self.add_item(_TriviaJoinButton(self))
+        self.add_item(_TriviaLeaveButton(self))
+        self.add_item(_TriviaBattleStartButton(self))
 
-    @staticmethod
-    async def _ensure_token():
-        global _trivia_token
-        if _trivia_token:
-            return
-        try:
-            async with utils.http_session.get(
-                "https://opentdb.com/api_token.php?command=request",
-                headers=_trivia_headers,
-            ) as r:
-                data = await r.json()
-            if (data or {}).get("response_code") == 0:
-                _trivia_token = data.get("token")
-        except Exception:
-            pass
+    def _name(self, uid):
+        for p in self.players:
+            if p.id == uid:
+                return p.display_name
+        return "Unknown"
 
-    @staticmethod
-    async def fetch_question():
-        global _trivia_token
-
-        for attempt in range(10):
-            if _trivia_token is None and attempt < 6:
-                await TriviaView._ensure_token()
-
-            url = "https://opentdb.com/api.php?amount=1&type=multiple"
-            if _trivia_token:
-                url += f"&token={_trivia_token}"
-            try:
-                async with utils.http_session.get(url, headers=_trivia_headers) as r:
-                    data = await r.json()
-            except Exception:
-                data = None
-
-            code = (data or {}).get("response_code")
-            if code == 0 and data.get("results"):
-                result = data["results"][0]
-                if result:
-
-                    def clean(text):
-                        return html_module.unescape(str(text))
-
-                    question = clean(result["question"])
-                    correct = clean(result["correct_answer"])
-                    incorrect = [clean(a) for a in result["incorrect_answers"]]
-
-                    options = [correct] + incorrect
-                    random.shuffle(options)
-
-                    return question, options, correct
-
-            if code in (1, 3, 4):
-                _trivia_token = None
-            elif attempt >= 6 and _trivia_token is not None:
-                _trivia_token = None
-
-            await asyncio.sleep(min(5, 2 ** attempt) if code == 5 else 1)
-
+    def _player_obj(self, uid):
+        for p in self.players:
+            if p.id == uid:
+                return p
         return None
 
-    def _build_embed(self):
+    def _cat_label(self):
+        return self.CATEGORIES.get(self.category, "Any")
+
+    def _settings_line(self):
+        return (
+            f"Rounds **{self.rounds}**  Max players **{self.max_players}**  "
+            f"Answer time **{self.answer_time}s**\n"
+            f"Category **{self._cat_label()}**  Difficulty **{self.DIFFICULTIES.get(self.difficulty, 'Any')}**"
+        )
+
+    def _status_bar(self, done_ids=None):
+        done_ids = done_ids or {}
+        lines = []
+        for p in self.players:
+            mark = done_ids.get(p.id)
+            if mark == "done":
+                icon = "✅"
+            elif mark == "right":
+                icon = "✅"
+            elif mark == "wrong":
+                icon = "❌"
+            else:
+                icon = "⬜"
+            tag = f"{p.mention}" + (" *(host)*" if p.id == self.host.id else "")
+            lines.append(f"{icon}: {tag}")
+        return lines
+
+    def _lobby_embed(self):
+        players = "\n".join(
+            f"{p.mention}" + (" *(host)*" if p.id == self.host.id else "")
+            for p in self.players
+        )
+        desc = (
+            f"**{self.host.mention}** is hosting a trivia battle!\n\n"
+            f"**Players ({len(self.players)}/{self.max_players})**\n\n"
+            f"{players}\n\n"
+            f"{self._settings_line()}"
+        )
+        if not self.started and len(self.players) >= self.max_players and self.auto_task:
+            desc += f"\n\nLobby is full! Starting in <t:{int(time.time()) + 10}:R>..."
+        else:
+            desc += "\n\nClick **Join** to enter. The battle starts when the lobby is full."
         embed = discord.Embed(
-            title="❓ Trivia",
-            description=f"**{self.question}**\n\nSelect an answer below!",
+            title="Trivia Battle",
+            description=desc,
             color=discord.Color(VOIDWAVE_COLOR),
         )
         embed.set_footer(text="Vote for 2x XP! /vote")
         return embed
 
-    async def start_again(self, interaction: discord.Interaction):
-        if self._loading:
-            try:
-                await interaction.response.send_message("Loading a new question...", ephemeral=True)
-            except discord.HTTPException:
-                pass
-            return
-        self._loading = True
-        await interaction.response.defer()
-        fetched = await self.fetch_question()
-        if not fetched:
-            self._loading = False
-            try:
-                await interaction.edit_original_response(
-                    content="> Could not fetch a trivia question. Please try again later.",
-                    embed=None,
-                    view=None,
-                )
-            except discord.HTTPException:
-                pass
-            return
-        self.question, self.options, self.answer = fetched
-        self.answered = False
-        self._loading = False
-        self.clear_items()
-        for label in self.options:
-            self.add_item(_TriviaButton(label, self))
-        await interaction.edit_original_response(embed=self._build_embed(), view=self)
-
-    async def reveal(self, interaction: discord.Interaction, chosen: str):
-        self.answered = True
-        correct = self.answer == chosen
+    def _question_embed(self):
+        done_ids = {uid: ("done" if self.round_answers.get(uid) is not None else None) for uid in self.scores}
+        status = "\n".join(self._status_bar(done_ids))
+        waiting = sum(1 for v in self.round_answers.values() if v is None)
+        desc = (
+            f"**Round {self.current_round} of {self.rounds}**\n\n"
+            f"**{self.question}**\n\n"
+            f"{status}\n"
+            f"({waiting} waiting, closes <t:{int(time.time()) + self.answer_time}:R>)"
+        )
         embed = discord.Embed(
-            title="❓ Trivia",
-            description=f"**{self.question}**",
-            color=discord.Color(0x2ecc71 if correct else 0xe74c3c),
+            title="Trivia Battle",
+            description=desc,
+            color=discord.Color(VOIDWAVE_COLOR),
         )
-        embed.add_field(
-            name="Your answer",
-            value=f"{'✅' if correct else '❌'} **{chosen}**",
-            inline=False,
-        )
-        if not correct:
-            embed.add_field(name="Correct answer", value=f"✅ **{self.answer}**", inline=False)
         embed.set_footer(text="Vote for 2x XP! /vote")
+        return embed
 
+    def _results_embed(self):
+        status_bars = []
+        for p in self.players:
+            ans = self.round_answers.get(p.id)
+            if ans is None or ans == "NO_ANSWER":
+                icon = "⬜"
+                line = f"{icon}: {p.mention} no answer"
+            elif ans == self.answer:
+                line = f"✅: {p.mention} {ans}"
+            else:
+                line = f"❌: {p.mention} {ans}"
+            status_bars.append(line)
+        desc = (
+            f"**Round {self.current_round} results**\n\n"
+            f"The answer was **{self.answer}**\n\n"
+            + "\n".join(status_bars) + "\n\n"
+            + self._scores_block()
+        )
+        embed = discord.Embed(
+            title="Trivia Battle",
+            description=desc,
+            color=discord.Color(VOIDWAVE_COLOR),
+        )
+        embed.set_footer(text="Vote for 2x XP! /vote")
+        return embed
+
+    def _scores_block(self):
+        sorted_scores = sorted(self.scores.items(), key=lambda kv: kv[1], reverse=True)
+        lines = []
+        for rank, (uid, score) in enumerate(sorted_scores, start=1):
+            medal = {1: "1st", 2: "2nd", 3: "3rd"}.get(rank, f"{rank}th")
+            lines.append(f"**{medal}**  {self._player_obj(uid).mention}  **{score}** point{'s' if score != 1 else ''}")
+        return "\n".join(lines)
+
+    async def join(self, interaction):
+        if self.started:
+            await interaction.response.send_message("This battle has already started!", ephemeral=True)
+            return
+        if interaction.user.id in self.scores:
+            await interaction.response.send_message("You are already in this battle!", ephemeral=True)
+            return
+        if len(self.players) >= self.max_players:
+            await interaction.response.send_message(f"This battle is full ({self.max_players} players)!", ephemeral=True)
+            return
+
+        self.players.append(interaction.user)
+        self.scores[interaction.user.id] = 0
+
+        if len(self.players) >= self.max_players and not self.auto_task:
+            self.auto_task = asyncio.create_task(self._auto_start())
+
+        await interaction.response.edit_message(embed=self._lobby_embed(), view=self)
+
+    async def leave(self, interaction):
+        if self.started:
+            await interaction.response.send_message("The battle has already started, you cannot leave!", ephemeral=True)
+            return
+        if interaction.user.id == self.host.id:
+            await self._host_left()
+            return
+
+        self.players = [p for p in self.players if p.id != interaction.user.id]
+        self.scores.pop(interaction.user.id, None)
+
+        if len(self.players) < self.max_players and self.auto_task:
+            self.auto_task.cancel()
+            self.auto_task = None
+
+        await interaction.response.edit_message(embed=self._lobby_embed(), view=self)
+
+    async def _host_left(self):
         for child in self.children:
+            child.disabled = True
+        embed = discord.Embed(
+            title="Trivia Battle",
+            description="The host left, so the battle was cancelled.",
+            color=discord.Color(0x95a5a6),
+        )
+        embed.set_footer(text="Vote for 2x XP! /vote")
+        for player in self.players:
+            if player.id != self.host.id:
+                try:
+                    await player.send("The host left, so the trivia battle was cancelled.")
+                except discord.HTTPException:
+                    pass
+        try:
+            await self.interaction.edit_original_response(embed=embed, view=self)
+        except discord.HTTPException:
+            pass
+
+    async def _auto_start(self):
+        try:
+            await asyncio.sleep(10)
+            await self._begin()
+        except asyncio.CancelledError:
+            return
+
+    async def start(self, interaction):
+        if self.started:
+            await interaction.response.send_message("The battle is already running!", ephemeral=True)
+            return
+        if interaction.user.id != self.host.id:
+            await interaction.response.send_message("Only the host can start the battle!", ephemeral=True)
+            return
+        if len(self.players) < 2:
+            await interaction.response.send_message("You need at least 2 players to start a battle!", ephemeral=True)
+            return
+        if self.auto_task:
+            self.auto_task.cancel()
+            self.auto_task = None
+        await self._begin()
+
+    async def _begin(self):
+        if self.started:
+            return
+        self.started = True
+        self.running = True
+        for child in self.children:
+            child.disabled = True
+
+        await self.interaction.edit_original_response(
+            embed=discord.Embed(
+                title="Trivia Battle",
+                description=f"The battle begins! {self.rounds} round{'s' if self.rounds != 1 else ''}.\n\n" + self._scores_block(),
+                color=discord.Color(VOIDWAVE_COLOR),
+            ),
+            view=self,
+        )
+
+        self.task = asyncio.create_task(self._run_battle())
+
+    def register_answer(self, uid, choice):
+        if uid not in self.round_answers:
+            return False
+        if self.round_answers[uid] is not None:
+            return False
+        self.round_answers[uid] = choice
+        if all(v is not None for v in self.round_answers.values()):
+            self.round_event.set()
+        return True
+
+    async def _run_battle(self):
+        try:
+            while self.current_round <= self.rounds:
+                last = self.current_round == self.rounds
+                await self._play_round(last)
+                self.current_round += 1
+            await self._finish()
+        except Exception:
+            await self._finish("The battle hit an error and was stopped.")
+
+    async def _play_round(self, last=False):
+        self.round_event = asyncio.Event()
+        self.round_resolved = False
+        self.round_answers = {uid: None for uid in self.scores}
+        self.question = None
+        self.options = []
+
+        self.question, self.options, self.answer = await self._load_question()
+
+        view = self._build_answer_view()
+        self.answer_view = view
+
+        try:
+            await self.interaction.edit_original_response(embed=self._question_embed(), view=view)
+        except discord.HTTPException:
+            return
+
+        await self._refresh_question()
+
+        try:
+            await asyncio.wait_for(self.round_event.wait(), timeout=self.answer_time)
+        except asyncio.TimeoutError:
+            pass
+
+        for uid in self.round_answers:
+            if self.round_answers[uid] is None:
+                self.round_answers[uid] = "NO_ANSWER"
+            if self.round_answers[uid] == self.answer:
+                self.scores[uid] += 1
+
+        self.round_resolved = True
+        for child in self.answer_view.children:
             child.disabled = True
             if child.label == self.answer:
                 child.style = discord.ButtonStyle.success
             else:
                 child.style = discord.ButtonStyle.danger
 
-        self.add_item(_TriviaAgainButton(self))
-
-        await interaction.response.edit_message(embed=embed, view=self)
-
-    async def on_timeout(self):
-        embed = discord.Embed(
-            title="❓ Trivia",
-            description=f"**{self.question}**\n\n⏰ Time's up! The correct answer was **{self.answer}**.",
-            color=discord.Color(0x95a5a6),
-        )
-        embed.set_footer(text="Vote for 2x XP! /vote")
-        for child in self.children:
-            child.disabled = True
+        embed = self._results_embed()
+        if last:
+            embed.description += "\n\nShowing **final scores** next..."
+        else:
+            embed.description += f"\n\nNext round in <t:{int(time.time()) + 12}:R>..."
         try:
-            await self.interaction.edit_original_response(embed=embed, view=self)
+            await self.interaction.edit_original_response(embed=embed, view=self.answer_view)
         except discord.HTTPException:
             pass
-        except discord.NotFound:
+
+        await asyncio.sleep(15 if last else 12)
+
+    async def _refresh_question(self):
+        try:
+            await self.interaction.edit_original_response(embed=self._question_embed(), view=self.answer_view)
+        except discord.HTTPException:
             pass
 
+    def _build_answer_view(self):
+        view = discord.ui.View(timeout=None)
+        for i, label in enumerate(self.options):
+            row = 1 if i < 2 else 2
+            view.add_item(_TriviaBattleChoiceButton(label, self, row))
+        return view
 
-class _TriviaButton(discord.ui.Button):
-    def __init__(self, label, view):
-        super().__init__(label=label, style=discord.ButtonStyle.primary, row=1)
-        self.host_view = view
-
-    async def callback(self, interaction: discord.Interaction):
-        if interaction.user.id != self.host_view.interaction.user.id:
-            await interaction.response.send_message(f"This isn't your trivia game! Start your own game with **`{self.host_view.command_name}`**", ephemeral=True)
+    async def _pick_answer(self, interaction, label):
+        if self.running is False:
             return
-        if self.host_view.answered:
+        if interaction.user.id not in self.scores:
+            await interaction.response.send_message("You are not in this battle!", ephemeral=True)
             return
-        await self.host_view.reveal(interaction, self.label)
-
-
-class _TriviaAgainButton(discord.ui.Button):
-    def __init__(self, view):
-        super().__init__(label="🔁 Another", style=discord.ButtonStyle.secondary, row=1)
-        self.host_view = view
-
-    async def callback(self, interaction: discord.Interaction):
-        if interaction.user.id != self.host_view.interaction.user.id:
-            await interaction.response.send_message(f"This isn't your trivia game! Start your own game with **`{self.host_view.command_name}`**", ephemeral=True)
+        if not self.register_answer(interaction.user.id, label):
+            await interaction.response.send_message("You already answered this round!", ephemeral=True)
             return
-        await self.host_view.start_again(interaction)
+        await interaction.response.send_message(f"Locked in {label} for this round.", ephemeral=True)
+        if not self.round_resolved:
+            await self._refresh_question()
+
+    async def _finish(self, override=None):
+        self.running = False
+        sorted_scores = sorted(self.scores.items(), key=lambda kv: kv[1], reverse=True)
+        winner = self._player_obj(sorted_scores[0][0]).mention if sorted_scores else "Nobody"
+        desc = f"{override + chr(10) + chr(10) if override else ''}**{winner}** wins the battle!\n\n" + self._scores_block()
+        embed = discord.Embed(
+            title="Trivia Battle Finished",
+            description=desc,
+            color=discord.Color(0x2ecc71),
+        )
+        embed.set_footer(text="Vote for 2x XP! /vote")
+        try:
+            await self.interaction.edit_original_response(embed=embed, view=None)
+        except discord.HTTPException:
+            pass
+
+    @staticmethod
+    async def _fetch_one(category, difficulty):
+        params = {"amount": 1, "type": "multiple"}
+        if category and category != -1:
+            params["category"] = category
+        if difficulty and difficulty != "any":
+            params["difficulty"] = difficulty
+
+        for attempt in range(5):
+            url = "https://opentdb.com/api.php?" + "&".join(f"{k}={v}" for k, v in params.items())
+            try:
+                async with utils.http_session.get(url, headers=_trivia_headers) as r:
+                    data = await r.json()
+            except Exception:
+                data = None
+            code = (data or {}).get("response_code")
+            if code == 0 and data.get("results"):
+                result = data["results"][0]
+                if result:
+                    def clean(text):
+                        return html_module.unescape(str(text))
+                    return (
+                        clean(result["question"]),
+                        [clean(a) for a in result["incorrect_answers"]],
+                        clean(result["correct_answer"]),
+                    )
+            await asyncio.sleep(min(3, 2 ** attempt))
+        return None
+
+    async def _load_question(self):
+        for _ in range(8):
+            fetched = await TriviaBattleView._fetch_one(self.category, self.difficulty)
+            if not fetched:
+                break
+            question, incorrect, correct = fetched
+            options = [correct] + incorrect
+            random.shuffle(options)
+            if (question, correct) in self.used_questions:
+                continue
+            self.used_questions.add((question, correct))
+            return question, options, correct
+        raise RuntimeError("no_unique_question")
+
+
+class _TriviaJoinButton(discord.ui.Button):
+    def __init__(self, battle):
+        super().__init__(label="Join", style=discord.ButtonStyle.primary, row=0)
+        self.battle = battle
+
+    async def callback(self, interaction):
+        await self.battle.join(interaction)
+
+
+class _TriviaLeaveButton(discord.ui.Button):
+    def __init__(self, battle):
+        super().__init__(label="Leave", style=discord.ButtonStyle.danger, row=0)
+        self.battle = battle
+
+    async def callback(self, interaction):
+        await self.battle.leave(interaction)
+
+
+class _TriviaBattleStartButton(discord.ui.Button):
+    def __init__(self, battle):
+        super().__init__(label="Start", style=discord.ButtonStyle.success, row=0)
+        self.battle = battle
+
+    async def callback(self, interaction):
+        await self.battle.start(interaction)
+
+
+class _TriviaBattleChoiceButton(discord.ui.Button):
+    def __init__(self, label, battle, row):
+        super().__init__(label=label, style=discord.ButtonStyle.primary, row=row)
+        self.battle = battle
+
+    async def callback(self, interaction):
+        await self.battle._pick_answer(interaction, self.label)
 
 
 CONNECT_FOUR_ROWS = 6
@@ -1806,27 +2073,46 @@ class GamesCog(commands.Cog):
 
     @discord.app_commands.allowed_installs(guilds=True, users=True)
     @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
-    @discord.app_commands.command(name="trivia", description="Test your knowledge with a random trivia question.")
-    @app_commands.describe(hidden="Hide the command from others")
-    async def trivia(self, interaction: discord.Interaction, hidden: bool = False):
-        await interaction.response.defer(ephemeral=hidden)
+    @discord.app_commands.command(name="trivia-battle", description="Battle against others in a multiplayer trivia game!")
+    @app_commands.describe(
+        category="Question category",
+        difficulty="Question difficulty",
+        rounds="How many rounds to play (default 5, max 10)",
+        max_players="Maximum number of players (default 4, max 8)",
+        answer_time="Seconds to answer each round (default 20, max 60)",
+        hidden="Hide the command from others",
+    )
+    @app_commands.choices(category=[
+        app_commands.Choice(name=name, value=cid)
+        for cid, name in sorted(TriviaBattleView.CATEGORIES.items(), key=lambda kv: kv[1])
+    ])
+    @app_commands.choices(difficulty=[
+        app_commands.Choice(name=name, value=value)
+        for value, name in TriviaBattleView.DIFFICULTIES.items()
+    ])
+    async def trivia_battle(
+        self,
+        interaction: discord.Interaction,
+        category: int = 9,
+        difficulty: str = "easy",
+        rounds: int = 5,
+        max_players: int = 4,
+        answer_time: int = 20,
+        hidden: bool = False,
+    ):
+        rounds = max(1, min(10, rounds))
+        max_players = max(2, min(8, max_players))
+        answer_time = max(10, min(60, answer_time))
 
-        fetched = await TriviaView.fetch_question()
-        if not fetched:
-            await interaction.followup.send("> Could not fetch a trivia question. Please try again later.")
-            return
-
-        question, options, correct = fetched
-
-        embed = discord.Embed(
-            title="❓ Trivia",
-            description=f"**{question}**\n\nSelect an answer below!",
-            color=discord.Color(VOIDWAVE_COLOR),
+        view = TriviaBattleView(
+            interaction,
+            rounds=rounds,
+            max_players=max_players,
+            category=category,
+            difficulty=difficulty,
+            answer_time=answer_time,
         )
-        embed.set_footer(text="Vote for 2x XP! /vote")
-
-        view = TriviaView(interaction, question, options, correct)
-        await interaction.followup.send(embed=embed, view=view)
+        await interaction.response.send_message(embed=view._lobby_embed(), ephemeral=hidden, view=view)
 
     @discord.app_commands.allowed_installs(guilds=True, users=True)
     @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
