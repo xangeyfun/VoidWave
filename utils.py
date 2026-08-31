@@ -19,8 +19,8 @@ STATS_LOG_FILE = "stats_history.json"
 TOPGG_TOKEN = os.getenv("TOPGG_TOKEN")
 DBL_TOKEN = os.getenv("DBL_TOKEN")
 VOTE_BOOST_MULTIPLIER = 2.0
-VOTE_BOOST_DURATION = 7200
-VOTE_BOOST_WEEKEND_DURATION = 10800
+VOTE_BOOST_DURATION = 14400
+VOTE_BOOST_WEEKEND_DURATION = 21600
 
 # Shared state
 startup = time.time()
@@ -187,7 +187,7 @@ def build_level_up_embed(member, level, progress, out_of, boost=None, new_roles=
             + (
                 f"⚡ **{boost['multiplier']:.1f}x XP boost** active for **{int((boost['expires_at'] - time.time()) // 60)} min**!"
                 if boost
-                else "⚡ Vote for **2x XP** for **2 hours**! `/vote`"
+                else "⚡ Vote for **2x XP** for **4 hours**! `/vote`"
             )
         ),
         inline=False,
