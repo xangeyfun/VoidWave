@@ -2052,27 +2052,6 @@ class GamesCog(commands.Cog):
 
     @discord.app_commands.allowed_installs(guilds=True, users=True)
     @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
-    @discord.app_commands.command(name="rps", description="Play rock, paper, scissors against VoidWave.")
-    @app_commands.describe(hidden="Hide the command from others")
-    async def rps(self, interaction: discord.Interaction, hidden: bool = False):
-        embed = discord.Embed(
-            title="🪨📄✂️ Rock Paper Scissors",
-            description="Pick your move below!",
-            color=discord.Color(VOIDWAVE_COLOR),
-        )
-        embed.set_footer(text="Vote for 2x XP! /vote")
-        await interaction.response.send_message(embed=embed, ephemeral=hidden, view=RPSView(interaction.user))
-
-    @discord.app_commands.allowed_installs(guilds=True, users=True)
-    @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
-    @discord.app_commands.command(name="tictactoe", description="Play tic-tac-toe against VoidWave.")
-    @app_commands.describe(hidden="Hide the command from others")
-    async def tictactoe(self, interaction: discord.Interaction, hidden: bool = False):
-        view = TicTacToeView(interaction.user)
-        await interaction.response.send_message(embed=view._state_embed(), ephemeral=hidden, view=view)
-
-    @discord.app_commands.allowed_installs(guilds=True, users=True)
-    @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     @discord.app_commands.command(name="trivia-battle", description="Battle against others in a multiplayer trivia game!")
     @app_commands.describe(
         category="Question category",
@@ -2116,29 +2095,10 @@ class GamesCog(commands.Cog):
 
     @discord.app_commands.allowed_installs(guilds=True, users=True)
     @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
-    @discord.app_commands.command(name="connectfour", description="Play connect four against VoidWave.")
-    @app_commands.describe(hidden="Hide the command from others")
-    async def connectfour(self, interaction: discord.Interaction, hidden: bool = False):
-        view = ConnectFourView(interaction.user)
-        for col in range(CONNECT_FOUR_COLS):
-            row = 0 if col < 4 else 1
-            view.add_item(ConnectFourButton(col, view, row))
-        await interaction.response.send_message(embed=view._board_embed(), ephemeral=hidden, view=view)
-
-    @discord.app_commands.allowed_installs(guilds=True, users=True)
-    @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     @discord.app_commands.command(name="hangman", description="Play hangman against VoidWave.")
     @app_commands.describe(hidden="Hide the command from others")
     async def hangman(self, interaction: discord.Interaction, hidden: bool = False):
         view = HangmanView(interaction.user)
-        await interaction.response.send_message(embed=view._state_embed(), ephemeral=hidden, view=view)
-
-    @discord.app_commands.allowed_installs(guilds=True, users=True)
-    @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
-    @discord.app_commands.command(name="blackjack", description="Play blackjack against VoidWave.")
-    @app_commands.describe(hidden="Hide the command from others")
-    async def blackjack(self, interaction: discord.Interaction, hidden: bool = False):
-        view = BlackjackView(interaction.user)
         await interaction.response.send_message(embed=view._state_embed(), ephemeral=hidden, view=view)
 
     @discord.app_commands.allowed_installs(guilds=True, users=True)
