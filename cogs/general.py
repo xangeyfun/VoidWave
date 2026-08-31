@@ -214,10 +214,10 @@ class GeneralCog(commands.Cog):
             minutes = int((boost["expires_at"] - time.time()) // 60)
             boost_line = f"> ⚡ Your **{boost['multiplier']:.1f}x XP boost** is active for another **{minutes} minute{'s' if minutes != 1 else ''}**!"
         else:
-            boost_line = "> ⚡ **Vote now to get 2x XP for 2 hours!** (3 hours on weekends)"
+            boost_line = "> ⚡ **Vote now to get 2x XP for 4 hours!** (6 hours on weekends)"
 
         reminder_line = ""
-        if reminder:
+        if reminder and reminder["remind_at"]:
             reminder_line = f"\n> ⏰ Reminder set! I'll DM you when it's time to vote again (<t:{reminder['remind_at']}:R>)."
 
         embed = discord.Embed(
@@ -229,12 +229,8 @@ class GeneralCog(commands.Cog):
             color=0x7128fc,
         )
         embed.add_field(
-            name="Vote Links",
-            value=(
-                "> <https://top.gg/bot/1442229230384709752/vote>\n"
-                "> <https://discordlist.gg/bot/1442229230384709752/vote>\n"
-                "> <https://discordbotlist.com/bots/voidwave/upvote>"
-            ),
+            name="Vote Link",
+            value="> <https://top.gg/bot/1442229230384709752/vote>",
             inline=False,
         )
         embed.set_thumbnail(url=self.bot.user.display_avatar.url)
