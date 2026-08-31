@@ -62,6 +62,7 @@ USER_FIELDS = {
 GUILD_SETTING_FIELDS = {
     "level_channel_id": "int",
     "level_channel_enabled": "bool",
+    "vote_announce_enabled": "bool",
     "qotd_enabled": "bool",
     "qotd_channel": "int",
     "qotd_role_id": "int",
