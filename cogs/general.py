@@ -6,10 +6,217 @@ import datetime
 from utils import startup, get_db, is_blocked, block_reply
 
 
+LABELS = {
+    "overview": "Overview",
+    "leveling": "Leveling",
+    "utilities": "Utilities",
+    "fun": "Fun",
+    "games": "Games",
+    "moderation": "Moderation",
+    "configuration": "Configuration",
+}
+EMOJIS = {
+    "overview": "🏠",
+    "leveling": "📊",
+    "utilities": "🔧",
+    "fun": "🎉",
+    "games": "🎮",
+    "moderation": "🛡️",
+    "configuration": "⚙️",
+}
+
+
+class HelpCategorySelect(discord.ui.Select):
+    def __init__(self, placeholder, disabled_category, categories):
+        self.disabled_category = disabled_category
+        options = [
+            discord.SelectOption(
+                label=LABELS[cat],
+                value=cat,
+                emoji=EMOJIS[cat],
+                default=(cat == disabled_category),
+            )
+            for cat in categories
+        ]
+        super().__init__(
+            placeholder=f"{EMOJIS[disabled_category]} {LABELS[disabled_category]}",
+            options=options,
+            min_values=1,
+            max_values=1,
+            row=0,
+        )
+
+    async def callback(self, interaction: discord.Interaction):
+        if interaction.user.id != self.view.author_id:
+            await interaction.response.send_message("This help menu isn't for you.", ephemeral=True)
+            return
+        category = self.values[0]
+        embed = self.view.cog._help_embed(category)
+        self.view.cog._set_select(self, category)
+        await interaction.response.edit_message(embed=embed, view=self.view)
+
+
+class HelpView(discord.ui.View):
+    def __init__(self, cog, select):
+        super().__init__(timeout=120)
+        self.cog = cog
+        self.author_id = None
+        self.add_item(select)
+        close = discord.ui.Button(label="Close", style=discord.ButtonStyle.secondary, row=1)
+        close.callback = self._close
+        self.add_item(close)
+
+    async def _close(self, interaction: discord.Interaction):
+        if interaction.user.id != self.author_id:
+            await interaction.response.send_message("This help menu isn't for you.", ephemeral=True)
+            return
+        await interaction.response.edit_message(view=None)
+        self.stop()
+
+
 class GeneralCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.feedback_cooldowns = {}
+
+    def _help_embed(self, category):
+        embeds = {
+            "overview": discord.Embed(
+                title="VoidWave Help",
+                description=(
+                    "Select a category below, or run `/help topic:<category>` to jump straight to it.\n\n"
+                    "Every command supports `hidden:` to keep the reply private."
+                ),
+                color=discord.Color(0x7128fc),
+            ).add_field(
+                name="Quick links",
+                value=(
+                    "> <https://voidwave.xangey.dev/> Website\n"
+                    "> <https://github.com/xangeyfun/VoidWave> Source & issues\n"
+                    "> <https://top.gg/bot/1442229230384709752/vote> Vote for 2x XP"
+                ),
+                inline=False,
+            ),
+            "leveling": discord.Embed(
+                title="📊 Leveling",
+                description="Earn XP by chatting and hanging out in voice channels.",
+                color=discord.Color(0x7128fc),
+            ).add_field(
+                name="Commands",
+                value=(
+                    "`/level [user] [hidden]` - Your (or a member's) server level\n"
+                    "`/leaderboard <sort> [global_lb]` - Server level leaderboard\n"
+                    "`/profile [user]` - Detailed profile & stats"
+                ),
+                inline=False,
+            ),
+            "utilities": discord.Embed(
+                title="🔧 Utility",
+                description="Everyday tools and bot info.",
+                color=discord.Color(0x7128fc),
+            ).add_field(
+                name="Commands",
+                value=(
+                    "`/ping` - Bot latency\n"
+                    "`/uptime` - Uptime & links\n"
+                    "`/github` - Source code & issues\n"
+                    "`/vote` - Vote for the bot on Top.gg\n"
+                    "`/vote-remind` - Toggle vote reminders\n"
+                    "`/calc <expression>` - Calculator\n"
+                    "`/ai <message>` - Chat with the AI\n"
+                    "`/userinfo <user>` - Look up a user\n"
+                    "`/feedback <feedback>` - Message the developers"
+                ),
+                inline=False,
+            ),
+            "fun": discord.Embed(
+                title="🎉 Fun",
+                description="A bit of randomness to pass the time.",
+                color=discord.Color(0x7128fc),
+            ).add_field(
+                name="Commands",
+                value=(
+                    "`/flip [hidden]` - Flip a coin\n"
+                    "`/random <int> <int> [hidden]` - Random number\n"
+                    "`/quote <choice>` - A quote\n"
+                    "`/fact <choice>` - A daily fact\n"
+                    "`/animal <animal> [hidden]` - Random animal picture"
+                ),
+                inline=False,
+            ),
+            "games": discord.Embed(
+                title="🎮 Games",
+                description=(
+                    "Play solo against the bot, or challenge a friend with the `opponent:` option.\n"
+                    "Multiplayer challenge links expire after 60 seconds."
+                ),
+                color=discord.Color(0x7128fc),
+            ).add_field(
+                name="Versus a friend",
+                value=(
+                    "`/rps [opponent]` - Rock, paper, scissors\n"
+                    "`/tictactoe [opponent]` - Tic-tac-toe\n"
+                    "`/connectfour [opponent]` - Connect four\n"
+                    "`/blackjack [max_players]` - Multiplayer blackjack table"
+                ),
+            ).add_field(
+                name="Solo",
+                value=(
+                    "`/hangman` - Guess the word\n"
+                    "`/wordle` - 5-letter word in 6 tries\n"
+                    "`/minesweeper [mines]` - Clear the minefield\n"
+                    "`/battleship` - Sink the enemy fleet\n"
+                    "`/15puzzle` - Slide-tile puzzle\n"
+                    "`/8ball <question>` - Ask the 8-ball"
+                ),
+            ),
+            "moderation": discord.Embed(
+                title="🛡️ Moderation",
+                description="Requires the matching permission (granted to moderators).",
+                color=discord.Color(0x7128fc),
+            ).add_field(
+                name="Commands",
+                value=(
+                    "`/moderation kick <member> [reason]`\n"
+                    "`/moderation ban <member> [delete_days] [reason]`\n"
+                    "`/moderation unban <user> [reason]`\n"
+                    "`/moderation timeout <member> <amount> [unit] [reason]`\n"
+                    "`/moderation slowmode <seconds> [channel]`\n"
+                    "`/moderation lock [channel] [reason]`\n"
+                    "`/moderation unlock [channel]`\n"
+                    "`/moderation role add/remove <member> <role>`"
+                ),
+                inline=False,
+            ),
+            "configuration": discord.Embed(
+                title="⚙️ Configuration",
+                description="Server setup, admin only.",
+                color=discord.Color(0x7128fc),
+            ).add_field(
+                name="Commands",
+                value=(
+                    "`/config auto [level] [qotd]` - One-command setup\n"
+                    "`/config view` - Show current config\n"
+                    "`/config help` - All config commands"
+                ),
+                inline=False,
+            ),
+        }
+        embed = embeds[category]
+        embed.set_footer(text="Vote for 2x XP! /vote")
+        return embed
+
+    def _set_select(self, select, category):
+        for opt in select.options:
+            opt.default = (opt.value == category)
+        select.placeholder = f"{EMOJIS[category]} {LABELS[category]}"
+
+    def _help_select(self, current):
+        return HelpCategorySelect(
+            placeholder=current,
+            disabled_category=current,
+            categories=["overview", "leveling", "utilities", "fun", "games", "moderation", "configuration"],
+        )
 
     @discord.app_commands.allowed_installs(guilds=True, users=True)
     @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
@@ -24,138 +231,14 @@ class GeneralCog(commands.Cog):
         app_commands.Choice(name="Configuration", value="configuration"),
     ])
     async def help_command(self, interaction: discord.Interaction, topic: str = None):
-        if topic == "leveling":
-            embed = discord.Embed(title="📊 Leveling Commands", color=discord.Color(0x7128fc))
-            embed.add_field(
-                name="Commands",
-                value=(
-                    "`/level [user] [hidden]` - Check your server level\n"
-                    "`/leaderboard <sort> [global_lb]` - Check the server level leaderboard\n"
-                    "`/profile [user]` - Check your profile"
-                ),
-                inline=False
-            )
-            embed.set_footer(text="Vote for 2x XP! /vote")
-        elif topic == "utilities":
-            embed = discord.Embed(title="🔧 Utility Commands", color=discord.Color(0x7128fc))
-            embed.add_field(
-                name="Commands",
-                value=(
-                    "`/ping` - Test the bot's latency\n"
-                    "`/uptime` - Check the bot's uptime and useful links\n"
-                    "`/github` - View the source code and report issues\n"
-                    "`/vote` - Vote for the bot on Top.gg\n"
-                    "`/vote-remind` - Toggle vote reminders\n"
-                    "`/calc <expression>` - Simple calculator\n"
-                    "`/ai <message> [stats] [hidden]` - Chat with the bot's AI\n"
-                    "`/userinfo <user> [hidden]` - Get info about a user\n"
-                    "`/feedback <feedback>` - Send feedback to the developers"
-                ),
-                inline=False
-            )
-            embed.set_footer(text="Vote for 2x XP! /vote")
-        elif topic == "fun":
-            embed = discord.Embed(title="🎉 Fun Commands", color=discord.Color(0x7128fc))
-            embed.add_field(
-                name="Commands",
-                value=(
-                    "`/flip [hidden]` - Flip a coin\n"
-                    "`/random <int> <int> [hidden]` - Generate a random number\n"
-                    "`/quote <choice>` - Get a quote (Today or Random)\n"
-                    "`/fact <choice>` - Get a daily fact (Today or Random)\n"
-                    "`/animal <animal> [hidden]` - Get a random animal picture"
-                ),
-                inline=False
-            )
-            embed.set_footer(text="Vote for 2x XP! /vote")
-        elif topic == "games":
-            embed = discord.Embed(title="🎮 Games", color=discord.Color(0x7128fc))
-            embed.add_field(
-                name="Commands",
-                value=(
-                    "`/8ball <question>` - Ask the magic 8-ball a question\n"
-                    "`/rps` - Play rock, paper, scissors against the bot\n"
-                    "`/tictactoe` - Play tic-tac-toe against the bot\n"
-                    "`/connectfour` - Play connect four against the bot\n"
-                    "`/hangman` - Play hangman against the bot\n"
-                    "`/blackjack` - Play blackjack against the bot\n"
-                    "`/trivia-battle` - Battle friends in a multiplayer trivia game\n"
-                    "`/wordle` - Guess the 5-letter word in 6 tries\n"
-                    "`/minesweeper [mines]` - Clear the minefield without hitting a bomb\n"
-                    "`/battleship` - Sink the enemy fleet before they sink yours\n"
-                    "`/15puzzle` - Slide the tiles to solve the 15-puzzle"
-                ),
-                inline=False
-            )
-            embed.set_footer(text="Vote for 2x XP! /vote")
-        elif topic == "moderation":
-            embed = discord.Embed(title="🛡️ Moderation Commands", color=discord.Color(0x7128fc))
-            embed.add_field(
-                name="Commands",
-                value=(
-                    "`/moderation kick <member> [reason]` - Kick a member\n"
-                    "`/moderation ban <member> [delete_days] [reason]` - Ban a member\n"
-                    "`/moderation unban <user> [reason]` - Unban a user by ID\n"
-                    "`/moderation timeout <member> <amount> [unit] [reason]` - Timeout a member\n"
-                    "`/moderation slowmode <seconds> [channel]` - Set or clear slowmode\n"
-                    "`/moderation lock [channel] [reason]` - Lock a channel\n"
-                    "`/moderation unlock [channel]` - Unlock a channel\n"
-                    "`/moderation role add/remove <member> <role>` - Manage a member's roles"
-                ),
-                inline=False
-            )
-            embed.set_footer(text="Requires the matching permission, granted to moderators • Vote for 2x XP! /vote")
-        elif topic == "configuration":
-            embed = discord.Embed(title="⚙️ Configuration Commands", color=discord.Color(0x7128fc))
-            embed.add_field(
-                name="Commands",
-                value=(
-                    "`/config auto [level] [qotd]` - Automatically set up features\n"
-                    "`/config view` - View current configuration\n"
-                    "`/config help` - View all configuration commands"
-                ),
-                inline=False
-            )
-            embed.set_footer(text="Only available to server admins • Vote for 2x XP! /vote")
+        category = topic or "overview"
+        embed = self._help_embed(category)
+        if topic is None:
+            view = HelpView(self, self._help_select(category))
+            view.author_id = interaction.user.id
         else:
-            embed = discord.Embed(
-                title="VoidWave Help",
-                description="Select a category below or use `/help topic:<category>` for details.",
-                color=discord.Color(0x7128fc)
-            )
-            embed.add_field(
-                name="📊 Leveling",
-                value="`/level`, `/leaderboard`, `/profile`",
-                inline=True
-            )
-            embed.add_field(
-                name="🔧 Utilities",
-                value="`/ping`, `/uptime`, `/github`, `/vote`, `/vote-remind`, `/calc`, `/ai`, `/userinfo`, `/feedback`",
-                inline=True
-            )
-            embed.add_field(
-                name="🎉 Fun",
-                value="`/flip`, `/random`, `/quote`, `/fact`, `/animal`",
-                inline=True
-            )
-            embed.add_field(
-                name="🎮 Games",
-                value="`/8ball`, `/rps`, `/tictactoe`, `/connectfour`, `/hangman`, `/blackjack`, `/trivia-battle`, `/wordle`, `/minesweeper`, `/battleship`, `/15puzzle`",
-                inline=True
-            )
-            embed.add_field(
-                name="🛡️ Moderation",
-                value="`/moderation kick, ban, unban, timeout, slowmode, lock, unlock, role`",
-                inline=True
-            )
-            embed.add_field(
-                name="⚙️ Configuration",
-                value="`/config auto`, `/config view`, `/config help`",
-                inline=True
-            )
-            embed.set_footer(text="Use /help topic:<category> for details • Vote for 2x XP! /vote")
-
-        await interaction.response.send_message(embed=embed, ephemeral=True)
+            view = None
+        await interaction.response.send_message(embed=embed, ephemeral=True, view=view)
 
     @discord.app_commands.allowed_installs(guilds=True, users=True)
     @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
