@@ -125,7 +125,7 @@ class ConfigCog(commands.Cog):
         try:
             conn = get_db()
             cur = conn.cursor()
-            level_channel = cur.execute("SELECT level_channel_id, level_channel_enabled FROM guild_settings WHERE guild_id = ?", (interaction.guild.id,)).fetchone() # type: ignore
+            level_channel = cur.execute("SELECT level_channel_id, level_channel_enabled, vote_announce_enabled FROM guild_settings WHERE guild_id = ?", (interaction.guild.id,)).fetchone() # type: ignore
             level_roles = cur.execute("SELECT level, role_id FROM level_roles WHERE guild_id = ?", (interaction.guild.id,)).fetchall() # type: ignore
             qotd_channel = cur.execute("SELECT qotd_channel, qotd_enabled, delete_old_qotd, qotd_time, qotd_tz FROM guild_settings WHERE guild_id = ?", (interaction.guild.id,)).fetchone() # type: ignore
         except Exception as e:
@@ -141,6 +141,8 @@ class ConfigCog(commands.Cog):
             channel = interaction.guild.get_channel(level_channel[0])
             channel_name = channel.mention if channel else "`No Channel Set`"
             embed.add_field(name="Level Up Channel", value=f"{channel_name} ({'Enabled' if level_channel[1] else 'Disabled'})", inline=False)
+            if level_channel[2] is not None:
+                embed.add_field(name="Vote Announcements", value=f"{'Enabled' if level_channel[2] else 'Disabled'}", inline=False)
         else:
             embed.add_field(name="Level Up Channel", value="Not set", inline=False)
 
@@ -177,7 +179,7 @@ class ConfigCog(commands.Cog):
         conn = get_db()
         try:
             cur = conn.cursor()
-            settings = cur.execute("SELECT level_channel_id, level_channel_enabled, qotd_enabled, qotd_channel, qotd_role_id, delete_old_qotd, qotd_time, qotd_tz FROM guild_settings WHERE guild_id = ?", (interaction.guild.id,)).fetchone() # type: ignore
+            settings = cur.execute("SELECT level_channel_id, level_channel_enabled, vote_announce_enabled, qotd_enabled, qotd_channel, qotd_role_id, delete_old_qotd, qotd_time, qotd_tz FROM guild_settings WHERE guild_id = ?", (interaction.guild.id,)).fetchone() # type: ignore
             level_roles = cur.execute("SELECT level, role_id FROM level_roles WHERE guild_id = ?", (interaction.guild.id,)).fetchall() # type: ignore
         except Exception as e:
             print(f"{date()} ERROR  Failed to fetch config for test: {e}")
@@ -211,6 +213,14 @@ class ConfigCog(commands.Cog):
                     level_results.append(("fail", f"I am missing {', '.join(missing)} in {channel.mention}"))
                 else:
                     level_results.append(("ok", f"Level up channel {channel.mention} works"))
+
+        if settings and settings["vote_announce_enabled"] is not None:
+            if settings["vote_announce_enabled"] and settings["level_channel_enabled"]:
+                level_results.append(("ok", "Vote announcements will post in the level up channel"))
+            elif settings["vote_announce_enabled"] and not settings["level_channel_enabled"]:
+                level_results.append(("warn", "Vote announcements are on but level up messages are off, so they won't post. Enable with `/config level toggle_channel true` or disable vote announcements with `/config level toggle_vote_announce false`"))
+            else:
+                level_results.append(("ok", "Vote announcements are disabled"))
 
         if level_roles:
             bad = 0
@@ -333,7 +343,8 @@ class ConfigCog(commands.Cog):
                 name="Level Up Channel",
                 value=(
                     "`/config level set_channel [channel]` - Set the channel for level up messages\n"
-                    "`/config level toggle_channel [enabled]` - Enable or disable level up messages"
+                    "`/config level toggle_channel [enabled]` - Enable or disable level up messages\n"
+                    "`/config level toggle_vote_announce [enabled]` - Enable or disable vote announcements in the level up channel"
                 ),
                 inline=False
             )
@@ -572,6 +583,32 @@ class ConfigCog(commands.Cog):
             conn.close()
 
         await interaction.response.send_message(f"Level up messages have been **{'enabled' if enabled else 'disabled'}**", ephemeral=True)
+
+    @discord.app_commands.allowed_installs(guilds=True, users=False)
+    @discord.app_commands.allowed_contexts(guilds=True, dms=False, private_channels=False)
+    @discord.app_commands.checks.has_permissions(administrator=True)
+    @level.command(name="toggle_vote_announce", description="Enable or disable vote announcements in the level up channel")
+    @app_commands.describe(enabled="Whether to announce votes in the level up channel")
+    async def toggle_vote_announce(self, interaction: discord.Interaction, enabled: bool):
+        conn = get_db()
+        try:
+            cur = conn.cursor()
+            row = cur.execute("SELECT level_channel_id, level_channel_enabled FROM guild_settings WHERE guild_id = ?", (interaction.guild.id,)).fetchone() # type: ignore
+            channel_id = row["level_channel_id"] if row else None
+            if not channel_id:
+                await interaction.response.send_message("Set a level up channel first using `/config level set_channel`, then enable messages with `/config level toggle_channel`. Vote announcements post there.", ephemeral=True)
+                return
+
+            cur.execute("INSERT INTO guild_settings (guild_id, vote_announce_enabled) VALUES (?, ?) ON CONFLICT(guild_id) DO UPDATE SET vote_announce_enabled = excluded.vote_announce_enabled", (interaction.guild.id, int(enabled))) # type: ignore
+            conn.commit()
+        except Exception as e:
+            print(f"{date()} ERROR  Failed to toggle vote announcements: {e}")
+            await interaction.response.send_message("Failed to update vote announcement setting. Please try again later.", ephemeral=True)
+            return
+        finally:
+            conn.close()
+
+        await interaction.response.send_message(f"Vote announcements have been **{'enabled' if enabled else 'disabled'}**" + ("" if enabled else " in your level up channel."), ephemeral=True)
 
     @discord.app_commands.allowed_installs(guilds=True, users=False)
     @discord.app_commands.allowed_contexts(guilds=True, dms=False, private_channels=False)
