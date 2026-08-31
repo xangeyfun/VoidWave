@@ -63,6 +63,17 @@
 
             <div class="form-grid">
                 <div class="form-field">
+                    <label>Vote Announcements</label>
+                    <select name="vote_announce_enabled">
+                        <option value="on" {% if settings and settings['vote_announce_enabled'] %}selected{% endif %}>Enabled</option>
+                        <option value="" {% if not settings or settings['vote_announce_enabled'] == 0 %}selected{% endif %}>Disabled</option>
+                    </select>
+                    <div class="hint">Announce votes in the level up channel</div>
+                </div>
+            </div>
+
+            <div class="form-grid">
+                <div class="form-field">
                     <label>QOTD Enabled</label>
                     <select name="qotd_enabled">
                         <option value="on" {% if settings and settings['qotd_enabled'] %}selected{% endif %}>Enabled</option>
