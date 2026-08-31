@@ -57,12 +57,14 @@ class ChallengeView(discord.ui.View):
             child.disabled = True
         embed, view = self.build_game(self.challenger, self.challengee)
         view.message = self.message
+        self.stop()
         await interaction.response.edit_message(embed=embed, view=view)
 
     @discord.ui.button(label="Decline", style=discord.ButtonStyle.danger, row=0)
     async def decline(self, interaction: discord.Interaction, button: discord.ui.Button):
         for child in self.children:
             child.disabled = True
+        self.stop()
         embed = discord.Embed(
             title=f"{self.game_name} Challenge",
             description=f"{self.challengee.mention} declined the game. Maybe next time!",
@@ -128,7 +130,8 @@ class TicTacToeVersusView(discord.ui.View):
         )
         if status:
             desc += status + "\n"
-        desc += f"It is **{self.players[self.current].mention}**'s turn (click a square)."
+        if self.winner is None:
+            desc += f"It is **{self.players[self.current].mention}**'s turn (click a square)."
         embed = discord.Embed(title=title, description=desc, color=color)
         return _default_footer(embed)
 
@@ -172,11 +175,10 @@ class TicTacToeVersusView(discord.ui.View):
             self.stop()
 
     async def on_timeout(self):
-        if self.winner is None:
-            self.winner = (1 - self.current) + 1
-            status = f"{self.players[self.current].mention} ran out of time. {self.players[1 - self.current].mention} wins!"
-        else:
-            status = None
+        if self.winner is not None:
+            return
+        self.winner = (1 - self.current) + 1
+        status = f"{self.players[self.current].mention} ran out of time. {self.players[1 - self.current].mention} wins!"
         for child in self.children:
             child.disabled = True
         await self._render_after_result(status)
@@ -257,7 +259,10 @@ class ConnectFourVersusView(discord.ui.View):
         )
         if status:
             desc += status + "\n"
-        desc += f"It is **{self.players[self.current].mention}**'s turn.\n\n"
+        if self.winner is None:
+            desc += f"It is **{self.players[self.current].mention}**'s turn.\n\n"
+        else:
+            desc += "\n"
         desc += f"```\n{grid}\n{column_numbers}\n```"
         return _default_footer(discord.Embed(title=title, description=desc, color=color))
 
@@ -316,11 +321,10 @@ class ConnectFourVersusView(discord.ui.View):
             self.stop()
 
     async def on_timeout(self):
-        if self.winner is None:
-            self.winner = (1 - self.current) + 1
-            status = f"{self.players[self.current].mention} ran out of time. {self.players[1 - self.current].mention} wins!"
-        else:
-            status = None
+        if self.winner is not None:
+            return
+        self.winner = (1 - self.current) + 1
+        status = f"{self.players[self.current].mention} ran out of time. {self.players[1 - self.current].mention} wins!"
         for child in self.children:
             child.disabled = True
         embed = self._embed(status)
@@ -667,6 +671,8 @@ class BlackjackVersusView(discord.ui.View):
 
         if not self._remaining():
             self.over = True
+            while gm._hand_value(self.dealer_hand) < 17:
+                self.dealer_hand.append(self.deck.pop())
             for child in list(self.children):
                 child.disabled = True
             await interaction.response.edit_message(embed=self._embed(), view=self)
