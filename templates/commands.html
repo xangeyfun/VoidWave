@@ -2,14 +2,14 @@
 
 {% block title %}Commands{% endblock %}
 
-{% block meta_description %}All available commands for VoidWave Discord bot. Leveling, AI chat, moderation, fun commands, and more.{% endblock %}
+{% block meta_description %}All available commands for VoidWave Discord bot. Leveling, AI chat, music, moderation, fun commands, and more.{% endblock %}
 
 {% block og_tags %}
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="VoidWave">
 <meta property="og:url" content="https://voidwave.xangey.dev/commands">
 <meta property="og:title" content="VoidWave Commands">
-<meta property="og:description" content="All available commands for VoidWave Discord bot. Leveling, AI chat, moderation, fun commands, and more.">
+<meta property="og:description" content="All available commands for VoidWave Discord bot. Leveling, AI chat, music, moderation, fun commands, and more.">
 <meta property="og:image" content="https://voidwave.xangey.dev/static/images/og.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
@@ -150,6 +150,62 @@
                 <code>/15puzzle</code>
                 <span>Slide the tiles to solve the 15-puzzle</span>
             </div>
+        </div>
+    </div>
+
+    <div class="commands-category">
+        <div class="commands-category-header">
+            <h2>Music</h2>
+            <span class="commands-category-tag">in voice channels</span>
+        </div>
+        <div class="commands-grid">
+            <div class="command-card">
+                <code>/music play</code>
+                <span>Play a song or add it to the queue (URL or search)</span>
+            </div>
+            <div class="command-card">
+                <code>/music queue</code>
+                <span>View the current queue</span>
+            </div>
+            <div class="command-card">
+                <code>/music nowplaying</code>
+                <span>Show what's currently playing</span>
+            </div>
+            <div class="command-card">
+                <code>/music pause</code>
+                <span>Pause the current track</span>
+            </div>
+            <div class="command-card">
+                <code>/music resume</code>
+                <span>Resume the paused track</span>
+            </div>
+            <div class="command-card">
+                <code>/music skip</code>
+                <span>Skip the current track</span>
+            </div>
+            <div class="command-card">
+                <code>/music shuffle</code>
+                <span>Shuffle the upcoming queue</span>
+            </div>
+            <div class="command-card">
+                <code>/music loop</code>
+                <span>Set loop mode: off, track or queue</span>
+            </div>
+            <div class="command-card">
+                <code>/music volume</code>
+                <span>Set the playback volume (1-100)</span>
+            </div>
+            <div class="command-card">
+                <code>/music stop</code>
+                <span>Stop playback and clear the queue</span>
+            </div>
+            <div class="command-card">
+                <code>/music disconnect</code>
+                <span>Stop music and leave the voice channel</span>
+            </div>
+        </div>
+        <div class="commands-note">
+            <p>Join a voice channel and run <code>/music play</code>. Skips are decided by a vote unless you have a booster role.</p>
         </div>
     </div>
 

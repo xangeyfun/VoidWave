@@ -2,14 +2,14 @@
 
 {% block title %}Home{% endblock %}
 
-{% block meta_description %}Modern Discord bot with leveling system, AI chat, Question of the Day, and moderation. Clean, fast, slightly chaotic.{% endblock %}
+{% block meta_description %}Modern Discord bot with leveling system, AI chat, music, Question of the Day, and moderation. Clean, fast, slightly chaotic.{% endblock %}
 
 {% block og_tags %}
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="VoidWave">
 <meta property="og:url" content="https://voidwave.xangey.dev/">
 <meta property="og:title" content="VoidWave - Discord Bot">
-<meta property="og:description" content="Leveling, AI chat, daily Question of the Day, and moderation for Discord.">
+<meta property="og:description" content="Leveling, AI chat, music, daily Question of the Day, and moderation for Discord.">
 <meta property="og:image" content="https://voidwave.xangey.dev/static/images/og.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
@@ -20,7 +20,7 @@
     <div class="home-hero-left">
         <h1>VoidWave</h1>
         <p class="tagline"><span class="tagline-typed" id="taglineText"></span><span class="typing-cursor"></span></p>
-        <p class="hero-desc">Leveling, AI chat, daily questions, moderation, and fun commands. Open source, privacy friendly, easy to set up.</p>
+        <p class="hero-desc">Leveling, AI chat, music, daily questions, moderation, and fun commands. Open source, privacy friendly, easy to set up.</p>
         <div class="hero-buttons">
             <a href="https://discord.com/oauth2/authorize?client_id=1442229230384709752" target="_blank" class="btn btn-primary">
                 <span>Add to Discord</span>
@@ -128,13 +128,21 @@
         </a>
         <a href="/commands" class="home-feature" style="--i: 7;">
             <span class="home-feature-icon" aria-hidden="true">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+            </span>
+            <h3>Music</h3>
+            <p>Play songs in voice channels, build a queue, shuffle and loop, with vote-based skips.</p>
+            <span class="home-feature-cmd">/music play &bull; /music queue &bull; /music skip</span>
+        </a>
+        <a href="/commands" class="home-feature" style="--i: 8;">
+            <span class="home-feature-icon" aria-hidden="true">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 12 2 2 4-4"/><path d="M5 7c0-1.1.9-2 2-2h10a2 2 0 0 1 2 2v12H5V7Z"/><path d="M22 19H2"/></svg>
             </span>
             <h3>Vote Rewards</h3>
             <p>Vote on top.gg, discordlist.gg, or discordbotlist.com to earn 2x XP boosts, with optional reminders right in your DMs.</p>
             <span class="home-feature-cmd">/vote &bull; /vote-remind</span>
         </a>
-        <a href="/commands" class="home-feature" style="--i: 8;">
+        <a href="/commands" class="home-feature" style="--i: 9;">
             <span class="home-feature-icon" aria-hidden="true">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
             </span>
