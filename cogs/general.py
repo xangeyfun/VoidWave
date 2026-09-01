@@ -12,6 +12,7 @@ LABELS = {
     "utilities": "Utilities",
     "fun": "Fun",
     "games": "Games",
+    "music": "Music",
     "moderation": "Moderation",
     "configuration": "Configuration",
 }
@@ -21,6 +22,7 @@ EMOJIS = {
     "utilities": "🔧",
     "fun": "🎉",
     "games": "🎮",
+    "music": "🎵",
     "moderation": "🛡️",
     "configuration": "⚙️",
 }
@@ -171,6 +173,29 @@ class GeneralCog(commands.Cog):
                     "`/8ball <question>` - Ask the 8-ball"
                 ),
             ),
+            "music": discord.Embed(
+                title="🎵 Music",
+                description=(
+                    "Play music in voice channels. Join a voice channel and run `/music play`. "
+                    "Control commands (skip, pause, stop...) require you to be in the same voice channel as the bot."
+                ),
+                color=discord.Color(0x7128fc),
+            ).add_field(
+                name="Commands",
+                value=(
+                    "`/music play <query>` - Play a song or add to the queue\n"
+                    "`/music queue` - View the current queue\n"
+                    "`/music nowplaying` - Show the current track\n"
+                    "`/music pause` / `/music resume` - Pause and resume\n"
+                    "`/music skip` - Skip the current track\n"
+                    "`/music stop` - Stop and clear the queue\n"
+                    "`/music shuffle` - Shuffle the queue\n"
+                    "`/music loop <mode>` - Loop off/track/queue\n"
+                    "`/music volume <level>` - Set volume (1-100)\n"
+                    "`/music disconnect` - Leave the voice channel"
+                ),
+                inline=False,
+            ),
             "moderation": discord.Embed(
                 title="🛡️ Moderation",
                 description="Requires the matching permission (granted to moderators).",
@@ -216,7 +241,7 @@ class GeneralCog(commands.Cog):
         return HelpCategorySelect(
             placeholder=current,
             disabled_category=current,
-            categories=["overview", "leveling", "utilities", "fun", "games", "moderation", "configuration"],
+            categories=["overview", "leveling", "utilities", "fun", "games", "music", "moderation", "configuration"],
         )
 
     @discord.app_commands.allowed_installs(guilds=True, users=True)
@@ -228,6 +253,7 @@ class GeneralCog(commands.Cog):
         app_commands.Choice(name="Utilities", value="utilities"),
         app_commands.Choice(name="Fun", value="fun"),
         app_commands.Choice(name="Games", value="games"),
+        app_commands.Choice(name="Music", value="music"),
         app_commands.Choice(name="Moderation", value="moderation"),
         app_commands.Choice(name="Configuration", value="configuration"),
     ])

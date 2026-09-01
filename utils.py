@@ -41,7 +41,7 @@ def get_db():
     return conn
 
 
-BLOCK_FEATURES = ("ai", "feedback", "leveling", "commands")
+BLOCK_FEATURES = ("ai", "feedback", "leveling", "commands", "music")
 
 
 def get_block(user_id, feature):

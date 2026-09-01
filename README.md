@@ -34,6 +34,7 @@
 * Vote for 2x XP boosts, 3 hours on weekends
 * Fun commands (animal pics, quotes, facts, calculator)
 * Games (8-ball, rock-paper-scissors, tic-tac-toe, connect four, hangman, blackjack, trivia, wordle, minesweeper, battleship, 15-puzzle)
+* Music playback (YouTube, Spotify, SoundCloud, playlists) via Lavalink
 * All slash commands, no prefix needed
 
 ## Tech Stack
@@ -45,6 +46,7 @@
 | Database | SQLite              |
 | Frontend | Jinja + vanilla CSS |
 | AI       | Ollama + Llama 3.2  |
+| Music    | Lavalink + wavelink |
 
 The bot and website share the same SQLite database but run as separate processes.
 
@@ -86,6 +88,23 @@ then just run both:
 python3 bot.py     # the bot
 python3 app.py     # web dashboard (optional)
 ```
+
+### Music (Lavalink)
+
+Music playback needs a **Lavalink 4.x** server running. Set up your own any way you
+like (systemd service, Docker, a script), then point the bot at it in `.env`:
+
+```env
+LAVALINK_URI=http://localhost:2333
+LAVALINK_PASSWORD=youshallnotpass
+```
+
+- The `LAVALINK_PASSWORD` here must match the password in your Lavalink config.
+- wavelink (the Python client) requires **Lavalink 4**, not 3.
+- Example systemd unit: download the `Lavalink.jar` release, place an
+  `application.yml` next to it, and run
+  `ExecStart=/usr/bin/java -jar /path/to/Lavalink.jar` with `Restart=on-failure`.
+- Java 17+ is required.
 
 ---
 
