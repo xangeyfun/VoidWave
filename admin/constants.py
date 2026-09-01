@@ -17,6 +17,7 @@ BLOCK_FEATURES = {
     "ai": ("AI features", "/ai command, @mention replies, and DM replies"),
     "feedback": ("/feedback", "The /feedback command"),
     "leveling": ("Leveling", "Earning XP from messages and voice channels"),
+    "music": ("Music", "/music commands and playback in voice channels"),
     "commands": ("All commands", "Every slash command (nuclear option)"),
 }
 
