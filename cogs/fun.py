@@ -3,8 +3,10 @@ from discord.ext import commands
 from simpleeval import simple_eval
 import discord
 import random
+import logging
 import utils
-from utils import date
+
+logger = logging.getLogger("cogs.fun")
 
 
 class FunCog(commands.Cog):
@@ -171,7 +173,7 @@ class FunCog(commands.Cog):
             return
         try:
             async with utils.http_session.get(f"https://zenquotes.io/api/{choice.lower()}") as r:
-                print(f"{date()} INFO  Quote API response status: {r.status}")
+                logger.info("Quote API response status: %s", r.status)
                 data = await r.json()
         except Exception as e:
             await interaction.followup.send(f"Could not fetch quote. Please try again later.\nDetails: {e}", ephemeral=True)
@@ -193,7 +195,7 @@ class FunCog(commands.Cog):
             return
         try:
             async with utils.http_session.get(f"https://uselessfacts.jsph.pl/{'today' if choice.lower() == 'today' else 'random'}.json?language=en") as r:
-                print(f"{date()} INFO  Fact API response status: {r.status}")
+                logger.info("Fact API response status: %s", r.status)
                 data = await r.json()
         except Exception as e:
             await interaction.followup.send(f"Could not fetch fact. Please try again later.\nDetails: {e}", ephemeral=True)
