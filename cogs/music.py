@@ -526,7 +526,7 @@ class QueueView(discord.ui.View):
     async def _on_select_remove(self, interaction: discord.Interaction):
         if not self._check_user(interaction):
             return await interaction.response.send_message("This queue isn't for you.", ephemeral=True)
-        val = interaction.values[0]
+        val = interaction.data["values"][0]
         if val == "__empty__":
             return await interaction.response.defer()
         player = self.cog.players.get(self.guild_id)
