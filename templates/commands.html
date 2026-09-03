@@ -158,14 +158,17 @@
             <h2>Music</h2>
             <span class="commands-category-tag">in voice channels</span>
         </div>
+        <div class="commands-note" style="margin-bottom: 1rem;">
+            <p><strong>Interactive Player:</strong> When music plays, an embed with buttons appears — control playback without typing commands. The progress bar updates live with a countdown timer.</p>
+        </div>
         <div class="commands-grid">
             <div class="command-card">
                 <code>/music play</code>
-                <span>Play a song or add it to the queue (URL or search)</span>
+                <span>Play a song or add it to the queue (URL or search). Multiple results show an interactive picker.</span>
             </div>
             <div class="command-card">
                 <code>/music queue</code>
-                <span>View the current queue</span>
+                <span>View the current queue (paginated)</span>
             </div>
             <div class="command-card">
                 <code>/music nowplaying</code>
@@ -184,6 +187,10 @@
                 <span>Skip the current track</span>
             </div>
             <div class="command-card">
+                <code>/music seek</code>
+                <span>Seek to a position (e.g. 1:30, 90, 2h5m)</span>
+            </div>
+            <div class="command-card">
                 <code>/music shuffle</code>
                 <span>Shuffle the upcoming queue</span>
             </div>
@@ -196,6 +203,18 @@
                 <span>Set the playback volume (1-100)</span>
             </div>
             <div class="command-card">
+                <code>/music lyrics</code>
+                <span>Show lyrics for the current track</span>
+            </div>
+            <div class="command-card">
+                <code>/music lyricslive</code>
+                <span>Toggle live synced lyrics on the player embed</span>
+            </div>
+            <div class="command-card">
+                <code>/music autoplay</code>
+                <span>Toggle auto-play of related tracks when queue empties</span>
+            </div>
+            <div class="command-card">
                 <code>/music stop</code>
                 <span>Stop playback and clear the queue</span>
             </div>
@@ -205,7 +224,7 @@
             </div>
         </div>
         <div class="commands-note">
-            <p>Join a voice channel and run <code>/music play</code>. Skips are decided by a vote unless you have a booster role.</p>
+            <p>Join a voice channel and run <code>/music play</code>. Skips are decided by a vote unless you are the queue owner. Use the buttons below the now-playing embed for quick control (shuffle, skip, loop, live lyrics, leave). The queue view lets you remove specific songs or clear it. Lyrics are fetched from LRCLIB.</p>
         </div>
     </div>
 
