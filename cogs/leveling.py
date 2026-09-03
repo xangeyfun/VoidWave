@@ -3,7 +3,10 @@ from discord.ext import commands, tasks
 import discord
 import random
 import time
-from utils import get_db, date, format_minutes, last_vc, VC_COOLDOWN, get_vote_boost, build_level_up_embed, log_admin_event, is_blocked
+import logging
+from utils import get_db, format_minutes, last_vc, VC_COOLDOWN, get_vote_boost, build_level_up_embed, log_admin_event, is_blocked
+
+logger = logging.getLogger("cogs.leveling")
 
 
 class LevelingCog(commands.Cog):
@@ -42,7 +45,7 @@ class LevelingCog(commands.Cog):
             level_roles = dict(level_roles) if level_roles else None
 
         except Exception as e:
-            print(f"{date()} ERROR  Failed to fetch level data for {user} in guild {interaction.guild.id}: {e}")
+            logger.error("Failed to fetch level data for %s in guild %s: %s", user, interaction.guild.id, e)
             await interaction.followup.send("Something went wrong while fetching your level data. Please try again later.", ephemeral=hidden, allowed_mentions=discord.AllowedMentions(users=False))
             return
         finally:
@@ -172,7 +175,7 @@ class LevelingCog(commands.Cog):
                     leaderboard_data = cur.execute("SELECT username, vc_minutes, guild_id FROM users ORDER BY vc_minutes DESC LIMIT 10").fetchall()
 
         except Exception as e:
-            print(f"{date()} ERROR  Failed to fetch leaderboard for guild {interaction.guild.id}: {e}")
+            logger.error("Failed to fetch leaderboard for guild %s: %s", interaction.guild.id, e)
             await interaction.followup.send("Something went wrong while fetching the leaderboard. Please try again later.", ephemeral=hidden, allowed_mentions=discord.AllowedMentions(users=False))
             return
         finally:
@@ -238,7 +241,7 @@ class LevelingCog(commands.Cog):
             total_vc_minutes = cur.execute("SELECT SUM(vc_minutes) FROM users WHERE user_id=?", (user.id,)).fetchone()[0] or 0
 
         except Exception as e:
-            print(f"{date()} ERROR  Failed to fetch profile for {user} (ID: {user.id}): {e}")
+            logger.error("Failed to fetch profile for %s (ID: %s): %s", user, user.id, e)
             await interaction.followup.send("Something went wrong while fetching your profile. Please try again later.", ephemeral=hidden, allowed_mentions=discord.AllowedMentions(users=False))
             return
 
@@ -385,9 +388,9 @@ class LevelingCog(commands.Cog):
                                                     await member.add_roles(role)
                                                     new_roles.append(role)
                                                 except discord.Forbidden:
-                                                    print(f"{date()} WARN  Missing permissions to assign role {role_id} in guild {guild.id}")
+                                                    logger.warning("Missing permissions to assign role %s in guild %s", role_id, guild.id)
                                                 except Exception as e:
-                                                    print(f"{date()} ERROR  Failed to assign role: {e}")
+                                                    logger.error("Failed to assign role: %s", e)
 
                                 if has_channel:
                                     embed = build_level_up_embed(
@@ -401,9 +404,9 @@ class LevelingCog(commands.Cog):
                                     try:
                                         await channel.send(content=f"{member.mention} reached Level {level}!", embed=embed)
                                     except discord.Forbidden:
-                                        print(f"{date()} WARN  Missing permissions to send level-up message in {channel.id} for guild {guild.id}")
+                                        logger.warning("Missing permissions to send level-up message in %s for guild %s", channel.id, guild.id)
                                     except Exception as e:
-                                        print(f"{date()} ERROR  Failed to send level-up message: {e}")
+                                        logger.error("Failed to send level-up message: %s", e)
                                     log_admin_event(
                                         "level_up",
                                         f"{member.display_name} reached level {level}",
@@ -413,7 +416,7 @@ class LevelingCog(commands.Cog):
                                 cur.execute("UPDATE users SET level=?, progress=?, out_of=? WHERE guild_id=? AND user_id=?", (level, progress, out_of, guild.id, member.id))
                                 conn.commit()
                         except Exception as e:
-                            print(f"{date()} ERROR  Failed to update VC XP for {member} in {guild}: {e}")
+                            logger.error("Failed to update VC XP for %s in %s: %s", member, guild, e)
         finally:
             conn.close()
 
