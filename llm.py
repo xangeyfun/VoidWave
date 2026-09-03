@@ -4,14 +4,14 @@ from zoneinfo import ZoneInfo
 import requests
 import time
 import os
+import logging
+
+logger = logging.getLogger("llm")
 
 load_dotenv()
 
 MODEL = os.getenv("MODEL", "llama3.2:3b")
 PROMPT_NAME = os.getenv("PROMPT_NAME", "default")
-
-def date():
-    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
 def get_prompt(name="default"):
     try:
@@ -68,12 +68,12 @@ def ask_llm(prompt, username, user_id, reply_info=None):
         data = r.json()
         reply = data.get("response", "")
     except Exception as e:
-        print("Something went wrong...")
+        logger.error("Something went wrong parsing LLM response: %s", e)
         reply = f"Something went wrong...\n> {e}\n> Response content: {r.text}"
         data = {}
 
     if os.getenv("DEBUG") == "true":
-        print(f"{date()} INFO  LLM raw response: '{reply}'")
+        logger.info("LLM raw response: '%s'", reply)
     reply = reply.strip()
     if reply.startswith(f"{username}:"):
         reply = reply.split(":", 1)[1].strip()
