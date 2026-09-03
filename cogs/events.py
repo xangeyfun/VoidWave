@@ -9,8 +9,9 @@ import io
 import time
 import os
 import json
+import logging
 from utils import (
-    get_db, date, log_stats, add_message_xp, send_qotd, llm_worker,
+    get_db, log_stats, add_message_xp, send_qotd, llm_worker,
     LLMRequest, get_command_path, extract_options, startup,
     last_llm, llm_queue, llm_queue_size, LLM_COOLDOWN, TOPGG_TOKEN, DBL_TOKEN,
     http_session as _http_session, log_admin_event, qotd_now, qotd_minutes,
@@ -18,6 +19,8 @@ from utils import (
 )
 from cogs.rating import send_rating_prompt
 import utils
+
+logger = logging.getLogger("cogs.events")
 
 
 class EventsCog(commands.Cog):
@@ -28,30 +31,30 @@ class EventsCog(commands.Cog):
     @commands.Cog.listener()
     async def on_ready(self):
         utils.http_session = aiohttp.ClientSession()
-        print(f"\n{date()} INFO  Logged in as {self.bot.user}")
+        logger.info("Logged in as %s", self.bot.user)
         try:
-            print(f"{date()} DEBUG  Syncing commands...")
+            logger.debug("Syncing commands...")
             start_sync = time.time()
             synced = await self.bot.tree.sync() # guild=guild)
             done = time.time()
         except Exception as e:
-            print(f"{date()} ERROR  Error while syncing commands: {e}")
+            logger.error("Error while syncing commands: %s", e)
             exit(1)
         total_guilds = len(self.bot.guilds)
         total_members = sum(guild.member_count or 0 for guild in self.bot.guilds)
         sync_time = f"{done - start_sync:.2f}s"
-        print(f"\n{date()} INFO  --- Bot is ready! ---")
+        logger.info("--- Bot is ready! ---")
         if self.bot.user:
-            print(f"{date()} INFO  Invite link: https://discord.com/api/oauth2/authorize?client_id={self.bot.user.id}")
+            logger.info("Invite link: https://discord.com/api/oauth2/authorize?client_id=%s", self.bot.user.id)
         else:
             exit(1)
-        print(f"{date()} DEBUG  Connected to {total_guilds} guilds ({total_members} members)")
-        print(f"{date()} DEBUG  Synced {len(synced)} slash commands in {sync_time}")
-        print(f"{date()} DEBUG  Startup time: {done - startup:.4f} seconds")
-        print(f"{date()} INFO ----------------------\n")
+        logger.debug("Connected to %s guilds (%s members)", total_guilds, total_members)
+        logger.debug("Synced %s slash commands in %s", len(synced), sync_time)
+        logger.debug("Startup time: %.4f seconds", done - startup)
+        logger.info("----------------------")
         for guild in self.bot.guilds:
-            print(f"{date()} INFO  {''.join(c for c in guild.name if unicodedata.category(c) != 'So')[:49].strip():<50} | {guild.id:<20} | {str(guild.owner)[:19]:<20} [{guild.owner_id:<20}] | {guild.member_count:<5} members")
-        print(f"{date()} INFO ----------------------\n")
+            logger.info("%-50s | %-20s | %-20s [%-20s] | %-5s members", ''.join(c for c in guild.name if unicodedata.category(c) != 'So')[:49].strip(), guild.id, str(guild.owner)[:19], guild.owner_id, guild.member_count)
+        logger.info("----------------------")
         self.bot.loop.create_task(llm_worker(self.bot))
         self.qotd_loop.start()
         self.update_stats.start()
@@ -86,9 +89,9 @@ class EventsCog(commands.Cog):
                 command_options["message"] = "***"
             options_str = " ".join(f"{k}:{v}" for k, v in command_options.items())
 
-            print(f"{date()} COMMAND '{command_name} {options_str}' used by '{user_name}' in '{guild_name}{channel_name}' (user_id: {user_id}{guild_id})")
+            logger.info("COMMAND '%s %s' used by '%s' in '%s%s' (user_id: %s%s)", command_name, options_str, user_name, guild_name, channel_name, user_id, guild_id)
             with open("command_logs.txt", "a") as f:
-                f.write(f"{date()} COMMAND '{command_name} {options_str}' used by '{user_name}' in '{guild_name}{channel_name}' (user_id: {user_id}{guild_id})\n")
+                f.write(f"{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')} COMMAND '{command_name} {options_str}' used by '{user_name}' in '{guild_name}{channel_name}' (user_id: {user_id}{guild_id})\n")
 
             log_admin_event(
                 "command",
@@ -131,7 +134,7 @@ class EventsCog(commands.Cog):
                     finally:
                         conn.close()
             except Exception as e:
-                print(f"{date()} ERROR  Failed to update command usage stats: {e}")
+                logger.error("Failed to update command usage stats: %s", e)
 
     @commands.Cog.listener()
     async def on_message(self, message):
@@ -139,7 +142,7 @@ class EventsCog(commands.Cog):
             return
 
         if os.getenv("DEBUG") == "true":
-            print(f"{date()} MESSAGE  from {message.author} in {message.guild.name if message.guild else 'DM'}{'/' + message.channel.name if message.guild else ''}: {message.content} [{message.attachments[0].url if message.attachments else ''}] [{message.embeds[0].url if message.embeds else ''}] [{message.stickers[0].url if message.stickers else ''}]")
+            logger.info("MESSAGE  from %s in %s%s: %s [%s] [%s] [%s]", message.author, message.guild.name if message.guild else 'DM', '/' + message.channel.name if message.guild else '', message.content, message.attachments[0].url if message.attachments else '', message.embeds[0].url if message.embeds else '', message.stickers[0].url if message.stickers else '')
 
         if isinstance(message.channel, discord.DMChannel):
             await self.relay_dm_feedback(message)
@@ -209,31 +212,31 @@ class EventsCog(commands.Cog):
         except Exception as e:
             e = str(e)
             trace = traceback.format_exc()
-            print(f"{date()} ERROR  Failed to process message for leveling: {e}\n```\n{trace}```")
+            logger.error("Failed to process message for leveling: %s\n```\n%s```", e, trace)
             await message.reply(f"Something went wrong while processing that message. The developers have been notified.", allowed_mentions=discord.AllowedMentions(users=False))
             return
 
     async def relay_dm_feedback(self, message):
         if is_blocked(message.author.id, "feedback"):
-            print(f"{date()} BLOCKED  Not relaying DM from {message.author} ({message.author.id}), feedback blocked")
+            logger.info("BLOCKED  Not relaying DM from %s (%s), feedback blocked", message.author, message.author.id)
             return
 
         channel = self.bot.get_channel(1540471117557403648)
         if not channel:
-            print(f"{date()} ERROR  Feedback channel not found, dropped DM from {message.author} ({message.author.id})")
+            logger.error("Feedback channel not found, dropped DM from %s (%s)", message.author, message.author.id)
             return
 
         try:
             webhook = await self.get_feedback_webhook(channel)
             await self.send_dm_via_webhook(webhook, message)
-            print(f"{date()} INFO  Relayed DM from {message.author} ({message.author.id}) to feedback channel")
+            logger.info("Relayed DM from %s (%s) to feedback channel", message.author, message.author.id)
         except Exception as e:
-            print(f"{date()} ERROR  Webhook relay failed for DM from {message.author}: {e}, falling back to embed")
+            logger.error("Webhook relay failed for DM from %s: %s, falling back to embed", message.author, e)
             try:
                 await self.send_dm_embed_fallback(channel, message)
-                print(f"{date()} INFO  Relayed DM from {message.author} ({message.author.id}) via embed fallback")
+                logger.info("Relayed DM from %s (%s) via embed fallback", message.author, message.author.id)
             except Exception as e2:
-                print(f"{date()} ERROR  Failed to relay DM feedback from {message.author}: {e2}")
+                logger.error("Failed to relay DM feedback from %s: %s", message.author, e2)
 
     async def get_feedback_webhook(self, channel):
         if self.feedback_webhook:
@@ -277,7 +280,7 @@ class EventsCog(commands.Cog):
                 data = await att.read()
                 files.append(discord.File(io.BytesIO(data), filename=att.filename))
             except Exception as e:
-                print(f"{date()} ERROR  Failed to download attachment {att.filename}: {e}")
+                logger.error("Failed to download attachment %s: %s", att.filename, e)
 
         display_name = message.author.display_name[:80] or "Unknown User"
         await webhook.send(
@@ -313,7 +316,7 @@ class EventsCog(commands.Cog):
 
     @commands.Cog.listener()
     async def on_guild_join(self, guild):
-        print(f"{date()} GUILD  Joined guild: {guild.name} | {guild.member_count} members | ID: {guild.id}")
+        logger.info("GUILD  Joined guild: %s | %s members | ID: %s", guild.name, guild.member_count, guild.id)
         log_admin_event("guild_join", f"Joined {guild.name} ({guild.member_count} members)", guild_id=guild.id)
         log_channel = self.bot.get_channel(1475562384860119196)
         total_members = sum(g.member_count or 0 for g in self.bot.guilds)
@@ -330,7 +333,7 @@ class EventsCog(commands.Cog):
         if log_channel:
             await log_channel.send(embed=embed)
         else:
-            print(f"{date()} ERROR  Join log channel not found, could not log join for guild {guild.id}")
+            logger.error("Join log channel not found, could not log join for guild %s", guild.id)
 
         welcome_channel = guild.system_channel
         if not welcome_channel or not welcome_channel.permissions_for(guild.me).send_messages:
@@ -365,8 +368,10 @@ class EventsCog(commands.Cog):
 
     @commands.Cog.listener()
     async def on_guild_remove(self, guild):
-        print(f"{date()} GUILD  Removed from guild: {guild.name} | {guild.member_count} members | ID: {guild.id}")
-        log_admin_event("guild_leave", f"Removed from {guild.name} ({guild.member_count} members)", guild_id=guild.id)
+        is_startup_echo = guild.name is None or guild.member_count is None
+        if not is_startup_echo:
+            logger.info("GUILD  Removed from guild: %s | %s members | ID: %s", guild.name, guild.member_count, guild.id)
+            log_admin_event("guild_leave", f"Removed from {guild.name} ({guild.member_count} members)", guild_id=guild.id)
         try:
             conn = get_db()
             try:
@@ -377,7 +382,9 @@ class EventsCog(commands.Cog):
             finally:
                 conn.close()
         except Exception as e:
-            print(f"{date()} ERROR  Failed to clean up settings for guild {guild.id}: {e}")
+            logger.error("Failed to clean up settings for guild %s: %s", guild.id, e)
+        if is_startup_echo:
+            return
         channel = self.bot.get_channel(1475562384860119196)
         total_members = sum(g.member_count or 0 for g in self.bot.guilds)
         total_guilds = len(self.bot.guilds)
@@ -393,7 +400,7 @@ class EventsCog(commands.Cog):
         if channel:
             await channel.send(embed=embed)
         else:
-            print(f"{date()} ERROR  Leave log channel not found, could not log removal of guild {guild.id}")
+            logger.error("Leave log channel not found, could not log removal of guild %s", guild.id)
 
     @tasks.loop(minutes=1)
     async def qotd_loop(self):
@@ -404,7 +411,7 @@ class EventsCog(commands.Cog):
             try:
                 guilds = cur.execute("SELECT guild_id, qotd_channel, qotd_role_id, qotd_time, qotd_tz, last_qotd_date FROM guild_settings WHERE qotd_enabled = 1").fetchall()
             except Exception as e:
-                print(f"{date()} ERROR  Failed to fetch QOTD guilds: {e}")
+                logger.error("Failed to fetch QOTD guilds: %s", e)
                 return
 
             due = []
@@ -430,7 +437,7 @@ class EventsCog(commands.Cog):
             guilds = [g for g, _ in due if self.bot.get_guild(g["guild_id"])]
             qotd_tasks = [send_qotd(self.bot, g["qotd_channel"], g["qotd_role_id"], g["guild_id"]) for g in guilds]
             await asyncio.gather(*qotd_tasks, return_exceptions=True)
-            print(f"{date()} INFO  Sent QOTD for {len(guilds)} guilds")
+            logger.info("Sent QOTD for %s guilds", len(guilds))
         finally:
             conn.close()
 
@@ -454,7 +461,7 @@ class EventsCog(commands.Cog):
         try:
             log_stats(self.bot)
         except Exception as e:
-            print(f"{date()} ERROR  Failed to log stats: {e}")
+            logger.error("Failed to log stats: %s", e)
 
     @tasks.loop(seconds=15)
     async def rotate_status(self):
@@ -497,7 +504,7 @@ class EventsCog(commands.Cog):
                 cur.execute("DELETE FROM pending_vote_announcements WHERE id = ?", (ann["id"],))
                 conn.commit()
         except Exception as e:
-            print(f"{date()} ERROR  Vote DM loop failed: {e}")
+            logger.error("Vote DM loop failed: %s", e)
         finally:
             conn.close()
 
@@ -526,11 +533,11 @@ class EventsCog(commands.Cog):
         try:
             user = self.bot.get_user(user_id) or await self.bot.fetch_user(user_id)
             await user.send(embed=embed)
-            print(f"{date()} INFO  Sent vote thanks DM to {user} ({user_id})")
+            logger.info("Sent vote thanks DM to %s (%s)", user, user_id)
         except discord.Forbidden:
-            print(f"{date()} WARN  Could not DM vote thanks to {user_id} (DMs closed)")
+            logger.warning("Could not DM vote thanks to %s (DMs closed)", user_id)
         except (discord.NotFound, discord.HTTPException) as e:
-            print(f"{date()} ERROR  Failed to send vote thanks DM to {user_id}: {e}")
+            logger.error("Failed to send vote thanks DM to %s: %s", user_id, e)
 
     async def send_vote_reminder(self, user_id):
         embed = discord.Embed(
@@ -552,11 +559,11 @@ class EventsCog(commands.Cog):
         try:
             user = self.bot.get_user(user_id) or await self.bot.fetch_user(user_id)
             await user.send(embed=embed)
-            print(f"{date()} INFO  Sent vote reminder DM to {user} ({user_id})")
+            logger.info("Sent vote reminder DM to %s (%s)", user, user_id)
         except discord.Forbidden:
-            print(f"{date()} WARN  Could not DM vote reminder to {user_id} (DMs closed)")
+            logger.warning("Could not DM vote reminder to %s (DMs closed)", user_id)
         except (discord.NotFound, discord.HTTPException) as e:
-            print(f"{date()} ERROR  Failed to send vote reminder DM to {user_id}: {e}")
+            logger.error("Failed to send vote reminder DM to %s: %s", user_id, e)
 
     async def send_vote_announcement(self, user_id, username, payload):
         try:
@@ -613,9 +620,9 @@ class EventsCog(commands.Cog):
             except discord.Forbidden:
                 continue
             except discord.HTTPException as e:
-                print(f"{date()} ERROR  Failed to send vote announcement in {channel.id}: {e}")
+                logger.error("Failed to send vote announcement in %s: %s", channel.id, e)
 
-        print(f"{date()} INFO  Sent vote announcement for user {user_id} to {sent} guild(s)")
+        logger.info("Sent vote announcement for user %s to %s guild(s)", user_id, sent)
 
     @tasks.loop(minutes=30)
     async def update_topgg(self):
@@ -665,7 +672,7 @@ class EventsCog(commands.Cog):
                             json=cmd_dicts,
                         )
                 except Exception as e:
-                    print(f"{date()} ERROR  Failed to post to bot lists: {e}")
+                    logger.error("Failed to post to bot lists: %s", e)
 
 
 async def setup(bot):
