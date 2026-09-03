@@ -58,13 +58,13 @@
                 <span class="stat-card-icon">{{ icons.trophy() }}</span>
                 <p class="stat-card-value {% if rank == 1 %}rank-1{% elif rank == 2 %}rank-2{% elif rank == 3 %}rank-3{% endif %}">#{{ rank|default('?') }}</p>
                 <p class="stat-card-label">Server Rank</p>
-                {% if server_top_pct %}<span class="stat-rank-pill">Top {{ server_top_pct }}%</span>{% endif %}
+                {% if server_top_pct is not none %}<span class="stat-rank-pill">Top {{ server_top_pct }}%</span>{% endif %}
             </div>
             <div class="stat-card-lg">
                 <span class="stat-card-icon">{{ icons.globe() }}</span>
                 <p class="stat-card-value">#{{ global_rank|default('?') }}</p>
                 <p class="stat-card-label">Global Rank</p>
-                {% if global_top_pct %}<span class="stat-rank-pill">Top {{ global_top_pct }}%</span>{% endif %}
+                {% if global_top_pct is not none %}<span class="stat-rank-pill">Top {{ global_top_pct }}%</span>{% endif %}
             </div>
             <div class="stat-card-lg">
                 <span class="stat-card-icon">{{ icons.trend() }}</span>
