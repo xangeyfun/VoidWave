@@ -3,7 +3,10 @@ from discord.ext import commands
 import discord
 import time
 import datetime
+import logging
 from utils import startup, get_db, is_blocked, block_reply
+
+logger = logging.getLogger("cogs.general")
 
 
 LABELS = {
@@ -430,7 +433,7 @@ class GeneralCog(commands.Cog):
         try:
             await channel.send(embed=embed)
         except Exception as e:
-            print(f"{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')} ERROR  Failed to relay /feedback from {interaction.user}: {e}")
+            logger.error("Failed to relay /feedback from %s: %s", interaction.user, e)
             await interaction.followup.send("Something went wrong while sending your feedback, please try again later.", ephemeral=True)
             return
 
