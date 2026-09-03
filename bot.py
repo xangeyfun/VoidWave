@@ -6,13 +6,11 @@ import os
 import logging
 
 from utils import is_blocked, block_reply
+from logconf import setup_logging
+
+setup_logging()
 
 logger = logging.getLogger("bot")
-
-logging.basicConfig(level=logging.INFO, format='%(levelname)-8s %(name)s  %(message)s')
-logging.getLogger("discord").setLevel(logging.WARNING)
-logging.getLogger("discord.http").setLevel(logging.WARNING)
-logging.getLogger("discord.gateway").setLevel(logging.WARNING)
 
 load_dotenv()
 
@@ -25,7 +23,7 @@ TOKEN = os.getenv("TOKEN")
 
 async def _command_gate(interaction: discord.Interaction) -> bool:
     if is_blocked(interaction.user.id, "commands"):
-        logger.info("BLOCKED '/%s' attempt by %s (%s)", getattr(interaction.command, 'qualified_name', '?'), interaction.user, interaction.user.id)
+        logger.blocked("'/%s' attempt by %s (%s)", getattr(interaction.command, 'qualified_name', '?'), interaction.user, interaction.user.id)
         try:
             await interaction.response.send_message(block_reply(interaction.user.id, "commands", "using VoidWave commands"), ephemeral=True)
         except (discord.HTTPException, RuntimeError):
