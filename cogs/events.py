@@ -89,7 +89,7 @@ class EventsCog(commands.Cog):
                 command_options["message"] = "***"
             options_str = " ".join(f"{k}:{v}" for k, v in command_options.items())
 
-            logger.info("COMMAND '%s %s' used by '%s' in '%s%s' (user_id: %s%s)", command_name, options_str, user_name, guild_name, channel_name, user_id, guild_id)
+            logger.command("'%s %s' used by '%s' in '%s%s' (user_id: %s%s)", command_name, options_str, user_name, guild_name, channel_name, user_id, guild_id)
             with open("command_logs.txt", "a") as f:
                 f.write(f"{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')} COMMAND '{command_name} {options_str}' used by '{user_name}' in '{guild_name}{channel_name}' (user_id: {user_id}{guild_id})\n")
 
@@ -142,7 +142,7 @@ class EventsCog(commands.Cog):
             return
 
         if os.getenv("DEBUG") == "true":
-            logger.info("MESSAGE  from %s in %s%s: %s [%s] [%s] [%s]", message.author, message.guild.name if message.guild else 'DM', '/' + message.channel.name if message.guild else '', message.content, message.attachments[0].url if message.attachments else '', message.embeds[0].url if message.embeds else '', message.stickers[0].url if message.stickers else '')
+            logger.message("from %s in %s%s: %s [%s] [%s] [%s]", message.author, message.guild.name if message.guild else 'DM', '/' + message.channel.name if message.guild else '', message.content, message.attachments[0].url if message.attachments else '', message.embeds[0].url if message.embeds else '', message.stickers[0].url if message.stickers else '')
 
         if isinstance(message.channel, discord.DMChannel):
             await self.relay_dm_feedback(message)
@@ -218,7 +218,7 @@ class EventsCog(commands.Cog):
 
     async def relay_dm_feedback(self, message):
         if is_blocked(message.author.id, "feedback"):
-            logger.info("BLOCKED  Not relaying DM from %s (%s), feedback blocked", message.author, message.author.id)
+            logger.blocked("Not relaying DM from %s (%s), feedback blocked", message.author, message.author.id)
             return
 
         channel = self.bot.get_channel(1540471117557403648)
@@ -316,7 +316,7 @@ class EventsCog(commands.Cog):
 
     @commands.Cog.listener()
     async def on_guild_join(self, guild):
-        logger.info("GUILD  Joined guild: %s | %s members | ID: %s", guild.name, guild.member_count, guild.id)
+        logger.guild("Joined guild: %s | %s members | ID: %s", guild.name, guild.member_count, guild.id)
         log_admin_event("guild_join", f"Joined {guild.name} ({guild.member_count} members)", guild_id=guild.id)
         log_channel = self.bot.get_channel(1475562384860119196)
         total_members = sum(g.member_count or 0 for g in self.bot.guilds)
@@ -370,7 +370,7 @@ class EventsCog(commands.Cog):
     async def on_guild_remove(self, guild):
         is_startup_echo = guild.name is None or guild.member_count is None
         if not is_startup_echo:
-            logger.info("GUILD  Removed from guild: %s | %s members | ID: %s", guild.name, guild.member_count, guild.id)
+            logger.guild("Removed from guild: %s | %s members | ID: %s", guild.name, guild.member_count, guild.id)
             log_admin_event("guild_leave", f"Removed from {guild.name} ({guild.member_count} members)", guild_id=guild.id)
         try:
             conn = get_db()
