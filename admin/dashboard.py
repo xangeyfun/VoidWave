@@ -63,7 +63,7 @@ def dashboard():
             if 1 <= r["rating"] <= 5:
                 ratings["distribution"][r["rating"]] = r["c"]
         ratings["recent"] = [dict(r) for r in conn.execute("""
-            SELECT r.id AS rating_id, u.user_id, u.display_name, u.username, u.avatar_hash,
+            SELECT r.id AS rating_id, r.user_id, u.display_name, u.username, u.avatar_hash,
                    r.rating, r.feedback, r.guild_name, r.created_at
             FROM user_ratings r
             LEFT JOIN users u ON u.user_id = r.user_id
