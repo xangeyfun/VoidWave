@@ -11,6 +11,11 @@ import hmac
 import hashlib
 import subprocess
 import re
+import logging
+
+logger = logging.getLogger("app")
+
+logging.basicConfig(level=logging.INFO, format='%(levelname)-8s %(name)s  %(message)s')
 
 load_dotenv()
 
@@ -267,7 +272,7 @@ def get_user_stats(user_id: int, guild_id: int):
             'xp_to_overtake': (above[0] - user['total_xp']) if above else None
         }
     except Exception as e:
-        print(f"Error fetching user stats: {e}")
+        logger.error("Error fetching user stats: %s", e)
         return None
     finally:
         conn.close()
@@ -817,7 +822,7 @@ def topgg_webhook():
         username = user.get('username')
 
         if not user_id:
-            print(f"{time.strftime('%Y-%m-%d %H:%M:%S')} WARN  Top.gg vote.create without a Discord user id")
+            logger.warning("Top.gg vote.create without a Discord user id")
             return 'OK', 200
 
         weight = vote_data.get('weight', 1)
@@ -881,9 +886,9 @@ def topgg_webhook():
             )
 
             conn.commit()
-            print(f"{time.strftime('%Y-%m-%d %H:%M:%S')} WEBHOOK  Top.gg vote from discord user {user_id} ({'6h weekend' if weight == 2 else '4h'} boost)")
+            logger.info("WEBHOOK  Top.gg vote from discord user %s (%s boost)", user_id, '6h weekend' if weight == 2 else '4h')
         except Exception as e:
-            print(f"Top.gg webhook error: {e}")
+            logger.error("Top.gg webhook error: %s", e)
             return 'Internal Server Error', 500
         finally:
             conn.close()
