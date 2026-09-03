@@ -3,10 +3,16 @@ from dotenv import load_dotenv
 import discord
 import sqlite3
 import os
-import traceback
-from datetime import datetime
+import logging
 
 from utils import is_blocked, block_reply
+
+logger = logging.getLogger("bot")
+
+logging.basicConfig(level=logging.INFO, format='%(levelname)-8s %(name)s  %(message)s')
+logging.getLogger("discord").setLevel(logging.WARNING)
+logging.getLogger("discord.http").setLevel(logging.WARNING)
+logging.getLogger("discord.gateway").setLevel(logging.WARNING)
 
 load_dotenv()
 
@@ -19,7 +25,7 @@ TOKEN = os.getenv("TOKEN")
 
 async def _command_gate(interaction: discord.Interaction) -> bool:
     if is_blocked(interaction.user.id, "commands"):
-        print(f"{date()} BLOCKED '/{getattr(interaction.command, 'qualified_name', '?')}' attempt by {interaction.user} ({interaction.user.id})")
+        logger.info("BLOCKED '/%s' attempt by %s (%s)", getattr(interaction.command, 'qualified_name', '?'), interaction.user, interaction.user.id)
         try:
             await interaction.response.send_message(block_reply(interaction.user.id, "commands", "using VoidWave commands"), ephemeral=True)
         except (discord.HTTPException, RuntimeError):
@@ -44,12 +50,9 @@ async def setup_hook():
 
 bot.setup_hook = setup_hook
 
-def date():
-    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
 @bot.tree.error
 async def on_app_command_error(interaction: discord.Interaction, error: discord.app_commands.AppCommandError):
-    print(f"{date()} ERROR  Command error in '/{getattr(interaction.command, 'qualified_name', '?')}' used by {interaction.user}: {error!r}")
+    logger.error("Command error in '/%s' used by %s: %r", getattr(interaction.command, 'qualified_name', '?'), interaction.user, error)
     if interaction.response.is_done():
         return
 
@@ -60,7 +63,7 @@ async def on_app_command_error(interaction: discord.Interaction, error: discord.
             pass
         return
 
-    traceback.print_exception(type(error), error, error.__traceback__)
+    logger.exception("Unhandled command error in '/%s'", getattr(interaction.command, 'qualified_name', '?'))
     try:
         await interaction.response.send_message(f"Something went wrong while running that command. Please try again later.", ephemeral=True)
     except discord.HTTPException:
