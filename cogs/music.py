@@ -4,10 +4,13 @@ import discord
 import asyncio
 import os
 import re
+import logging
 
 import wavelink
 
-from utils import date, is_blocked, block_reply
+from utils import is_blocked, block_reply
+
+logger = logging.getLogger("cogs.music")
 
 
 VOIDWAVE_COLOR = 0x7128fc
@@ -127,7 +130,7 @@ class MusicCog(commands.Cog):
         try:
             await player.disconnect()
         except Exception as e:
-            print(f"{date()} ERROR  Failed to disconnect music player: {e}")
+            logger.error("Failed to disconnect music player: %s", e)
 
     # ------------------------------------------------------------------
     # Node connection
@@ -142,15 +145,15 @@ class MusicCog(commands.Cog):
             node = wavelink.Node(uri=uri, password=password)
             await wavelink.Pool.connect(nodes=[node], client=self.bot)
         except Exception as e:
-            print(f"{date()} ERROR  Failed to connect to Lavalink node at {uri}: {e}")
+            logger.error("Failed to connect to Lavalink node at %s: %s", uri, e)
 
     @commands.Cog.listener()
     async def on_wavelink_node_ready(self, payload: wavelink.NodeReadyEventPayload):
-        print(f"{date()} INFO  Lavalink node ready: {payload.node.uri}")
+        logger.info("Lavalink node ready: %s", payload.node.uri)
 
     @commands.Cog.listener()
     async def on_wavelink_node_closed(self, node, disconnected: bool):
-        print(f"{date()} WARN  Lavalink node closed: {node.uri} (disconnected={disconnected})")
+        logger.warning("Lavalink node closed: %s (disconnected=%s)", node.uri, disconnected)
 
     # ------------------------------------------------------------------
     # Play
@@ -173,7 +176,7 @@ class MusicCog(commands.Cog):
         try:
             node = wavelink.Pool.get_node()
         except Exception as e:
-            print(f"{date()} ERROR  No available Lavalink node: {e}")
+            logger.error("No available Lavalink node: %s", e)
             await interaction.response.send_message("Music server unavailable right now, please try again in a moment.", ephemeral=hidden)
             return
         await interaction.response.defer(ephemeral=hidden)
@@ -184,7 +187,7 @@ class MusicCog(commands.Cog):
                 try:
                     await player.move_to(vc.channel)  # type: ignore
                 except Exception as e:
-                    print(f"{date()} ERROR  Failed to move music player: {e}")
+                    logger.error("Failed to move music player: %s", e)
                     await interaction.followup.send("I couldn't move to your voice channel. Please try again.", ephemeral=hidden)
                     return
         else:
@@ -193,7 +196,7 @@ class MusicCog(commands.Cog):
                 self.players[interaction.guild_id] = player  # type: ignore
                 self.players_owner[interaction.guild_id] = interaction.user.id
             except Exception as e:
-                print(f"{date()} ERROR  Failed to connect music player to voice: {e}")
+                logger.error("Failed to connect music player to voice: %s", e)
                 await interaction.followup.send("I couldn't join your voice channel. Please try again.", ephemeral=hidden)
                 return
 
@@ -204,7 +207,7 @@ class MusicCog(commands.Cog):
                 return
             tracks = await wavelink.Playable.search(normalized, node=node)
         except Exception as e:
-            print(f"{date()} ERROR  Music search failed: {e}")
+            logger.error("Music search failed: %s", e)
             await interaction.followup.send("I couldn't find anything for that query. Please try again.", ephemeral=hidden)
             return
 
@@ -534,7 +537,7 @@ class MusicCog(commands.Cog):
                 continue
             humans = [m for m in player.channel.members if not m.bot]
             if not humans:
-                print(f"{date()} INFO  Leaving empty voice channel in guild {guild_id}")
+                logger.info("Leaving empty voice channel in guild %s", guild_id)
                 await self._disconnect(player)
 
     @commands.Cog.listener()
