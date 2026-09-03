@@ -8,7 +8,10 @@ import time
 import json
 import os
 import sqlite3
+import logging
 from zoneinfo import ZoneInfo
+
+logger = logging.getLogger("utils")
 
 # Constants
 XP_COOLDOWN = 30
@@ -133,10 +136,6 @@ def get_vote_boost(user_id):
         return 1.0
     finally:
         conn.close()
-
-
-def date():
-    return datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
 
 LEVEL_TIERS = [
@@ -306,7 +305,7 @@ def log_stats(bot):
     with open(STATS_LOG_FILE, "w") as f:
         json.dump(history, f, indent=2)
 
-    print(f"{date()} INFO  Stats snapshot logged ({total_guilds} guilds, {total_members} members, {total_xp} XP)")
+    logger.info("Stats snapshot logged (%s guilds, %s members, %s XP)", total_guilds, total_members, total_xp)
 
 
 async def get_llm_response(msg, display_name, user_id, reply_info=None):
@@ -320,10 +319,10 @@ async def get_llm_response(msg, display_name, user_id, reply_info=None):
                           "> This might be the first response, next ones should be much faster!")
             return reply, info + f", Attempts: {attempt + 1}"
 
-        print(f"{date()} WARN  LLM empty response, retrying ({attempt + 1}/5)")
+        logger.warning("LLM empty response, retrying (%s/5)", attempt + 1)
         await asyncio.sleep(0.5)
 
-    print(f"{date()} ERROR LLM empty response after 5 tries")
+    logger.error("LLM empty response after 5 tries")
     return "VoidWave couldn't generate a response. Please try again.", "Empty response after 5 tries"
 
 
@@ -469,9 +468,9 @@ async def add_message_xp(bot, message):
                                 await message.author.add_roles(role)
                                 new_roles.append(role)
                             except discord.Forbidden:
-                                print(f"{date()} WARN  Missing permissions to assign role {role_id} in guild {guild_id}")
+                                logger.warning("Missing permissions to assign role %s in guild %s", role_id, guild_id)
                             except Exception as e:
-                                print(f"{date()} ERROR  Failed to assign role: {e}")
+                                logger.error("Failed to assign role: %s", e)
 
             if has_channel:
                 embed = build_level_up_embed(
@@ -485,9 +484,9 @@ async def add_message_xp(bot, message):
                 try:
                     await channel.send(content=f"{message.author.mention} reached Level {level}!", embed=embed)
                 except discord.Forbidden:
-                    print(f"{date()} WARN  Missing permissions to send level-up message in {channel.id} for guild {guild_id}")
+                    logger.warning("Missing permissions to send level-up message in %s for guild %s", channel.id, guild_id)
                 except Exception as e:
-                    print(f"{date()} ERROR  Failed to send level-up message: {e}")
+                    logger.error("Failed to send level-up message: %s", e)
 
                 log_admin_event(
                     "level_up",
@@ -506,7 +505,7 @@ async def send_qotd(bot, channel_id, role_id, guild_id):
     channel = bot.get_channel(channel_id)
 
     if not channel or not isinstance(channel, discord.TextChannel):
-        print(f"{date()} WARN  QOTD channel with ID {channel_id} not found for guild {guild_id}, disabling QOTD")
+        logger.warning("QOTD channel with ID %s not found for guild %s, disabling QOTD", channel_id, guild_id)
         try:
             conn = get_db()
             try:
@@ -516,7 +515,7 @@ async def send_qotd(bot, channel_id, role_id, guild_id):
             finally:
                 conn.close()
         except Exception as e:
-            print(f"{date()} ERROR  Failed to disable QOTD for guild {guild_id}: {e}")
+            logger.error("Failed to disable QOTD for guild %s: %s", guild_id, e)
         return
 
     conn = get_db()
@@ -533,24 +532,24 @@ async def send_qotd(bot, channel_id, role_id, guild_id):
                 if thread:
                     await thread.delete() # type: ignore
             except discord.Forbidden:
-                print(f"{date()} WARN  Missing permissions to delete old QOTD thread for guild {guild_id}")
+                logger.warning("Missing permissions to delete old QOTD thread for guild %s", guild_id)
             except Exception as e:
-                print(f"{date()} ERROR  Failed to delete old QOTD thread: {e}")
+                logger.error("Failed to delete old QOTD thread: %s", e)
 
             try:
                 old_msg = await channel.fetch_message(guild_settings["last_qotd_id"])
                 await old_msg.delete()
 
             except discord.Forbidden:
-                print(f"{date()} WARN  Missing permissions to delete old QOTD message for guild {guild_id}")
+                logger.warning("Missing permissions to delete old QOTD message for guild %s", guild_id)
             except Exception as e:
-                print(f"{date()} ERROR  Failed to delete old QOTD message: {e}")
+                logger.error("Failed to delete old QOTD message: %s", e)
 
         if guild_settings and guild_settings["qotd_queue"]:
             queue = json.loads(guild_settings["qotd_queue"])
 
     except Exception as e:
-        print(f"{date()} ERROR  Failed to clean up old QOTD: {e}")
+        logger.error("Failed to clean up old QOTD: %s", e)
 
     with open("questions.json", "r") as f:
         questions = json.load(f)
@@ -577,11 +576,11 @@ async def send_qotd(bot, channel_id, role_id, guild_id):
     try:
         msg = await channel.send(embed=embed)
     except discord.Forbidden:
-        print(f"{date()} ERROR  Missing permissions to send QOTD in channel {channel_id} for guild {guild_id}")
+        logger.error("Missing permissions to send QOTD in channel %s for guild %s", channel_id, guild_id)
         conn.close()
         return
     except Exception as e:
-        print(f"{date()} ERROR  Failed to send QOTD message: {e}")
+        logger.error("Failed to send QOTD message: %s", e)
         conn.close()
         return
 
@@ -589,9 +588,9 @@ async def send_qotd(bot, channel_id, role_id, guild_id):
     try:
         thread = await msg.create_thread(name=f"💬 QOTD • {datetime.datetime.now().strftime('%b %d')}", auto_archive_duration=1440)
     except discord.Forbidden:
-        print(f"{date()} WARN  Missing permissions to create thread in channel {channel_id} for guild {guild_id}")
+        logger.warning("Missing permissions to create thread in channel %s for guild %s", channel_id, guild_id)
     except Exception as e:
-        print(f"{date()} ERROR  Failed to create QOTD thread: {e}")
+        logger.error("Failed to create QOTD thread: %s", e)
 
     role = channel.guild.get_role(role_id)
     if role and role.is_default():
@@ -610,16 +609,16 @@ async def send_qotd(bot, channel_id, role_id, guild_id):
                 f"What's your answer? Feel free to share your thoughts, stories, or hot takes!"
             )
         except discord.Forbidden:
-            print(f"{date()} WARN  Missing permissions to send QOTD ping in thread for guild {guild_id}")
+            logger.warning("Missing permissions to send QOTD ping in thread for guild %s", guild_id)
         except Exception as e:
-            print(f"{date()} ERROR  Failed to send QOTD ping: {e}")
+            logger.error("Failed to send QOTD ping: %s", e)
 
     try:
         cur.execute("UPDATE guild_settings SET last_qotd_id=?, last_qotd_thread_id=?, qotd_queue=? WHERE guild_id=?", (msg.id, thread.id if thread else None, json.dumps(queue), guild_id))
         conn.commit()
 
     except Exception as e:
-        print(f"{date()} ERROR  Failed to save QOTD info to database: {e}")
+        logger.error("Failed to save QOTD info to database: %s", e)
 
     finally:
         conn.close()
@@ -658,7 +657,7 @@ async def llm_worker(bot):
             except discord.errors.HTTPException:
                 pass
             if os.getenv("DEBUG") == "true":
-                print(f"{date()} INFO  LLM response to {ctx.author} (ID: {ctx.author.id}): {reply} ({info})")
+                logger.info("LLM response to %s (ID: %s): %s (%s)", ctx.author, ctx.author.id, reply, info)
             await asyncio.sleep(1)
             llm_queue_size.pop(0)
             llm_queue.task_done()
