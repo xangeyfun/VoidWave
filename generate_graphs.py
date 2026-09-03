@@ -9,6 +9,9 @@ from datetime import datetime
 import numpy as np
 import json
 import os
+import logging
+
+logger = logging.getLogger("generate_graphs")
 
 DATA_FILE = "stats_history.json"
 OUTPUT_DIR = "Graphs"
@@ -164,7 +167,7 @@ def make_graph(data, key, title, ylabel, color, filename, value_fn=None):
     path = os.path.join(OUTPUT_DIR, filename)
     fig.savefig(path, dpi=150, facecolor=fig.get_facecolor(), bbox_inches="tight")
     plt.close(fig)
-    print(f"  Saved {path}")
+    logger.info("Saved %s", path)
 
 
 def make_combined_graph(data):
@@ -218,7 +221,7 @@ def make_combined_graph(data):
     path = os.path.join(OUTPUT_DIR, "13_all_stats.png")
     fig.savefig(path, dpi=150, facecolor=fig.get_facecolor(), bbox_inches="tight")
     plt.close(fig)
-    print(f"  Saved {path}")
+    logger.info("Saved %s", path)
 
 
 def make_ratio_graph(data):
@@ -278,7 +281,7 @@ def make_ratio_graph(data):
     path = os.path.join(OUTPUT_DIR, "14_ratios_overview.png")
     fig.savefig(path, dpi=150, facecolor=fig.get_facecolor(), bbox_inches="tight")
     plt.close(fig)
-    print(f"  Saved {path}")
+    logger.info("Saved %s", path)
 
 
 def make_readme_banner(data):
@@ -341,21 +344,21 @@ def make_readme_banner(data):
     path = os.path.join("static", "images", "stats.png")
     fig.savefig(path, dpi=200, facecolor=fig.get_facecolor(), bbox_inches="tight", pad_inches=0.1)
     plt.close(fig)
-    print(f"  Saved {path}")
+    logger.info("Saved %s", path)
 
 
 def main():
     if not os.path.exists(DATA_FILE):
-        print(f"Error: {DATA_FILE} not found. Run the bot first to collect data.")
+        logger.error("%s not found. Run the bot first to collect data.", DATA_FILE)
         return
 
     data = load_data()
     if not data:
-        print("Error: No data in stats history file.")
+        logger.error("No data in stats history file.")
         return
 
     os.makedirs(OUTPUT_DIR, exist_ok=True)
-    print(f"Generating graphs from {len(data)} snapshots...")
+    logger.info("Generating graphs from %s snapshots...", len(data))
 
     for idx, (key, title, ylabel, color) in enumerate(GRAPHS, start=1):
         make_graph(data, key, title, ylabel, color, filename=f"{idx:02d}_{key}.png")
@@ -376,7 +379,7 @@ def main():
     make_ratio_graph(data)
     make_readme_banner(data)
 
-    print(f"Done! Graphs saved to {OUTPUT_DIR}/")
+    logger.info("Done! Graphs saved to %s/", OUTPUT_DIR)
 
 
 if __name__ == "__main__":
