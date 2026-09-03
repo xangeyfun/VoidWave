@@ -13,9 +13,11 @@ import subprocess
 import re
 import logging
 
-logger = logging.getLogger("app")
+from logconf import setup_logging
 
-logging.basicConfig(level=logging.INFO, format='%(levelname)-8s %(name)s  %(message)s')
+setup_logging()
+
+logger = logging.getLogger("app")
 
 load_dotenv()
 
@@ -886,7 +888,7 @@ def topgg_webhook():
             )
 
             conn.commit()
-            logger.info("WEBHOOK  Top.gg vote from discord user %s (%s boost)", user_id, '6h weekend' if weight == 2 else '4h')
+            logger.webhook("Top.gg vote from discord user %s (%s boost)", user_id, '6h weekend' if weight == 2 else '4h')
         except Exception as e:
             logger.error("Top.gg webhook error: %s", e)
             return 'Internal Server Error', 500
