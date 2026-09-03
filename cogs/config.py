@@ -1,10 +1,13 @@
 import datetime
 from zoneinfo import ZoneInfo, available_timezones
+import logging
 
 from discord import app_commands
 from discord.ext import commands
 import discord
-from utils import get_db, date, level_autocomplete, qotd_minutes, qotd_now, qotd_tz_label
+from utils import get_db, level_autocomplete, qotd_minutes, qotd_now, qotd_tz_label
+
+logger = logging.getLogger("cogs.config")
 
 
 COMMON_TIMEZONES = [
@@ -101,7 +104,7 @@ def _next_qotd_timestamp(guild_id=None) -> str:
                     qotd_time = row["qotd_time"]
                 tz_name = row["qotd_tz"]
         except Exception as e:
-            print(f"{date()} ERROR  Failed to fetch QOTD time for next-run preview: {e}")
+            logger.error("Failed to fetch QOTD time for next-run preview: %s", e)
         finally:
             conn.close()
 
@@ -191,7 +194,7 @@ class ConfigCog(commands.Cog):
             level_roles = cur.execute("SELECT level, role_id FROM level_roles WHERE guild_id = ?", (interaction.guild.id,)).fetchall() # type: ignore
             qotd_channel = cur.execute("SELECT qotd_channel, qotd_enabled, delete_old_qotd, qotd_time, qotd_tz FROM guild_settings WHERE guild_id = ?", (interaction.guild.id,)).fetchone() # type: ignore
         except Exception as e:
-            print(f"{date()} ERROR  Failed to fetch config: {e}")
+            logger.error("Failed to fetch config: %s", e)
             await interaction.response.send_message(f"Failed to fetch config. Please try again later.", ephemeral=True)
             return
         finally:
@@ -244,7 +247,7 @@ class ConfigCog(commands.Cog):
             settings = cur.execute("SELECT level_channel_id, level_channel_enabled, vote_announce_enabled, qotd_enabled, qotd_channel, qotd_role_id, delete_old_qotd, qotd_time, qotd_tz FROM guild_settings WHERE guild_id = ?", (interaction.guild.id,)).fetchone() # type: ignore
             level_roles = cur.execute("SELECT level, role_id FROM level_roles WHERE guild_id = ?", (interaction.guild.id,)).fetchall() # type: ignore
         except Exception as e:
-            print(f"{date()} ERROR  Failed to fetch config for test: {e}")
+            logger.error("Failed to fetch config for test: %s", e)
             await interaction.followup.send("Failed to run the config test. Please try again later.", ephemeral=True)
             return
         finally:
@@ -618,7 +621,7 @@ class ConfigCog(commands.Cog):
             cur.execute("INSERT INTO guild_settings (guild_id, level_channel_id) VALUES (?, ?) ON CONFLICT(guild_id) DO UPDATE SET level_channel_id = excluded.level_channel_id", (interaction.guild.id, channel.id)) # type: ignore
             conn.commit()
         except Exception as e:
-            print(f"{date()} ERROR  Failed to set level channel: {e}")
+            logger.error("Failed to set level channel: %s", e)
         finally:
             conn.close()
 
@@ -643,7 +646,7 @@ class ConfigCog(commands.Cog):
             conn.commit()
 
         except Exception as e:
-            print(f"{date()} ERROR  Failed to toggle level channel: {e}")
+            logger.error("Failed to toggle level channel: %s", e)
             await interaction.response.send_message(f"Failed to update level up message setting. Please try again later.", ephemeral=True)
             return
         finally:
@@ -669,7 +672,7 @@ class ConfigCog(commands.Cog):
             cur.execute("INSERT INTO guild_settings (guild_id, vote_announce_enabled) VALUES (?, ?) ON CONFLICT(guild_id) DO UPDATE SET vote_announce_enabled = excluded.vote_announce_enabled", (interaction.guild.id, int(enabled))) # type: ignore
             conn.commit()
         except Exception as e:
-            print(f"{date()} ERROR  Failed to toggle vote announcements: {e}")
+            logger.error("Failed to toggle vote announcements: %s", e)
             await interaction.response.send_message("Failed to update vote announcement setting. Please try again later.", ephemeral=True)
             return
         finally:
@@ -694,7 +697,7 @@ class ConfigCog(commands.Cog):
             cur.execute("INSERT OR REPLACE INTO level_roles (guild_id, level, role_id) VALUES (?, ?, ?)", (interaction.guild.id, level, role.id)) # type: ignore
             conn.commit()
         except Exception as e:
-            print(f"{date()} ERROR  Failed to add level role: {e}")
+            logger.error("Failed to add level role: %s", e)
         finally:
             conn.close()
 
@@ -714,7 +717,7 @@ class ConfigCog(commands.Cog):
             cur.execute("DELETE FROM level_roles WHERE guild_id = ? AND level = ?", (interaction.guild.id, level)) # type: ignore
             conn.commit()
         except Exception as e:
-            print(f"{date()} ERROR  Failed to remove level role: {e}")
+            logger.error("Failed to remove level role: %s", e)
         finally:
             conn.close()
 
@@ -741,7 +744,7 @@ class ConfigCog(commands.Cog):
             has_role = role_row and role_row[0]
 
         except Exception as e:
-            print(f"{date()} ERROR  Failed to set QOTD channel: {e}")
+            logger.error("Failed to set QOTD channel: %s", e)
             await interaction.response.send_message(f"Failed to set QOTD channel. Please try again later.", ephemeral=True)
             return
         finally:
@@ -788,7 +791,7 @@ class ConfigCog(commands.Cog):
                 cur.execute("INSERT INTO guild_settings (guild_id, qotd_time, qotd_tz) VALUES (?, ?, ?) ON CONFLICT(guild_id) DO UPDATE SET qotd_time = excluded.qotd_time, qotd_tz = excluded.qotd_tz", (interaction.guild.id, qotd_time, tz_name)) # type: ignore
             conn.commit()
         except Exception as e:
-            print(f"{date()} ERROR  Failed to set QOTD time: {e}")
+            logger.error("Failed to set QOTD time: %s", e)
             await interaction.response.send_message(f"Failed to set QOTD time. Please try again later.", ephemeral=True)
             return
         finally:
@@ -830,7 +833,7 @@ class ConfigCog(commands.Cog):
             conn.commit()
 
         except Exception as e:
-            print(f"{date()} ERROR  Failed to set QOTD enabled: {e}")
+            logger.error("Failed to set QOTD enabled: %s", e)
             await interaction.response.send_message(f"Failed to update QOTD setting. Please try again later.", ephemeral=True)
             return
         finally:
@@ -858,7 +861,7 @@ class ConfigCog(commands.Cog):
             conn.commit()
 
         except Exception as e:
-            print(f"{date()} ERROR  Failed to set QOTD role: {e}")
+            logger.error("Failed to set QOTD role: %s", e)
             await interaction.response.send_message(f"Failed to set QOTD role. Please try again later.", ephemeral=True)
             return
         finally:
@@ -901,7 +904,7 @@ class ConfigCog(commands.Cog):
             conn.commit()
 
         except Exception as e:
-            print(f"{date()} ERROR  Failed to set delete old QOTD: {e}")
+            logger.error("Failed to set delete old QOTD: %s", e)
             await interaction.response.send_message(f"Failed to update delete old QOTD setting. Please try again later.", ephemeral=True)
             return
         finally:
