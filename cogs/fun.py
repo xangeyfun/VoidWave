@@ -194,13 +194,21 @@ class FunCog(commands.Cog):
             await interaction.followup.send(f"Invalid input: {choice}", ephemeral=True)
             return
         try:
-            async with utils.http_session.get(f"https://uselessfacts.jsph.pl/{'today' if choice.lower() == 'today' else 'random'}.json?language=en") as r:
+            async with utils.http_session.get(
+                f"https://uselessfacts.jsph.pl/api/v2/facts/{'today' if choice.lower() == 'today' else 'random'}?language=en",
+                headers={"Accept": "application/json"},
+            ) as r:
                 logger.info("Fact API response status: %s", r.status)
+                r.raise_for_status()
                 data = await r.json()
+            fact = data.get("text")
+            if not fact:
+                raise ValueError("API returned no fact text")
         except Exception as e:
-            await interaction.followup.send(f"Could not fetch fact. Please try again later.\nDetails: {e}", ephemeral=True)
+            logger.error("Failed to fetch fact: %s", e)
+            await interaction.followup.send("Could not fetch fact. Please try again later.", ephemeral=True)
             return
-        await interaction.followup.send(f"{data['text']}", ephemeral=hidden)
+        await interaction.followup.send(fact, ephemeral=hidden)
 
 
 async def setup(bot):
