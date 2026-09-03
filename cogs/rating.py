@@ -1,8 +1,11 @@
 import discord
 import datetime
 import time
+import logging
 
-from utils import get_db, date
+from utils import get_db
+
+logger = logging.getLogger("cogs.rating")
 
 RATING_CHANNEL_ID = 1540471117557403648
 
@@ -27,11 +30,11 @@ async def send_rating_prompt(bot, user_id, guild_name):
     view = RatingView(bot, user_id, guild_name)
     try:
         await user.send(embed=embed, view=view)
-        print(f"{date()} INFO  Sent rating prompt to {user} ({user_id})")
+        logger.info("Sent rating prompt to %s (%s)", user, user_id)
     except discord.Forbidden:
-        print(f"{date()} WARN  Could not send rating prompt to {user_id} (DMs closed)")
+        logger.warning("Could not send rating prompt to %s (DMs closed)", user_id)
     except (discord.NotFound, discord.HTTPException) as e:
-        print(f"{date()} ERROR  Failed to send rating prompt to {user_id}: {e}")
+        logger.error("Failed to send rating prompt to %s: %s", user_id, e)
 
 
 class RatingView(discord.ui.View):
@@ -149,7 +152,7 @@ def save_rating(user_id, rating, feedback, guild_name):
         conn.commit()
         return True
     except Exception as e:
-        print(f"{date()} ERROR  Failed to save rating from {user_id}: {e}")
+        logger.error("Failed to save rating from %s: %s", user_id, e)
         return False
     finally:
         conn.close()
@@ -165,7 +168,7 @@ def update_feedback(user_id, feedback):
         )
         conn.commit()
     except Exception as e:
-        print(f"{date()} ERROR  Failed to update feedback from {user_id}: {e}")
+        logger.error("Failed to update feedback from %s: %s", user_id, e)
     finally:
         conn.close()
 
@@ -173,7 +176,7 @@ def update_feedback(user_id, feedback):
 async def forward_rating_to_channel(bot, user, rating, feedback, guild_name):
     channel = bot.get_channel(RATING_CHANNEL_ID)
     if not channel:
-        print(f"{date()} ERROR  Rating channel not found, dropped rating from {user} ({user.id})")
+        logger.error("Rating channel not found, dropped rating from %s (%s)", user, user.id)
         return
 
     stars = "⭐" * rating + "☆" * (5 - rating)
@@ -192,7 +195,7 @@ async def forward_rating_to_channel(bot, user, rating, feedback, guild_name):
     try:
         await channel.send(embed=embed)
     except discord.HTTPException as e:
-        print(f"{date()} ERROR  Failed to forward rating to rating channel: {e}")
+        logger.error("Failed to forward rating to rating channel: %s", e)
 
 
 async def setup(bot):
