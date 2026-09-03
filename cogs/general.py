@@ -180,11 +180,20 @@ class GeneralCog(commands.Cog):
                 title="🎵 Music",
                 description=(
                     "Play music in voice channels. Join a voice channel and run `/music play`. "
-                    "Control commands (skip, pause, stop...) require you to be in the same voice channel as the bot."
+                    "An interactive player embed with buttons appears — control playback without typing commands. "
+                    "The progress bar updates live. Skips are decided by vote (or owner can force-skip)."
                 ),
                 color=discord.Color(0x7128fc),
             ).add_field(
-                name="Commands",
+                name="Interactive Player Controls",
+                value=(
+                    "When music plays, an embed with buttons appears:\n"
+                    "🔀 Shuffle · ⏮ Prev · ⏯ Pause/Resume · ⏭ Next · 🔁 Loop\n"
+                    "👋 Leave · 📜 Queue (remove/clear) · 📝 Lyrics · 🎤 Live Lyrics · ✨ Autoplay"
+                ),
+                inline=False,
+            ).add_field(
+                name="Slash Commands",
                 value=(
                     "`/music play <query>` - Play a song or add to the queue\n"
                     "`/music queue` - View the current queue\n"
@@ -195,6 +204,10 @@ class GeneralCog(commands.Cog):
                     "`/music shuffle` - Shuffle the queue\n"
                     "`/music loop <mode>` - Loop off/track/queue\n"
                     "`/music volume <level>` - Set volume (1-100)\n"
+                    "`/music seek <time>` - Seek to a position (e.g. 1:30)\n"
+                    "`/music lyrics` - Show lyrics for the current track\n"
+                    "`/music lyricslive <on|off>` - Live synced lyrics on the player embed\n"
+                    "`/music autoplay <on|off>` - Auto-play related tracks\n"
                     "`/music disconnect` - Leave the voice channel"
                 ),
                 inline=False,
