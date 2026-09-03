@@ -30,7 +30,7 @@ class EventsCog(commands.Cog):
 
     @commands.Cog.listener()
     async def on_ready(self):
-        utils.http_session = aiohttp.ClientSession()
+        utils.http_session = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=10))
         logger.info("Logged in as %s", self.bot.user)
         try:
             logger.debug("Syncing commands...")
