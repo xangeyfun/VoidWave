@@ -180,7 +180,7 @@ class GeneralCog(commands.Cog):
                 title="🎵 Music",
                 description=(
                     "Play music in voice channels. Join a voice channel and run `/music play`. "
-                    "An interactive player embed with buttons appears — control playback without typing commands. "
+                    "An interactive player embed with buttons appears. Control playback without typing commands. "
                     "The progress bar updates live. Skips are decided by vote (or owner can force-skip)."
                 ),
                 color=discord.Color(0x7128fc),
