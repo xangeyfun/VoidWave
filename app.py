@@ -314,7 +314,19 @@ def index():
     bot_stats = cached_query('bot_stats', "SELECT * FROM bot_stats")
     if bot_stats:
         bot_stats = bot_stats[0]
-    return render_template('index.html', bot_stats=bot_stats), 200
+
+    rating_rows = cached_query('rating_agg', """
+        SELECT COUNT(*) as total_ratings,
+               COALESCE(AVG(rating), 0) as avg_rating
+        FROM user_ratings
+    """)
+    r = rating_rows[0]
+    total_ratings = r[0] or 0
+    avg_rating = round(r[1] or 0, 1)
+
+    return render_template('index.html', bot_stats=bot_stats,
+                           total_ratings=total_ratings,
+                           avg_rating=avg_rating), 200
 
 @app.route('/setup')
 def setup():
