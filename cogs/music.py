@@ -355,11 +355,12 @@ class MusicPlayerView(discord.ui.View):
         if len(votes) >= required:
             self.cog._reset_skip_votes(guild_id)
             await player.skip(force=True)
-            return await interaction.response.send_message(f"⏭️ Vote-to-skip passed, skipping **{current.title}**.", ephemeral=True, allowed_mentions=discord.AllowedMentions.none())
+            return await interaction.response.send_message(f"⏭️ Vote-to-skip passed, skipping **{current.title}**.", ephemeral=False, allowed_mentions=discord.AllowedMentions.none())
         await interaction.response.send_message(
             f"🗳️ **{interaction.user.display_name}** wants to skip **{current.title}**. "
-            f"Votes `{len(votes)}/{required}` needed to skip.",
-            ephemeral=True,
+            f"Votes `{len(votes)}/{required}` needed to skip.\n"
+            f"Press ⏭️ on the music controller or use `/music skip` to vote.",
+            ephemeral=False,
             allowed_mentions=discord.AllowedMentions.none(),
         )
 
