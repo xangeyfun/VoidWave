@@ -606,7 +606,7 @@ class SearchPickerView(discord.ui.View):
         except discord.HTTPException:
             pass
 
-    @discord.ui.button(label="Auto", style=discord.ButtonStyle.success, row=2)
+    @discord.ui.button(label="Auto", style=discord.ButtonStyle.success, row=1)
     async def on_auto(self, interaction: discord.Interaction, button: discord.ui.Button):
         if interaction.user.id != self.user_id:
             return await interaction.response.send_message("This search isn't for you.", ephemeral=True)
