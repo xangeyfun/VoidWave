@@ -15,6 +15,7 @@ logger = logging.getLogger("cogs.music")
 
 VOIDWAVE_COLOR = 0x7128fc
 QUEUE_PAGE_SIZE = 10
+_LYRIC_OFFSET_MS = 1000
 _LOOP_MODES = (wavelink.QueueMode.normal, wavelink.QueueMode.loop, wavelink.QueueMode.loop_all)
 _LOOP_LABELS = ("🔁", "🔂", "🔃")
 _SOURCE_ICONS = {"youtube": "🎵", "spotify": "🎧", "soundcloud": "☁️"}
@@ -793,7 +794,7 @@ class MusicCog(commands.Cog):
         if not entries:
             return None, None, 500
         pos = player.position
-        idx = _current_line(entries, pos)
+        idx = _current_line(entries, pos + _LYRIC_OFFSET_MS)
         if idx is None:
             first_ts = entries[0][0]
             first_line = entries[0][1]
@@ -803,7 +804,7 @@ class MusicCog(commands.Cog):
         nxt = entries[idx + 1][1] if idx + 1 < len(entries) else None
         wait = 500
         if idx + 1 < len(entries):
-            wait = max(200, min(1500, entries[idx + 1][0] - pos))
+            wait = max(200, min(1500, max(0, entries[idx + 1][0] - pos)))
         return cur or None, (nxt or None), wait
 
     def _start_update_task(self, guild_id: int, message: discord.Message):
