@@ -379,9 +379,40 @@ a:hover {
 .hero-desc {
     font-size: 1rem;
     color: var(--text-muted);
-    margin-bottom: 2rem;
+    margin-bottom: 1.25rem;
     line-height: 1.6;
     max-width: 400px;
+}
+
+.home-rating {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.55rem;
+    margin-bottom: 1.75rem;
+    font-size: 0.92rem;
+    line-height: 1.5;
+    animation: fadeIn 1s ease 0.45s backwards;
+}
+
+.home-rating-stars {
+    display: inline-flex;
+    font-size: 1rem;
+    letter-spacing: 0.05rem;
+    line-height: 1;
+}
+
+.home-rating-stars-filled {
+    color: #eab308;
+    text-shadow: 0 0 12px rgba(234, 179, 8, 0.35);
+}
+
+.home-rating-stars-empty {
+    color: var(--border-light);
+}
+
+.home-rating-text {
+    color: var(--text-secondary);
 }
 
 .hero-buttons {
@@ -3277,6 +3308,10 @@ a:hover {
     .hero-desc {
         margin-left: auto;
         margin-right: auto;
+    }
+
+    .home-rating {
+        justify-content: center;
     }
 
     .hero-buttons {
