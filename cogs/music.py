@@ -1299,6 +1299,10 @@ class MusicCog(commands.Cog):
             return
         await interaction.response.defer(ephemeral=hidden)
         await self._repost_player_message(interaction, player)
+        try:
+            await interaction.followup.send("📺 Player controller reposted in this channel.", ephemeral=hidden)
+        except discord.HTTPException:
+            pass
 
     # ------------------------------------------------------------------
     # Shuffle / Loop / Volume
