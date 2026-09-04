@@ -589,6 +589,23 @@ class SearchPickerView(discord.ui.View):
         for i in range(len(self.tracks)):
             self.add_item(SearchPickButton(i, cog, interaction, user_id, self))
 
+    @discord.ui.button(label="Cancel", style=discord.ButtonStyle.secondary, row=1)
+    async def on_cancel(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id != self.user_id:
+            return await interaction.response.send_message("This search isn't for you.", ephemeral=True)
+        if self.picked:
+            return await interaction.response.send_message("Already picked a track.", ephemeral=True)
+        self.picked = True
+        for child in self.children:
+            child.disabled = True
+        try:
+            await interaction.response.edit_message(
+                embed=discord.Embed(title="❌ Search cancelled", color=VOIDWAVE_COLOR),
+                view=self,
+            )
+        except discord.HTTPException:
+            pass
+
     @discord.ui.button(label="Auto", style=discord.ButtonStyle.success, row=2)
     async def on_auto(self, interaction: discord.Interaction, button: discord.ui.Button):
         if interaction.user.id != self.user_id:
