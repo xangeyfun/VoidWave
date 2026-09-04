@@ -5,6 +5,8 @@ import aiohttp
 import asyncio
 import os
 import logging
+import time
+from difflib import SequenceMatcher
 
 import wavelink
 
@@ -15,7 +17,7 @@ logger = logging.getLogger("cogs.music")
 
 VOIDWAVE_COLOR = 0x7128fc
 QUEUE_PAGE_SIZE = 10
-_LYRIC_OFFSET_MS = 1000
+_LYRIC_OFFSET_MS = 2500
 _LOOP_MODES = (wavelink.QueueMode.normal, wavelink.QueueMode.loop, wavelink.QueueMode.loop_all)
 _LOOP_LABELS = ("🔁", "🔂", "🔃")
 _SOURCE_ICONS = {"youtube": "🎵", "spotify": "🎧", "soundcloud": "☁️"}
@@ -46,20 +48,43 @@ def _clean_text(text):
     return " ".join(text.translate(_DASHES).split())
 
 
+_SEARCH_CACHE_TTL = 60
+_MAX_SEARCH_RESULTS = 10
+
+
+def _fuzzy_score(query_word: str, target: str) -> float:
+    """Return a 0-1 fuzzy match score of query_word against target."""
+    if not target or not query_word:
+        return 0.0
+    if query_word in target:
+        return 1.0
+    return SequenceMatcher(None, query_word, target).ratio()
+
+
 def _best_result(query, results):
     if not results:
         return None
     q_words = [
         w for w in " ".join(query.lower().translate(_DASHES).split()).split()
-        if w and len(w) > 2
+        if w and len(w) > 1
     ]
     if not q_words:
         return results[0]
     best = results[0]
-    best_score = 0
-    for r in results[:8]:
-        t = _clean_text(r.title).lower()
-        score = sum(1 for w in q_words if w in t)
+    best_score = -1.0
+    for idx, r in enumerate(results[:12]):
+        title = _clean_text(r.title).lower()
+        artist = _clean_text(getattr(r, "author", "") or "").lower()
+        score = 0.0
+        for w in q_words:
+            title_score = _fuzzy_score(w, title)
+            artist_score = _fuzzy_score(w, artist) * 0.8
+            score += max(title_score, artist_score)
+        position_bonus = max(0, 1.0 - idx * 0.1)
+        score += position_bonus
+        length_ms = getattr(r, "length", 0) or 0
+        if length_ms > 3 * 3600 * 1000:
+            score -= 1.5
         if score > best_score:
             best_score = score
             best = r
@@ -356,8 +381,15 @@ class MusicPlayerView(discord.ui.View):
         if not await self._check(interaction):
             return
         player = self.cog._player(interaction)
+        msg = self.cog.player_messages.get(self.guild_id)
         await self.cog._disconnect(player)
         await interaction.response.send_message("👋 Left the voice channel and cleared the queue.", ephemeral=True)
+        if msg:
+            try:
+                embed = discord.Embed(title="👋 Disconnected", description="Left the voice channel and cleared the queue.", color=VOIDWAVE_COLOR)
+                await msg.edit(embed=embed, view=None)
+            except discord.HTTPException:
+                pass
 
     @discord.ui.button(emoji="📜", style=discord.ButtonStyle.secondary, row=1)
     async def on_queue(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -579,15 +611,48 @@ class QueueView(discord.ui.View):
 # Interactive Search Picker
 # ======================================================================
 class SearchPickerView(discord.ui.View):
-    def __init__(self, cog, tracks, interaction, user_id):
+    def __init__(self, cog, tracks, interaction, user_id, query=""):
         super().__init__(timeout=30)
         self.cog = cog
-        self.tracks = tracks[:5]
+        self.tracks = tracks[:_MAX_SEARCH_RESULTS]
         self.interaction = interaction
         self.user_id = user_id
+        self.query = query
         self.picked = False
-        for i in range(len(self.tracks)):
-            self.add_item(SearchPickButton(i, cog, interaction, user_id, self))
+
+        options = []
+        for i, t in enumerate(self.tracks):
+            title = t.title[:95]
+            desc = f"{t.author[:45]} • {fmt(t.length)}"
+            options.append(discord.SelectOption(
+                label=f"{i + 1}. {title}",
+                description=desc,
+                value=str(i),
+                emoji=_source_icon(t.source),
+            ))
+        self._select = discord.ui.Select(
+            placeholder="Pick a track to play...",
+            options=options,
+            row=0,
+        )
+        self._select.callback = self._on_select
+        self.add_item(self._select)
+
+    async def _on_select(self, interaction: discord.Interaction):
+        if interaction.user.id != self.user_id:
+            return await interaction.response.send_message("This search isn't for you.", ephemeral=True)
+        if self.picked:
+            return await interaction.response.send_message("Already picked a track.", ephemeral=True)
+        self.picked = True
+        for child in self.children:
+            child.disabled = True
+        idx = int(interaction.data["values"][0])
+        track = self.tracks[idx]
+        await interaction.response.edit_message(
+            embed=discord.Embed(title="🎵 Searching...", description=f"Playing **{track.title}**", color=VOIDWAVE_COLOR),
+            view=self,
+        )
+        await self.cog._play_from_search(self.interaction, track)
 
     @discord.ui.button(label="Cancel", style=discord.ButtonStyle.secondary, row=1)
     async def on_cancel(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -615,7 +680,7 @@ class SearchPickerView(discord.ui.View):
         self.picked = True
         for child in self.children:
             child.disabled = True
-        track = _best_result("", self.tracks) or self.tracks[0]
+        track = _best_result(self.query, self.tracks) or self.tracks[0]
         await interaction.response.edit_message(
             embed=discord.Embed(title="🎵 Searching...", description=f"Playing **{track.title}**", color=VOIDWAVE_COLOR),
             view=self,
@@ -628,7 +693,7 @@ class SearchPickerView(discord.ui.View):
         self.picked = True
         for child in self.children:
             child.disabled = True
-        track = _best_result("", self.tracks) or self.tracks[0]
+        track = _best_result(self.query, self.tracks) or self.tracks[0]
         try:
             await self.interaction.edit_original_response(
                 embed=discord.Embed(title="⏱️ Search timed out", description=f"Auto-playing **{track.title}**", color=VOIDWAVE_COLOR),
@@ -637,37 +702,6 @@ class SearchPickerView(discord.ui.View):
         except discord.HTTPException:
             pass
         await self.cog._play_from_search(self.interaction, track)
-
-
-class SearchPickButton(discord.ui.Button):
-    def __init__(self, index, cog, interaction, user_id, view):
-        track = view.tracks[index]
-        super().__init__(
-            label=f"{index + 1}",
-            style=discord.ButtonStyle.secondary,
-            emoji=["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣"][index],
-            row=index // 5,
-        )
-        self.index = index
-        self.cog = cog
-        self.search_interaction = interaction
-        self.user_id = user_id
-        self.view_ref = view
-
-    async def callback(self, interaction: discord.Interaction):
-        if interaction.user.id != self.user_id:
-            return await interaction.response.send_message("This search isn't for you.", ephemeral=True)
-        if self.view_ref.picked:
-            return await interaction.response.send_message("Already picked a track.", ephemeral=True)
-        self.view_ref.picked = True
-        for child in self.view_ref.children:
-            child.disabled = True
-        track = self.view_ref.tracks[self.index]
-        await interaction.response.edit_message(
-            embed=discord.Embed(title="🎵 Searching...", description=f"Playing **{track.title}**", color=VOIDWAVE_COLOR),
-            view=self.view_ref,
-        )
-        await self.cog._play_from_search(self.search_interaction, track)
 
 
 # ======================================================================
@@ -714,6 +748,7 @@ class MusicCog(commands.Cog):
         self.live_lyrics: dict[int, bool] = {}
         self._lyrics_cache: dict[str, list[tuple[int, str]]] = {}
         self._lyrics_loading: dict[str, asyncio.Task] = {}
+        self._search_cache: dict[str, tuple[float, list]] = {}
 
     # ------------------------------------------------------------------
     # Helpers
@@ -736,6 +771,41 @@ class MusicCog(commands.Cog):
 
     def _reset_skip_votes(self, guild_id: int):
         self.skip_votes.pop(guild_id, None)
+
+    def _get_cached_search(self, normalized_query: str) -> list | None:
+        entry = self._search_cache.get(normalized_query)
+        if entry and (time.time() - entry[0]) < _SEARCH_CACHE_TTL:
+            return entry[1]
+        if entry:
+            self._search_cache.pop(normalized_query, None)
+        return None
+
+    def _cache_search(self, normalized_query: str, results: list):
+        self._search_cache[normalized_query] = (time.time(), results)
+        now = time.time()
+        stale = [k for k, (ts, _) in self._search_cache.items() if now - ts > _SEARCH_CACHE_TTL]
+        for k in stale:
+            self._search_cache.pop(k, None)
+
+    async def _search_tracks(self, normalized: str, node: wavelink.Node) -> list | None:
+        cached = self._get_cached_search(normalized)
+        if cached is not None:
+            return cached
+        try:
+            tracks = await wavelink.Playable.search(normalized, node=node)
+        except Exception as e:
+            logger.error("Music search failed: %s", e)
+            return None
+        if not tracks:
+            return []
+        if isinstance(tracks, wavelink.Playlist):
+            return tracks
+        if isinstance(tracks, (list, tuple)):
+            results = [t for t in list(tracks) if (t.source or "").lower() == "youtube"] or list(tracks)
+        else:
+            results = [tracks]
+        self._cache_search(normalized, results)
+        return results
 
     async def _disconnect(self, player: wavelink.Player):
         guild_id = player.guild.id if player.guild else 0
@@ -1004,14 +1074,12 @@ class MusicCog(commands.Cog):
                 await interaction.followup.send("I couldn't join your voice channel. Please try again.", ephemeral=hidden)
                 return
 
-        try:
-            normalized = _normalize_query(query)
-            if normalized is None:
-                await interaction.followup.send("I couldn't find anything for that query. Please try again.", ephemeral=hidden)
-                return
-            tracks = await wavelink.Playable.search(normalized, node=node)
-        except Exception as e:
-            logger.error("Music search failed: %s", e)
+        normalized = _normalize_query(query)
+        if normalized is None:
+            await interaction.followup.send("I couldn't find anything for that query. Please try again.", ephemeral=hidden)
+            return
+        tracks = await self._search_tracks(normalized, node)
+        if tracks is None:
             await interaction.followup.send("I couldn't find anything for that query. Please try again.", ephemeral=hidden)
             return
 
@@ -1040,15 +1108,12 @@ class MusicCog(commands.Cog):
                 await self._repost_player_message(interaction, player)
             return
 
-        if isinstance(tracks, (list, tuple)):
-            results = [t for t in list(tracks) if (t.source or "").lower() == "youtube"] or list(tracks)
-        else:
-            results = [tracks]
+        results = tracks
 
         if len(results) > 1:
-            view = SearchPickerView(self, results, interaction, interaction.user.id)
+            view = SearchPickerView(self, results, interaction, interaction.user.id, query=query)
             lines = []
-            for i, t in enumerate(results[:5], 1):
+            for i, t in enumerate(results[:_MAX_SEARCH_RESULTS], 1):
                 icon = _source_icon(t.source)
                 lines.append(f"**{i}.** {icon} [{t.title}]({t.uri}) - *{t.author}* `{fmt(t.length)}`")
             embed = discord.Embed(title="🔍 Search Results", description="\n".join(lines), color=VOIDWAVE_COLOR)
