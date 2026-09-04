@@ -21,6 +21,19 @@
         <h1>VoidWave</h1>
         <p class="tagline"><span class="tagline-typed" id="taglineText"></span><span class="typing-cursor"></span></p>
         <p class="hero-desc">Leveling, AI chat, music, daily questions, moderation, and fun commands. Open source, privacy friendly, easy to set up.</p>
+        {% if total_ratings > 0 %}
+        <div class="home-rating">
+            <span class="home-rating-stars" aria-hidden="true">
+                {% set filled = [avg_rating|round|int, 5]|min %}
+                <span class="home-rating-stars-filled">{{ '★' * filled }}</span><span class="home-rating-stars-empty">{{ '★' * (5 - filled) }}</span>
+            </span>
+            <span class="home-rating-text">{{ "%.1f"|format(avg_rating) }} / 5 &middot; {{ "{:,}".format(total_ratings) }} review{{ 's' if total_ratings != 1 }} from the community</span>
+        </div>
+        {% else %}
+        <div class="home-rating">
+            <span class="home-rating-text">No reviews yet &mdash; be one of the first to rate VoidWave</span>
+        </div>
+        {% endif %}
         <div class="hero-buttons">
             <a href="https://discord.com/oauth2/authorize?client_id=1442229230384709752" target="_blank" class="btn btn-primary">
                 <span>Add to Discord</span>
