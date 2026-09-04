@@ -893,35 +893,6 @@ class MusicCog(commands.Cog):
                 await old_msg.delete()
             except discord.HTTPException:
                 pass
-    async def _replace_player_message(self, guild_id: int, track, player):
-        """Delete the old player message and post a fresh one (for track changes)."""
-        old_msg = self.player_messages.get(guild_id)
-        old_view = self.player_views.get(guild_id)
-        self._cancel_update_task(guild_id)
-
-        if not old_msg or not old_view or not old_msg.channel:
-            return
-
-        view = MusicPlayerView(self, guild_id)
-        view._update_button_states(player)
-        self.player_views[guild_id] = view
-        embed = now_playing_embed(track, player)
-        try:
-            msg = await old_msg.channel.send(embed=embed, view=view)
-            view._message_id = msg.id
-            self.player_messages[guild_id] = msg
-            self._start_update_task(guild_id, msg)
-        except discord.HTTPException:
-            self.player_views.pop(guild_id, None)
-            return
-
-        try:
-            for child in old_view.children:
-                child.disabled = True
-            await old_msg.delete()
-        except discord.HTTPException:
-            pass
-
     async def _repost_player_message(self, interaction: discord.Interaction, player):
         """Repost the controller to the current channel to bring it back into view."""
         guild_id = interaction.guild_id
@@ -1492,13 +1463,33 @@ class MusicCog(commands.Cog):
             guild_id = player.guild.id if player.guild else 0
             if self.live_lyrics.get(guild_id):
                 self._ensure_lyrics_loaded(next_track)
-            if self.player_messages.get(guild_id) and self.player_views.get(guild_id):
-                await self._replace_player_message(guild_id, next_track, player)
             return
 
         await asyncio.sleep(2)
         if player.guild and player.queue.is_empty and not player.playing:
             await self._disconnect(player)
+
+    @commands.Cog.listener()
+    async def on_wavelink_track_start(self, payload: wavelink.TrackStartEventPayload):
+        player = payload.player
+        if not isinstance(player, wavelink.Player):
+            return
+        guild_id = player.guild.id if player.guild else 0
+        track = payload.track
+        if not track:
+            return
+        if self.live_lyrics.get(guild_id):
+            self._ensure_lyrics_loaded(track)
+        msg = self.player_messages.get(guild_id)
+        view = self.player_views.get(guild_id)
+        if not msg or not view:
+            return
+        view._update_button_states(player)
+        cur, nxt, _ = await self._live_lyric(guild_id, player, track)
+        try:
+            await msg.edit(embed=now_playing_embed(track, player, live_line=cur, live_next=nxt), view=view)
+        except discord.HTTPException:
+            pass
 
 
 async def setup(bot):
