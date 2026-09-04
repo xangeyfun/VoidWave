@@ -1218,6 +1218,24 @@ class MusicCog(commands.Cog):
         await interaction.response.send_message(embed=embed, ephemeral=hidden)
 
     # ------------------------------------------------------------------
+    # Controller
+    # ------------------------------------------------------------------
+    @music.command(name="controller", description="Bring the interactive player controller back into view")
+    @app_commands.describe(hidden="Hide the command from others")
+    async def controller(self, interaction: discord.Interaction, hidden: bool = False):
+        if await self._deny_if_blocked(interaction):
+            return
+        player = self._player(interaction)
+        if not isinstance(player, wavelink.Player) or not player.connected or player.current is None:
+            await interaction.response.send_message("Nothing is playing right now.", ephemeral=hidden)
+            return
+        if not self._same_vc(interaction, player):
+            await interaction.response.send_message("You need to be in the same voice channel as me to control music.", ephemeral=hidden)
+            return
+        await interaction.response.defer(ephemeral=hidden)
+        await self._repost_player_message(interaction, player)
+
+    # ------------------------------------------------------------------
     # Shuffle / Loop / Volume
     # ------------------------------------------------------------------
     @music.command(name="shuffle", description="Shuffle the upcoming queue")
