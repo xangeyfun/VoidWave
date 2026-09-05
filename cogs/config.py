@@ -308,7 +308,7 @@ class ConfigCog(commands.Cog):
 
         # QOTD checks
         if not settings or not settings["qotd_enabled"]:
-            qotd_results.append(("warn", "QOTD is disabled. Set it up with `/config qotd set_channel`, a role with `/config qotd set_role`, then enable with `/config qotd enable true`"))
+            qotd_results.append(("warn", "QOTD is disabled. Set it up with `/config qotd set_channel`, then enable with `/config qotd enable true`. Optionally ping a role with `/config qotd set_role`"))
         else:
             if not settings["qotd_channel"]:
                 qotd_results.append(("fail", "QOTD enabled but no channel set. Fix with `/config qotd set_channel`"))
@@ -426,7 +426,7 @@ class ConfigCog(commands.Cog):
                 name="QOTD Settings",
                 value=(
                     "`/config qotd set_channel [channel]` - Set the QOTD channel\n"
-                    "`/config qotd set_role [role]` - Role to ping with the QOTD\n"
+                    "`/config qotd set_role [role]` - Role to ping with the QOTD (optional)\n"
                     "`/config qotd set_time [time] [timezone]` - When the QOTD posts (e.g. 18:30 Europe/Amsterdam)\n"
                     "`/config qotd enable [enabled]` - Enable or disable QOTD messages\n"
                     "`/config qotd delete_old [enabled]` - Delete old QOTD messages"
@@ -773,7 +773,7 @@ class ConfigCog(commands.Cog):
 
         msg = f"QOTD channel set to {channel.mention}"
         if not has_role:
-            msg += "\n\n**Next steps:**\n1. Set a role to ping with `/config qotd set_role`\n2. Enable QOTD with `/config qotd enable`"
+            msg += "\n\n**Next steps:**\n1. Enable QOTD with `/config qotd enable`\n2. Optional: ping people with `/config qotd set_role`\n3. Optional: change the post time with `/config qotd set_time`"
         else:
             msg += "\n\n**Don't forget:** Enable QOTD with `/config qotd enable` to start posting daily questions!"
         await interaction.response.send_message(msg, ephemeral=True)
@@ -845,10 +845,7 @@ class ConfigCog(commands.Cog):
                 return
 
             role = cur.execute("SELECT qotd_role_id FROM guild_settings WHERE guild_id = ?", (interaction.guild.id,)).fetchone() # type: ignore
-            role = interaction.guild.get_role(role[0]) if role and role[0] else None
-            if not role:
-                await interaction.response.send_message("Please set a QOTD role first using `/config qotd set_role`", ephemeral=True)
-                return
+            has_role = bool(role and role[0])
 
             cur.execute("INSERT INTO guild_settings (guild_id, qotd_enabled) VALUES (?, ?) ON CONFLICT(guild_id) DO UPDATE SET qotd_enabled = excluded.qotd_enabled", (interaction.guild.id, int(enabled))) # type: ignore
             conn.commit()
@@ -862,6 +859,8 @@ class ConfigCog(commands.Cog):
 
         msg = f"QOTD has been {'enabled' if enabled else 'disabled'}"
         if enabled:
+            if not has_role:
+                msg += "\n\nNo ping role set, so questions post without a ping. Add one anytime with `/config qotd set_role`."
             msg += f"\n\nNext QOTD: {_next_qotd_timestamp(interaction.guild.id)}"
         await interaction.response.send_message(msg, ephemeral=True)
 
