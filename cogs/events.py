@@ -362,12 +362,13 @@ class EventsCog(commands.Cog):
             logger.error("Join log channel not found, could not log join for guild %s", guild.id)
 
         welcome_channel = guild.system_channel
-        if not welcome_channel or not welcome_channel.permissions_for(guild.me).send_messages:
-            for ch in guild.text_channels:
-                if ch.permissions_for(guild.me).send_messages:
-                    welcome_channel = ch
-                    break
-        if not welcome_channel:
+        candidates = []
+        if welcome_channel:
+            candidates.append(welcome_channel)
+        for ch in guild.text_channels:
+            if ch.id != getattr(welcome_channel, "id", None) and ch.permissions_for(guild.me).send_messages:
+                candidates.append(ch)
+        if not candidates:
             return
 
         welcome_embed = discord.Embed(
@@ -392,7 +393,15 @@ class EventsCog(commands.Cog):
         )
         welcome_embed.set_thumbnail(url=self.bot.user.display_avatar.url)
         welcome_embed.set_footer(text="Vote for 2x XP! /vote")
-        await welcome_channel.send(embed=welcome_embed)
+        for ch in candidates:
+            try:
+                await ch.send(embed=welcome_embed)
+                break
+            except discord.Forbidden:
+                logger.warning("Missing perms sending welcome in %s (guild %s), trying next", ch, guild.id)
+            except discord.HTTPException as e:
+                logger.error("Failed to send welcome in guild %s: %s", guild.id, e)
+                break
 
     @commands.Cog.listener()
     async def on_guild_remove(self, guild):
