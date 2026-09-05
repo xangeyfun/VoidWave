@@ -117,9 +117,9 @@
                 <p>Posts a daily question to a channel you pick. It creates a thread for discussion that auto-archives after 24 hours. By default it posts at 4:00 PM server time, but you can change when it posts.</p>
                 <ul>
                     <li><strong>Pick a channel</strong> - <code>/config qotd set_channel #channel</code> selects where the question and thread go.</li>
-                    <li><strong>Pick a role to ping</strong> - <code>/config qotd set_role @role</code> so people get notified. Use <code>@everyone</code> or a dedicated role.</li>
+                    <li><strong>Pick a role to ping (optional)</strong> - <code>/config qotd set_role @role</code> so people get notified. Use <code>@everyone</code> or a dedicated role. Skip it to post without any ping.</li>
                     <li><strong>Pick a time</strong> - <code>/config qotd set_time 18:30 Europe/Amsterdam</code> changes when the question is posted. The timezone is optional; start typing a nearby city and pick from the suggestions. Changing the time makes the next question post at the new time even if one already went out today.</li>
-                    <li><strong>Turn it on</strong> - <code>/config qotd enable true</code> starts the daily loop. Both a channel and role must be set first.</li>
+                    <li><strong>Turn it on</strong> - <code>/config qotd enable true</code> starts the daily loop. Only a channel is required to get started.</li>
                     <li><strong>Disable it</strong> - <code>/config qotd enable false</code> stops it. Your settings are kept so you can re-enable later.</li>
                     <li><strong>Clean up old posts</strong> - <code>/config qotd delete_old true</code> automatically deletes the previous day's QOTD message and thread when a new one is posted. Enabled by default.</li>
                     <li><strong>Check it works</strong> - <code>/config test</code> verifies your channel, permissions, ping role, and schedule.</li>
