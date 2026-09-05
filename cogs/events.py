@@ -158,6 +158,32 @@ class EventsCog(commands.Cog):
             message_reference = ref_msg.author.id == 1442229230384709752 if ref_msg else False
 
         if f"<@{self.bot.user.id}>" in message.content or message_reference or message.channel.id == 1494361038420709466:
+            server_ai = None
+            user_ai = None
+            conn = get_db()
+            try:
+                cur = conn.cursor()
+                if message.guild:
+                    row = cur.execute("SELECT ai_enabled FROM guild_settings WHERE guild_id = ?", (message.guild.id,)).fetchone()
+                    if row:
+                        server_ai = row[0]
+                upref = cur.execute("SELECT ai_enabled FROM user_prefs WHERE user_id = ?", (message.author.id,)).fetchone()
+                if upref:
+                    user_ai = upref[0]
+            finally:
+                conn.close()
+
+            if server_ai == 0:
+                return
+
+            if user_ai == 0:
+                if message_reference or f"<@{self.bot.user.id}>" in message.content:
+                    try:
+                        await message.reply("AI replies are off for you. Run `/aitoggle` to turn them back on.", delete_after=6)
+                    except discord.errors.HTTPException:
+                        pass
+                return
+
             if is_blocked(message.author.id, "ai"):
                 await message.reply(block_reply(message.author.id, "ai", "using VoidWave AI features"))
                 return
@@ -353,6 +379,8 @@ class EventsCog(commands.Cog):
                 "Run `/vote` in any channel to claim your boost!\n\n"
                 "**Leveling works automatically**\n"
                 "Members earn XP just by chatting and hanging out in voice channels. No setup needed.\n\n"
+                "**AI replies are on by default**\n"
+                "Mention VoidWave or reply to it and it will chat back. Prefer not? Run `/config ai toggle` to turn AI replies off for the whole server.\n\n"
                 "**Getting started**\n"
                 "`/config auto` sets everything up in one command.\n"
                 "`/config help` shows all configuration options.\n"
