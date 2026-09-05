@@ -189,8 +189,8 @@ WHERE gs.level_channel_id IS NOT NULL AND gs.level_channel_id != 0
             sql="SELECT guild_id FROM guild_settings\nWHERE qotd_enabled = 1 AND (qotd_channel IS NULL OR qotd_channel = 0)")
 
         rows = q("SELECT guild_id FROM guild_settings WHERE qotd_enabled=1 AND (qotd_role_id IS NULL OR qotd_role_id=0)")
-        add("Info", "QOTD enabled but no role", not rows,
-            f"{len(rows)} guild(s)",
+        add("Info", "QOTD enabled without ping role", True,
+            f"{len(rows)} guild(s) (role is optional)",
             sql="SELECT guild_id FROM guild_settings\nWHERE qotd_enabled = 1 AND (qotd_role_id IS NULL OR qotd_role_id = 0)")
 
         rows = q("""SELECT guild_id, user_id FROM users
