@@ -245,6 +245,19 @@ if __name__ == "__main__":
         cur.execute("ALTER TABLE guild_settings ADD COLUMN vote_announce_enabled BOOLEAN DEFAULT 1")
     except sqlite3.OperationalError:
         pass
+
+    try:
+        cur.execute("ALTER TABLE guild_settings ADD COLUMN ai_enabled BOOLEAN DEFAULT 1")
+    except sqlite3.OperationalError:
+        pass
+    conn.commit()
+
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS user_prefs (
+        user_id INTEGER PRIMARY KEY,
+        ai_enabled BOOLEAN DEFAULT 1
+    )
+    """)
     conn.commit()
 
     cur.execute("""
