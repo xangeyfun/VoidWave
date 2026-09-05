@@ -14,7 +14,7 @@ async def send_rating_prompt(bot, user_id, guild_name):
     try:
         user = bot.get_user(user_id) or await bot.fetch_user(user_id)
     except discord.NotFound:
-        return
+        return False
 
     embed = discord.Embed(
         title="⭐ How's your VoidWave experience?",
@@ -31,10 +31,13 @@ async def send_rating_prompt(bot, user_id, guild_name):
     try:
         await user.send(embed=embed, view=view)
         logger.info("Sent rating prompt to %s (%s)", user, user_id)
+        return True
     except discord.Forbidden:
         logger.warning("Could not send rating prompt to %s (DMs closed)", user_id)
+        return False
     except (discord.NotFound, discord.HTTPException) as e:
         logger.error("Failed to send rating prompt to %s: %s", user_id, e)
+        return False
 
 
 class RatingView(discord.ui.View):
