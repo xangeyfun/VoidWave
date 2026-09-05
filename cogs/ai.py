@@ -2,7 +2,10 @@ from discord import app_commands
 from discord.ext import commands
 import discord
 import time
-from utils import get_llm_response, last_llm, llm_queue_size, ai_processing, LLM_COOLDOWN, is_blocked, block_reply
+import logging
+from utils import get_db, get_llm_response, last_llm, llm_queue_size, ai_processing, LLM_COOLDOWN, is_blocked, block_reply
+
+logger = logging.getLogger("cogs.ai")
 
 
 class AICog(commands.Cog):
@@ -40,6 +43,42 @@ class AICog(commands.Cog):
             await interaction.followup.send(reply, ephemeral=hidden, allowed_mentions=discord.AllowedMentions.none())
         finally:
             ai_processing = False
+
+    @discord.app_commands.allowed_installs(guilds=True, users=True)
+    @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
+    @discord.app_commands.command(name="aitoggle", description="Turn AI replies on or off for yourself.")
+    @app_commands.describe(enabled="Whether AI replies should be on (leave out to toggle)")
+    async def aitoggle(self, interaction: discord.Interaction, enabled: bool = None):
+        conn = get_db()
+        try:
+            cur = conn.cursor()
+            row = cur.execute("SELECT ai_enabled FROM user_prefs WHERE user_id = ?", (interaction.user.id,)).fetchone()
+            current = row[0] if row and row[0] is not None else 1
+            new_value = enabled if enabled is not None else not current
+            cur.execute(
+                "INSERT INTO user_prefs (user_id, ai_enabled) VALUES (?, ?) "
+                "ON CONFLICT(user_id) DO UPDATE SET ai_enabled = excluded.ai_enabled",
+                (interaction.user.id, int(new_value)),
+            )
+            conn.commit()
+        except Exception as e:
+            logger.error("Failed to update AI preference for %s: %s", interaction.user.id, e)
+            await interaction.response.send_message("Failed to update your AI preference. Please try again later.", ephemeral=True)
+            return
+        finally:
+            conn.close()
+
+        if new_value:
+            await interaction.response.send_message(
+                "AI replies are now **on** for you. Mention the bot or reply to it and VoidWave will respond. 💜",
+                ephemeral=True,
+            )
+        else:
+            await interaction.response.send_message(
+                "AI replies are now **off** for you. VoidWave will no longer send AI responses to your messages. "
+                "Run `/aitoggle` anytime to turn them back on.",
+                ephemeral=True,
+            )
 
 
 async def setup(bot):
