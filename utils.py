@@ -31,6 +31,7 @@ last_llm = {}
 llm_queue = asyncio.Queue(maxsize=10)
 llm_queue_size = []
 ai_processing = False
+ai_tip_sent = set()
 last_xp = {}
 last_vc = {}
 http_session = None
@@ -314,6 +315,9 @@ async def get_llm_response(msg, display_name, user_id, reply_info=None):
         reply, info = await asyncio.to_thread(ask_llm, msg, display_name, user_id, reply_info)
 
         if reply and reply.strip() and isinstance(reply, str):
+            if user_id not in ai_tip_sent:
+                ai_tip_sent.add(user_id)
+                reply += "\n> Don't like the AI? Turn it off with `/aitoggle`"
             if time.time() - start >= SLOW_RESPONSE_THRESHOLD:
                 reply += ("\n\n> This was a bit slow because the model was still starting up.\n"
                           "> This might be the first response, next ones should be much faster!")
