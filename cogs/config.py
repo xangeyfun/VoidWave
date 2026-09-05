@@ -33,11 +33,13 @@ CONFIG_LABELS = {
     "overview": "Overview",
     "leveling": "Leveling",
     "qotd": "Question of the Day",
+    "ai": "AI",
 }
 CONFIG_EMOJIS = {
     "overview": "🏠",
     "leveling": "📊",
     "qotd": "❓",
+    "ai": "🤖",
 }
 
 
@@ -164,6 +166,7 @@ class ConfigCog(commands.Cog):
     config = discord.app_commands.Group(name="config", description="Admin commands for configuring the bot", default_permissions=discord.Permissions(administrator=True), allowed_installs=discord.app_commands.AppInstallationType(guild=True, user=False), allowed_contexts=discord.app_commands.AppCommandContext(guild=True, dm_channel=False, private_channel=False))
     level = discord.app_commands.Group(name="level", description="Configure level system settings", parent=config)
     qotd = discord.app_commands.Group(name="qotd", description="Configure QOTD settings", parent=config)
+    ai = discord.app_commands.Group(name="ai", description="Configure AI reply settings", parent=config)
 
     def __init__(self, bot):
         self.bot = bot
@@ -190,7 +193,7 @@ class ConfigCog(commands.Cog):
         try:
             conn = get_db()
             cur = conn.cursor()
-            level_channel = cur.execute("SELECT level_channel_id, level_channel_enabled, vote_announce_enabled FROM guild_settings WHERE guild_id = ?", (interaction.guild.id,)).fetchone() # type: ignore
+            level_channel = cur.execute("SELECT level_channel_id, level_channel_enabled, vote_announce_enabled, ai_enabled FROM guild_settings WHERE guild_id = ?", (interaction.guild.id,)).fetchone() # type: ignore
             level_roles = cur.execute("SELECT level, role_id FROM level_roles WHERE guild_id = ?", (interaction.guild.id,)).fetchall() # type: ignore
             qotd_channel = cur.execute("SELECT qotd_channel, qotd_enabled, delete_old_qotd, qotd_time, qotd_tz FROM guild_settings WHERE guild_id = ?", (interaction.guild.id,)).fetchone() # type: ignore
         except Exception as e:
@@ -208,6 +211,8 @@ class ConfigCog(commands.Cog):
             embed.add_field(name="Level Up Channel", value=f"{channel_name} ({'Enabled' if level_channel[1] else 'Disabled'})", inline=False)
             if level_channel[2] is not None:
                 embed.add_field(name="Vote Announcements", value=f"{'Enabled' if level_channel[2] else 'Disabled'}", inline=False)
+            if level_channel[3] is not None:
+                embed.add_field(name="AI Replies", value="Enabled" if level_channel[3] else "Disabled", inline=False)
         else:
             embed.add_field(name="Level Up Channel", value="Not set", inline=False)
 
@@ -428,6 +433,19 @@ class ConfigCog(commands.Cog):
                 ),
                 inline=False,
             ),
+            "ai": discord.Embed(
+                title="🤖 AI Configuration",
+                description="Control whether the bot chats back when mentioned or replied to.",
+                color=discord.Color(0x7128fc),
+            ).add_field(
+                name="AI Settings",
+                value=(
+                    "`/config ai toggle [enabled]` - Turn AI replies on or off for the whole server\n"
+                    "`/aitoggle [enabled]` - Turn AI replies on or off for a single user\n"
+                    "`/ai <message>` - Chat with the AI directly"
+                ),
+                inline=False,
+            ),
             "overview": discord.Embed(
                 title="⚙️ Configuration Help",
                 description=(
@@ -447,8 +465,10 @@ class ConfigCog(commands.Cog):
                 value=(
                     "`/config view` - View current configuration\n"
                     "`/config test` - Health-check your settings\n"
+                    "`/config ai toggle [enabled]` - Turn AI replies on or off\n"
                     "`/config help topic:Leveling` - Leveling commands\n"
-                    "`/config help topic:Question of the Day` - QOTD commands"
+                    "`/config help topic:Question of the Day` - QOTD commands\n"
+                    "`/config help topic:AI` - AI commands"
                 ),
                 inline=False,
             ),
@@ -465,6 +485,7 @@ class ConfigCog(commands.Cog):
     @app_commands.choices(topic=[
         app_commands.Choice(name="Leveling", value="leveling"),
         app_commands.Choice(name="Question of the Day", value="qotd"),
+        app_commands.Choice(name="AI", value="ai"),
     ])
     async def config_help(self, interaction: discord.Interaction, topic: str = None):
         category = topic or "overview"
@@ -473,7 +494,7 @@ class ConfigCog(commands.Cog):
             select = ConfigHelpSelect(
                 placeholder=category,
                 disabled_category=category,
-                categories=["overview", "leveling", "qotd"],
+                categories=["overview", "leveling", "qotd", "ai"],
             )
             view = ConfigHelpView(self, select)
             view.author_id = interaction.user.id
@@ -911,6 +932,26 @@ class ConfigCog(commands.Cog):
             conn.close()
 
         await interaction.response.send_message(f"Delete old QOTD messages has been {'enabled' if enabled else 'disabled'}", ephemeral=True)
+
+    @discord.app_commands.allowed_installs(guilds=True, users=False)
+    @discord.app_commands.allowed_contexts(guilds=True, dms=False, private_channels=False)
+    @discord.app_commands.checks.has_permissions(administrator=True)
+    @ai.command(name="toggle", description="Enable or disable AI replies in this server")
+    @app_commands.describe(enabled="Whether the bot should reply with AI in this server")
+    async def toggle_ai(self, interaction: discord.Interaction, enabled: bool):
+        conn = get_db()
+        try:
+            cur = conn.cursor()
+            cur.execute("INSERT INTO guild_settings (guild_id, ai_enabled) VALUES (?, ?) ON CONFLICT(guild_id) DO UPDATE SET ai_enabled = excluded.ai_enabled", (interaction.guild.id, int(enabled))) # type: ignore
+            conn.commit()
+        except Exception as e:
+            logger.error("Failed to toggle AI replies: %s", e)
+            await interaction.response.send_message("Failed to update AI reply setting. Please try again later.", ephemeral=True)
+            return
+        finally:
+            conn.close()
+
+        await interaction.response.send_message(f"AI replies are now **{'enabled' if enabled else 'disabled'}** in this server." + ("" if enabled else " Users can still run `/ai` directly to chat with the AI."), ephemeral=True)
 
 
 async def setup(bot):
