@@ -61,9 +61,13 @@
                 <code>/ai</code>
                 <span>Chat with a self-hosted Llama 3.2 model. Prompts never go to third-party AI services</span>
             </div>
+            <div class="command-card">
+                <code>/aitoggle</code>
+                <span>Turn AI replies on or off for yourself. Off by choice, on by default</span>
+            </div>
         </div>
         <div class="commands-note">
-            <p>You can also just mention <strong>@VoidWave</strong> or reply to one of its messages. Adding <code>--stats</code> to a message appends model info.</p>
+            <p>You can also just mention <strong>@VoidWave</strong> or reply to one of its messages. Adding <code>--stats</code> to a message appends model info. Don't like the AI? Disable replies for yourself with <code>/aitoggle</code>, or ask an admin to turn it off server wide with <code>/config ai toggle</code>.</p>
         </div>
     </div>
 
@@ -266,6 +270,10 @@
                 <code>/feedback</code>
                 <span>Send feedback or suggestions straight to the developers</span>
             </div>
+            <div class="command-card">
+                <code>/rate</code>
+                <span>Rate VoidWave, feedback is optional right in the prompt</span>
+            </div>
         </div>
     </div>
 
@@ -318,7 +326,7 @@
     </div>
 
     <div class="commands-note">
-        <p>Admin configuration commands are available under <code>/config</code>. See the <a href="/setup">setup guide</a> for details.</p>
+        <p>Admin configuration commands are available under <code>/config</code>, including <code>/config ai toggle</code> to turn AI replies on or off for the whole server. See the <a href="/setup">setup guide</a> for details.</p>
     </div>
 
 </section>
