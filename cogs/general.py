@@ -5,6 +5,7 @@ import time
 import datetime
 import logging
 from utils import startup, get_db, is_blocked, block_reply
+from cogs.rating import send_rating_prompt
 
 logger = logging.getLogger("cogs.general")
 
@@ -83,6 +84,7 @@ class GeneralCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.feedback_cooldowns = {}
+        self.rating_cooldowns = {}
 
     def _help_embed(self, category):
         embeds = {
@@ -129,8 +131,10 @@ class GeneralCog(commands.Cog):
                     "`/vote-remind` - Toggle vote reminders\n"
                     "`/calc <expression>` - Calculator\n"
                     "`/ai <message>` - Chat with the AI\n"
+                    "`/aitoggle [enabled]` - Turn AI replies on or off for yourself\n"
                     "`/userinfo <user>` - Look up a user\n"
-                    "`/feedback <feedback>` - Message the developers"
+                    "`/feedback <feedback>` - Message the developers\n"
+                    "`/rate` - Rate VoidWave"
                 ),
                 inline=False,
             ),
@@ -239,7 +243,8 @@ class GeneralCog(commands.Cog):
                 value=(
                     "`/config auto [level] [qotd]` - One-command setup\n"
                     "`/config view` - Show current config\n"
-                    "`/config help` - All config commands"
+                    "`/config help` - All config commands\n"
+                    "`/config ai toggle <on|off>` - Turn AI replies on or off for the server"
                 ),
                 inline=False,
             ),
@@ -452,6 +457,29 @@ class GeneralCog(commands.Cog):
 
         self.feedback_cooldowns[interaction.user.id] = time.time()
         await interaction.followup.send("Thank you! Your feedback has been sent straight to the VoidWave developers. 💜", ephemeral=True)
+
+    @discord.app_commands.allowed_installs(guilds=True, users=True)
+    @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
+    @discord.app_commands.command(name="rate", description="Rate VoidWave.")
+    async def rate(self, interaction: discord.Interaction):
+        remaining = self.rating_cooldowns.get(interaction.user.id, 0) + 60 - time.time()
+        if remaining > 0:
+            await interaction.response.send_message(f"Woah there, one rating at a time! Try again in `{remaining:.0f} seconds`.", ephemeral=True)
+            return
+
+        try:
+            sent = await send_rating_prompt(self.bot, interaction.user.id, interaction.guild.name if interaction.guild else "DMs")
+        except Exception as e:
+            logger.error("Failed to send rating prompt to %s: %s", interaction.user.id, e)
+            await interaction.response.send_message("Something went wrong while opening the rating prompt. Please try again later.", ephemeral=True)
+            return
+
+        self.rating_cooldowns[interaction.user.id] = time.time()
+
+        if sent:
+            await interaction.response.send_message("Rating prompt sent to your DMs! Check your DMs to rate VoidWave. 💜", ephemeral=True)
+        else:
+            await interaction.response.send_message("Couldn't reach you in DMs. Open your DMs to user-installed apps and try again. 💜", ephemeral=True)
 
 
 async def setup(bot):
