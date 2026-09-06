@@ -435,7 +435,7 @@ class TriviaBattleView(discord.ui.View):
             await interaction.response.send_message("The battle has already started, you cannot leave!", ephemeral=True)
             return
         if interaction.user.id == self.host.id:
-            await self._host_left()
+            await self._host_left(interaction)
             return
 
         self.players = [p for p in self.players if p.id != interaction.user.id]
@@ -447,7 +447,8 @@ class TriviaBattleView(discord.ui.View):
 
         await interaction.response.edit_message(embed=self._lobby_embed(), view=self)
 
-    async def _host_left(self):
+    async def _host_left(self, interaction):
+        await interaction.response.defer()
         for child in self.children:
             child.disabled = True
         embed = discord.Embed(
@@ -488,6 +489,11 @@ class TriviaBattleView(discord.ui.View):
             self.auto_task.cancel()
             self.auto_task = None
         await self._begin()
+
+    async def on_timeout(self):
+        if self.auto_task:
+            self.auto_task.cancel()
+            self.auto_task = None
 
     async def _begin(self):
         if self.started:
@@ -606,6 +612,11 @@ class TriviaBattleView(discord.ui.View):
 
     async def _finish(self, override=None):
         self.running = False
+        if self.task and not self.task.done() and asyncio.current_task() is not self.task:
+            self.task.cancel()
+        if self.auto_task:
+            self.auto_task.cancel()
+            self.auto_task = None
         sorted_scores = sorted(self.scores.items(), key=lambda kv: kv[1], reverse=True)
         winner = self._player_obj(sorted_scores[0][0]).mention if sorted_scores else "Nobody"
         desc = f"{override + chr(10) + chr(10) if override else ''}**{winner}** wins the battle!\n\n" + self._scores_block()
