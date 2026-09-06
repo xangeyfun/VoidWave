@@ -375,8 +375,9 @@ class ConfigCog(commands.Cog):
                         description="If you can read this, the daily question will post here correctly.",
                         color=0x7128fc,
                     ))
-                    await msg.create_thread(name="🧪 Config test", auto_archive_duration=60)
-                    qotd_results.append(("ok", f"Test message and thread delivered to {qotd_channel.mention}"))
+                    thread = await msg.create_thread(name="🧪 Config test", auto_archive_duration=60)
+                    await thread.send("If you can read this, threads and pings will work correctly when the daily question posts.")
+                    qotd_results.append(("ok", f"Test message, thread, and thread message delivered to {qotd_channel.mention}"))
                 except Exception as e:
                     qotd_results.append(("fail", f"Test to {qotd_channel.mention} failed: {e}"))
 
