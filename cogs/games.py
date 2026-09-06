@@ -5,10 +5,13 @@ import random
 import html as html_module
 import asyncio
 import time
+import logging
 import utils
 
 
 VOIDWAVE_COLOR = 0x7128fc
+
+logger = logging.getLogger("cogs.games")
 
 _trivia_headers = {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) VoidWave/1.0"}
 
@@ -237,6 +240,13 @@ class TicTacToeView(discord.ui.View):
             found_winner = self.winner is not None
 
         game_over = found_winner or self.move_count == 9
+        if game_over:
+            if self.winner == "player":
+                logger.info("Tic-tac-toe: %s won against VoidWave (moves: %s)", self.player, self.move_count)
+            elif self.winner == "bot":
+                logger.info("Tic-tac-toe: %s lost to VoidWave (moves: %s)", self.player, self.move_count)
+            else:
+                logger.info("Tic-tac-toe: draw between %s and VoidWave", self.player)
         embed = self._state_embed(over=game_over)
 
         for i, child in enumerate(self.children):
@@ -451,6 +461,7 @@ class TriviaBattleView(discord.ui.View):
         await interaction.response.defer()
         for child in self.children:
             child.disabled = True
+        logger.info("Trivia battle (%s rounds) cancelled: host %s left", self.rounds, self.host)
         embed = discord.Embed(
             title="Trivia Battle",
             description="The host left, so the battle was cancelled.",
@@ -618,7 +629,16 @@ class TriviaBattleView(discord.ui.View):
             self.auto_task.cancel()
             self.auto_task = None
         sorted_scores = sorted(self.scores.items(), key=lambda kv: kv[1], reverse=True)
-        winner = self._player_obj(sorted_scores[0][0]).mention if sorted_scores else "Nobody"
+        winner_obj = self._player_obj(sorted_scores[0][0]) if sorted_scores else None
+        winner = winner_obj.mention if winner_obj else "Nobody"
+        logger.info(
+            "Trivia battle finished (%s players, %s rounds): winner %s  |  %s  |  %s",
+            len(self.scores),
+            self.rounds,
+            winner_obj.display_name if winner_obj else "Nobody",
+            override or "no errors",
+            {self._name(uid) + " " + str(score): score for uid, score in sorted_scores},
+        )
         desc = f"{override + chr(10) + chr(10) if override else ''}**{winner}** wins the battle!\n\n" + self._scores_block()
         embed = discord.Embed(
             title="Trivia Battle Finished",
@@ -821,6 +841,13 @@ class ConnectFourView(discord.ui.View):
                 self.winner = "bot"
 
         game_over = self.winner is not None or self.move_count >= CONNECT_FOUR_ROWS * CONNECT_FOUR_COLS
+        if game_over:
+            if self.winner == "player":
+                logger.info("Connect Four: %s won against VoidWave", self.player)
+            elif self.winner == "bot":
+                logger.info("Connect Four: %s lost to VoidWave", self.player)
+            else:
+                logger.info("Connect Four: draw between %s and VoidWave", self.player)
         embed = self._board_embed(over=game_over)
 
         if game_over:
@@ -1038,6 +1065,10 @@ class HangmanView(discord.ui.View):
 
         if self.wrong >= HANGMAN_MAX_WRONG or all(ch in self.guessed for ch in self.word):
             self.done = True
+            if all(ch in self.guessed for ch in self.word):
+                logger.info("Hangman: %s won (word: %s)", self.player, self.word)
+            else:
+                logger.info("Hangman: %s lost (word: %s, wrong: %s)", self.player, self.word, self.wrong)
 
         embed = self._refresh_embed_and_view()
         await interaction.response.edit_message(embed=embed, view=self)
@@ -1301,6 +1332,10 @@ class WordleView(discord.ui.View):
             self.done = True
             for child in self.children:
                 child.disabled = True
+            if guess == self.word:
+                logger.info("Wordle: %s won in %s guess(es) (word: %s)", self.player, len(self.guesses), self.word)
+            else:
+                logger.info("Wordle: %s lost (word: %s, guesses: %s)", self.player, self.word, len(self.guesses))
 
         embed = self._state_embed()
         await self._edit(embed)
@@ -1315,6 +1350,7 @@ class WordleView(discord.ui.View):
         self.done = True
         for child in self.children:
             child.disabled = True
+        logger.info("Wordle: %s revealed the answer instead of finishing (word: %s)", self.player, self.word)
         await self._edit(self._state_embed())
 
     async def _edit(self, embed):
@@ -1522,8 +1558,14 @@ class MinesweeperView(discord.ui.View):
                 return
             await interaction.response.send_message("You've placed all your flags.", ephemeral=True)
             return
+        was_over = self.over or self.won
         self._reveal(idx)
         self._check_win()
+        if not was_over:
+            if self.over:
+                logger.info("Minesweeper: %s hit a mine (mines: %s)", self.player, self.mine_count)
+            elif self.won:
+                logger.info("Minesweeper: %s cleared the field (mines: %s)", self.player, self.mine_count)
         await self._update(interaction)
 
     async def _toggle_flag_mode(self, interaction: discord.Interaction):
@@ -1666,6 +1708,7 @@ class PuzzleView(discord.ui.View):
         self.moves += 1
         if self.board == list(PUZZLE_SOLVED):
             self.won = True
+            logger.info("15-puzzle: %s solved the puzzle in %s moves", self.player, self.moves)
         await self._update(interaction)
 
     async def _clear_invalid(self, interaction: discord.Interaction, idx: int):
@@ -1871,6 +1914,7 @@ class BattleshipView(discord.ui.View):
         if self._player_won():
             self.over = True
             self.won = True
+            logger.info("Battleship: %s sank the enemy fleet (%s shots)", self.player, len(self.shots_on_bot))
             await self._update(interaction)
             return
 
@@ -1878,6 +1922,7 @@ class BattleshipView(discord.ui.View):
         if self._bot_won():
             self.over = True
             self.won = False
+            logger.info("Battleship: %s lost to VoidWave", self.player)
         await self._update(interaction)
 
     def _hunt_candidates(self):
@@ -1963,6 +2008,7 @@ class BattleshipView(discord.ui.View):
         for ship in self.player_ships:
             for cell in ship:
                 self.shots_on_player[cell] = "hit"
+        logger.info("Battleship: %s surrendered", self.player)
         await self._update(interaction)
 
     async def _update(self, interaction: discord.Interaction):
