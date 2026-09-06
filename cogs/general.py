@@ -408,9 +408,11 @@ class GeneralCog(commands.Cog):
 
         if not turn_on:
             await interaction.response.send_message("🔕 Vote reminders are now off. Run `/vote-remind` any time to turn them back on.", ephemeral=True)
+            logger.info("%s (ID: %s) turned off vote reminders", interaction.user, interaction.user.id)
             return
 
         await interaction.response.send_message(confirm, ephemeral=True)
+        logger.info("%s (ID: %s) turned on vote reminders", interaction.user, interaction.user.id)
 
 
     @discord.app_commands.allowed_installs(guilds=True, users=True)
