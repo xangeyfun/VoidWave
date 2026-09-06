@@ -368,16 +368,17 @@ class ConfigCog(commands.Cog):
                     level_results.append(("fail", f"Test message to {level_channel.mention} failed: {e}"))
 
             qotd_channel = interaction.guild.get_channel(settings["qotd_channel"]) if settings["qotd_channel"] else None
-            if isinstance(qotd_channel, discord.TextChannel):
+            if isinstance(qotd_channel, discord.TextChannel) and settings["qotd_enabled"]:
                 try:
-                    await qotd_channel.send(embed=discord.Embed(
+                    msg = await qotd_channel.send(embed=discord.Embed(
                         title="🧪 Configuration test",
                         description="If you can read this, the daily question will post here correctly.",
                         color=0x7128fc,
                     ))
-                    qotd_results.append(("ok", f"Test message delivered to {qotd_channel.mention}"))
+                    await msg.create_thread(name="🧪 Config test", auto_archive_duration=60)
+                    qotd_results.append(("ok", f"Test message and thread delivered to {qotd_channel.mention}"))
                 except Exception as e:
-                    qotd_results.append(("fail", f"Test message to {qotd_channel.mention} failed: {e}"))
+                    qotd_results.append(("fail", f"Test to {qotd_channel.mention} failed: {e}"))
 
         all_results = level_results + qotd_results
         fails = sum(1 for s, _ in all_results if s == "fail")
@@ -665,6 +666,16 @@ class ConfigCog(commands.Cog):
                 await interaction.response.send_message("Please set a level up channel first using `/config level set_channel`", ephemeral=True)
                 return
 
+            permissions = channel.permissions_for(interaction.guild.me)
+            needed = ["view_channel", "send_messages", "embed_links"]
+            missing = [n.replace("_", " ") for n in needed if not getattr(permissions, n)]
+            if missing:
+                await interaction.response.send_message(
+                    f"I'm missing {', '.join(missing)} in {channel.mention}. "
+                    f"Please update my permissions for that channel.",
+                    ephemeral=True)
+                return
+
             cur.execute("INSERT INTO guild_settings (guild_id, level_channel_enabled) VALUES (?, ?) ON CONFLICT(guild_id) DO UPDATE SET level_channel_enabled = excluded.level_channel_enabled", (interaction.guild.id, int(enabled))) # type: ignore
             conn.commit()
 
@@ -848,8 +859,13 @@ class ConfigCog(commands.Cog):
                 return
 
             permissions = channel.permissions_for(interaction.guild.me)
-            if not permissions.send_messages or not permissions.view_channel:
-                await interaction.response.send_message(f"I don't have permission to send messages in {channel.mention}. Please update my permissions for that channel.", ephemeral=True)
+            needed = ["view_channel", "send_messages", "embed_links", "create_public_threads", "send_messages_in_threads"]
+            missing = [n.replace("_", " ") for n in needed if not getattr(permissions, n)]
+            if missing:
+                await interaction.response.send_message(
+                    f"I'm missing {', '.join(missing)} in {channel.mention}. "
+                    f"Please update my permissions for that channel.",
+                    ephemeral=True)
                 return
 
             role = cur.execute("SELECT qotd_role_id FROM guild_settings WHERE guild_id = ?", (interaction.guild.id,)).fetchone() # type: ignore
