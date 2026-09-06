@@ -62,6 +62,9 @@ class ChallengeView(discord.ui.View):
 
     @discord.ui.button(label="Decline", style=discord.ButtonStyle.danger, row=0)
     async def decline(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id != self.challengee.id:
+            await interaction.response.send_message("Only the challenged player can decline!", ephemeral=True)
+            return
         for child in self.children:
             child.disabled = True
         self.stop()
@@ -516,12 +519,13 @@ class BlackjackLobbyView(discord.ui.View):
             await interaction.response.send_message("The game has already started, you cannot leave!", ephemeral=True)
             return
         if interaction.user.id == self.host.id:
-            await self._host_left()
+            await self._host_left(interaction)
             return
         self.players = [p for p in self.players if p.id != interaction.user.id]
         await interaction.response.edit_message(embed=self._embed(), view=self)
 
-    async def _host_left(self):
+    async def _host_left(self, interaction):
+        await interaction.response.defer()
         for child in self.children:
             child.disabled = True
         embed = discord.Embed(
