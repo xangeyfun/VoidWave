@@ -5,7 +5,7 @@ import discord
 import random
 import time
 import logging
-from utils import get_db, format_minutes, last_vc, VC_COOLDOWN, last_xp, XP_COOLDOWN, get_vote_boost, build_level_up_embed, log_admin_event
+from utils import get_db, format_minutes, last_vc, VC_COOLDOWN, last_xp, XP_COOLDOWN, get_vote_boost, build_level_up_embed, log_admin_event, LEVEL_TIERS, LEVEL_RANK_UP_LEVELS
 
 logger = logging.getLogger("cogs.leveling")
 
@@ -303,6 +303,7 @@ def _process_vc_ticks(records):
                     0, 0,
                     avatar_key
                 ))
+                logger.info("New user row created: %s (ID: %s) in guild %s", display_name, member_id, guild_id)
 
             last_vc_ts = last_vc.get((guild_id, member_id))
             if members_in_channel < 2 or self_deaf or (last_vc_ts is not None and now - last_vc_ts < VC_COOLDOWN):
@@ -644,6 +645,20 @@ class LevelingCog(commands.Cog):
         for k in [k for k in last_xp if now - last_xp[k] > XP_COOLDOWN]:
             del last_xp[k]
 
+        try:
+            conn = get_db()
+            try:
+                expired = conn.execute(
+                    "SELECT user_id FROM vote_boosts WHERE expires_at BETWEEN ? AND ?",
+                    (int(now - 120), int(now))
+                ).fetchall()
+            finally:
+                conn.close()
+            for row in expired:
+                logger.info("Vote boost expired for user %s (was 2x XP)", row["user_id"])
+        except Exception as e:
+            logger.error("Failed to check expired vote boosts: %s", e)
+
         level_ups = await asyncio.to_thread(_process_vc_ticks, records)
 
         for ev in level_ups:
@@ -655,6 +670,20 @@ class LevelingCog(commands.Cog):
             if not member:
                 continue
 
+            is_rank_up = ev["level"] in LEVEL_RANK_UP_LEVELS
+            if is_rank_up:
+                tier = next(t for t in reversed(LEVEL_TIERS) if ev["level"] >= t[0])
+                logger.info("RANK UP: %s (ID: %s) ascended to %s at Level %s in guild %s", ev["display_name"], ev["member_id"], tier[2], ev["level"], ev["guild_id"])
+            else:
+                logger.info("Level up: %s (ID: %s) reached level %s in guild %s", ev["display_name"], ev["member_id"], ev["level"], ev["guild_id"])
+
+            log_admin_event(
+                "level_up",
+                f"{ev['display_name']} reached level {ev['level']}",
+                guild_id=ev["guild_id"],
+                user_id=ev["member_id"],
+            )
+
             new_roles = []
             for role_id in ev["new_role_ids"]:
                 role = member.guild.get_role(role_id)
@@ -662,6 +691,7 @@ class LevelingCog(commands.Cog):
                     try:
                         await member.add_roles(role)
                         new_roles.append(role)
+                        logger.info("Granted level-reward role %s (ID: %s) to %s in guild %s", role, role.id, member, ev["guild_id"])
                     except discord.Forbidden:
                         logger.warning("Missing permissions to assign role %s in guild %s", role_id, ev["guild_id"])
                     except Exception as e:
@@ -683,12 +713,8 @@ class LevelingCog(commands.Cog):
                     logger.warning("Missing permissions to send level-up message in %s for guild %s", channel.id, ev["guild_id"])
                 except Exception as e:
                     logger.error("Failed to send level-up message: %s", e)
-                log_admin_event(
-                    "level_up",
-                    f"{ev['display_name']} reached level {ev['level']}",
-                    guild_id=ev["guild_id"],
-                    user_id=ev["member_id"],
-                )
+            else:
+                logger.warning("Level up for %s (ID: %s) in guild %s but no enabled level-up channel is set", ev["display_name"], ev["member_id"], ev["guild_id"])
 
 
 async def setup(bot):
