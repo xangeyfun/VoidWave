@@ -64,7 +64,17 @@ class ModerationCog(commands.Cog):
             return
 
         await interaction.response.defer(ephemeral=hidden)
-        await member.kick(reason=reason)
+        try:
+            await member.kick(reason=reason)
+        except discord.Forbidden:
+            await interaction.followup.send("I don't have permission to kick members.", ephemeral=hidden)
+            return
+        except discord.NotFound:
+            await interaction.followup.send(f"**{member}** is no longer in the server.", ephemeral=hidden)
+            return
+        except discord.HTTPException:
+            await interaction.followup.send("Something went wrong while kicking that member. Please try again later.", ephemeral=hidden)
+            return
         await interaction.followup.send(f"Kicked **{member}**.{f' Reason: {reason}' if reason else ''}", ephemeral=hidden)
 
     @discord.app_commands.checks.bot_has_permissions(ban_members=True)
@@ -79,7 +89,17 @@ class ModerationCog(commands.Cog):
 
         delete_days = max(0, min(delete_days, 7))
         await interaction.response.defer(ephemeral=hidden)
-        await member.ban(reason=reason, delete_message_seconds=delete_days * 86400)
+        try:
+            await member.ban(reason=reason, delete_message_seconds=delete_days * 86400)
+        except discord.Forbidden:
+            await interaction.followup.send("I don't have permission to ban members.", ephemeral=hidden)
+            return
+        except discord.NotFound:
+            await interaction.followup.send(f"**{member}** is no longer in the server.", ephemeral=hidden)
+            return
+        except discord.HTTPException:
+            await interaction.followup.send("Something went wrong while banning that member. Please try again later.", ephemeral=hidden)
+            return
         await interaction.followup.send(f"Banned **{member}**.{f' Reason: {reason}' if reason else ''}", ephemeral=hidden)
 
     @discord.app_commands.checks.bot_has_permissions(ban_members=True)
@@ -114,7 +134,17 @@ class ModerationCog(commands.Cog):
         factors = {"minutes": 1, "hours": 60, "days": 1440}
         minutes = max(1, min(amount * factors[unit], 40320))
         await interaction.response.defer(ephemeral=hidden)
-        await member.timeout(datetime.timedelta(minutes=minutes), reason=reason)
+        try:
+            await member.timeout(datetime.timedelta(minutes=minutes), reason=reason)
+        except discord.Forbidden:
+            await interaction.followup.send("I don't have permission to timeout members.", ephemeral=hidden)
+            return
+        except discord.NotFound:
+            await interaction.followup.send(f"**{member}** is no longer in the server.", ephemeral=hidden)
+            return
+        except discord.HTTPException:
+            await interaction.followup.send("Something went wrong while timing out that member. Please try again later.", ephemeral=hidden)
+            return
         await interaction.followup.send(f"Timed out **{member}** for **{amount} {unit}**.{f' Reason: {reason}' if reason else ''}", ephemeral=hidden)
 
     @discord.app_commands.checks.bot_has_permissions(manage_channels=True)
@@ -127,7 +157,17 @@ class ModerationCog(commands.Cog):
             channel = channel.parent
         seconds = max(0, min(seconds, 21600))
         await interaction.response.defer(ephemeral=hidden)
-        await channel.edit(slowmode_delay=seconds)
+        try:
+            await channel.edit(slowmode_delay=seconds)
+        except discord.Forbidden:
+            await interaction.followup.send("I don't have permission to change slowmode in that channel.", ephemeral=hidden)
+            return
+        except discord.NotFound:
+            await interaction.followup.send("That channel no longer exists.", ephemeral=hidden)
+            return
+        except discord.HTTPException:
+            await interaction.followup.send("Something went wrong while changing slowmode. Please try again later.", ephemeral=hidden)
+            return
         if seconds:
             await interaction.followup.send(f"Set slowmode to **{seconds} seconds** in {channel.mention}.", ephemeral=hidden)
         else:
@@ -147,7 +187,17 @@ class ModerationCog(commands.Cog):
         overwrite = overwrites.get(everyone, discord.PermissionOverwrite())
         overwrite.update(send_messages=False)
         overwrites[everyone] = overwrite
-        await channel.edit(overwrites=overwrites)
+        try:
+            await channel.edit(overwrites=overwrites)
+        except discord.Forbidden:
+            await interaction.followup.send("I don't have permission to lock that channel.", ephemeral=hidden)
+            return
+        except discord.NotFound:
+            await interaction.followup.send("That channel no longer exists.", ephemeral=hidden)
+            return
+        except discord.HTTPException:
+            await interaction.followup.send("Something went wrong while locking the channel. Please try again later.", ephemeral=hidden)
+            return
         await interaction.followup.send(f"Locked {channel.mention}.{f' Reason: {reason}' if reason else ''}", ephemeral=hidden)
 
     @discord.app_commands.checks.bot_has_permissions(manage_channels=True)
@@ -166,7 +216,17 @@ class ModerationCog(commands.Cog):
             overwrite.update(send_messages=None)
             if overwrite.is_empty():
                 overwrites.pop(everyone, None)
-            await channel.edit(overwrites=overwrites)
+            try:
+                await channel.edit(overwrites=overwrites)
+            except discord.Forbidden:
+                await interaction.followup.send("I don't have permission to unlock that channel.", ephemeral=hidden)
+                return
+            except discord.NotFound:
+                await interaction.followup.send("That channel no longer exists.", ephemeral=hidden)
+                return
+            except discord.HTTPException:
+                await interaction.followup.send("Something went wrong while unlocking the channel. Please try again later.", ephemeral=hidden)
+                return
         await interaction.followup.send(f"Unlocked {channel.mention}.", ephemeral=hidden)
 
     @discord.app_commands.checks.bot_has_permissions(manage_roles=True)
@@ -183,7 +243,17 @@ class ModerationCog(commands.Cog):
         if role in member.roles:
             await interaction.followup.send(f"{member.mention} already has {role.mention}.", ephemeral=hidden)
             return
-        await member.add_roles(role, reason=f"Added by {interaction.user}")
+        try:
+            await member.add_roles(role, reason=f"Added by {interaction.user}")
+        except discord.Forbidden:
+            await interaction.followup.send("I don't have permission to give that role.", ephemeral=hidden)
+            return
+        except discord.NotFound:
+            await interaction.followup.send(f"**{member}** is no longer in the server or the role no longer exists.", ephemeral=hidden)
+            return
+        except discord.HTTPException:
+            await interaction.followup.send("Something went wrong while adding the role. Please try again later.", ephemeral=hidden)
+            return
         await interaction.followup.send(f"Gave {role.mention} to **{member}**.", ephemeral=hidden)
 
     @discord.app_commands.checks.bot_has_permissions(manage_roles=True)
@@ -200,7 +270,17 @@ class ModerationCog(commands.Cog):
         if role not in member.roles:
             await interaction.followup.send(f"{member.mention} doesn't have {role.mention}.", ephemeral=hidden)
             return
-        await member.remove_roles(role, reason=f"Removed by {interaction.user}")
+        try:
+            await member.remove_roles(role, reason=f"Removed by {interaction.user}")
+        except discord.Forbidden:
+            await interaction.followup.send("I don't have permission to remove that role.", ephemeral=hidden)
+            return
+        except discord.NotFound:
+            await interaction.followup.send(f"**{member}** is no longer in the server or the role no longer exists.", ephemeral=hidden)
+            return
+        except discord.HTTPException:
+            await interaction.followup.send("Something went wrong while removing the role. Please try again later.", ephemeral=hidden)
+            return
         await interaction.followup.send(f"Removed {role.mention} from **{member}**.", ephemeral=hidden)
 
 
