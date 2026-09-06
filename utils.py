@@ -422,6 +422,10 @@ def _do_message_xp(guild_id, user_id, display_name, username, avatar_key, conten
         now = time.time()
         avatar = avatar_key
         last_ts = last_xp.get((guild_id, user_id))
+        is_new = cur.execute(
+            "SELECT 1 FROM users WHERE guild_id=? AND user_id=?",
+            (guild_id, user_id)
+        ).fetchone() is None
 
         if cur.execute(
             "SELECT 1 FROM user_blocks WHERE user_id=? AND feature=? "
@@ -448,6 +452,8 @@ def _do_message_xp(guild_id, user_id, display_name, username, avatar_key, conten
                     avatar_hash = excluded.avatar_hash
             """, (guild_id, user_id, display_name, username, str(datetime.datetime.now()), avatar))
             conn.commit()
+            if is_new:
+                logger.info("New user row created: %s (ID: %s) in guild %s", display_name, user_id, guild_id)
             return None
 
         xp = random.randint(1, 15)
@@ -529,6 +535,8 @@ def _do_message_xp(guild_id, user_id, display_name, username, avatar_key, conten
                 }
 
         conn.commit()
+        if is_new:
+            logger.info("New user row created: %s (ID: %s) in guild %s", display_name, user_id, guild_id)
         return payload
     except sqlite3.Error as e:
         logger.error("Failed to add message XP for %s in %s: %s", user_id, guild_id, e)
@@ -558,11 +566,28 @@ async def add_message_xp(bot, message):
     progress = payload["progress"]
     out_of = payload["out_of"]
     boost = payload["boost"]
+
+    is_rank_up = level in LEVEL_RANK_UP_LEVELS
+    if is_rank_up:
+        tier = next(t for t in reversed(LEVEL_TIERS) if level >= t[0])
+        logger.info("RANK UP: %s (ID: %s) ascended to %s at Level %s in guild %s", message.author, user_id, tier[2], level, guild_id)
+    else:
+        logger.info("Level up: %s (ID: %s) reached level %s in guild %s", message.author, user_id, level, guild_id)
+
+    log_admin_event(
+        "level_up",
+        f"{message.author.display_name} reached level {level}",
+        guild_id=guild_id,
+        user_id=user_id,
+    )
+
     has_channel = bool(
         payload["level_channel_id"]
         and payload["level_channel_enabled"]
         and isinstance(bot.get_channel(payload["level_channel_id"]), discord.TextChannel)
     )
+    if not has_channel:
+        logger.warning("Level up for %s (ID: %s) in guild %s but no enabled level-up channel is set", message.author, user_id, guild_id)
 
     new_roles = []
     for role_id in payload["new_role_ids"]:
@@ -571,6 +596,7 @@ async def add_message_xp(bot, message):
             try:
                 await message.author.add_roles(role)
                 new_roles.append(role)
+                logger.info("Granted level-reward role %s (ID: %s) to %s in guild %s", role, role.id, message.author, guild_id)
             except discord.Forbidden:
                 logger.warning("Missing permissions to assign role %s in guild %s", role_id, guild_id)
             except Exception as e:
@@ -592,13 +618,6 @@ async def add_message_xp(bot, message):
             logger.warning("Missing permissions to send level-up message in %s for guild %s", channel.id, guild_id)
         except Exception as e:
             logger.error("Failed to send level-up message: %s", e)
-
-        log_admin_event(
-            "level_up",
-            f"{message.author.display_name} reached level {level}",
-            guild_id=guild_id,
-            user_id=user_id,
-        )
 
 
 async def send_qotd(bot, channel_id, role_id, guild_id):
