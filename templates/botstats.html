@@ -110,27 +110,6 @@
         </div>
     </section>
 
-    <section class="bs-growth bs-card bs-card-lg">
-        <header class="bs-card-head">
-            <div>
-                <h2>Growth over time</h2>
-                <p class="bs-card-sub">Users, XP, messages, and voice across all servers</p>
-            </div>
-            <div class="range-tabs" id="growthTabs">
-                <button type="button" data-range="24h">24h</button>
-                <button type="button" data-range="7d">7d</button>
-                <button type="button" data-range="30d">30d</button>
-                <button type="button" data-range="90d">90d</button>
-                <button type="button" data-range="all" class="on">All</button>
-            </div>
-        </header>
-        <div class="range-summary" id="growthSummary"></div>
-        <div class="bs-chart bs-chart-lg">
-            <div class="chart-skeleton" id="sk-chartGrowth"></div>
-            <canvas id="chartGrowth"></canvas>
-        </div>
-    </section>
-
     <section class="bs-trends">
         <div class="bs-trend bs-card">
             <header class="bs-trend-head">
@@ -252,18 +231,9 @@
         total_guilds: '#8438fc', total_members: '#a78bfa', total_users: '#60a5fa',
         total_messages: '#22c55e', total_xp: '#fbbf24', total_vc_minutes: '#f472b6'
     };
-    const GROWTH_META = [
-        { key: 'total_guilds', label: 'Servers', color: '#8438fc' },
-        { key: 'total_members', label: 'Members', color: '#a78bfa' },
-        { key: 'total_xp', label: 'XP', color: '#fbbf24' },
-        { key: 'total_messages', label: 'Messages', color: '#22c55e' },
-        { key: 'total_vc_minutes', label: 'Voice', color: '#f472b6' },
-    ];
 
     const seriesCache = {};
     const charts = [];
-    let growthChart = null;
-    let growthRange = 'all';
 
     function fmtCount(n) { return Math.round(n).toLocaleString('en-US'); }
     function fmtVoice(min) {
@@ -358,13 +328,19 @@
             ctx.beginPath(); ctx.moveTo(el.x, ca.top); ctx.lineTo(el.x, ca.bottom); ctx.stroke();
             ctx.beginPath(); ctx.moveTo(ca.left, el.y); ctx.lineTo(ca.right, el.y); ctx.stroke();
             const point = data.datasets[0].data[active[0].index];
-            const val = typeof point.y === 'number' ? point.y.toLocaleString() : point.y;
-            const d = new Date(point.x);
-            const range = chart.scales.x.max - chart.scales.x.min;
-            const dateStr = range < 86400000
-                ? d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
-                : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-            const text = dateStr + '  ' + val;
+            let text;
+            if (point && typeof point === 'object' && point.x != null) {
+                const val = typeof point.y === 'number' ? point.y.toLocaleString() : point.y;
+                const d = new Date(point.x);
+                const range = chart.scales.x.max - chart.scales.x.min;
+                const dateStr = range < 86400000
+                    ? d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+                    : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                text = dateStr + '  ' + val;
+            } else {
+                const label = data.labels ? data.labels[active[0].index] : '';
+                text = String(label) + '  ' + (typeof point === 'number' ? point.toLocaleString() : point);
+            }
             ctx.font = 'bold 13px system-ui, sans-serif';
             const tw = ctx.measureText(text).width;
             const pad = 8, bh = 26, bw = tw + pad * 2;
@@ -562,105 +538,6 @@
         }
     }
 
-    /* ---- combined growth chart ---- */
-    function renderSummary(range) {
-        const box = document.getElementById('growthSummary');
-        if (!box) return;
-        const d = seriesCache[range];
-        if (!d) return;
-        const frag = document.createDocumentFragment();
-        GROWTH_META.forEach(function(m) {
-            const s = d.series[m.key];
-            if (!s.length) return;
-            const first = s[0][1], last = s[s.length - 1][1];
-            const diff = last - first;
-            const chip = document.createElement('span');
-            chip.className = 'range-chip';
-            const strong = document.createElement('strong');
-            strong.textContent = m.label;
-            chip.appendChild(strong);
-            chip.appendChild(document.createTextNode(' ' + fmtCompact(first) + ' \u2192 ' + fmtCompact(last)));
-            const delta = document.createElement('span');
-            delta.className = diff >= 0 ? 'delta-up' : 'delta-down';
-            delta.textContent = (diff >= 0 ? '+' : '') + fmtCompact(diff);
-            chip.appendChild(delta);
-            frag.appendChild(chip);
-        });
-        box.replaceChildren(frag);
-    }
-
-    function buildGrowthChart(range) {
-        const d = seriesCache[range];
-        const canvas = document.getElementById('chartGrowth');
-        if (!d || !canvas) return;
-        const scales = { x: Object.assign({}, xScale) };
-        const datasets = GROWTH_META.map(function(m) {
-            const pts = pointData(d.series[m.key]);
-            let lo = Infinity, hi = -Infinity;
-            pts.forEach(function(p) {
-                if (p.y < lo) lo = p.y;
-                if (p.y > hi) hi = p.y;
-            });
-            if (!isFinite(lo)) { lo = 0; hi = 1; }
-            if (lo === hi) { lo = lo - 1; hi = hi + 1; }
-            scales['ax_' + m.key] = { display: false, min: lo, max: hi };
-            return {
-                label: m.label,
-                data: pts,
-                borderColor: m.color,
-                backgroundColor: m.color,
-                borderWidth: 2,
-                pointRadius: 0,
-                pointHoverRadius: 4,
-                tension: 0.25,
-                yAxisID: 'ax_' + m.key
-            };
-        });
-        if (growthChart) growthChart.destroy();
-        growthChart = new Chart(canvas.getContext('2d'), {
-            type: 'line',
-            data: { datasets: datasets },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                animation: false,
-                devicePixelRatio: 1,
-                interaction: { mode: 'nearest', axis: 'x', intersect: false },
-                plugins: {
-                    legend: {
-                        labels: { color: axisColor, boxWidth: 12, font: { size: 11 } },
-                        onClick: function(e, legendItem, legend) {
-                            Chart.defaults.plugins.legend.onClick.call(this, e, legendItem, legend);
-                            if (growthChart.resetZoom) growthChart.resetZoom();
-                        }
-                    },
-                    tooltip: {
-                        callbacks: { label: function(c) { return c.dataset.label + ': ' + fmtCompact(c.parsed.y); } }
-                    },
-                    zoom: Object.assign({}, zoomOpts)
-                },
-                scales: scales
-            }
-        });
-        const sk = document.getElementById('sk-chartGrowth');
-        if (sk) sk.remove();
-    }
-
-    function initTabs() {
-        const tabs = document.getElementById('growthTabs');
-        if (!tabs) return;
-        tabs.addEventListener('click', function(e) {
-            const btn = e.target.closest('button[data-range]');
-            if (!btn || btn.dataset.range === growthRange) return;
-            growthRange = btn.dataset.range;
-            this.querySelectorAll('button').forEach(function(b) { b.classList.toggle('on', b === btn); });
-            fetchSeries(growthRange).then(function() {
-                buildGrowthChart(growthRange);
-                renderSummary(growthRange);
-            });
-        });
-    }
-
     /* ---- ratings bar ---- */
     function initRatings() {
         const ratingDist = {{ rating_distribution | tojson }};
@@ -681,7 +558,7 @@
                 maintainAspectRatio: false,
                 animation: false,
                 devicePixelRatio: 1,
-                plugins: { legend: { display: false } },
+                plugins: { legend: { display: false }, tooltip: { enabled: false } },
                 scales: {
                     x: { ticks: { color: axisColor, font: { size: 11 } }, grid: { color: 'rgba(255,255,255,0.03)' } },
                     y: Object.assign({}, yScale, { beginAtZero: true })
@@ -691,12 +568,9 @@
     }
 
     initCountups();
-    initTabs();
     initCards();
     initRatings();
     allReady.then(function(d) {
-        buildGrowthChart('all');
-        renderSummary('all');
         initSparks(d);
         initTrendValues(d);
     });
