@@ -624,6 +624,7 @@ class ConfigCog(commands.Cog):
             if qotd:
                 msg += f"\n\nNext QOTD: {_next_qotd_timestamp(interaction.guild.id)}"
             await interaction.followup.send(msg, ephemeral=True)
+            logger.info("%s auto-configured guild %s | level: %s | qotd: %s | created: %s", interaction.user, interaction.guild.id, level, qotd, created_items)
 
     @discord.app_commands.allowed_installs(guilds=True, users=False)
     @discord.app_commands.allowed_contexts(guilds=True, dms=False, private_channels=False)
@@ -647,6 +648,7 @@ class ConfigCog(commands.Cog):
             conn.close()
 
         await interaction.response.send_message(f"Level up channel set to {channel.mention}\n\n**Don't forget:** Enable level-up messages with `/config level toggle_channel` to start announcing them!", ephemeral=True)
+        logger.info("%s set level up channel to %s (ID: %s) in guild %s", interaction.user, channel, channel.id, interaction.guild.id)
 
     @discord.app_commands.allowed_installs(guilds=True, users=False)
     @discord.app_commands.allowed_contexts(guilds=True, dms=False, private_channels=False)
@@ -674,6 +676,7 @@ class ConfigCog(commands.Cog):
             conn.close()
 
         await interaction.response.send_message(f"Level up messages have been **{'enabled' if enabled else 'disabled'}**", ephemeral=True)
+        logger.info("%s set level up messages to %s in guild %s", interaction.user, "enabled" if enabled else "disabled", interaction.guild.id)
 
     @discord.app_commands.allowed_installs(guilds=True, users=False)
     @discord.app_commands.allowed_contexts(guilds=True, dms=False, private_channels=False)
@@ -700,6 +703,7 @@ class ConfigCog(commands.Cog):
             conn.close()
 
         await interaction.response.send_message(f"Vote announcements have been **{'enabled' if enabled else 'disabled'}**" + ("" if enabled else " in your level up channel."), ephemeral=True)
+        logger.info("%s set vote announcements to %s in guild %s", interaction.user, "enabled" if enabled else "disabled", interaction.guild.id)
 
     @discord.app_commands.allowed_installs(guilds=True, users=False)
     @discord.app_commands.allowed_contexts(guilds=True, dms=False, private_channels=False)
@@ -724,6 +728,7 @@ class ConfigCog(commands.Cog):
 
         role_text = role.name if role.is_default() else role.mention
         await interaction.response.send_message(f"Role {role_text} will now be given at level {level}", ephemeral=True)
+        logger.info("%s added level role %s (ID: %s) at level %s in guild %s", interaction.user, role, role.id, level, interaction.guild.id)
 
     @discord.app_commands.allowed_installs(guilds=True, users=False)
     @discord.app_commands.allowed_contexts(guilds=True, dms=False, private_channels=False)
@@ -743,6 +748,7 @@ class ConfigCog(commands.Cog):
             conn.close()
 
         await interaction.response.send_message(f"Level role for level {level} has been removed", ephemeral=True)
+        logger.info("%s removed level role at level %s in guild %s", interaction.user, level, interaction.guild.id)
 
     @discord.app_commands.allowed_installs(guilds=True, users=False)
     @discord.app_commands.allowed_contexts(guilds=True, dms=False, private_channels=False)
@@ -777,6 +783,7 @@ class ConfigCog(commands.Cog):
         else:
             msg += "\n\n**Don't forget:** Enable QOTD with `/config qotd enable` to start posting daily questions!"
         await interaction.response.send_message(msg, ephemeral=True)
+        logger.info("%s set QOTD channel to %s (ID: %s) in guild %s", interaction.user, channel, channel.id, interaction.guild.id)
 
     @discord.app_commands.allowed_installs(guilds=True, users=False)
     @discord.app_commands.allowed_contexts(guilds=True, dms=False, private_channels=False)
@@ -823,6 +830,7 @@ class ConfigCog(commands.Cog):
             msg += "\n\nThe schedule changed, so the next QOTD posts at this new time even if one already went out today."
         msg += f"\n\nNext QOTD: {_next_qotd_timestamp(interaction.guild.id)}"
         await interaction.response.send_message(msg, ephemeral=True)
+        logger.info("%s set QOTD time to %s (%s) in guild %s", interaction.user, qotd_time, qotd_tz_label(tz_name), interaction.guild.id)
 
     @discord.app_commands.allowed_installs(guilds=True, users=False)
     @discord.app_commands.allowed_contexts(guilds=True, dms=False, private_channels=False)
@@ -863,6 +871,7 @@ class ConfigCog(commands.Cog):
                 msg += "\n\nNo ping role set, so questions post without a ping. Add one anytime with `/config qotd set_role`."
             msg += f"\n\nNext QOTD: {_next_qotd_timestamp(interaction.guild.id)}"
         await interaction.response.send_message(msg, ephemeral=True)
+        logger.info("%s set QOTD to %s in guild %s", interaction.user, "enabled" if enabled else "disabled", interaction.guild.id)
 
     @discord.app_commands.allowed_installs(guilds=True, users=False)
     @discord.app_commands.allowed_contexts(guilds=True, dms=False, private_channels=False)
@@ -904,6 +913,7 @@ class ConfigCog(commands.Cog):
         elif not channel_row[1]:
             msg += "\n\n**Don't forget:** Enable QOTD with `/config qotd enable` to start posting daily questions!"
         await interaction.response.send_message(msg, ephemeral=True)
+        logger.info("%s set QOTD ping role to %s (ID: %s) in guild %s", interaction.user, role, role.id, interaction.guild.id)
 
     @discord.app_commands.allowed_installs(guilds=True, users=False)
     @discord.app_commands.allowed_contexts(guilds=True, dms=False, private_channels=False)
@@ -931,6 +941,7 @@ class ConfigCog(commands.Cog):
             conn.close()
 
         await interaction.response.send_message(f"Delete old QOTD messages has been {'enabled' if enabled else 'disabled'}", ephemeral=True)
+        logger.info("%s set delete old QOTD to %s in guild %s", interaction.user, "enabled" if enabled else "disabled", interaction.guild.id)
 
     @discord.app_commands.allowed_installs(guilds=True, users=False)
     @discord.app_commands.allowed_contexts(guilds=True, dms=False, private_channels=False)
@@ -951,6 +962,7 @@ class ConfigCog(commands.Cog):
             conn.close()
 
         await interaction.response.send_message(f"AI replies are now **{'enabled' if enabled else 'disabled'}** in this server." + ("" if enabled else " Users can still run `/ai` directly to chat with the AI."), ephemeral=True)
+        logger.info("%s set AI replies to %s in guild %s", interaction.user, "enabled" if enabled else "disabled", interaction.guild.id)
 
 
 async def setup(bot):
