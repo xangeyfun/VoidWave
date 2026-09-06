@@ -82,11 +82,14 @@ class FunCog(commands.Cog):
                     await interaction.followup.send(f"> Could not fetch {animal} picture. Please try again later.", ephemeral=hidden)
                     return
                 data = await r.json()
+            image_url = data[key]["gif"] if key == "media" else data[key]
+        except (KeyError, IndexError, TypeError):
+            await interaction.followup.send(f"> Could not fetch {animal} picture. Please try again later.", ephemeral=hidden)
+            return
         except Exception as e:
             await interaction.followup.send(f"> Could not fetch {animal} picture. Please try again later.\n> {e}", ephemeral=hidden)
             return
 
-        image_url = data[key]["gif"] if key == "media" else data[key]
         embed = discord.Embed(title=title, color=discord.Color(0x7128fc), timestamp=discord.utils.utcnow())
         embed.set_image(url=image_url)
         embed.set_footer(text="Vote for 2x XP! /vote")
@@ -175,10 +178,15 @@ class FunCog(commands.Cog):
             async with utils.http_session.get(f"https://zenquotes.io/api/{choice.lower()}") as r:
                 logger.info("Quote API response status: %s", r.status)
                 data = await r.json()
+            quote_text = data[0]['q']
+            author = data[0]['a']
+        except (KeyError, IndexError, TypeError):
+            await interaction.followup.send("Could not fetch quote. Please try again later.", ephemeral=True)
+            return
         except Exception as e:
             await interaction.followup.send(f"Could not fetch quote. Please try again later.\nDetails: {e}", ephemeral=True)
             return
-        await interaction.followup.send(f"\"{data[0]['q']}\" - {data[0]['a']}", ephemeral=hidden)
+        await interaction.followup.send(f"\"{quote_text}\" - {author}", ephemeral=hidden)
 
     @discord.app_commands.allowed_installs(guilds=True, users=True)
     @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
