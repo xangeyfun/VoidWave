@@ -19,7 +19,7 @@
 <section class="legal-page">
     <h1>Privacy Policy</h1>
 
-    <p>Last updated: July 2026</p>
+    <p>Last updated: September 2026</p>
 
     <h2>What We Collect</h2>
     <p>VoidWave collects minimal data to provide its features:</p>
@@ -31,6 +31,7 @@
         <li><strong>XP & Level</strong> - Your progress in the leveling system</li>
         <li><strong>Message count</strong> - Total messages sent for XP calculation</li>
         <li><strong>Voice chat time</strong> - Minutes spent in voice channels for XP calculation</li>
+        <li><strong>Vote & reminder records</strong> - Your user ID and timestamps so vote boosts and reminder DMs work</li>
         <li><strong>Message content</strong> - Temporarily logged to stdout for debugging purposes (not stored in the database)</li>
     </ul>
 
@@ -41,7 +42,7 @@
     <p>When using the LLM chat feature powered by Llama 3.2:</p>
     <ul>
         <li>Messages sent to the LLM are processed in real-time by a self-hosted model</li>
-        <li>Prompts and responses <strong>are logged to stdout</strong> for debugging purposes, but are <strong>not stored</strong> in the database or any persistent file</li>
+        <li>Prompts pass through our regular message logging to stdout, and responses <strong>are only logged when the bot runs in debug mode</strong>. Neither is stored in the database or any persistent file</li>
         <li>No conversation history is saved between messages - each request is stateless</li>
         <li>The LLM runs locally and does not share data with third parties</li>
     </ul>
@@ -60,10 +61,12 @@
     </ul>
 
     <h2>Data Storage & Logging</h2>
-    <p>We store your persistent data (user IDs, XP, levels, settings, etc.) in a local SQLite database. Additionally:</p>
+    <p>We store your persistent data (user IDs, XP, levels, settings, vote records, etc.) in a local SQLite database. Additionally:</p>
     <ul>
         <li><strong>Command usage</strong> is logged to a local text file for debugging and abuse prevention</li>
-        <li><strong>Message content, LLM prompts, and LLM responses</strong> may be written to stdout (server logs) for debugging. These are <strong>not stored</strong> in the database and are not retained beyond standard server log rotation</li>
+        <li><strong>Command usage and notable bot events</strong> - level-ups, role grants, game results, moderation actions, config changes, and votes - are also stored in the local SQLite database for operational and debugging purposes</li>
+        <li><strong>Message content, plus bot activity</strong> such as level-ups, role grants, game results, moderation actions, and config changes, <strong>may be written to stdout</strong> (server logs) for debugging and abuse prevention. These are <strong>not stored</strong> in the database and are not retained beyond standard server log rotation</li>
+        <li><strong>LLM responses</strong> are only logged when the bot runs in debug mode</li>
     </ul>
     <p>We do not use third-party analytics or tracking services.</p>
 
