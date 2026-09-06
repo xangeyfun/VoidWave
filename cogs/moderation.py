@@ -2,6 +2,9 @@ from discord import app_commands
 from discord.ext import commands
 import discord
 import datetime
+import logging
+
+logger = logging.getLogger("cogs.moderation")
 
 
 class ModerationCog(commands.Cog):
@@ -76,6 +79,7 @@ class ModerationCog(commands.Cog):
             await interaction.followup.send("Something went wrong while kicking that member. Please try again later.", ephemeral=hidden)
             return
         await interaction.followup.send(f"Kicked **{member}**.{f' Reason: {reason}' if reason else ''}", ephemeral=hidden)
+        logger.info("%s kicked %s (ID: %s) in guild %s | reason: %s", interaction.user, member, member.id, interaction.guild.id, reason)
 
     @discord.app_commands.checks.bot_has_permissions(ban_members=True)
     @discord.app_commands.checks.has_permissions(ban_members=True)
@@ -101,6 +105,7 @@ class ModerationCog(commands.Cog):
             await interaction.followup.send("Something went wrong while banning that member. Please try again later.", ephemeral=hidden)
             return
         await interaction.followup.send(f"Banned **{member}**.{f' Reason: {reason}' if reason else ''}", ephemeral=hidden)
+        logger.info("%s banned %s (ID: %s) in guild %s | delete_days: %s | reason: %s", interaction.user, member, member.id, interaction.guild.id, delete_days, reason)
 
     @discord.app_commands.checks.bot_has_permissions(ban_members=True)
     @discord.app_commands.checks.has_permissions(ban_members=True)
@@ -111,6 +116,7 @@ class ModerationCog(commands.Cog):
         try:
             await interaction.guild.unban(user, reason=reason)  # type: ignore
             await interaction.followup.send(f"Unbanned **{user}**.{f' Reason: {reason}' if reason else ''}", ephemeral=hidden)
+            logger.info("%s unbanned %s (ID: %s) in guild %s | reason: %s", interaction.user, user, user.id, interaction.guild.id, reason)
         except discord.NotFound:
             await interaction.followup.send(f"**{user}** is not banned.", ephemeral=hidden)
         except discord.Forbidden:
@@ -146,6 +152,7 @@ class ModerationCog(commands.Cog):
             await interaction.followup.send("Something went wrong while timing out that member. Please try again later.", ephemeral=hidden)
             return
         await interaction.followup.send(f"Timed out **{member}** for **{amount} {unit}**.{f' Reason: {reason}' if reason else ''}", ephemeral=hidden)
+        logger.info("%s timed out %s (ID: %s) for %s minutes in guild %s | reason: %s", interaction.user, member, member.id, minutes, interaction.guild.id, reason)
 
     @discord.app_commands.checks.bot_has_permissions(manage_channels=True)
     @discord.app_commands.checks.has_permissions(manage_channels=True)
@@ -172,6 +179,7 @@ class ModerationCog(commands.Cog):
             await interaction.followup.send(f"Set slowmode to **{seconds} seconds** in {channel.mention}.", ephemeral=hidden)
         else:
             await interaction.followup.send(f"Cleared slowmode in {channel.mention}.", ephemeral=hidden)
+        logger.info("%s set slowmode to %s seconds in %s (ID: %s) in guild %s", interaction.user, seconds, channel, channel.id, interaction.guild.id)
 
     @discord.app_commands.checks.bot_has_permissions(manage_channels=True)
     @discord.app_commands.checks.has_permissions(manage_channels=True)
@@ -199,6 +207,7 @@ class ModerationCog(commands.Cog):
             await interaction.followup.send("Something went wrong while locking the channel. Please try again later.", ephemeral=hidden)
             return
         await interaction.followup.send(f"Locked {channel.mention}.{f' Reason: {reason}' if reason else ''}", ephemeral=hidden)
+        logger.info("%s locked %s (ID: %s) in guild %s | reason: %s", interaction.user, channel, channel.id, interaction.guild.id, reason)
 
     @discord.app_commands.checks.bot_has_permissions(manage_channels=True)
     @discord.app_commands.checks.has_permissions(manage_channels=True)
@@ -228,6 +237,7 @@ class ModerationCog(commands.Cog):
                 await interaction.followup.send("Something went wrong while unlocking the channel. Please try again later.", ephemeral=hidden)
                 return
         await interaction.followup.send(f"Unlocked {channel.mention}.", ephemeral=hidden)
+        logger.info("%s unlocked %s (ID: %s) in guild %s", interaction.user, channel, channel.id, interaction.guild.id)
 
     @discord.app_commands.checks.bot_has_permissions(manage_roles=True)
     @discord.app_commands.checks.has_permissions(manage_roles=True)
@@ -255,6 +265,7 @@ class ModerationCog(commands.Cog):
             await interaction.followup.send("Something went wrong while adding the role. Please try again later.", ephemeral=hidden)
             return
         await interaction.followup.send(f"Gave {role.mention} to **{member}**.", ephemeral=hidden)
+        logger.info("%s gave role %s (ID: %s) to %s (ID: %s) in guild %s", interaction.user, role, role.id, member, member.id, interaction.guild.id)
 
     @discord.app_commands.checks.bot_has_permissions(manage_roles=True)
     @discord.app_commands.checks.has_permissions(manage_roles=True)
@@ -282,6 +293,7 @@ class ModerationCog(commands.Cog):
             await interaction.followup.send("Something went wrong while removing the role. Please try again later.", ephemeral=hidden)
             return
         await interaction.followup.send(f"Removed {role.mention} from **{member}**.", ephemeral=hidden)
+        logger.info("%s removed role %s (ID: %s) from %s (ID: %s) in guild %s", interaction.user, role, role.id, member, member.id, interaction.guild.id)
 
 
 async def setup(bot):
