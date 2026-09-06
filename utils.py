@@ -9,6 +9,7 @@ import json
 import os
 import sqlite3
 import logging
+import queue
 from zoneinfo import ZoneInfo
 
 logger = logging.getLogger("utils")
@@ -35,6 +36,7 @@ ai_tip_sent = set()
 last_xp = {}
 last_vc = {}
 http_session = None
+admin_event_queue = queue.SimpleQueue()
 
 
 def get_db():
@@ -111,17 +113,50 @@ def qotd_minutes(time_str=None):
     return None
 
 
-def log_admin_event(event_type, detail="", guild_id=None, user_id=None):
+def _admin_event_writer():
+    conn = get_db()
+    while True:
+        event = admin_event_queue.get()
+        if event is None:
+            break
+        batch = [event]
+        stopping = False
+        while len(batch) < 50:
+            try:
+                item = admin_event_queue.get_nowait()
+                if item is None:
+                    stopping = True
+                    break
+                batch.append(item)
+            except queue.Empty:
+                break
+        for ev in batch:
+            try:
+                conn.execute(
+                    "INSERT INTO admin_events (ts, event_type, detail, guild_id, user_id) VALUES (?, ?, ?, ?, ?)",
+                    (int(time.time()), ev[0], ev[1], ev[2], ev[3])
+                )
+            except Exception:
+                pass
+        try:
+            conn.commit()
+        except Exception:
+            pass
+        if stopping:
+            break
     try:
-        conn = get_db()
-        conn.execute(
-            "INSERT INTO admin_events (ts, event_type, detail, guild_id, user_id) VALUES (?, ?, ?, ?, ?)",
-            (int(time.time()), event_type, detail, guild_id, user_id)
-        )
-        conn.commit()
         conn.close()
     except Exception:
         pass
+
+
+def log_admin_event(event_type, detail="", guild_id=None, user_id=None):
+    admin_event_queue.put((event_type, detail, guild_id, user_id))
+
+
+def start_admin_event_writer():
+    import threading
+    threading.Thread(target=_admin_event_writer, daemon=True).start()
 
 
 def get_vote_boost(user_id):
@@ -380,20 +415,22 @@ def extract_options(options):
     return out
 
 
-async def add_message_xp(bot, message):
-    guild_id = message.guild.id
-    user_id = message.author.id
-
-    if is_blocked(user_id, "leveling"):
-        return
-
+def _do_message_xp(guild_id, user_id, display_name, username, avatar_key, content_len):
     conn = get_db()
     try:
         cur = conn.cursor()
+        now = time.time()
+        avatar = avatar_key
+        last_ts = last_xp.get((guild_id, user_id))
 
-        user = cur.execute("SELECT * FROM users WHERE guild_id=? AND user_id=?", (guild_id, user_id)).fetchone()
+        if cur.execute(
+            "SELECT 1 FROM user_blocks WHERE user_id=? AND feature=? "
+            "AND (expires_at IS NULL OR expires_at > ?)",
+            (user_id, "leveling", int(now))
+        ).fetchone():
+            return None
 
-        if not user:
+        if content_len < 5 or (last_ts is not None and now - last_ts < XP_COOLDOWN):
             cur.execute("""
                 INSERT INTO users (
                     guild_id, user_id, display_name, username,
@@ -402,107 +439,166 @@ async def add_message_xp(bot, message):
                     vc_minutes, vc_xp_minutes,
                     avatar_hash
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                guild_id, user_id, message.author.display_name, message.author.name,
-                0, 0, 100,
-                "", 0, 0, 0,
-                0, 0,
-                message.author.avatar.key if message.author.avatar else None
-            ))
-
+                VALUES (?, ?, ?, ?, 0, 0, 100, ?, 1, 0, 0, 0, 0, ?)
+                ON CONFLICT(guild_id, user_id) DO UPDATE SET
+                    total_messages = total_messages + 1,
+                    last_message = excluded.last_message,
+                    display_name = excluded.display_name,
+                    username = excluded.username,
+                    avatar_hash = excluded.avatar_hash
+            """, (guild_id, user_id, display_name, username, str(datetime.datetime.now()), avatar))
             conn.commit()
-
-        now = time.time()
-        avatar = message.author.avatar.key if message.author.avatar else None
-        metadata_update = (str(datetime.datetime.now()), message.author.display_name, message.author.name, avatar, guild_id, user_id)
-
-        if len(message.content) < 5 or (user_id in last_xp and now - last_xp[user_id] < XP_COOLDOWN):
-            cur.execute("UPDATE users SET total_messages = total_messages + 1, last_message=?, display_name=?, username=?, avatar_hash=? WHERE guild_id=? AND user_id=?", metadata_update)
-            conn.commit()
-            return
+            return None
 
         xp = random.randint(1, 15)
-        multiplier = get_vote_boost(user_id)
+        boost_row = cur.execute(
+            "SELECT multiplier FROM vote_boosts WHERE user_id=? AND expires_at > ?",
+            (user_id, int(now))
+        ).fetchone()
+        multiplier = boost_row["multiplier"] if boost_row else 1.0
         if multiplier > 1:
             xp = int(xp * multiplier)
-        last_xp[user_id] = now
+        last_xp[(guild_id, user_id)] = now
 
-        cur.execute("""
-        UPDATE users
-        SET progress = progress + ?,
-            total_xp = total_xp + ?,
-            last_message = ?,
-            total_messages_xp = total_messages_xp + 1,
-            total_messages = total_messages + 1,
-            avatar_hash = ?,
-            username = ?,
-            display_name = ?
-        WHERE guild_id=? AND user_id=?
-        """, (xp, xp, str(datetime.datetime.now()), avatar, message.author.name, message.author.display_name, guild_id, user_id))
-        conn.commit()
-        user = cur.execute("SELECT * FROM users WHERE guild_id=? AND user_id=?", (guild_id, user_id)).fetchone()
-        progress = user["progress"]
-        out_of = user["out_of"]
-        level = user["level"]
+        row = cur.execute("""
+            INSERT INTO users (
+                guild_id, user_id, display_name, username,
+                level, progress, out_of,
+                last_message, total_messages, total_messages_xp, total_xp,
+                vc_minutes, vc_xp_minutes,
+                avatar_hash
+            )
+            VALUES (?, ?, ?, ?, 0, ?, 100, ?, 1, 1, ?, 0, 0, ?)
+            ON CONFLICT(guild_id, user_id) DO UPDATE SET
+                progress = progress + ?,
+                total_xp = total_xp + ?,
+                total_messages = total_messages + 1,
+                total_messages_xp = total_messages_xp + 1,
+                last_message = excluded.last_message,
+                avatar_hash = excluded.avatar_hash,
+                username = excluded.username,
+                display_name = excluded.display_name
+            RETURNING level, progress, out_of, total_xp
+        """, (
+            guild_id, user_id, display_name, username,
+            xp, str(datetime.datetime.now()), xp, avatar,
+            xp, xp,
+        )).fetchone()
 
-        if progress >= out_of:
-            progress -= out_of
-            level += 1
-            out_of = int(100 + level * 20)
-            level_channel = (cur.execute("SELECT level_channel_id, level_channel_enabled FROM guild_settings WHERE guild_id = ?", (guild_id,)).fetchone())
-            level_channel = dict(level_channel) if level_channel else None
+        payload = None
+        if row:
+            level = row["level"]
+            progress = row["progress"]
+            out_of = row["out_of"]
 
-            channel = bot.get_channel(level_channel["level_channel_id"]) if level_channel and level_channel["level_channel_id"] and level_channel["level_channel_enabled"] else None
-            has_channel = bool(channel and isinstance(channel, discord.TextChannel))
+            if progress >= out_of:
+                progress -= out_of
+                level += 1
+                out_of = int(100 + level * 20)
+                level_channel = cur.execute(
+                    "SELECT level_channel_id, level_channel_enabled FROM guild_settings WHERE guild_id = ?",
+                    (guild_id,)
+                ).fetchone()
+                level_channel = dict(level_channel) if level_channel else None
+                boost = cur.execute(
+                    "SELECT multiplier, expires_at FROM vote_boosts WHERE user_id=? AND expires_at > ?",
+                    (user_id, int(time.time()))
+                ).fetchone()
+                level_roles = cur.execute(
+                    "SELECT level, role_id FROM level_roles WHERE guild_id = ?",
+                    (guild_id,)
+                ).fetchall()
+                new_role_ids = []
+                if level_roles:
+                    for req_level, role_id in level_roles:
+                        if level >= req_level:
+                            new_role_ids.append(role_id)
 
-            boost = cur.execute("SELECT multiplier, expires_at FROM vote_boosts WHERE user_id=? AND expires_at > ?", (user_id, int(time.time()))).fetchone()
-
-            level_roles = (cur.execute("SELECT level, role_id FROM level_roles WHERE guild_id = ?", (guild_id,)).fetchall())
-            level_roles = dict(level_roles) if level_roles else None
-
-            new_roles = []
-            if level_roles:
-                for req_level, role_id in level_roles.items():
-                    if level >= req_level:
-                        role = message.guild.get_role(role_id)
-
-                        if role and role not in message.author.roles:
-                            try:
-                                await message.author.add_roles(role)
-                                new_roles.append(role)
-                            except discord.Forbidden:
-                                logger.warning("Missing permissions to assign role %s in guild %s", role_id, guild_id)
-                            except Exception as e:
-                                logger.error("Failed to assign role: %s", e)
-
-            if has_channel:
-                embed = build_level_up_embed(
-                    member=message.author,
-                    level=level,
-                    progress=progress,
-                    out_of=out_of,
-                    boost=dict(boost) if boost else None,
-                    new_roles=new_roles or None,
+                cur.execute(
+                    "UPDATE users SET level=?, progress=?, out_of=? WHERE guild_id=? AND user_id=?",
+                    (level, progress, out_of, guild_id, user_id)
                 )
-                try:
-                    await channel.send(content=f"{message.author.mention} reached Level {level}!", embed=embed)
-                except discord.Forbidden:
-                    logger.warning("Missing permissions to send level-up message in %s for guild %s", channel.id, guild_id)
-                except Exception as e:
-                    logger.error("Failed to send level-up message: %s", e)
+                payload = {
+                    "level": level,
+                    "progress": progress,
+                    "out_of": out_of,
+                    "boost": dict(boost) if boost else None,
+                    "new_role_ids": new_role_ids,
+                    "level_channel_id": level_channel["level_channel_id"] if level_channel else None,
+                    "level_channel_enabled": bool(level_channel and level_channel["level_channel_enabled"]),
+                }
 
-                log_admin_event(
-                    "level_up",
-                    f"{message.author.display_name} reached level {level}",
-                    guild_id=guild_id,
-                    user_id=user_id,
-                )
-
-        cur.execute("UPDATE users SET level=?, progress=?, out_of=? WHERE guild_id=? AND user_id=?", (level, progress, out_of, guild_id, user_id))
         conn.commit()
+        return payload
+    except sqlite3.Error as e:
+        logger.error("Failed to add message XP for %s in %s: %s", user_id, guild_id, e)
+        return None
     finally:
         conn.close()
+
+
+async def add_message_xp(bot, message):
+    guild_id = message.guild.id
+    user_id = message.author.id
+    avatar_key = message.author.avatar.key if message.author.avatar else None
+
+    payload = await asyncio.to_thread(
+        _do_message_xp,
+        guild_id,
+        user_id,
+        message.author.display_name,
+        message.author.name,
+        avatar_key,
+        len(message.content),
+    )
+    if not payload:
+        return
+
+    level = payload["level"]
+    progress = payload["progress"]
+    out_of = payload["out_of"]
+    boost = payload["boost"]
+    has_channel = bool(
+        payload["level_channel_id"]
+        and payload["level_channel_enabled"]
+        and isinstance(bot.get_channel(payload["level_channel_id"]), discord.TextChannel)
+    )
+
+    new_roles = []
+    for role_id in payload["new_role_ids"]:
+        role = message.guild.get_role(role_id)
+        if role and role not in message.author.roles:
+            try:
+                await message.author.add_roles(role)
+                new_roles.append(role)
+            except discord.Forbidden:
+                logger.warning("Missing permissions to assign role %s in guild %s", role_id, guild_id)
+            except Exception as e:
+                logger.error("Failed to assign role: %s", e)
+
+    if has_channel:
+        channel = bot.get_channel(payload["level_channel_id"])
+        embed = build_level_up_embed(
+            member=message.author,
+            level=level,
+            progress=progress,
+            out_of=out_of,
+            boost=boost,
+            new_roles=new_roles or None,
+        )
+        try:
+            await channel.send(content=f"{message.author.mention} reached Level {level}!", embed=embed)
+        except discord.Forbidden:
+            logger.warning("Missing permissions to send level-up message in %s for guild %s", channel.id, guild_id)
+        except Exception as e:
+            logger.error("Failed to send level-up message: %s", e)
+
+        log_admin_event(
+            "level_up",
+            f"{message.author.display_name} reached level {level}",
+            guild_id=guild_id,
+            user_id=user_id,
+        )
 
 
 async def send_qotd(bot, channel_id, role_id, guild_id):
