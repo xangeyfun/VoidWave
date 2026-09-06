@@ -904,8 +904,10 @@ class MusicCog(commands.Cog):
         last_line = last_line_next = None
         try:
             while True:
-                await asyncio.sleep(1.0)
+                await asyncio.sleep(5.0)
                 player = self.players.get(guild_id)
+                if self.players.get(guild_id) is not player:
+                    break
                 if not isinstance(player, wavelink.Player) or not player.connected or not player.playing or not player.current:
                     break
                 msg = self.player_messages.get(guild_id)
@@ -1516,26 +1518,26 @@ class MusicCog(commands.Cog):
     # ------------------------------------------------------------------
     @commands.Cog.listener()
     async def on_voice_state_update(self, member: discord.Member, before: discord.VoiceState, after: discord.VoiceState):
-        for guild_id, player in list(self.players.items()):
-            if not isinstance(player, wavelink.Player):
-                continue
-            if not player.connected or not player.channel:
-                self.players.pop(guild_id, None)
-                continue
-            humans = [m for m in player.channel.members if not m.bot]
-            if not humans:
-                logger.info("Leaving empty voice channel in guild %s", guild_id)
-                view = self.player_views.get(guild_id)
-                msg = self.player_messages.get(guild_id)
-                await self._disconnect(player)
-                if msg and view:
-                    for child in view.children:
-                        child.disabled = True
-                    embed = discord.Embed(title="👋 Disconnected", description="Left the voice channel (empty). Play more with `/music play`.", color=VOIDWAVE_COLOR)
-                    try:
-                        await msg.edit(embed=embed, view=view)
-                    except discord.HTTPException:
-                        pass
+        guild_id = member.guild.id if member.guild else None
+        if guild_id is None:
+            return
+        player = self.players.get(guild_id)
+        if not isinstance(player, wavelink.Player) or not player.connected or not player.channel:
+            return
+        humans = [m for m in player.channel.members if not m.bot]
+        if not humans:
+            logger.info("Leaving empty voice channel in guild %s", guild_id)
+            view = self.player_views.get(guild_id)
+            msg = self.player_messages.get(guild_id)
+            await self._disconnect(player)
+            if msg and view:
+                for child in view.children:
+                    child.disabled = True
+                embed = discord.Embed(title="👋 Disconnected", description="Left the voice channel (empty). Play more with `/music play`.", color=VOIDWAVE_COLOR)
+                try:
+                    await msg.edit(embed=embed, view=view)
+                except discord.HTTPException:
+                    pass
 
     @commands.Cog.listener()
     async def on_wavelink_track_end(self, payload: wavelink.TrackEndEventPayload):
