@@ -4,8 +4,9 @@ import discord
 import sqlite3
 import os
 import logging
+import asyncio
 
-from utils import is_blocked, block_reply
+from utils import is_blocked, block_reply, start_admin_event_writer
 from logconf import setup_logging
 
 setup_logging()
@@ -22,7 +23,7 @@ bot = commands.Bot(command_prefix="%", intents=intents, status=discord.Status.on
 TOKEN = os.getenv("TOKEN")
 
 async def _command_gate(interaction: discord.Interaction) -> bool:
-    if is_blocked(interaction.user.id, "commands"):
+    if await asyncio.to_thread(is_blocked, interaction.user.id, "commands"):
         logger.blocked("'/%s' attempt by %s (%s)", getattr(interaction.command, 'qualified_name', '?'), interaction.user, interaction.user.id)
         try:
             await interaction.response.send_message(block_reply(interaction.user.id, "commands", "using VoidWave commands"), ephemeral=True)
@@ -34,6 +35,7 @@ async def _command_gate(interaction: discord.Interaction) -> bool:
 bot.tree.interaction_check = _command_gate
 
 async def setup_hook():
+    start_admin_event_writer()
     await bot.load_extension("cogs.general")
     await bot.load_extension("cogs.fun")
     await bot.load_extension("cogs.games")
