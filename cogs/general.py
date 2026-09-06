@@ -421,7 +421,7 @@ class GeneralCog(commands.Cog):
             await interaction.response.send_message(block_reply(interaction.user.id, "feedback", "using /feedback"), ephemeral=True)
             return
 
-        remaining = self.feedback_cooldowns.get(interaction.user.id, 0) + 60 - time.time()
+        remaining = self.feedback_cooldowns.get(interaction.user.id, 0) + 60 - time.monotonic()
         if remaining > 0:
             await interaction.response.send_message(f"Slow down! You can send feedback again in `{remaining:.0f} seconds`.", ephemeral=True)
             return
@@ -455,14 +455,14 @@ class GeneralCog(commands.Cog):
             await interaction.followup.send("Something went wrong while sending your feedback, please try again later.", ephemeral=True)
             return
 
-        self.feedback_cooldowns[interaction.user.id] = time.time()
+        self.feedback_cooldowns[interaction.user.id] = time.monotonic()
         await interaction.followup.send("Thank you! Your feedback has been sent straight to the VoidWave developers. 💜", ephemeral=True)
 
     @discord.app_commands.allowed_installs(guilds=True, users=True)
     @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     @discord.app_commands.command(name="rate", description="Rate VoidWave.")
     async def rate(self, interaction: discord.Interaction):
-        remaining = self.rating_cooldowns.get(interaction.user.id, 0) + 60 - time.time()
+        remaining = self.rating_cooldowns.get(interaction.user.id, 0) + 60 - time.monotonic()
         if remaining > 0:
             await interaction.response.send_message(f"Woah there, one rating at a time! Try again in `{remaining:.0f} seconds`.", ephemeral=True)
             return
@@ -474,7 +474,7 @@ class GeneralCog(commands.Cog):
             await interaction.response.send_message("Something went wrong while opening the rating prompt. Please try again later.", ephemeral=True)
             return
 
-        self.rating_cooldowns[interaction.user.id] = time.time()
+        self.rating_cooldowns[interaction.user.id] = time.monotonic()
 
         if sent:
             await interaction.response.send_message("Rating prompt sent to your DMs! Check your DMs to rate VoidWave. 💜", ephemeral=True)
