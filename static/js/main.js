@@ -260,7 +260,11 @@ document.addEventListener('DOMContentLoaded', () => {
             'Your server, your data.',
             'Leveling that actually works.',
             'Free forever. No catches.',
-            'Voice XP, QOTD, and more.'
+            'Voice XP, QOTD, and more.',
+            'Music, built in.',
+            'Multiplayer games, built in.',
+            'Web profiles, shareable everywhere.',
+            'Rate the bot, shape its future.'
         ];
         let phraseIdx = 0;
         let charIdx = 0;
