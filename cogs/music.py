@@ -902,7 +902,6 @@ class MusicCog(commands.Cog):
 
     async def _player_update_loop(self, guild_id: int):
         last_line = last_line_next = None
-        last_base = 0.0
         try:
             while True:
                 await asyncio.sleep(1.0)
@@ -922,10 +921,7 @@ class MusicCog(commands.Cog):
                         last_line, last_line_next = cur, nxt
                         await msg.edit(embed=now_playing_embed(player.current, player, live_line=cur, live_next=nxt), view=view)
                     else:
-                        now = time.time()
-                        if now - last_base >= 5.0 or not last_base:
-                            await msg.edit(embed=now_playing_embed(player.current, player), view=view)
-                            last_base = now
+                        await msg.edit(embed=now_playing_embed(player.current, player), view=view)
                 except discord.HTTPException:
                     break
         except asyncio.CancelledError:
@@ -972,7 +968,16 @@ class MusicCog(commands.Cog):
                 pass
     async def _repost_player_message(self, interaction: discord.Interaction, player):
         """Repost the controller to the current channel to bring it back into view."""
-        guild_id = interaction.guild_id
+        channel = interaction.channel
+        if channel is None:
+            return
+        await self._repost_player_message_channel(channel, player)
+
+    async def _repost_player_message_channel(self, channel, player):
+        """Repost the controller to a channel to bring it back into view."""
+        guild_id = player.guild.id if player.guild else None
+        if guild_id is None:
+            return
         old_msg = self.player_messages.get(guild_id)
         old_view = self.player_views.get(guild_id)
         self._cancel_update_task(guild_id)
@@ -985,7 +990,7 @@ class MusicCog(commands.Cog):
         self.player_views[guild_id] = view
         embed = now_playing_embed(current, player)
         try:
-            msg = await interaction.channel.send(embed=embed, view=view)
+            msg = await channel.send(embed=embed, view=view)
             view._message_id = msg.id
             self.player_messages[guild_id] = msg
             self._start_update_task(guild_id, msg)
@@ -1162,7 +1167,7 @@ class MusicCog(commands.Cog):
             return
         await player.pause(True)
         await interaction.response.send_message("⏸️ Paused.", ephemeral=hidden)
-        await self._sync_player_view(interaction.guild_id)
+        await self._repost_player_message(interaction, player)
 
     @music.command(name="resume", description="Resume the paused track")
     @app_commands.describe(hidden="Hide the command from others")
@@ -1181,7 +1186,7 @@ class MusicCog(commands.Cog):
             return
         await player.pause(False)
         await interaction.response.send_message("▶️ Resumed.", ephemeral=hidden)
-        await self._sync_player_view(interaction.guild_id)
+        await self._repost_player_message(interaction, player)
 
     # ------------------------------------------------------------------
     # Skip / Stop
@@ -1578,12 +1583,9 @@ class MusicCog(commands.Cog):
         view = self.player_views.get(guild_id)
         if not msg or not view:
             return
-        view._update_button_states(player)
-        cur, nxt, _ = await self._live_lyric(guild_id, player, track)
-        try:
-            await msg.edit(embed=now_playing_embed(track, player, live_line=cur, live_next=nxt), view=view)
-        except discord.HTTPException:
-            pass
+        if msg.channel is None:
+            return
+        await self._repost_player_message_channel(msg.channel, player)
 
 
 async def setup(bot):
