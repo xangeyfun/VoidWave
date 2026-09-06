@@ -902,9 +902,10 @@ class MusicCog(commands.Cog):
 
     async def _player_update_loop(self, guild_id: int):
         last_line = last_line_next = None
+        last_base = 0.0
         try:
             while True:
-                await asyncio.sleep(5.0)
+                await asyncio.sleep(1.0)
                 player = self.players.get(guild_id)
                 if self.players.get(guild_id) is not player:
                     break
@@ -921,7 +922,10 @@ class MusicCog(commands.Cog):
                         last_line, last_line_next = cur, nxt
                         await msg.edit(embed=now_playing_embed(player.current, player, live_line=cur, live_next=nxt), view=view)
                     else:
-                        await msg.edit(embed=now_playing_embed(player.current, player), view=view)
+                        now = time.time()
+                        if now - last_base >= 5.0 or not last_base:
+                            await msg.edit(embed=now_playing_embed(player.current, player), view=view)
+                            last_base = now
                 except discord.HTTPException:
                     break
         except asyncio.CancelledError:
