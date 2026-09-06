@@ -23,6 +23,64 @@ import utils
 logger = logging.getLogger("cogs.events")
 
 
+def _save_command_logs(line):
+    with open("command_logs.txt", "a") as f:
+        f.write(line)
+
+
+def _record_command_use(guild_id, user_id, display_name, username):
+    conn = get_db()
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO users (guild_id, user_id, display_name, username,
+                               level, progress, out_of, command_uses,
+                               last_message, total_messages, total_messages_xp,
+                               total_xp, vc_minutes, vc_xp_minutes)
+            VALUES (?, ?, ?, ?, 0, 0, 100, 1, '', 0, 0, 0, 0, 0)
+            ON CONFLICT(guild_id, user_id) DO UPDATE SET
+                command_uses = command_uses + 1,
+                display_name = excluded.display_name,
+                username = excluded.username
+        """, (guild_id, user_id, display_name, username))
+        conn.commit()
+        total = cur.execute(
+            "SELECT COALESCE(SUM(command_uses), 0) FROM users WHERE user_id=?",
+            (user_id,)
+        ).fetchone()[0]
+        flags = cur.execute(
+            "SELECT COALESCE(MAX(rated), 0) AS rated, COALESCE(MAX(prompt_sent), 0) AS prompt_sent FROM users WHERE user_id=?",
+            (user_id,)
+        ).fetchone()
+        return total, flags["rated"], flags["prompt_sent"]
+    finally:
+        conn.close()
+
+
+def _mark_prompt_sent(user_id):
+    conn = get_db()
+    try:
+        conn.execute("UPDATE users SET prompt_sent = 1 WHERE user_id = ?", (user_id,))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def _fetch_ai_prefs(guild_id, user_id):
+    conn = get_db()
+    try:
+        server_ai = None
+        if guild_id:
+            row = conn.execute("SELECT ai_enabled FROM guild_settings WHERE guild_id = ?", (guild_id,)).fetchone()
+            if row:
+                server_ai = row[0]
+        upref = conn.execute("SELECT ai_enabled FROM user_prefs WHERE user_id = ?", (user_id,)).fetchone()
+        user_ai = upref[0] if upref else None
+        return server_ai, user_ai
+    finally:
+        conn.close()
+
+
 class EventsCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -90,8 +148,8 @@ class EventsCog(commands.Cog):
             options_str = " ".join(f"{k}:{v}" for k, v in command_options.items())
 
             logger.command("'%s %s' used by '%s' in '%s%s' (user_id: %s%s)", command_name, options_str, user_name, guild_name, channel_name, user_id, guild_id)
-            with open("command_logs.txt", "a") as f:
-                f.write(f"{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')} COMMAND '{command_name} {options_str}' used by '{user_name}' in '{guild_name}{channel_name}' (user_id: {user_id}{guild_id})\n")
+            log_line = f"{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')} COMMAND '{command_name} {options_str}' used by '{user_name}' in '{guild_name}{channel_name}' (user_id: {user_id}{guild_id})\n"
+            await asyncio.to_thread(_save_command_logs, log_line)
 
             log_admin_event(
                 "command",
@@ -102,37 +160,16 @@ class EventsCog(commands.Cog):
 
             try:
                 if interaction.guild and interaction.user and not interaction.user.bot:
-                    conn = get_db()
-                    try:
-                        cur = conn.cursor()
-                        cur.execute("""
-                            INSERT INTO users (guild_id, user_id, display_name, username,
-                                               level, progress, out_of, command_uses,
-                                               last_message, total_messages, total_messages_xp,
-                                               total_xp, vc_minutes, vc_xp_minutes)
-                            VALUES (?, ?, ?, ?, 0, 0, 100, 1, '', 0, 0, 0, 0, 0)
-                            ON CONFLICT(guild_id, user_id) DO UPDATE SET
-                                command_uses = command_uses + 1,
-                                display_name = excluded.display_name,
-                                username = excluded.username
-                        """, (interaction.guild.id, interaction.user.id, interaction.user.display_name, interaction.user.name))
-                        conn.commit()
-
-                        total = cur.execute(
-                            "SELECT COALESCE(SUM(command_uses), 0) FROM users WHERE user_id=?",
-                            (interaction.user.id,)
-                        ).fetchone()[0]
-                        flags = cur.execute(
-                            "SELECT COALESCE(MAX(rated), 0) AS rated, COALESCE(MAX(prompt_sent), 0) AS prompt_sent FROM users WHERE user_id=?",
-                            (interaction.user.id,)
-                        ).fetchone()
-
-                        if total >= 10 and not flags["rated"] and not flags["prompt_sent"]:
-                            await send_rating_prompt(self.bot, interaction.user.id, interaction.guild.name)
-                            cur.execute("UPDATE users SET prompt_sent = 1 WHERE user_id = ?", (interaction.user.id,))
-                            conn.commit()
-                    finally:
-                        conn.close()
+                    total, rated, prompt_sent = await asyncio.to_thread(
+                        _record_command_use,
+                        interaction.guild.id,
+                        interaction.user.id,
+                        interaction.user.display_name,
+                        interaction.user.name,
+                    )
+                    if total >= 10 and not rated and not prompt_sent:
+                        await send_rating_prompt(self.bot, interaction.user.id, interaction.guild.name)
+                        await asyncio.to_thread(_mark_prompt_sent, interaction.user.id)
             except Exception as e:
                 logger.error("Failed to update command usage stats: %s", e)
 
@@ -158,20 +195,11 @@ class EventsCog(commands.Cog):
             message_reference = ref_msg.author.id == 1442229230384709752 if ref_msg else False
 
         if f"<@{self.bot.user.id}>" in message.content or message_reference or message.channel.id == 1494361038420709466:
-            server_ai = None
-            user_ai = None
-            conn = get_db()
-            try:
-                cur = conn.cursor()
-                if message.guild:
-                    row = cur.execute("SELECT ai_enabled FROM guild_settings WHERE guild_id = ?", (message.guild.id,)).fetchone()
-                    if row:
-                        server_ai = row[0]
-                upref = cur.execute("SELECT ai_enabled FROM user_prefs WHERE user_id = ?", (message.author.id,)).fetchone()
-                if upref:
-                    user_ai = upref[0]
-            finally:
-                conn.close()
+            server_ai, user_ai = await asyncio.to_thread(
+                _fetch_ai_prefs,
+                message.guild.id if message.guild else None,
+                message.author.id,
+            )
 
             if server_ai == 0:
                 return
