@@ -114,7 +114,6 @@ def qotd_minutes(time_str=None):
 
 
 def _admin_event_writer():
-    conn = get_db()
     while True:
         event = admin_event_queue.get()
         if event is None:
@@ -130,24 +129,25 @@ def _admin_event_writer():
                 batch.append(item)
             except queue.Empty:
                 break
-        for ev in batch:
-            try:
+        conn = None
+        try:
+            conn = get_db()
+            for ev in batch:
                 conn.execute(
                     "INSERT INTO admin_events (ts, event_type, detail, guild_id, user_id) VALUES (?, ?, ?, ?, ?)",
                     (int(time.time()), ev[0], ev[1], ev[2], ev[3])
                 )
-            except Exception:
-                pass
-        try:
             conn.commit()
-        except Exception:
-            pass
+        except Exception as e:
+            logger.error("admin event batch write failed (%d events): %s", len(batch), e)
+        finally:
+            if conn is not None:
+                try:
+                    conn.close()
+                except Exception:
+                    pass
         if stopping:
             break
-    try:
-        conn.close()
-    except Exception:
-        pass
 
 
 def log_admin_event(event_type, detail="", guild_id=None, user_id=None):
