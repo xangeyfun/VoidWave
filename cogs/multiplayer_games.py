@@ -3,6 +3,7 @@ from discord.ext import commands
 import discord
 import random
 import time
+import logging
 
 from . import games as gm
 
@@ -10,6 +11,8 @@ from . import games as gm
 VOIDWAVE_COLOR = gm.VOIDWAVE_COLOR
 CHALLENGE_TIME = 60
 TURN_TIME = 60
+
+logger = logging.getLogger("cogs.multiplayer_games")
 
 
 def _default_footer(embed):
@@ -58,6 +61,7 @@ class ChallengeView(discord.ui.View):
         embed, view = self.build_game(self.challenger, self.challengee)
         view.message = self.message
         self.stop()
+        logger.info("%s challenge accepted: %s vs %s", self.game_name, self.challenger, self.challengee)
         await interaction.response.edit_message(embed=embed, view=view)
 
     @discord.ui.button(label="Decline", style=discord.ButtonStyle.danger, row=0)
@@ -68,6 +72,7 @@ class ChallengeView(discord.ui.View):
         for child in self.children:
             child.disabled = True
         self.stop()
+        logger.info("%s challenge declined by %s (%s vs %s)", self.game_name, self.challengee, self.challenger, self.challengee)
         embed = discord.Embed(
             title=f"{self.game_name} Challenge",
             description=f"{self.challengee.mention} declined the game. Maybe next time!",
@@ -79,6 +84,7 @@ class ChallengeView(discord.ui.View):
     async def on_timeout(self):
         for child in self.children:
             child.disabled = True
+        logger.info("%s challenge expired: %s never accepted", self.game_name, self.challengee)
         embed = discord.Embed(
             title=f"{self.game_name} Challenge",
             description=f"{self.challengee.mention} did not respond in time. The challenge expired.",
@@ -144,6 +150,14 @@ class TicTacToeVersusView(discord.ui.View):
                 return self.board[a]
         return None
 
+    def _log_result(self):
+        if self.winner == 0:
+            logger.info("Tic-tac-toe: draw between %s and %s", self.players[0], self.players[1])
+        else:
+            winner = self.players[self.winner - 1]
+            loser = self.players[1 if self.winner == 1 else 0]
+            logger.info("Tic-tac-toe: %s won vs %s", winner, loser)
+
     async def _move(self, interaction, index):
         if self.winner is not None:
             return
@@ -175,12 +189,14 @@ class TicTacToeVersusView(discord.ui.View):
             status = None
         await interaction.response.edit_message(embed=self._embed(status), view=self)
         if over:
+            self._log_result()
             self.stop()
 
     async def on_timeout(self):
         if self.winner is not None:
             return
         self.winner = (1 - self.current) + 1
+        self._log_result()
         status = f"{self.players[self.current].mention} ran out of time. {self.players[1 - self.current].mention} wins!"
         for child in self.children:
             child.disabled = True
@@ -290,6 +306,14 @@ class ConnectFourVersusView(discord.ui.View):
                 return True
         return False
 
+    def _log_result(self):
+        if self.winner == 0:
+            logger.info("Connect Four: draw between %s and %s", self.players[0], self.players[1])
+        else:
+            winner = self.players[self.winner - 1]
+            loser = self.players[1 if self.winner == 1 else 0]
+            logger.info("Connect Four: %s won vs %s", winner, loser)
+
     async def _move(self, interaction, col):
         if self.winner is not None:
             return
@@ -321,12 +345,14 @@ class ConnectFourVersusView(discord.ui.View):
             status = None
         await interaction.response.edit_message(embed=self._embed(status), view=self)
         if over:
+            self._log_result()
             self.stop()
 
     async def on_timeout(self):
         if self.winner is not None:
             return
         self.winner = (1 - self.current) + 1
+        self._log_result()
         status = f"{self.players[self.current].mention} ran out of time. {self.players[1 - self.current].mention} wins!"
         for child in self.children:
             child.disabled = True
@@ -405,12 +431,15 @@ class RPSVersusView(discord.ui.View):
         if p1_move == p2_move:
             result = "It's a tie!"
             color = discord.Color(0xf1c40f)
+            logger.info("RPS: tie between %s and %s (%s vs %s)", self.players[0], self.players[1], p1_move, p2_move)
         elif RPS_WINS[p1_move] == p2_move:
             result = f"{self.players[0].mention} wins!"
             color = discord.Color(0x2ecc71)
+            logger.info("RPS: %s won vs %s (%s beats %s)", self.players[0], self.players[1], p1_move, p2_move)
         else:
             result = f"{self.players[1].mention} wins!"
             color = discord.Color(0x2ecc71)
+            logger.info("RPS: %s won vs %s (%s beats %s)", self.players[1], self.players[0], p2_move, p1_move)
 
         embed = discord.Embed(
             title="🪨📄✂️ Rock Paper Scissors",
@@ -528,6 +557,7 @@ class BlackjackLobbyView(discord.ui.View):
         await interaction.response.defer()
         for child in self.children:
             child.disabled = True
+        logger.info("Blackjack lobby cancelled: host %s left (%s players had joined)", self.host, len(self.players))
         embed = discord.Embed(
             title="🃏 Blackjack",
             description="The host left, so the game was cancelled.",
@@ -679,6 +709,7 @@ class BlackjackVersusView(discord.ui.View):
                 self.dealer_hand.append(self.deck.pop())
             for child in list(self.children):
                 child.disabled = True
+            logger.info("Blackjack table finished (%s players): %s", len(self.players), self._result_block().replace("\n", " | "))
             await interaction.response.edit_message(embed=self._embed(), view=self)
             self.stop()
             return
