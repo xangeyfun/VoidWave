@@ -518,8 +518,9 @@ class ConfigCog(commands.Cog):
 
         guild_obj = interaction.guild
         bot_member = guild_obj.me
-        created_items = []
+        results = []
         errors = []
+        qotd_working = False
 
         bot_perms = bot_member.guild_permissions
         missing = []
@@ -528,7 +529,7 @@ class ConfigCog(commands.Cog):
         if not bot_perms.manage_roles:
             missing.append("Manage Roles")
         if missing:
-            await interaction.followup.send(f"I need the following permissions to set up features:\n> **{'**, **'.join(missing)}**\n\nPlease add these permissions and try again.", ephemeral=True)
+            await interaction.followup.send(f"I need **{'**, **'.join(missing)}** to set up features. Ask a server admin to grant them and try again.", ephemeral=True)
             return
 
         conn = get_db()
@@ -540,9 +541,13 @@ class ConfigCog(commands.Cog):
         existing_qotd_channel = existing and existing[1]
         existing_qotd_role = existing and existing[2]
 
+        level_ok = existing_level and isinstance(guild_obj.get_channel(existing_level), discord.TextChannel)
+        qotd_channel_ok = existing_qotd_channel and isinstance(guild_obj.get_channel(existing_qotd_channel), discord.TextChannel)
+        qotd_role_ok = existing_qotd_role and guild_obj.get_role(existing_qotd_role) is not None
+
         if level:
-            if existing_level:
-                await interaction.followup.send("Leveling is already configured. Use `/config level set_channel` to change it.", ephemeral=True)
+            if level_ok:
+                results.append("⚠️ **Leveling:** already configured, left unchanged. Manage it with `/config level`")
             else:
                 try:
                     overwrites = {
@@ -555,8 +560,6 @@ class ConfigCog(commands.Cog):
                         overwrites=overwrites,
                         reason="VoidWave auto config"
                     )
-                    created_items.append(f"Channel: {level_channel.mention}")
-
                     conn = get_db()
                     try:
                         cur = conn.cursor()
@@ -567,66 +570,89 @@ class ConfigCog(commands.Cog):
                         conn.commit()
                     finally:
                         conn.close()
+                    results.append(f"✅ **Leveling:** channel {level_channel.mention} created and enabled")
                 except Exception as e:
-                    errors.append(f"Failed to create level-ups channel: {e}")
+                    logger.error("Failed to auto-set-up leveling for guild %s: %s", guild_obj.id, e)
+                    errors.append(f"Leveling setup failed: {e}")
 
         if qotd:
-            if existing_qotd_channel and existing_qotd_role:
-                await interaction.followup.send("QOTD is already configured. Use `/config qotd set_channel` to change it.", ephemeral=True)
+            if qotd_channel_ok and qotd_role_ok:
+                qotd_working = True
+                results.append("⚠️ **QOTD:** already configured, left unchanged. Manage it with `/config qotd`")
             else:
                 try:
-                    overwrites = {
-                        guild_obj.default_role: discord.PermissionOverwrite(read_messages=True, send_messages=False, create_public_threads=False, send_messages_in_threads=True),
-                        bot_member: discord.PermissionOverwrite(read_messages=True, send_messages=True, manage_messages=True, create_public_threads=True)
-                    }
-                    qotd_channel = await guild_obj.create_text_channel(
-                        "qotd",
-                        topic="Question of the Day",
-                        overwrites=overwrites,
-                        reason="VoidWave auto config"
-                    )
-                    created_items.append(f"Channel: {qotd_channel.mention}")
-
-                    qotd_role = await guild_obj.create_role(
-                        name="QOTD Ping",
-                        mentionable=True,
-                        reason="VoidWave auto config"
-                    )
-                    created_items.append(f"Role: {qotd_role.mention}")
-
-                    conn = get_db()
-                    try:
-                        cur = conn.cursor()
-                        cur.execute(
-                            "INSERT INTO guild_settings (guild_id, qotd_channel, qotd_role_id, qotd_enabled) VALUES (?, ?, ?, 1) ON CONFLICT(guild_id) DO UPDATE SET qotd_channel = excluded.qotd_channel, qotd_role_id = excluded.qotd_role_id, qotd_enabled = 1",
-                            (guild_obj.id, qotd_channel.id, qotd_role.id)
+                    if not qotd_channel_ok:
+                        overwrites = {
+                            guild_obj.default_role: discord.PermissionOverwrite(read_messages=True, send_messages=False, create_public_threads=False, send_messages_in_threads=True),
+                            bot_member: discord.PermissionOverwrite(read_messages=True, send_messages=True, manage_messages=True, create_public_threads=True)
+                        }
+                        qotd_channel = await guild_obj.create_text_channel(
+                            "qotd",
+                            topic="Question of the Day",
+                            overwrites=overwrites,
+                            reason="VoidWave auto config"
                         )
-                        conn.commit()
-                    finally:
-                        conn.close()
+                        conn = get_db()
+                        try:
+                            cur = conn.cursor()
+                            cur.execute(
+                                "INSERT INTO guild_settings (guild_id, qotd_channel, qotd_enabled) VALUES (?, ?, 1) ON CONFLICT(guild_id) DO UPDATE SET qotd_channel = excluded.qotd_channel, qotd_enabled = 1",
+                                (guild_obj.id, qotd_channel.id)
+                            )
+                            conn.commit()
+                        finally:
+                            conn.close()
+
+                    if not qotd_role_ok:
+                        qotd_role = await guild_obj.create_role(
+                            name="QOTD Ping",
+                            mentionable=True,
+                            reason="VoidWave auto config"
+                        )
+                        conn = get_db()
+                        try:
+                            cur = conn.cursor()
+                            cur.execute(
+                                "INSERT INTO guild_settings (guild_id, qotd_role_id) VALUES (?, ?) ON CONFLICT(guild_id) DO UPDATE SET qotd_role_id = excluded.qotd_role_id",
+                                (guild_obj.id, qotd_role.id)
+                            )
+                            conn.commit()
+                        finally:
+                            conn.close()
+
+                    qotd_working = True
+                    made = []
+                    if not qotd_channel_ok:
+                        made.append(f"channel {qotd_channel.mention}")
+                    if not qotd_role_ok:
+                        made.append(f"ping role <@&{qotd_role.id}>")
+                    results.append(f"✅ **QOTD:** created {' and '.join(made)} and enabled")
                 except Exception as e:
-                    errors.append(f"Failed to create QOTD setup: {e}")
+                    logger.error("Failed to auto-set-up QOTD for guild %s: %s", guild_obj.id, e)
+                    errors.append(f"QOTD setup failed: {e}")
 
         if errors:
+            summaries = "\n".join(results)
             error_text = "\n".join(errors)
-            if created_items:
-                items_text = "\n".join(created_items)
-                await interaction.followup.send(
-                    f"### Partially configured!\n**Created:**\n{items_text}\n\n**Errors:**\n```\n{error_text}\n```\nMake sure VoidWave has **Manage Channels** and **Manage Roles** permissions.",
-                    ephemeral=True
-                )
-            else:
-                await interaction.followup.send(
-                    f"### Setup failed!\n```\n{error_text}\n```\nMake sure VoidWave has **Manage Channels** and **Manage Roles** permissions.",
-                    ephemeral=True
-                )
-        else:
-            items_text = "\n".join(created_items)
-            msg = f"### All set up!\n**Created:**\n{items_text}\n\nBoth features are now enabled. Customize further with `/config help`."
-            if qotd:
-                msg += f"\n\nNext QOTD: {_next_qotd_timestamp(interaction.guild.id)}"
-            await interaction.followup.send(msg, ephemeral=True)
-            logger.info("%s auto-configured guild %s | level: %s | qotd: %s | created: %s", interaction.user, interaction.guild.id, level, qotd, created_items)
+            embed = discord.Embed(title="⚙️ Auto setup", color=discord.Color.red())
+            embed.add_field(name="Results", value=summaries or "Nothing was set up.", inline=False)
+            embed.add_field(name="Errors", value=f"```\n{error_text}\n```", inline=False)
+            embed.add_field(name="What to do next", value="Make sure VoidWave has **Manage Channels** and **Manage Roles** permissions, then run `/config auto` again. Anything already created is saved, so it will finish what is missing.", inline=False)
+            embed.set_footer(text="Customize further with /config help")
+            await interaction.followup.send(embed=embed, ephemeral=True)
+            logger.info("%s auto-configured guild %s | level: %s | qotd: %s", interaction.user, interaction.guild.id, level, qotd)
+            return
+
+        if not results:
+            results.append("Nothing to set up. Level and QOTD were already fully configured.")
+
+        embed = discord.Embed(title="⚙️ Auto setup finished", color=0x7128fc)
+        embed.add_field(name="Results", value="\n".join(results), inline=False)
+        if qotd_working:
+            embed.add_field(name="Next QOTD", value=_next_qotd_timestamp(interaction.guild.id), inline=False)
+        embed.set_footer(text="Customize further with /config help")
+        await interaction.followup.send(embed=embed, ephemeral=True)
+        logger.info("%s auto-configured guild %s | level: %s | qotd: %s", interaction.user, interaction.guild.id, level, qotd)
 
     @discord.app_commands.allowed_installs(guilds=True, users=False)
     @discord.app_commands.allowed_contexts(guilds=True, dms=False, private_channels=False)
@@ -646,6 +672,8 @@ class ConfigCog(commands.Cog):
             conn.commit()
         except Exception as e:
             logger.error("Failed to set level channel: %s", e)
+            await interaction.response.send_message("Failed to set the level up channel. Please try again later.", ephemeral=True)
+            return
         finally:
             conn.close()
 
@@ -714,7 +742,11 @@ class ConfigCog(commands.Cog):
         finally:
             conn.close()
 
-        await interaction.response.send_message(f"Vote announcements have been **{'enabled' if enabled else 'disabled'}**" + ("" if enabled else " in your level up channel."), ephemeral=True)
+        if enabled:
+            msg = "Vote announcements have been **enabled**. They will post in your level up channel."
+        else:
+            msg = "Vote announcements have been **disabled**. They will no longer post in your level up channel."
+        await interaction.response.send_message(msg, ephemeral=True)
         logger.info("%s set vote announcements to %s in guild %s", interaction.user, "enabled" if enabled else "disabled", interaction.guild.id)
 
     @discord.app_commands.allowed_installs(guilds=True, users=False)
@@ -735,6 +767,8 @@ class ConfigCog(commands.Cog):
             conn.commit()
         except Exception as e:
             logger.error("Failed to add level role: %s", e)
+            await interaction.response.send_message("Failed to add the level role. Please try again later.", ephemeral=True)
+            return
         finally:
             conn.close()
 
@@ -756,6 +790,8 @@ class ConfigCog(commands.Cog):
             conn.commit()
         except Exception as e:
             logger.error("Failed to remove level role: %s", e)
+            await interaction.response.send_message("Failed to remove the level role. Please try again later.", ephemeral=True)
+            return
         finally:
             conn.close()
 
@@ -957,7 +993,7 @@ class ConfigCog(commands.Cog):
         finally:
             conn.close()
 
-        await interaction.response.send_message(f"Delete old QOTD messages has been {'enabled' if enabled else 'disabled'}", ephemeral=True)
+        await interaction.response.send_message(f"Deleting old QOTD messages has been **{'enabled' if enabled else 'disabled'}**", ephemeral=True)
         logger.info("%s set delete old QOTD to %s in guild %s", interaction.user, "enabled" if enabled else "disabled", interaction.guild.id)
 
     @discord.app_commands.allowed_installs(guilds=True, users=False)
