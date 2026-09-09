@@ -11,7 +11,7 @@ DEDUP_WINDOW = 60
 MAX_TEXT_LEN = 1024
 TIME_FORMAT = "%Y-%m-%d %H:%M:%S"
 
-NOISE_LOGGERS = ("aiohttp", "urllib3", "notify", "discord.http")
+NOISE_LOGGERS = ("notify",)
 
 _log = logging.getLogger("notify")
 
