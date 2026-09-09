@@ -120,6 +120,9 @@ class EventsCog(commands.Cog):
         leveling_cog = self.bot.get_cog("LevelingCog")
         if leveling_cog:
             leveling_cog.vc_xp_loop.start()
+        reminders_cog = self.bot.get_cog("ReminderCog")
+        if reminders_cog:
+            reminders_cog.reminder_loop.start()
         self.rotate_status.start()
         self.update_topgg.start()
         self.vote_dm_loop.start()
