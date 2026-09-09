@@ -279,6 +279,42 @@
 
     <div class="commands-category">
         <div class="commands-category-header">
+            <h2>Reminders</h2>
+            <span class="commands-category-tag">DM'd to you</span>
+        </div>
+        <div class="commands-grid">
+            <div class="command-card">
+                <code>/remind create</code>
+                <span>Set a reminder with human-friendly times like <code>10m</code>, <code>2h</code>, <code>tomorrow 16:00</code>, or <code>friday 18:30</code>, delivered to your DMs or a server channel</span>
+            </div>
+            <div class="command-card">
+                <code>/remind list</code>
+                <span>List your active reminders with their next trigger time</span>
+            </div>
+            <div class="command-card">
+                <code>/remind edit</code>
+                <span>Change a reminder's message, time, or timezone</span>
+            </div>
+            <div class="command-card">
+                <code>/remind delete</code>
+                <span>Delete a reminder by its ID</span>
+            </div>
+            <div class="command-card">
+                <code>/remind clear</code>
+                <span>Delete all your reminders (asks for confirmation)</span>
+            </div>
+            <div class="command-card">
+                <code>/remind timezone</code>
+                <span>Set your default reminder timezone (defaults to UTC)</span>
+            </div>
+        </div>
+        <div class="commands-note">
+            <p>Reminders go to your DMs by default, or a <code>channel:</code> of your choice. Use the <code>recurring:</code> option for <strong>hourly</strong>, <strong>daily</strong>, <strong>weekly</strong>, <strong>biweekly</strong>, <strong>weekdays (Mon-Fri)</strong>, <strong>weekends (Sat-Sun)</strong>, <strong>monthly</strong>, <strong>yearly</strong>, or a custom repeat like <strong>every 2h</strong> / <strong>every 3d</strong>, and they automatically reschedule for the next occurrence. Reminders survive restarts and are stored until you delete them.</p>
+        </div>
+    </div>
+
+    <div class="commands-category">
+        <div class="commands-category-header">
             <h2>Moderation</h2>
             <span class="commands-category-tag">admins only</span>
         </div>
