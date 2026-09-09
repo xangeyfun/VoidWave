@@ -181,9 +181,11 @@ class FunCog(commands.Cog):
             quote_text = data[0]['q']
             author = data[0]['a']
         except (KeyError, IndexError, TypeError):
+            logger.error("Quote API returned unexpected data")
             await interaction.followup.send("Could not fetch quote. Please try again later.", ephemeral=True)
             return
         except Exception as e:
+            logger.error("Failed to fetch quote: %s", e)
             await interaction.followup.send(f"Could not fetch quote. Please try again later.\nDetails: {e}", ephemeral=True)
             return
         await interaction.followup.send(f"\"{quote_text}\" - {author}", ephemeral=hidden)
