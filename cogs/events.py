@@ -96,7 +96,7 @@ class EventsCog(commands.Cog):
             synced = await self.bot.tree.sync() # guild=guild)
             done = time.time()
         except Exception as e:
-            logger.error("Error while syncing commands: %s", e)
+            logger.critical("Error while syncing commands: %s", e)
             exit(1)
         total_guilds = len(self.bot.guilds)
         total_members = sum(guild.member_count or 0 for guild in self.bot.guilds)
@@ -436,6 +436,7 @@ class EventsCog(commands.Cog):
         is_startup_echo = guild.name is None or guild.member_count is None
         if not is_startup_echo:
             logger.guild("Removed from guild: %s | %s members | ID: %s", guild.name, guild.member_count, guild.id)
+            logger.critical("Removed from guild: %s | %s members | ID: %s", guild.name, guild.member_count, guild.id)
             log_admin_event("guild_leave", f"Removed from {guild.name} ({guild.member_count} members)", guild_id=guild.id)
         try:
             conn = get_db()
