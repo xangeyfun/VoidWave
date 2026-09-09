@@ -52,17 +52,24 @@ class RatingView(discord.ui.View):
             await interaction.response.send_message("This rating prompt isn't for you.", ephemeral=True)
             return
         stars = "⭐" * rating
+        saved = save_rating(self.user_id, rating, "", self.guild_name)
+        for item in self.children:
+            item.disabled = True
+        if not saved:
+            embed = discord.Embed(
+                description="Sorry, something went wrong while saving your rating. The developers have been notified. 💜",
+                color=discord.Color.red(),
+            )
+            await interaction.response.edit_message(embed=embed, view=self)
+            return
         embed = discord.Embed(
             description=f"Thanks! You rated VoidWave {stars}\n\nWould you like to tell us why?",
             color=0x7128fc,
         )
-        for item in self.children:
-            item.disabled = True
         await interaction.response.edit_message(
             embed=embed,
             view=FeedbackView(self.bot, self.user_id, self.guild_name, rating),
         )
-        save_rating(self.user_id, rating, "", self.guild_name)
         await forward_rating_to_channel(self.bot, interaction.user, rating, "", self.guild_name)
 
     @discord.ui.button(label="⭐", style=discord.ButtonStyle.secondary)
@@ -136,10 +143,16 @@ class FeedbackModal(discord.ui.Modal, title="VoidWave Rating"):
             await interaction.response.send_message("This rating prompt isn't for you.", ephemeral=True)
             return
         feedback = (self.feedback_input.value or "").strip()
-        update_feedback(self.user_id, feedback)
+        ok = update_feedback(self.user_id, feedback)
         for item in self.view_ref.children:
             item.disabled = True
-        embed = discord.Embed(description="Thanks for the feedback! 💜", color=0x7128fc)
+        if not ok:
+            embed = discord.Embed(
+                description="Sorry, something went wrong while saving your feedback. The developers have been notified. 💜",
+                color=discord.Color.red(),
+            )
+        else:
+            embed = discord.Embed(description="Thanks for the feedback! 💜", color=0x7128fc)
         await interaction.response.edit_message(embed=embed, view=self.view_ref)
 
 
@@ -177,8 +190,10 @@ def update_feedback(user_id, feedback):
             (feedback, user_id),
         )
         conn.commit()
+        return True
     except Exception as e:
         logger.error("Failed to update feedback from %s: %s", user_id, e)
+        return False
     finally:
         conn.close()
 
