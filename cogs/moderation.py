@@ -221,21 +221,23 @@ class ModerationCog(commands.Cog):
         overwrites = dict(channel.overwrites)
         everyone = interaction.guild.default_role
         overwrite = overwrites.get(everyone)
-        if overwrite:
-            overwrite.update(send_messages=None)
-            if overwrite.is_empty():
-                overwrites.pop(everyone, None)
-            try:
-                await channel.edit(overwrites=overwrites)
-            except discord.Forbidden:
-                await interaction.followup.send("I don't have permission to unlock that channel.", ephemeral=hidden)
-                return
-            except discord.NotFound:
-                await interaction.followup.send("That channel no longer exists.", ephemeral=hidden)
-                return
-            except discord.HTTPException:
-                await interaction.followup.send("Something went wrong while unlocking the channel. Please try again later.", ephemeral=hidden)
-                return
+        if not overwrite or overwrite.send_messages is not False:
+            await interaction.followup.send(f"{channel.mention} wasn't locked, so there's nothing to unlock.", ephemeral=hidden)
+            return
+        overwrite.update(send_messages=None)
+        if overwrite.is_empty():
+            overwrites.pop(everyone, None)
+        try:
+            await channel.edit(overwrites=overwrites)
+        except discord.Forbidden:
+            await interaction.followup.send("I don't have permission to unlock that channel.", ephemeral=hidden)
+            return
+        except discord.NotFound:
+            await interaction.followup.send("That channel no longer exists.", ephemeral=hidden)
+            return
+        except discord.HTTPException:
+            await interaction.followup.send("Something went wrong while unlocking the channel. Please try again later.", ephemeral=hidden)
+            return
         await interaction.followup.send(f"Unlocked {channel.mention}.", ephemeral=hidden)
         logger.info("%s unlocked %s (ID: %s) in guild %s", interaction.user, channel, channel.id, interaction.guild.id)
 
