@@ -134,7 +134,11 @@ class GeneralCog(commands.Cog):
                     "`/aitoggle [enabled]` - Turn AI replies on or off for yourself\n"
                     "`/userinfo <user>` - Look up a user\n"
                     "`/feedback <feedback>` - Message the developers\n"
-                    "`/rate` - Rate VoidWave"
+                    "`/rate` - Rate VoidWave\n"
+                    "`/remind create <time> <message> [recurring]` - DM reminder (e.g. 2h, tomorrow 16:00, friday 18:30)\n"
+                    "`/remind list` - List your reminders\n"
+                    "`/remind delete <id>` - Delete a reminder\n"
+                    "`/remind timezone [timezone]` - Set your reminder timezone (defaults to UTC)"
                 ),
                 inline=False,
             ),
