@@ -639,12 +639,20 @@ class TriviaBattleView(discord.ui.View):
             override or "no errors",
             {self._name(uid) + " " + str(score): score for uid, score in sorted_scores},
         )
-        desc = f"{override + chr(10) + chr(10) if override else ''}**{winner}** wins the battle!\n\n" + self._scores_block()
-        embed = discord.Embed(
-            title="Trivia Battle Finished",
-            description=desc,
-            color=discord.Color(0x2ecc71),
-        )
+        if override:
+            desc = f"{override}\n\n" + self._scores_block()
+            embed = discord.Embed(
+                title="Trivia Battle Stopped",
+                description=desc,
+                color=discord.Color.red(),
+            )
+        else:
+            desc = f"**{winner}** wins the battle!\n\n" + self._scores_block()
+            embed = discord.Embed(
+                title="Trivia Battle Finished",
+                description=desc,
+                color=discord.Color(0x2ecc71),
+            )
         embed.set_footer(text="Vote for 2x XP! /vote")
         try:
             await self.interaction.edit_original_response(embed=embed, view=None)
