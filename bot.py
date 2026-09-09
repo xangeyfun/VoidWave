@@ -46,6 +46,7 @@ async def setup_hook():
     await bot.load_extension("cogs.events")
     await bot.load_extension("cogs.rating")
     await bot.load_extension("cogs.moderation")
+    await bot.load_extension("cogs.reminders")
     await bot.load_extension("cogs.music")
 
 bot.setup_hook = setup_hook
@@ -260,6 +261,35 @@ if __name__ == "__main__":
         ai_enabled BOOLEAN DEFAULT 1
     )
     """)
+    conn.commit()
+
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS reminders (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        message TEXT NOT NULL,
+        trigger_at INTEGER NOT NULL,
+        recurring TEXT,
+        tz TEXT NOT NULL DEFAULT 'UTC',
+        created_at INTEGER NOT NULL,
+        channel_id INTEGER
+    )
+    """)
+    conn.commit()
+
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_reminders_trigger_at ON reminders(trigger_at)")
+    conn.commit()
+
+    try:
+        cur.execute("ALTER TABLE reminders ADD COLUMN channel_id INTEGER")
+    except sqlite3.OperationalError:
+        pass
+    conn.commit()
+
+    try:
+        cur.execute("ALTER TABLE user_prefs ADD COLUMN remind_tz TEXT DEFAULT 'UTC'")
+    except sqlite3.OperationalError:
+        pass
     conn.commit()
 
     cur.execute("""
