@@ -31,7 +31,7 @@
         <li><strong>XP & Level</strong> - Your progress in the leveling system</li>
         <li><strong>Message count</strong> - Total messages sent for XP calculation</li>
         <li><strong>Voice chat time</strong> - Minutes spent in voice channels for XP calculation</li>
-        <li><strong>Vote & reminder records</strong> - Your user ID and timestamps so vote boosts and reminder DMs work</li>
+        <li><strong>Vote & reminder records</strong> - Your user ID, timestamps, and your `/remind` message content so vote boosts and reminder DMs work</li>
         <li><strong>Message content</strong> - Temporarily logged to stdout for debugging purposes (not stored in the database)</li>
     </ul>
 
@@ -61,7 +61,7 @@
     </ul>
 
     <h2>Data Storage & Logging</h2>
-    <p>We store your persistent data (user IDs, XP, levels, settings, vote records, etc.) in a local SQLite database. Additionally:</p>
+    <p>We store your persistent data (user IDs, XP, levels, settings, vote records, reminders, etc.) in a local SQLite database. Additionally:</p>
     <ul>
         <li><strong>Command usage</strong> is logged to a local text file for debugging and abuse prevention</li>
         <li><strong>Command usage and notable bot events</strong> - level-ups, role grants, game results, moderation actions, config changes, and votes - are also stored in the local SQLite database for operational and debugging purposes</li>
