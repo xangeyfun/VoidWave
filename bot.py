@@ -63,7 +63,7 @@ async def on_app_command_error(interaction: discord.Interaction, error: discord.
             pass
         return
 
-    logger.exception("Unhandled command error in '/%s'", getattr(interaction.command, 'qualified_name', '?'))
+    logger.critical("Unhandled command error in '/%s'", getattr(interaction.command, 'qualified_name', '?'), exc_info=error)
     try:
         await interaction.response.send_message(f"Something went wrong while running that command. Please try again later.", ephemeral=True)
     except discord.HTTPException:
