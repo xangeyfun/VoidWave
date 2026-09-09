@@ -32,6 +32,7 @@
 * Daily Question of the Day with auto-threads
 * Moderation commands (kick, ban, timeout, slowmode, lock, role management)
 * Vote for 2x XP boosts, 3 hours on weekends
+* DM or channel reminders with human-friendly times (`10m`, `tomorrow 16:00`, `friday 18:30`) and recurring options (`daily`, `weekly`, `every 2h`)
 * Fun commands (animal pics, quotes, facts, calculator)
 * Games (8-ball, rock-paper-scissors, tic-tac-toe, connect four, hangman, blackjack, trivia, wordle, minesweeper, battleship, 15-puzzle)
 * Music playback (YouTube, Spotify, SoundCloud, playlists) via Lavalink
