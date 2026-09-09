@@ -273,6 +273,7 @@ class LeaderboardView(discord.ui.View):
 def _process_vc_ticks(records):
     conn = get_db()
     level_ups = []
+    committed = False
     try:
         cur = conn.cursor()
         for guild_id, members_in_channel, self_deaf, member_id, display_name, username, avatar_key in records:
@@ -382,11 +383,12 @@ def _process_vc_ticks(records):
                     "level_channel_enabled": bool(level_channel and level_channel["level_channel_enabled"]),
                 })
         conn.commit()
+        committed = True
     except Exception as e:
         logger.error("Failed to process VC XP: %s", e)
     finally:
         conn.close()
-    return level_ups
+    return level_ups if committed else []
 
 
 class LevelingCog(commands.Cog):
