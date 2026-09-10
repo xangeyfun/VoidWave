@@ -333,6 +333,8 @@ class ReminderCog(commands.Cog):
             return f"I can't deliver to <#{channel.id}>: I'm missing **{', '.join(missing)}** there. Pick another channel or leave `channel:` empty to use DMs."
         return None
 
+    @discord.app_commands.allowed_installs(guilds=True, users=True)
+    @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     @remind.command(name="create", description="Create a reminder that gets sent to your DMs")
     @app_commands.describe(
         time="When to remind you, e.g. 10m, 2h, tomorrow 16:00, friday 18:30",
@@ -419,6 +421,8 @@ class ReminderCog(commands.Cog):
         await interaction.response.send_message(msg, ephemeral=True)
         logger.info("%s created reminder #%s in %s for %s: %s", interaction.user, reminder_id, qotd_tz_label(tz_name), trigger_ts, message[:80])
 
+    @discord.app_commands.allowed_installs(guilds=True, users=True)
+    @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     @remind.command(name="list", description="List your active reminders")
     async def list_reminders(self, interaction: discord.Interaction):
         conn = get_db()
@@ -460,6 +464,8 @@ class ReminderCog(commands.Cog):
         embed.set_footer(text="Delete one with /remind delete")
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
+    @discord.app_commands.allowed_installs(guilds=True, users=True)
+    @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     @remind.command(name="delete", description="Delete a reminder by its ID")
     @app_commands.describe(id="The reminder ID (shown when you create or list reminders)")
     @app_commands.autocomplete(id=_reminder_id_autocomplete)
@@ -489,6 +495,8 @@ class ReminderCog(commands.Cog):
         await interaction.response.send_message(msg, ephemeral=True)
         logger.info("%s deleted reminder #%s", interaction.user, id)
 
+    @discord.app_commands.allowed_installs(guilds=True, users=True)
+    @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     @remind.command(name="edit", description="Change a reminder's message, time, or timezone")
     @app_commands.describe(
         id="The reminder ID (shown when you create or list reminders)",
@@ -563,6 +571,8 @@ class ReminderCog(commands.Cog):
         await interaction.response.send_message(msg, ephemeral=True)
         logger.info("%s edited reminder #%s", interaction.user, id)
 
+    @discord.app_commands.allowed_installs(guilds=True, users=True)
+    @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     @remind.command(name="clear", description="Delete all your reminders (asks for confirmation)")
     async def clear_reminders(self, interaction: discord.Interaction):
         conn = get_db()
@@ -587,6 +597,8 @@ class ReminderCog(commands.Cog):
         await interaction.response.send_message(embed=embed, ephemeral=True, view=_ConfirmClearView(interaction.user.id))
         logger.info("%s opened clear-reminders confirmation (%s reminders)", interaction.user, count)
 
+    @discord.app_commands.allowed_installs(guilds=True, users=True)
+    @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     @remind.command(name="timezone", description="Set the default timezone for your reminders")
     @app_commands.describe(timezone="IANA timezone, e.g. Europe/Amsterdam (leave empty to view your current one)")
     @app_commands.autocomplete(timezone=_timezone_autocomplete)
