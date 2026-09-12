@@ -525,7 +525,7 @@ class EventsCog(commands.Cog):
         finally:
             conn.close()
 
-    @tasks.loop(minutes=10)
+    @tasks.loop(hours=1)
     async def stats_log_loop(self):
         try:
             log_stats(self.bot)

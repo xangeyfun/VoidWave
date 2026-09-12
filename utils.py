@@ -336,7 +336,17 @@ def log_stats(bot):
         except (json.JSONDecodeError, IOError):
             history = []
 
-    history.append(snapshot)
+    def _hour_key(ts):
+        try:
+            return datetime.datetime.fromisoformat(ts).strftime("%Y-%m-%dT%H")
+        except (ValueError, TypeError):
+            return None
+
+    cur_hour = _hour_key(snapshot["timestamp"])
+    if cur_hour and history and _hour_key(history[-1].get("timestamp", "")) == cur_hour:
+        history[-1] = snapshot
+    else:
+        history.append(snapshot)
 
     with open(STATS_LOG_FILE, "w") as f:
         json.dump(history, f, indent=2)
