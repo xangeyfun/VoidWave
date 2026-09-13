@@ -301,7 +301,7 @@ class MusicPlayerView(discord.ui.View):
                     item.disabled = not playing
 
     # -- row 0: shuffle | prev | play/pause | next | loop ----------------
-    @discord.ui.button(emoji="🔀", style=discord.ButtonStyle.secondary, row=0)
+    @discord.ui.button(emoji="🔀", style=discord.ButtonStyle.secondary, custom_id="music_shuffle", row=0)
     async def on_shuffle(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not await self._check(interaction):
             return
@@ -311,7 +311,7 @@ class MusicPlayerView(discord.ui.View):
         player.queue.shuffle()
         await interaction.response.send_message("🔀 Queue shuffled!", ephemeral=True)
 
-    @discord.ui.button(emoji="⏮️", style=discord.ButtonStyle.secondary, row=0)
+    @discord.ui.button(emoji="⏮️", style=discord.ButtonStyle.secondary, custom_id="music_prev", row=0)
     async def on_prev(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not await self._check(interaction):
             return
@@ -324,7 +324,7 @@ class MusicPlayerView(discord.ui.View):
         self.cog._reset_skip_votes(self.guild_id)
         await interaction.response.send_message(f"⏮️ Now playing **{prev_track.title}**.", ephemeral=True, allowed_mentions=discord.AllowedMentions.none())
 
-    @discord.ui.button(emoji="⏯️", style=discord.ButtonStyle.primary, row=0)
+    @discord.ui.button(emoji="⏯️", style=discord.ButtonStyle.primary, custom_id="music_pause", row=0)
     async def on_pause_resume(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not await self._check(interaction):
             return
@@ -335,7 +335,7 @@ class MusicPlayerView(discord.ui.View):
         label = "Paused" if player.paused else "Resumed"
         await interaction.response.send_message(f"{'⏸️' if player.paused else '▶️'} {label}.", ephemeral=True)
 
-    @discord.ui.button(emoji="⏭️", style=discord.ButtonStyle.secondary, row=0)
+    @discord.ui.button(emoji="⏭️", style=discord.ButtonStyle.secondary, custom_id="music_next", row=0)
     async def on_next(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not await self._check(interaction):
             return
@@ -364,7 +364,7 @@ class MusicPlayerView(discord.ui.View):
             allowed_mentions=discord.AllowedMentions.none(),
         )
 
-    @discord.ui.button(emoji="🔁", style=discord.ButtonStyle.secondary, row=0)
+    @discord.ui.button(emoji="🔁", style=discord.ButtonStyle.secondary, custom_id="music_loop", row=0)
     async def on_loop(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not await self._check(interaction):
             return
@@ -377,22 +377,15 @@ class MusicPlayerView(discord.ui.View):
         await interaction.response.send_message(f"🔁 {labels[idx]}.", ephemeral=True)
 
     # -- row 1: leave | queue | lyrics | live lyrics | autoplay ----------
-    @discord.ui.button(emoji="👋", style=discord.ButtonStyle.danger, row=1)
+    @discord.ui.button(emoji="👋", style=discord.ButtonStyle.danger, custom_id="music_stop", row=1)
     async def on_stop(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not await self._check(interaction):
             return
         player = self.cog._player(interaction)
-        msg = self.cog.player_messages.get(self.guild_id)
-        await self.cog._disconnect(player)
+        await self.cog._disconnect(player, embed_desc="Left the voice channel and cleared the queue.")
         await interaction.response.send_message("👋 Left the voice channel and cleared the queue.", ephemeral=True)
-        if msg:
-            try:
-                embed = discord.Embed(title="👋 Disconnected", description="Left the voice channel and cleared the queue.", color=VOIDWAVE_COLOR)
-                await msg.edit(embed=embed, view=None)
-            except discord.HTTPException:
-                pass
 
-    @discord.ui.button(emoji="📜", style=discord.ButtonStyle.secondary, row=1)
+    @discord.ui.button(emoji="📜", style=discord.ButtonStyle.secondary, custom_id="music_queue", row=1)
     async def on_queue(self, interaction: discord.Interaction, button: discord.ui.Button):
         player = self.cog._player(interaction)
         if not isinstance(player, wavelink.Player) or not player.connected:
@@ -401,7 +394,7 @@ class MusicPlayerView(discord.ui.View):
         embed = view.build_embed()
         await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
 
-    @discord.ui.button(emoji="🎤", style=discord.ButtonStyle.secondary, row=1)
+    @discord.ui.button(emoji="🎤", style=discord.ButtonStyle.secondary, custom_id="music_live_lyrics", row=1)
     async def on_live_lyrics(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not await self._check(interaction):
             return
@@ -420,7 +413,7 @@ class MusicPlayerView(discord.ui.View):
             await interaction.response.send_message("🎤 Live lyrics **on** for the player embed.", ephemeral=True)
         await self.cog._sync_player_view(guild_id)
 
-    @discord.ui.button(emoji="📝", style=discord.ButtonStyle.secondary, row=1)
+    @discord.ui.button(emoji="📝", style=discord.ButtonStyle.secondary, custom_id="music_lyrics", row=1)
     async def on_lyrics(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not await self._check(interaction):
             return
@@ -440,7 +433,7 @@ class MusicPlayerView(discord.ui.View):
         view = LyricsView(interaction.user.id)
         await interaction.followup.send(embed=embed, view=view, ephemeral=True)
 
-    @discord.ui.button(emoji="✨", style=discord.ButtonStyle.secondary, row=1)
+    @discord.ui.button(emoji="✨", style=discord.ButtonStyle.secondary, custom_id="music_autoplay", row=1)
     async def on_autoplay(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not await self._check(interaction):
             return
@@ -463,6 +456,7 @@ class MusicPlayerView(discord.ui.View):
             discord.SelectOption(label="100%", value="100", emoji="📢"),
         ],
         row=2,
+        custom_id="music_volume",
     )
     async def on_volume(self, interaction: discord.Interaction, select: discord.ui.Select):
         if not await self._check(interaction):
@@ -808,24 +802,44 @@ class MusicCog(commands.Cog):
         self._cache_search(normalized, results)
         return results
 
-    async def _disconnect(self, player: wavelink.Player):
-        guild_id = player.guild.id if player.guild else 0
+    def _player_usable(self, player) -> bool:
+        if not isinstance(player, wavelink.Player):
+            return False
+        if not player.connected or player.channel is None or player.guild is None:
+            return False
+        return getattr(player.guild.me, "voice", None) is not None
+
+    async def _teardown_guild(self, guild_id: int, *, embed_title: str = "Disconnected", embed_desc: str = "Music stopped. Run /music play to start again."):
         self._cancel_update_task(guild_id)
+        player = self.players.pop(guild_id, None)
         view = self.player_views.pop(guild_id, None)
+        msg = self.player_messages.pop(guild_id, None)
+        self._reset_skip_votes(guild_id)
+        self.players_owner.pop(guild_id, None)
+        self.live_lyrics.pop(guild_id, None)
         if view:
             for child in view.children:
                 child.disabled = True
-        player.queue.clear()
-        if player.guild:
-            self.players.pop(player.guild.id, None)
-            self._reset_skip_votes(player.guild.id)
-            self.players_owner.pop(player.guild.id, None)
-        try:
-            await player.disconnect()
-        except Exception as e:
-            logger.error("Failed to disconnect music player: %s", e)
-        self.player_messages.pop(guild_id, None)
-        self.live_lyrics.pop(guild_id, None)
+        if isinstance(player, wavelink.Player):
+            if player.connected:
+                try:
+                    await player.disconnect()
+                except Exception as e:
+                    logger.error("Failed to disconnect music player: %s", e)
+            else:
+                try:
+                    player.queue.clear()
+                except Exception:
+                    pass
+        if msg and view:
+            try:
+                await msg.edit(embed=discord.Embed(title=embed_title, description=embed_desc, color=VOIDWAVE_COLOR), view=view)
+            except discord.HTTPException:
+                pass
+
+    async def _disconnect(self, player: wavelink.Player, *, embed_title: str = "Disconnected", embed_desc: str = "Left the voice channel and cleared the queue."):
+        guild_id = player.guild.id if player.guild else 0
+        await self._teardown_guild(guild_id, embed_title=embed_title, embed_desc=embed_desc)
 
     # ------------------------------------------------------------------
     # Player view management
@@ -1005,17 +1019,37 @@ class MusicCog(commands.Cog):
             except discord.HTTPException:
                 pass
 
+    async def _begin_playback(self, interaction: discord.Interaction, player: wavelink.Player, track) -> bool:
+        """Start a track. On failure the player is torn down so the next attempt reconnects fresh."""
+        try:
+            await player.play(track)
+        except Exception as e:
+            logger.error("Failed to start playback in guild %s: %s", interaction.guild_id, e)
+            await self._teardown_guild(interaction.guild_id, embed_desc="Playback stopped because something went wrong. Run /music play to start again.")
+            try:
+                await interaction.followup.send("I couldn't start playback. Please try again.", ephemeral=True)
+            except discord.HTTPException:
+                pass
+            return False
+        return True
+
     async def _play_from_search(self, interaction: discord.Interaction, track):
         """Play a track chosen from the search picker. interaction must already be deferred."""
         player = self._player(interaction)
         if not isinstance(player, wavelink.Player):
             return
         if player.playing:
-            await player.queue.put_wait(track)
+            try:
+                await player.queue.put_wait(track)
+            except Exception as e:
+                logger.error("Failed to queue track in guild %s: %s", interaction.guild_id, e)
+                await self._teardown_guild(interaction.guild_id, embed_desc="Music stopped. Run /music play to start again.")
+                return
             await self._repost_player_message(interaction, player)
             return
         self._reset_skip_votes(interaction.guild_id)
-        await player.play(track)
+        if not await self._begin_playback(interaction, player, track):
+            return
         await self._send_player_message(interaction, track, player)
 
     # ------------------------------------------------------------------
@@ -1023,6 +1057,12 @@ class MusicCog(commands.Cog):
     # ------------------------------------------------------------------
     @commands.Cog.listener()
     async def on_ready(self):
+        if not getattr(self, "_view_registered", False):
+            try:
+                self.bot.add_view(MusicPlayerView(self, 0))
+                self._view_registered = True
+            except Exception as e:
+                logger.error("Failed to register persistent music view: %s", e)
         if wavelink.Pool.nodes:
             return
         uri = os.getenv("LAVALINK_URI", "http://localhost:2333")
@@ -1038,8 +1078,22 @@ class MusicCog(commands.Cog):
         logger.info("Lavalink node ready: %s", payload.node.uri)
 
     @commands.Cog.listener()
-    async def on_wavelink_node_closed(self, node, disconnected: bool):
+    async def on_wavelink_node_closed(self, node, disconnected: list):
         logger.warning("Lavalink node closed: %s (disconnected=%s)", node.uri, disconnected)
+        for guild_id, player in list(self.players.items()):
+            if isinstance(player, wavelink.Player) and player.node is node:
+                logger.info("Cleaning up music state for guild %s after node close", guild_id)
+                await self._teardown_guild(guild_id, embed_desc="The music server disconnected. Run /music play to start again.")
+
+    @commands.Cog.listener()
+    async def on_wavelink_websocket_closed(self, payload: wavelink.WebsocketClosedEventPayload):
+        player = payload.player
+        if not isinstance(player, wavelink.Player) or player.guild is None:
+            return
+        if payload.code != wavelink.DiscordVoiceCloseType.DISCONNECTED and self._player_usable(player):
+            return
+        logger.info("Voice websocket closed in guild %s (code=%s, reason=%s)", player.guild.id, payload.code, payload.reason)
+        await self._teardown_guild(player.guild.id, embed_desc="The voice connection was lost. Run /music play to start again.")
 
     # ------------------------------------------------------------------
     # Play
@@ -1067,88 +1121,108 @@ class MusicCog(commands.Cog):
             return
         await interaction.response.defer(ephemeral=hidden)
 
-        player = self._player(interaction)
-        if isinstance(player, wavelink.Player):
-            if player.channel and player.channel.id != vc.channel.id:
+        try:
+            player = self.players.get(interaction.guild_id)
+            if isinstance(player, wavelink.Player) and not self._player_usable(player):
+                await self._teardown_guild(interaction.guild_id, embed_desc="The previous music session was interrupted. Starting a new one.")
+                player = None
+        except Exception as e:
+            logger.error("Music state cleanup failed for guild %s: %s", interaction.guild_id, e)
+            player = None
+
+        try:
+            if isinstance(player, wavelink.Player):
+                if player.channel and player.channel.id != vc.channel.id:
+                    try:
+                        await player.move_to(vc.channel)  # type: ignore
+                    except Exception as e:
+                        logger.error("Failed to move music player: %s", e)
+                        await self._teardown_guild(interaction.guild_id, embed_desc="Music stopped. Run /music play to start again.")
+                        await interaction.followup.send("I couldn't move to your voice channel. Please try again.", ephemeral=hidden)
+                        return
+            else:
                 try:
-                    await player.move_to(vc.channel)  # type: ignore
+                    player = await vc.channel.connect(cls=wavelink.Player, self_deaf=True)  # type: ignore
+                    self.players[interaction.guild_id] = player  # type: ignore
+                    self.players_owner[interaction.guild_id] = interaction.user.id
                 except Exception as e:
-                    logger.error("Failed to move music player: %s", e)
-                    await interaction.followup.send("I couldn't move to your voice channel. Please try again.", ephemeral=hidden)
+                    logger.error("Failed to connect music player to voice: %s", e)
+                    await interaction.followup.send("I couldn't join your voice channel. Please try again.", ephemeral=hidden)
                     return
-        else:
-            try:
-                player = await vc.channel.connect(cls=wavelink.Player, self_deaf=True)  # type: ignore
-                self.players[interaction.guild_id] = player  # type: ignore
-                self.players_owner[interaction.guild_id] = interaction.user.id
-            except Exception as e:
-                logger.error("Failed to connect music player to voice: %s", e)
-                await interaction.followup.send("I couldn't join your voice channel. Please try again.", ephemeral=hidden)
+
+            normalized = _normalize_query(query)
+            if normalized is None:
+                await interaction.followup.send("I couldn't find anything for that query. Please try again.", ephemeral=hidden)
+                return
+            tracks = await self._search_tracks(normalized, node)
+            if tracks is None:
+                await interaction.followup.send("I couldn't find anything for that query. Please try again.", ephemeral=hidden)
                 return
 
-        normalized = _normalize_query(query)
-        if normalized is None:
-            await interaction.followup.send("I couldn't find anything for that query. Please try again.", ephemeral=hidden)
-            return
-        tracks = await self._search_tracks(normalized, node)
-        if tracks is None:
-            await interaction.followup.send("I couldn't find anything for that query. Please try again.", ephemeral=hidden)
-            return
+            if not tracks:
+                await interaction.followup.send(f"No results found for `{query}`.", ephemeral=hidden)
+                return
 
-        if not tracks:
-            await interaction.followup.send(f"No results found for `{query}`.", ephemeral=hidden)
-            return
+            if isinstance(tracks, wavelink.Playlist):
+                await player.queue.put_wait(tracks.tracks)
+                if not player.playing and tracks.tracks:
+                    self._reset_skip_votes(interaction.guild_id)
+                    first = player.queue.get()
+                    if not await self._begin_playback(interaction, player, first):
+                        return
+                    await self._send_player_message(interaction, first, player)
+                else:
+                    embed = discord.Embed(
+                        title="🎵 Playlist added to queue",
+                        description=f"**[{tracks.name}]({query})** · **{len(tracks.tracks)}** songs",
+                        color=VOIDWAVE_COLOR,
+                    )
+                    if tracks.tracks:
+                        embed.add_field(name="First up", value=f"`{tracks.tracks[0].title}`", inline=False)
+                        embed.set_thumbnail(url=tracks.tracks[0].artwork or None)
+                    _footer(embed)
+                    await interaction.followup.send(embed=embed, ephemeral=hidden)
+                    await self._repost_player_message(interaction, player)
+                return
 
-        if isinstance(tracks, wavelink.Playlist):
-            await player.queue.put_wait(tracks.tracks)
-            if not player.playing and tracks.tracks:
-                self._reset_skip_votes(interaction.guild_id)
-                first = player.queue.get()
-                await player.play(first)
-                await self._send_player_message(interaction, first, player)
+            results = tracks
+
+            if len(results) > 1:
+                view = SearchPickerView(self, results, interaction, interaction.user.id, query=query)
+                lines = []
+                for i, t in enumerate(results[:_MAX_SEARCH_RESULTS], 1):
+                    icon = _source_icon(t.source)
+                    lines.append(f"**{i}.** {icon} [{t.title}]({t.uri}) - *{t.author}* `{fmt(t.length)}`")
+                embed = discord.Embed(title="🔍 Search Results", description="\n".join(lines), color=VOIDWAVE_COLOR)
+                embed.set_footer(text="Pick a result or wait to auto-play the best match")
+                await interaction.followup.send(embed=embed, view=view, ephemeral=hidden)
             else:
-                embed = discord.Embed(
-                    title="🎵 Playlist added to queue",
-                    description=f"**[{tracks.name}]({query})** · **{len(tracks.tracks)}** songs",
-                    color=VOIDWAVE_COLOR,
-                )
-                if tracks.tracks:
-                    embed.add_field(name="First up", value=f"`{tracks.tracks[0].title}`", inline=False)
-                    embed.set_thumbnail(url=tracks.tracks[0].artwork or None)
-                _footer(embed)
-                await interaction.followup.send(embed=embed, ephemeral=hidden)
-                await self._repost_player_message(interaction, player)
+                track = results[0]
+                if player.playing:
+                    await player.queue.put_wait(track)
+                    embed = discord.Embed(
+                        title="🎵 Added to queue",
+                        description=f"**[{track.title}]({track.uri})**",
+                        color=VOIDWAVE_COLOR,
+                    )
+                    embed.set_thumbnail(url=track.artwork or None)
+                    embed.add_field(name="Position in queue", value=f"`#{player.queue.count}`", inline=True)
+                    embed.add_field(name="Length", value=f"`{fmt(track.length)}`", inline=True)
+                    await interaction.followup.send(embed=embed, ephemeral=hidden)
+                    await self._repost_player_message(interaction, player)
+                else:
+                    self._reset_skip_votes(interaction.guild_id)
+                    if not await self._begin_playback(interaction, player, track):
+                        return
+                    await self._send_player_message(interaction, track, player)
             return
-
-        results = tracks
-
-        if len(results) > 1:
-            view = SearchPickerView(self, results, interaction, interaction.user.id, query=query)
-            lines = []
-            for i, t in enumerate(results[:_MAX_SEARCH_RESULTS], 1):
-                icon = _source_icon(t.source)
-                lines.append(f"**{i}.** {icon} [{t.title}]({t.uri}) - *{t.author}* `{fmt(t.length)}`")
-            embed = discord.Embed(title="🔍 Search Results", description="\n".join(lines), color=VOIDWAVE_COLOR)
-            embed.set_footer(text="Pick a result or wait to auto-play the best match")
-            await interaction.followup.send(embed=embed, view=view, ephemeral=hidden)
-        else:
-            track = results[0]
-            if player.playing:
-                await player.queue.put_wait(track)
-                embed = discord.Embed(
-                    title="🎵 Added to queue",
-                    description=f"**[{track.title}]({track.uri})**",
-                    color=VOIDWAVE_COLOR,
-                )
-                embed.set_thumbnail(url=track.artwork or None)
-                embed.add_field(name="Position in queue", value=f"`#{player.queue.count}`", inline=True)
-                embed.add_field(name="Length", value=f"`{fmt(track.length)}`", inline=True)
-                await interaction.followup.send(embed=embed, ephemeral=hidden)
-                await self._repost_player_message(interaction, player)
-            else:
-                self._reset_skip_votes(interaction.guild_id)
-                await player.play(track)
-                await self._send_player_message(interaction, track, player)
+        except Exception as e:
+            logger.error("Music playback error in guild %s: %s", interaction.guild_id, e)
+            await self._teardown_guild(interaction.guild_id, embed_desc="Music stopped. Run /music play to start again.")
+            try:
+                await interaction.followup.send("Something went wrong while playing that. Please try again.", ephemeral=hidden)
+            except discord.HTTPException:
+                pass
 
     # ------------------------------------------------------------------
     # Pause / Resume
@@ -1511,16 +1585,8 @@ class MusicCog(commands.Cog):
         if not self._same_vc(interaction, player):
             await interaction.response.send_message("You need to be in the same voice channel as me to control music.", ephemeral=hidden)
             return
-        view = self.player_views.get(interaction.guild_id)
-        msg = self.player_messages.get(interaction.guild_id)
-        await self._disconnect(player)
+        await self._disconnect(player, embed_desc="Disconnected and cleared the queue.")
         await interaction.response.send_message("👋 Disconnected and cleared the queue.", ephemeral=hidden)
-        if msg and view:
-            try:
-                embed = discord.Embed(title="👋 Disconnected", description="Left the voice channel and cleared the queue.", color=VOIDWAVE_COLOR)
-                await msg.edit(embed=embed, view=view)
-            except discord.HTTPException:
-                pass
 
     # ------------------------------------------------------------------
     # Background handling
@@ -1530,23 +1596,18 @@ class MusicCog(commands.Cog):
         guild_id = member.guild.id if member.guild else None
         if guild_id is None:
             return
+        if member.id == self.bot.user.id:
+            if before.channel is not None and after.channel is None:
+                logger.info("Bot left the voice channel in guild %s, cleaning up music state", guild_id)
+                await self._teardown_guild(guild_id, embed_desc="I was disconnected from the voice channel. Run /music play to start again.")
+            return
         player = self.players.get(guild_id)
         if not isinstance(player, wavelink.Player) or not player.connected or not player.channel:
             return
         humans = [m for m in player.channel.members if not m.bot]
         if not humans:
             logger.info("Leaving empty voice channel in guild %s", guild_id)
-            view = self.player_views.get(guild_id)
-            msg = self.player_messages.get(guild_id)
-            await self._disconnect(player)
-            if msg and view:
-                for child in view.children:
-                    child.disabled = True
-                embed = discord.Embed(title="👋 Disconnected", description="Left the voice channel (empty). Play more with `/music play`.", color=VOIDWAVE_COLOR)
-                try:
-                    await msg.edit(embed=embed, view=view)
-                except discord.HTTPException:
-                    pass
+            await self._disconnect(player, embed_desc="Left the voice channel because it was empty. Run /music play to start again.")
 
     @commands.Cog.listener()
     async def on_wavelink_track_end(self, payload: wavelink.TrackEndEventPayload):
@@ -1558,7 +1619,13 @@ class MusicCog(commands.Cog):
             if player.guild:
                 self._reset_skip_votes(player.guild.id)
             next_track = player.queue.get()
-            await player.play(next_track)
+            try:
+                await player.play(next_track)
+            except Exception as e:
+                logger.error("Failed to play next track in guild %s: %s", player.guild.id, e)
+                if player.guild:
+                    await self._teardown_guild(player.guild.id, embed_desc="Music stopped. Run /music play to start again.")
+                return
             guild_id = player.guild.id if player.guild else 0
             if self.live_lyrics.get(guild_id):
                 self._ensure_lyrics_loaded(next_track)
@@ -1566,7 +1633,7 @@ class MusicCog(commands.Cog):
 
         await asyncio.sleep(2)
         if player.guild and player.queue.is_empty and not player.playing:
-            await self._disconnect(player)
+            await self._disconnect(player, embed_desc="Finished playing. Run /music play to start again.")
 
     @commands.Cog.listener()
     async def on_wavelink_track_start(self, payload: wavelink.TrackStartEventPayload):
