@@ -149,6 +149,7 @@ class EventsCog(commands.Cog):
             if os.getenv("DEBUG") != "true" and interaction.command and interaction.command.name == "ai" and "message" in command_options:
                 command_options["message"] = "***"
             options_str = " ".join(f"{k}:{v}" for k, v in command_options.items())
+            options_str = options_str.replace("\r", "").replace("\n", "\\n")
 
             logger.command("'%s %s' used by '%s' in '%s%s' (user_id: %s%s)", command_name, options_str, user_name, guild_name, channel_name, user_id, guild_id)
             log_line = f"{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')} COMMAND '{command_name} {options_str}' used by '{user_name}' in '{guild_name}{channel_name}' (user_id: {user_id}{guild_id})\n"
