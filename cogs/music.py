@@ -266,7 +266,7 @@ def now_playing_embed(track, player, requester=None, preview_lyrics: str | None 
 
 
 def _loop_label(mode):
-    return {"normal": "No loop", "loop": "One loop", "loop_all": "Loop all"}.get(str(mode), "No loop")
+    return {"normal": "No loop", "loop": "One loop", "loop_all": "Loop all"}.get(getattr(mode, "name", None), "No loop")
 
 
 # ======================================================================
@@ -285,6 +285,15 @@ class MusicPlayerView(discord.ui.View):
         has_queue = playing and not player.queue.is_empty
 
         for item in self.children:
+            if getattr(item, "custom_id", None) == "music_loop":
+                if isinstance(player, wavelink.Player):
+                    try:
+                        item.emoji = _LOOP_LABELS[_LOOP_MODES.index(player.queue.mode)]
+                    except (ValueError, TypeError, IndexError):
+                        item.emoji = _LOOP_LABELS[0]
+                else:
+                    item.emoji = _LOOP_LABELS[0]
+                continue
             match getattr(item, "emoji", None):
                 case e if e and e.name == "🔀":
                     item.disabled = not has_queue
@@ -372,9 +381,9 @@ class MusicPlayerView(discord.ui.View):
         current_mode = player.queue.mode
         idx = (_LOOP_MODES.index(current_mode) + 1) % 3 if current_mode in _LOOP_MODES else 0
         player.queue.mode = _LOOP_MODES[idx]
-        button.emoji = _LOOP_LABELS[idx]
         labels = ["Loop off", "Looping track", "Looping queue"]
         await interaction.response.send_message(f"🔁 {labels[idx]}.", ephemeral=True)
+        await self.cog._sync_player_view(self.guild_id)
 
     # -- row 1: leave | queue | lyrics | live lyrics | autoplay ----------
     @discord.ui.button(emoji="👋", style=discord.ButtonStyle.danger, custom_id="music_stop", row=1)
@@ -1615,10 +1624,31 @@ class MusicCog(commands.Cog):
         if not isinstance(player, wavelink.Player):
             return
 
-        if not player.queue.is_empty:
+        if player.autoplay == wavelink.AutoPlayMode.enabled:
+            await asyncio.sleep(2)
+            if player.guild and player.queue.is_empty and not player.playing:
+                await self._disconnect(player, embed_desc="Finished playing. Run /music play to start again.")
+            return
+
+        next_track = None
+        try:
+            if player.queue.mode is wavelink.QueueMode.loop:
+                next_track = player.queue.get()
+            elif player.queue.mode is wavelink.QueueMode.loop_all and player.queue.is_empty:
+                history = player.queue.history
+                if history is not None and not history.is_empty:
+                    player.queue.put(list(history))
+                    history.clear()
+                if not player.queue.is_empty:
+                    next_track = player.queue.get()
+            elif not player.queue.is_empty:
+                next_track = player.queue.get()
+        except wavelink.QueueEmpty:
+            next_track = None
+
+        if next_track is not None:
             if player.guild:
                 self._reset_skip_votes(player.guild.id)
-            next_track = player.queue.get()
             try:
                 await player.play(next_track)
             except Exception as e:
