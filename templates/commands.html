@@ -40,9 +40,9 @@
             <div class="command-card">
                 <div class="command-card-header">
                     <code>/leaderboard</code>
-                    <span class="command-scope">server only</span>
+                    <span class="command-scope">servers &middot; global &middot; combined</span>
                 </div>
-                <span>See who's on top. Sort by level, XP, messages, or voice</span>
+                <span>See who's on top. Sort by level, XP, messages, or voice, and switch between Separate and Combined views</span>
             </div>
             <div class="command-card">
                 <code>/profile</code>
@@ -314,6 +314,38 @@
         </div>
         <div class="commands-note">
             <p>Reminders go to your DMs by default, or a <code>channel:</code> of your choice. Use the <code>recurring:</code> option for <strong>hourly</strong>, <strong>daily</strong>, <strong>weekly</strong>, <strong>biweekly</strong>, <strong>weekdays (Mon-Fri)</strong>, <strong>weekends (Sat-Sun)</strong>, <strong>monthly</strong>, <strong>yearly</strong>, or a custom repeat like <strong>every 2h</strong> / <strong>every 3d</strong>, and they automatically reschedule for the next occurrence. Reminders are stored until you delete them.</p>
+        </div>
+    </div>
+
+    <div class="commands-category">
+        <div class="commands-category-header">
+            <h2>Giveaways</h2>
+            <span class="commands-category-tag">manage server</span>
+        </div>
+        <div class="commands-grid">
+            <div class="command-card">
+                <code>/giveaway start</code>
+                <span>Start a giveaway with a prize, duration, winner count, and an optional required role</span>
+            </div>
+            <div class="command-card">
+                <code>/giveaway list</code>
+                <span>List active giveaways in the server with entry counts and end times</span>
+            </div>
+            <div class="command-card">
+                <code>/giveaway end</code>
+                <span>End a giveaway early and draw its winners</span>
+            </div>
+            <div class="command-card">
+                <code>/giveaway reroll</code>
+                <span>Draw new winners for an already ended giveaway</span>
+            </div>
+            <div class="command-card">
+                <code>/giveaway cancel</code>
+                <span>Cancel a giveaway without picking winners</span>
+            </div>
+        </div>
+        <div class="commands-note">
+            <p>Members enter with a <strong>Enter</strong> button on the giveaway message. Winners are drawn automatically when the timer ends, announced in the channel, and DM'd. When ending, rerolling, or cancelling, just start typing and autocomplete will find the giveaway for you. Giveaway commands require <strong>Manage Server</strong>.</p>
         </div>
     </div>
 
