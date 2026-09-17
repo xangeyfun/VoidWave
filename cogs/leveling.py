@@ -2,6 +2,7 @@ from discord import app_commands
 from discord.ext import commands, tasks
 import asyncio
 import discord
+import math
 import random
 import time
 import logging
@@ -19,13 +20,44 @@ SORT_COLUMNS = {
     "Total Voice": "vc_minutes",
 }
 
+COMBINED_SORT_COLUMNS = {
+    "Level": "total_xp",
+    "Total XP": "total_xp",
+    "Total Messages": "total_messages",
+    "Total Voice": "vc_minutes",
+}
 
-def _fetch_leaderboard(guild_id, sort, global_lb, page, per_page=PER_PAGE):
+
+def _level_from_xp(total_xp):
+    if total_xp <= 0:
+        return 0
+    return (-90 + math.isqrt(8100 + 40 * int(total_xp))) // 20
+
+
+
+def _fetch_leaderboard(guild_id, sort, global_lb, page, per_page=PER_PAGE, combined=False):
     """Fetch one page of leaderboard rows. Runs inside a thread."""
     conn = get_db()
     try:
         cur = conn.cursor()
-        guild_scope = bool(guild_id) and not global_lb
+        guild_scope = bool(guild_id) and not global_lb and not combined
+
+        if combined and sort != "Voters":
+            column = COMBINED_SORT_COLUMNS[sort]
+            total = cur.execute("SELECT COUNT(DISTINCT user_id) FROM users").fetchone()[0]
+            rows = cur.execute(
+                f"SELECT r.user_id, r.guild_id, r.username, r.display_name, a.value, "
+                f"a.total_xp, a.total_messages, a.vc_minutes FROM "
+                f"(SELECT user_id, guild_id, username, display_name, "
+                f"ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY last_message DESC, rowid DESC) AS rn "
+                f"FROM users) AS r "
+                f"JOIN (SELECT user_id, SUM({column}) AS value, SUM(total_xp) AS total_xp, "
+                f"SUM(total_messages) AS total_messages, SUM(vc_minutes) AS vc_minutes "
+                f"FROM users GROUP BY user_id) AS a ON a.user_id = r.user_id "
+                f"WHERE r.rn = 1 ORDER BY a.value DESC, a.total_xp DESC, a.user_id ASC LIMIT ? OFFSET ?",
+                (per_page, (page - 1) * per_page)
+            ).fetchall()
+            return rows, total
 
         if sort == "Voters":
             if guild_scope:
@@ -69,42 +101,46 @@ def _fetch_leaderboard(guild_id, sort, global_lb, page, per_page=PER_PAGE):
         conn.close()
 
 
-def _fetch_rank(guild_id, user_id, sort, global_lb):
-    """Return (rank, total_users) for a user under the given sort scope."""
+def _fetch_rank(guild_id, user_id, sort, global_lb, combined=False):
+    """Return (rank, total_users) matching the exact leaderboard list position."""
     if sort == "Voters":
         return None, None
     conn = get_db()
     try:
         cur = conn.cursor()
-        column = SORT_COLUMNS[sort]
-        guild_scope = bool(guild_id) and not global_lb
+        column = COMBINED_SORT_COLUMNS[sort] if combined else SORT_COLUMNS[sort]
+        guild_scope = bool(guild_id) and not global_lb and not combined
 
-        if guild_scope:
-            mine = cur.execute(
-                f"SELECT {column} FROM users WHERE guild_id=? AND user_id=?",
-                (guild_id, user_id)
+        if combined:
+            rows = cur.execute(
+                f"SELECT MIN(rk) AS rk FROM ("
+                f"SELECT user_id, ROW_NUMBER() OVER (ORDER BY v DESC, tx DESC, user_id ASC) AS rk "
+                f"FROM (SELECT user_id, SUM({column}) AS v, SUM(total_xp) AS tx FROM users GROUP BY user_id)"
+                f") WHERE user_id=?",
+                (user_id,)
             ).fetchone()
+            total = cur.execute("SELECT COUNT(DISTINCT user_id) FROM users").fetchone()[0]
         else:
-            mine = cur.execute(
-                f"SELECT {column} FROM users WHERE user_id=?", (user_id,)
+            where_sql = "WHERE guild_id=?" if guild_scope else ""
+            params = (guild_id,) if guild_scope else ()
+            rows = cur.execute(
+                f"SELECT MIN(rk) AS rk FROM ("
+                f"SELECT user_id, ROW_NUMBER() OVER (ORDER BY {column} DESC, total_xp DESC, user_id ASC) AS rk "
+                f"FROM users {where_sql}) WHERE user_id=?",
+                params + (user_id,)
             ).fetchone()
-        if not mine:
+            total = cur.execute(f"SELECT COUNT(*) FROM users {where_sql}", params).fetchone()[0]
+
+        if not rows or rows["rk"] is None:
             return None, None
-
-        if guild_scope:
-            rank = cur.execute(f"SELECT COUNT(*) + 1 FROM users WHERE guild_id=? AND {column} > ?", (guild_id, mine[0])).fetchone()[0]
-            total = cur.execute("SELECT COUNT(*) FROM users WHERE guild_id=?", (guild_id,)).fetchone()[0]
-        else:
-            rank = cur.execute(f"SELECT COUNT(*) + 1 FROM users WHERE {column} > ?", (mine[0],)).fetchone()[0]
-            total = cur.execute("SELECT COUNT(*) FROM users").fetchone()[0]
-        return rank, total
+        return rows["rk"], total
     finally:
         conn.close()
 
 
-def _build_leaderboard_embed(bot, guild, sort, global_lb, rows, page, total_pages, highlight_user_id=None, rank_info=None):
-    guild_scope = bool(guild) and not global_lb
-    mode = "Server" if guild_scope else "Global"
+def _build_leaderboard_embed(bot, guild, sort, global_lb, rows, page, total_pages, highlight_user_id=None, rank_info=None, combined=False):
+    guild_scope = bool(guild) and not global_lb and not combined
+    mode = "Combined" if combined else ("Server" if guild_scope else "Global")
 
     embed = discord.Embed(
         title=f"🏆 {mode} {sort} Leaderboard",
@@ -117,7 +153,8 @@ def _build_leaderboard_embed(bot, guild, sort, global_lb, rows, page, total_page
     for i, row in enumerate(rows):
         user_id = row["user_id"]
         value = row["value"] or 0
-        name = discord.utils.escape_markdown(str(row["username"] or "Unknown"))
+        name_source = row["username"] if sort == "Voters" else ((row["display_name"] or row["username"]) if combined else row["username"])
+        name = discord.utils.escape_markdown(str(name_source or "Unknown"))
 
         member = guild.get_member(user_id) if guild else None
         if member:
@@ -138,6 +175,8 @@ def _build_leaderboard_embed(bot, guild, sort, global_lb, rows, page, total_page
         marker = "➤ " if highlight_user_id and user_id == highlight_user_id else ""
         if sort == "Voters":
             lines.append(f"{marker}{rank} **{name}** | <t:{int(value)}:R>")
+        elif combined and sort == "Level":
+            lines.append(f"{marker}{rank} **{name}** | Level `{_level_from_xp(value)}`")
         else:
             label = format_minutes(value) if sort == "Total Voice" else f"{value:,}"
             lines.append(f"{marker}{rank} **{name}** | `{label}`")
@@ -146,7 +185,12 @@ def _build_leaderboard_embed(bot, guild, sort, global_lb, rows, page, total_page
         chunks = ["\n".join(lines)]
         if rank_info:
             chunks.append(f"📍 You are **#{rank_info['rank']}** of **{rank_info['total']:,}**")
-        link = f"https://voidwave.xangey.dev/leaderboard?guild={guild.id}" if guild_scope else "https://voidwave.xangey.dev/leaderboard"
+        if combined:
+            link = "https://voidwave.xangey.dev/leaderboard?mode=combined"
+        elif guild_scope:
+            link = f"https://voidwave.xangey.dev/leaderboard?guild={guild.id}"
+        else:
+            link = "https://voidwave.xangey.dev/leaderboard"
         chunks.append(f"**View online:** [Leaderboard]({link})")
         embed.description = "\n\n".join(chunks)
     else:
@@ -159,8 +203,9 @@ def _build_leaderboard_embed(bot, guild, sort, global_lb, rows, page, total_page
     elif guild.icon:
         embed.set_thumbnail(url=guild.icon.url)
 
+    footer_scope = "Combined" if combined else (guild.name if guild and guild_scope else "Global")
     embed.set_footer(
-        text=f"{guild.name if guild and guild_scope else 'Global'} Leaderboard • Page {page}/{total_pages} • Vote for 2x XP! /vote",
+        text=f"{footer_scope} Leaderboard • Page {page}/{total_pages} • Vote for 2x XP! /vote",
         icon_url=guild.icon.url if guild and guild_scope and guild.icon else None
     )
 
@@ -168,19 +213,27 @@ def _build_leaderboard_embed(bot, guild, sort, global_lb, rows, page, total_page
 
 
 class LeaderboardView(discord.ui.View):
-    def __init__(self, bot, guild, sort, global_lb, page, total_pages, rank_info, invoker_id):
+    def __init__(self, bot, guild, sort, global_lb, page, total_pages, rank_info, invoker_id, combined=False):
         super().__init__(timeout=180)
         self.bot = bot
         self.guild = guild
         self.sort = sort
         self.global_lb = global_lb
+        self.combined = combined
         self.page = page
         self.total_pages = total_pages
         self.rank_info = rank_info
         self.invoker_id = invoker_id
         self.message = None
         self.highlight = False
+        self._refresh_mode_buttons()
         self._refresh_page_counter()
+
+    def _refresh_mode_buttons(self):
+        self.scope_toggle.label = "🏘️ Server" if (self.global_lb or self.combined) else "🌐 Global"
+        self.scope_toggle.disabled = self.combined or self.guild is None
+        self.view_toggle.label = "👥 Separate" if self.combined else "🧮 Combine"
+        self.view_toggle.disabled = self.sort == "Voters" or self.guild is None
 
     def _refresh_page_counter(self):
         self.page_counter.label = f"Page {self.page} / {self.total_pages}"
@@ -198,15 +251,30 @@ class LeaderboardView(discord.ui.View):
         )
         return False
 
-    async def _rebuild(self, interaction):
-        rows, _ = await asyncio.to_thread(
-            _fetch_leaderboard, self.guild.id if self.guild else 0, self.sort, self.global_lb, self.page
+    async def _reload(self, interaction, reset_page=False):
+        if reset_page:
+            self.page = 1
+        guild_id = self.guild.id if self.guild else 0
+        rows, total = await asyncio.to_thread(
+            _fetch_leaderboard, guild_id, self.sort, self.global_lb, self.page, PER_PAGE, self.combined
         )
+        self.total_pages = max(1, (total + PER_PAGE - 1) // PER_PAGE)
+        self.page = max(1, min(self.page, self.total_pages))
+        rank_info = None
+        if self.sort != "Voters":
+            rank, total_users = await asyncio.to_thread(
+                _fetch_rank, guild_id, self.invoker_id, self.sort, self.global_lb, self.combined
+            )
+            if rank:
+                rank_info = {"rank": rank, "total": total_users}
+        self.rank_info = rank_info
         embed = _build_leaderboard_embed(
             self.bot, self.guild, self.sort, self.global_lb,
             rows, self.page, self.total_pages,
-            highlight_user_id=self.invoker_id if self.highlight else None, rank_info=self.rank_info,
+            highlight_user_id=self.invoker_id if self.highlight else None, rank_info=rank_info,
+            combined=self.combined,
         )
+        self._refresh_mode_buttons()
         self._refresh_page_counter()
         await interaction.response.edit_message(embed=embed, view=self)
 
@@ -216,7 +284,20 @@ class LeaderboardView(discord.ui.View):
             await interaction.response.defer()
             return
         self.page = page
-        await self._rebuild(interaction)
+        await self._reload(interaction)
+
+    @discord.ui.button(label="🌐 Global", style=discord.ButtonStyle.secondary, row=1)
+    async def scope_toggle(self, interaction: discord.Interaction, button: discord.ui.Button):
+        self.global_lb = not self.global_lb
+        self.combined = False
+        await self._reload(interaction, reset_page=True)
+
+    @discord.ui.button(label="🧮 Combine", style=discord.ButtonStyle.secondary, row=1)
+    async def view_toggle(self, interaction: discord.Interaction, button: discord.ui.Button):
+        self.combined = not self.combined
+        if self.combined:
+            self.global_lb = True
+        await self._reload(interaction, reset_page=True)
 
     @discord.ui.button(label="⏮", style=discord.ButtonStyle.secondary)
     async def first_page(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -244,7 +325,7 @@ class LeaderboardView(discord.ui.View):
             await interaction.response.send_message("My Rank is not available for the voters list.", ephemeral=True)
             return
         rank, total = await asyncio.to_thread(
-            _fetch_rank, self.guild.id if self.guild else 0, self.invoker_id, self.sort, self.global_lb
+            _fetch_rank, self.guild.id if self.guild else 0, self.invoker_id, self.sort, self.global_lb, self.combined
         )
         if not rank:
             await interaction.response.send_message(
@@ -254,7 +335,7 @@ class LeaderboardView(discord.ui.View):
         self.rank_info = {"rank": rank, "total": total}
         self.page = min((rank - 1) // PER_PAGE + 1, self.total_pages)
         self.highlight = True
-        await self._rebuild(interaction)
+        await self._reload(interaction)
 
     async def on_timeout(self):
         self.first_page.disabled = True
@@ -263,6 +344,8 @@ class LeaderboardView(discord.ui.View):
         self.next_page.disabled = True
         self.last_page.disabled = True
         self.my_rank.disabled = True
+        self.scope_toggle.disabled = True
+        self.view_toggle.disabled = True
         if self.message:
             try:
                 await self.message.edit(view=self)
@@ -419,7 +502,7 @@ class LevelingCog(commands.Cog):
 
             rank = cur.execute("SELECT COUNT(*) + 1 FROM users WHERE guild_id=? AND total_xp > ?", (interaction.guild.id, data["total_xp"])).fetchone()[0]
 
-            global_rank = cur.execute("SELECT COUNT(*) + 1 FROM users WHERE total_xp > ?", (data["total_xp"],)).fetchone()[0]
+            global_rank = cur.execute("SELECT COUNT(*) + 1 FROM (SELECT user_id, SUM(total_xp) AS x FROM users GROUP BY user_id) WHERE x > ?", (cur.execute("SELECT SUM(total_xp) FROM users WHERE user_id=?", (user.id,)).fetchone()[0] or 0,)).fetchone()[0]
 
             boost = cur.execute("SELECT multiplier, expires_at FROM vote_boosts WHERE user_id=? AND expires_at > ?", (user.id, int(time.time()))).fetchone()
 
@@ -511,7 +594,7 @@ class LevelingCog(commands.Cog):
     @discord.app_commands.allowed_installs(guilds=True, users=False)
     @discord.app_commands.allowed_contexts(guilds=True, dms=False, private_channels=False)
     @discord.app_commands.command(name="leaderboard", description="Check the server level leaderboard")
-    @app_commands.describe(hidden="Hide the command from others", sort='What to sort by', global_lb='Show global leaderboard')
+    @app_commands.describe(hidden="Hide the command from others", sort='What to sort by', global_lb='Show global leaderboard', combined='Combine stats for users across servers into one row')
     @app_commands.choices(
         sort=[
             app_commands.Choice(name="Level", value="Level"),
@@ -521,18 +604,24 @@ class LevelingCog(commands.Cog):
             app_commands.Choice(name="Voters", value="Voters")
         ]
     )
-    async def leaderboard(self, interaction: discord.Interaction, sort: str = "Level", global_lb: bool = False, hidden: bool = False):
+    async def leaderboard(self, interaction: discord.Interaction, sort: str = "Level", global_lb: bool = False, combined: bool = False, hidden: bool = False):
         await interaction.response.defer(ephemeral=hidden)
         if not interaction.guild:
             await interaction.followup.send("This command only works in servers.", ephemeral=True)
             return
 
+        if combined:
+            global_lb = True
+
+        if sort == "Voters":
+            combined = False
+
         guild = interaction.guild
         try:
-            rows, total = await asyncio.to_thread(_fetch_leaderboard, guild.id, sort, global_lb, 1)
+            rows, total = await asyncio.to_thread(_fetch_leaderboard, guild.id, sort, global_lb, 1, PER_PAGE, combined)
             rank_info = None
             if sort != "Voters":
-                rank, total_users = await asyncio.to_thread(_fetch_rank, guild.id, interaction.user.id, sort, global_lb)
+                rank, total_users = await asyncio.to_thread(_fetch_rank, guild.id, interaction.user.id, sort, global_lb, combined)
                 if rank:
                     rank_info = {"rank": rank, "total": total_users}
         except Exception as e:
@@ -544,10 +633,10 @@ class LevelingCog(commands.Cog):
 
         embed = _build_leaderboard_embed(
             self.bot, guild, sort, global_lb, rows, 1, total_pages,
-            highlight_user_id=None, rank_info=rank_info
+            highlight_user_id=None, rank_info=rank_info, combined=combined
         )
 
-        view = LeaderboardView(self.bot, guild, sort, global_lb, 1, total_pages, rank_info, interaction.user.id)
+        view = LeaderboardView(self.bot, guild, sort, global_lb, 1, total_pages, rank_info, interaction.user.id, combined=combined)
         view._refresh_page_counter()
         message = await interaction.followup.send(
             embed=embed,
