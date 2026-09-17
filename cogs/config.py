@@ -162,6 +162,96 @@ def _role_pingable(role, member):
     return member.guild_permissions.mention_everyone
 
 
+def config_help_embed(category):
+    embeds = {
+        "leveling": discord.Embed(
+            title="📊 Leveling Configuration",
+            description="Set up level announcements and automatic roles for your server.",
+            color=discord.Color(0x7128fc),
+        ).add_field(
+            name="Quick Setup",
+            value="`/config auto level:true` - Create channel and enable announcements instantly",
+            inline=False,
+        ).add_field(
+            name="Level Up Channel",
+            value=(
+                "`/config level set_channel [channel]` - Set the level up message channel\n"
+                "`/config level toggle_channel [enabled]` - Enable or disable level up messages\n"
+                "`/config level toggle_vote_announce [enabled]` - Vote announcements in the level up channel"
+            ),
+            inline=False,
+        ).add_field(
+            name="Level Roles",
+            value=(
+                "`/config level add_role [level] [role]` - Give a role on level up\n"
+                "`/config level remove_role [level]` - Remove a level role"
+            ),
+            inline=False,
+        ),
+        "qotd": discord.Embed(
+            title="❓ QOTD Configuration",
+            description="Set up a daily question with automatic threads and role pings.",
+            color=discord.Color(0x7128fc),
+        ).add_field(
+            name="Quick Setup",
+            value="`/config auto qotd:true` - Create channel, role, and enable QOTD instantly",
+            inline=False,
+        ).add_field(
+            name="QOTD Settings",
+            value=(
+                "`/config qotd set_channel [channel]` - Set the QOTD channel\n"
+                "`/config qotd set_role [role]` - Role to ping with the QOTD (optional)\n"
+                "`/config qotd set_time [time] [timezone]` - When the QOTD posts (e.g. 18:30 Europe/Amsterdam)\n"
+                "`/config qotd enable [enabled]` - Enable or disable QOTD messages\n"
+                "`/config qotd delete_old [enabled]` - Delete old QOTD messages"
+            ),
+            inline=False,
+        ),
+        "ai": discord.Embed(
+            title="🤖 AI Configuration",
+            description="Control whether the bot chats back when mentioned or replied to.",
+            color=discord.Color(0x7128fc),
+        ).add_field(
+            name="AI Settings",
+            value=(
+                "`/config ai toggle [enabled]` - Turn AI replies on or off for the whole server\n"
+                "`/aitoggle [enabled]` - Turn AI replies on or off for a single user\n"
+                "`/ai <message>` - Chat with the AI directly"
+            ),
+            inline=False,
+        ),
+        "overview": discord.Embed(
+            title="⚙️ Configuration",
+            description=(
+                "Server setup, admin only. Select a feature below, or run `/config help topic:<feature>` "
+                "to jump straight to it.\nFull setup docs: <https://voidwave.xangey.dev/setup>"
+            ),
+            color=discord.Color(0x7128fc),
+        ).add_field(
+            name="Quick Setup",
+            value=(
+                "`/config auto [level] [qotd]` - Create channels, roles, and enable features\n"
+                "Example: `/config auto level:true qotd:true`"
+            ),
+            inline=False,
+        ).add_field(
+            name="General",
+            value=(
+                "`/config view` - View current configuration\n"
+                "`/config test` - Check that your settings work\n"
+                "`/config ai toggle [enabled]` - Turn AI replies on or off\n"
+                "`/config help topic:Leveling` - Leveling commands\n"
+                "`/config help topic:Question of the Day` - QOTD commands\n"
+                "`/config help topic:AI` - AI commands"
+            ),
+            inline=False,
+        ),
+    }
+    embed = embeds[category]
+    embed.set_footer(text="Vote for 2x XP! /vote")
+    return embed
+
+
 class ConfigCog(commands.Cog):
     config = discord.app_commands.Group(name="config", description="Admin commands for configuring the bot", default_permissions=discord.Permissions(administrator=True), allowed_installs=discord.app_commands.AppInstallationType(guild=True, user=False), allowed_contexts=discord.app_commands.AppCommandContext(guild=True, dm_channel=False, private_channel=False))
     level = discord.app_commands.Group(name="level", description="Configure level system settings", parent=config)
@@ -391,93 +481,7 @@ class ConfigCog(commands.Cog):
         await interaction.followup.send(embed=embed, ephemeral=True)
 
     def _config_help_embed(self, category):
-        embeds = {
-            "leveling": discord.Embed(
-                title="📊 Leveling Configuration",
-                description="Set up level-up announcements and auto-roles for your server.",
-                color=discord.Color(0x7128fc),
-            ).add_field(
-                name="Quick Setup",
-                value="`/config auto level:true` - Create channel and enable announcements instantly",
-                inline=False,
-            ).add_field(
-                name="Level Up Channel",
-                value=(
-                    "`/config level set_channel [channel]` - Set the level up message channel\n"
-                    "`/config level toggle_channel [enabled]` - Enable or disable level up messages\n"
-                    "`/config level toggle_vote_announce [enabled]` - Vote announcements in the level up channel"
-                ),
-                inline=False,
-            ).add_field(
-                name="Level Roles",
-                value=(
-                    "`/config level add_role [level] [role]` - Give a role on level up\n"
-                    "`/config level remove_role [level]` - Remove a level role"
-                ),
-                inline=False,
-            ),
-            "qotd": discord.Embed(
-                title="❓ QOTD Configuration",
-                description="Set up a daily question with auto-threads and role pings.",
-                color=discord.Color(0x7128fc),
-            ).add_field(
-                name="Quick Setup",
-                value="`/config auto qotd:true` - Create channel, role, and enable QOTD instantly",
-                inline=False,
-            ).add_field(
-                name="QOTD Settings",
-                value=(
-                    "`/config qotd set_channel [channel]` - Set the QOTD channel\n"
-                    "`/config qotd set_role [role]` - Role to ping with the QOTD (optional)\n"
-                    "`/config qotd set_time [time] [timezone]` - When the QOTD posts (e.g. 18:30 Europe/Amsterdam)\n"
-                    "`/config qotd enable [enabled]` - Enable or disable QOTD messages\n"
-                    "`/config qotd delete_old [enabled]` - Delete old QOTD messages"
-                ),
-                inline=False,
-            ),
-            "ai": discord.Embed(
-                title="🤖 AI Configuration",
-                description="Control whether the bot chats back when mentioned or replied to.",
-                color=discord.Color(0x7128fc),
-            ).add_field(
-                name="AI Settings",
-                value=(
-                    "`/config ai toggle [enabled]` - Turn AI replies on or off for the whole server\n"
-                    "`/aitoggle [enabled]` - Turn AI replies on or off for a single user\n"
-                    "`/ai <message>` - Chat with the AI directly"
-                ),
-                inline=False,
-            ),
-            "overview": discord.Embed(
-                title="⚙️ Configuration Help",
-                description=(
-                    "Select a feature below, or run `/config help topic:<feature>` to jump straight to it.\n"
-                    "Full setup docs: <https://voidwave.xangey.dev/setup>"
-                ),
-                color=discord.Color(0x7128fc),
-            ).add_field(
-                name="Quick Setup",
-                value=(
-                    "`/config auto [level] [qotd]` - Create channels, roles, and enable features\n"
-                    "Example: `/config auto level:true qotd:true`"
-                ),
-                inline=False,
-            ).add_field(
-                name="General",
-                value=(
-                    "`/config view` - View current configuration\n"
-                    "`/config test` - Health-check your settings\n"
-                    "`/config ai toggle [enabled]` - Turn AI replies on or off\n"
-                    "`/config help topic:Leveling` - Leveling commands\n"
-                    "`/config help topic:Question of the Day` - QOTD commands\n"
-                    "`/config help topic:AI` - AI commands"
-                ),
-                inline=False,
-            ),
-        }
-        embed = embeds[category]
-        embed.set_footer(text="Vote for 2x XP! /vote")
-        return embed
+        return config_help_embed(category)
 
     @discord.app_commands.allowed_installs(guilds=True, users=False)
     @discord.app_commands.allowed_contexts(guilds=True, dms=False, private_channels=False)
