@@ -57,7 +57,7 @@
             <div class="stat-card-lg">
                 <span class="stat-card-icon">{{ icons.trophy() }}</span>
                 <p class="stat-card-value {% if rank == 1 %}rank-1{% elif rank == 2 %}rank-2{% elif rank == 3 %}rank-3{% endif %}">#{{ rank|default('?') }}</p>
-                <p class="stat-card-label">Server Rank</p>
+                <p class="stat-card-label">{% if guild_id %}Server Rank{% else %}Combined Rank{% endif %}</p>
                 {% if server_top_pct is not none %}<span class="stat-rank-pill">Top {{ server_top_pct }}%</span>{% endif %}
             </div>
             <div class="stat-card-lg">
@@ -82,7 +82,7 @@
         <div class="stats-actions">
             <button class="btn btn-secondary btn-sm" id="copyImageBtn">{{ icons.camera() }}Copy image</button>
             <button class="btn btn-secondary btn-sm" data-copy="{{ request.url }}">{{ icons.link() }}Copy link</button>
-            <a class="btn btn-primary btn-sm" href="/leaderboard?guild={{ guild_id }}&find={{ username|urlencode }}">{{ icons.chart() }}View server leaderboard</a>
+            <a class="btn btn-primary btn-sm" href="{% if guild_id %}/leaderboard?guild={{ guild_id }}&find={{ username|urlencode }}{% else %}/leaderboard?mode=combined&find={{ username|urlencode }}{% endif %}">{{ icons.chart() }}{% if guild_id %}View server leaderboard{% else %}View combined leaderboard{% endif %}</a>
         </div>
     </div>
 </section>
