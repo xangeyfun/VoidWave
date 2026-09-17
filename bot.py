@@ -47,6 +47,7 @@ async def setup_hook():
     await bot.load_extension("cogs.rating")
     await bot.load_extension("cogs.moderation")
     await bot.load_extension("cogs.reminders")
+    await bot.load_extension("cogs.giveaways")
     await bot.load_extension("cogs.music")
 
 bot.setup_hook = setup_hook
@@ -278,6 +279,37 @@ if __name__ == "__main__":
     conn.commit()
 
     cur.execute("CREATE INDEX IF NOT EXISTS idx_reminders_trigger_at ON reminders(trigger_at)")
+    conn.commit()
+
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS giveaways (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        guild_id INTEGER NOT NULL,
+        channel_id INTEGER NOT NULL,
+        message_id INTEGER,
+        host_id INTEGER NOT NULL,
+        prize TEXT NOT NULL,
+        winners_count INTEGER DEFAULT 1,
+        required_role_id INTEGER,
+        ends_at INTEGER NOT NULL,
+        created_at INTEGER NOT NULL,
+        ended INTEGER DEFAULT 0,
+        winner_ids TEXT
+    )
+    """)
+    conn.commit()
+
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS giveaway_entries (
+        giveaway_id INTEGER NOT NULL,
+        user_id INTEGER NOT NULL,
+        entered_at INTEGER NOT NULL,
+        PRIMARY KEY (giveaway_id, user_id)
+    )
+    """)
+    conn.commit()
+
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_giveaways_ends_at ON giveaways(ends_at)")
     conn.commit()
 
     try:
