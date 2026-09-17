@@ -11,6 +11,7 @@ import hmac
 import hashlib
 import subprocess
 import re
+import math
 import logging
 
 from logconf import setup_logging
@@ -219,7 +220,79 @@ def get_db():
     conn.execute("PRAGMA busy_timeout=5000")
     return conn
 
+def _level_from_xp(total_xp):
+    if not total_xp or total_xp <= 0:
+        return 0
+    return int((-90 + math.isqrt(8100 + 40 * int(total_xp))) // 20)
+
+def _xp_for_level(level):
+    return 10 * level * level + 90 * level
+
+def _get_combined_user_stats(user_id: int):
+    conn = get_db()
+    try:
+        cur = conn.cursor()
+        agg = cur.execute(
+            "SELECT SUM(total_xp), SUM(total_messages), SUM(total_messages_xp), "
+            "SUM(vc_minutes), SUM(vc_xp_minutes), SUM(command_uses) "
+            "FROM users WHERE user_id=?",
+            (user_id,)
+        ).fetchone()
+        latest = cur.execute(
+            "SELECT username, display_name, avatar_hash, last_message FROM users "
+            "WHERE user_id=? ORDER BY last_message DESC, rowid DESC LIMIT 1",
+            (user_id,)
+        ).fetchone()
+
+        if not agg or agg[0] is None:
+            return None
+
+        total_xp = agg[0] or 0
+        level = _level_from_xp(total_xp)
+        progress = max(0, total_xp - _xp_for_level(level))
+        out_of = 100 + level * 20
+
+        rank = cur.execute(
+            "SELECT COUNT(*) + 1 FROM (SELECT user_id, SUM(total_xp) AS x FROM users GROUP BY user_id) WHERE x > ?",
+            (total_xp,)
+        ).fetchone()[0]
+
+        total_users = cur.execute("SELECT COUNT(DISTINCT user_id) FROM users").fetchone()[0]
+
+        above = cur.execute(
+            "SELECT x FROM (SELECT user_id, SUM(total_xp) AS x FROM users GROUP BY user_id) WHERE x > ? ORDER BY x ASC LIMIT 1",
+            (total_xp,)
+        ).fetchone()
+
+        return {
+            'username': (latest[0] if latest else None),
+            'display_name': latest[1] if latest else None,
+            'level': level,
+            'progress': progress,
+            'out_of': out_of,
+            'total_xp': total_xp,
+            'total_messages': agg[1] or 0,
+            'total_messages_xp': agg[2] or 0,
+            'vc_minutes': agg[3] or 0,
+            'vc_xp_minutes': agg[4] or 0,
+            'command_uses': agg[5] or 0,
+            'last_message': (latest[3] if latest else "") or "",
+            'avatar_hash': latest[2] if latest else None,
+            'rank': rank,
+            'global_rank': rank,
+            'server_total': total_users,
+            'global_total': total_users,
+            'xp_to_overtake': (above[0] - total_xp) if above else None
+        }
+    except Exception as e:
+        logger.error("Error fetching combined user stats: %s", e)
+        return None
+    finally:
+        conn.close()
+
 def get_user_stats(user_id: int, guild_id: int):
+    if guild_id == 0:
+        return _get_combined_user_stats(user_id)
     conn = get_db()
     try:
         cur = conn.cursor()
@@ -279,12 +352,40 @@ def get_user_stats(user_id: int, guild_id: int):
     finally:
         conn.close()
 
-def get_leaderboard(guild_id: int = 0, sort_by: str = 'level', direction: str = 'desc', page: int = 1, per_page: int = 25):
+def get_leaderboard(guild_id: int = 0, sort_by: str = 'level', direction: str = 'desc', page: int = 1, per_page: int = 25, combined: bool = False):
     valid_sorts = {'level', 'total_xp', 'total_messages', 'vc_minutes'}
     if sort_by not in valid_sorts:
         sort_by = 'level'
     
     dir_sql = 'DESC' if direction == 'desc' else 'ASC'
+
+    if combined:
+        total_rows = cached_query("lb_total:combined", "SELECT COUNT(DISTINCT user_id) FROM users")
+        total = total_rows[0][0] if total_rows else 0
+
+        offset = (page - 1) * per_page
+        sort_column = 'total_xp' if sort_by == 'level' else sort_by
+        entries = cached_query(
+            f"lb:combined:{sort_by}:{dir_sql}:{page}:{per_page}",
+            f"SELECT user_id, guild_id, username, display_name, avatar_hash, "
+            f"total_xp, total_messages, vc_minutes FROM ("
+            f"SELECT user_id, guild_id, username, display_name, avatar_hash, "
+            f"SUM(total_xp) OVER (PARTITION BY user_id) AS total_xp, "
+            f"SUM(total_messages) OVER (PARTITION BY user_id) AS total_messages, "
+            f"SUM(vc_minutes) OVER (PARTITION BY user_id) AS vc_minutes, "
+            f"ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY last_message DESC, rowid DESC) AS rn "
+            f"FROM users) WHERE rn = 1 ORDER BY {sort_column} {dir_sql} LIMIT ? OFFSET ?",
+            (per_page, offset)
+        )
+
+        rows = []
+        for entry in entries:
+            row = dict(entry)
+            row['guild_id'] = 0
+            row['level'] = _level_from_xp(row['total_xp'] or 0)
+            rows.append(row)
+        return rows, total
+
     where_sql = 'WHERE guild_id=?' if guild_id else ''
     params = (guild_id,) if guild_id else ()
     
@@ -430,13 +531,11 @@ def stats(guild_id: int, user_id: int):
         avatar_url=avatar_url
     ), 200
 
-def _lb_find_rank(username_query, guild_id, sort_by, direction):
+def _lb_find_rank(username_query, guild_id, sort_by, direction, combined=False):
     valid_sorts = {'level', 'total_xp', 'total_messages', 'vc_minutes'}
     if sort_by not in valid_sorts:
         sort_by = 'level'
     dir_sql = 'DESC' if direction == 'desc' else 'ASC'
-    where_sql = 'WHERE guild_id=?' if guild_id else ''
-    params = (guild_id,) if guild_id else ()
 
     # A leading @ restricts search to usernames only
     only_username = username_query.startswith('@')
@@ -444,14 +543,36 @@ def _lb_find_rank(username_query, guild_id, sort_by, direction):
     if not term:
         return []
 
-    base = f"""
+    if combined:
+        sort_column = 'total_xp' if sort_by == 'level' else sort_by
+        base = f"""
+            SELECT user_id, guild_id, username, display_name, avatar_hash, rk FROM (
+                SELECT r.user_id, r.guild_id, r.username, r.display_name, r.avatar_hash,
+                       ROW_NUMBER() OVER (ORDER BY a.value {dir_sql}, r.user_id ASC) AS rk
+                FROM (
+                    SELECT user_id, guild_id, username, display_name, avatar_hash,
+                           ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY last_message DESC, rowid DESC) AS rn
+                    FROM users
+                ) AS r
+                JOIN (
+                    SELECT user_id, SUM({sort_column}) AS value FROM users GROUP BY user_id
+                ) AS a ON a.user_id = r.user_id
+                WHERE r.rn = 1
+            ) AS ranked
+        """
+        params = ()
+        key = f"lb_find:combined:{sort_by}:{direction}:{only_username}:{term}"
+    else:
+        where_sql = 'WHERE guild_id=?' if guild_id else ''
+        params = (guild_id,) if guild_id else ()
+        base = f"""
         SELECT user_id, guild_id, username, display_name, avatar_hash, rk FROM (
             SELECT user_id, guild_id, username, display_name, avatar_hash,
                    ROW_NUMBER() OVER (ORDER BY {sort_by} {dir_sql}) AS rk
             FROM users {where_sql}
         ) AS ranked
-    """
-    key = f"lb_find:{guild_id}:{sort_by}:{direction}:{only_username}:{term}"
+        """
+        key = f"lb_find:{guild_id}:{sort_by}:{direction}:{only_username}:{term}"
 
     if only_username:
         order = (
@@ -494,6 +615,7 @@ def leaderboard():
     sort_by = request.args.get('sort', 'level')
     direction = request.args.get('dir', 'desc')
     page = request.args.get('page', 1, type=int)
+    combined = request.args.get('mode') == 'combined'
 
     find_query = (request.args.get('find') or '').strip()
     find_user_id = None
@@ -506,20 +628,20 @@ def leaderboard():
     find_idx = 0
 
     if find_query:
-        matches = _lb_find_rank(find_query, guild_id, sort_by, direction)
+        matches = _lb_find_rank(find_query, guild_id, sort_by, direction, combined)
         if matches:
             find_matches = matches
             find_idx = request.args.get('fi', 0, type=int) % len(matches)
             found = matches[find_idx]
             find_user_id = found['user_id']
-            find_guild_id = found['guild_id']
+            find_guild_id = 0 if combined else found['guild_id']
             find_username = found['username']
             find_display_name = found['display_name']
             find_avatar_hash = found['avatar_hash']
             find_rank = found['rank']
             page = max(1, (find_rank + 49) // 50)
     
-    entries, total = get_leaderboard(guild_id=guild_id, sort_by=sort_by, direction=direction, page=page, per_page=50)
+    entries, total = get_leaderboard(guild_id=guild_id, sort_by=sort_by, direction=direction, page=page, per_page=50, combined=combined)
     
     leaderboard_list = []
     for i, entry in enumerate(entries):
@@ -530,7 +652,7 @@ def leaderboard():
             'username': entry['username'],
             'display_name': entry['display_name'],
             'avatar_hash': entry['avatar_hash'],
-            'guild_id': entry['guild_id'],
+            'guild_id': 0 if combined else entry['guild_id'],
             'level': entry['level'],
             'total_xp': entry['total_xp'],
             'total_messages': entry['total_messages'],
@@ -539,9 +661,12 @@ def leaderboard():
     
     total_pages = max(1, (total + 49) // 50)
 
-    where = "WHERE guild_id = ?" if guild_id else ""
-    params = (guild_id,) if guild_id else ()
-    agg = cached_query(f"lb_agg:{guild_id}", f"SELECT COALESCE(SUM(total_xp),0), COALESCE(SUM(total_messages),0), COALESCE(SUM(vc_minutes),0) FROM users {where}", params)
+    if combined:
+        agg = cached_query("lb_agg:combined", "SELECT COALESCE(SUM(total_xp),0), COALESCE(SUM(total_messages),0), COALESCE(SUM(vc_minutes),0) FROM users")
+    else:
+        where = "WHERE guild_id = ?" if guild_id else ""
+        params = (guild_id,) if guild_id else ()
+        agg = cached_query(f"lb_agg:{guild_id}", f"SELECT COALESCE(SUM(total_xp),0), COALESCE(SUM(total_messages),0), COALESCE(SUM(vc_minutes),0) FROM users {where}", params)
     
     agg_xp = agg[0][0]
     agg_messages = agg[0][1]
@@ -557,6 +682,7 @@ def leaderboard():
         leaderboard=leaderboard_list,
         total=total,
         guild_id=guild_id,
+        combined=combined,
         sort_by=sort_by,
         direction=direction,
         page=page,
@@ -681,27 +807,45 @@ def api_leaderboard_search():
     if not term:
         return jsonify({'results': []})
 
-    where_sql = "WHERE guild_id=?" if guild_id else ""
-    params = [guild_id] if guild_id else []
+    combined = request.args.get('mode') == 'combined'
 
     like = f"%{term}%"
     if only_username:
         cond = "LOWER(username) LIKE LOWER(?)"
         order_sql = "CASE WHEN LOWER(username) = LOWER(?) THEN 0 ELSE 1 END, rk"
-        search_params = params + [like, term]
+        search_params = [like, term]
     else:
         cond = "(LOWER(COALESCE(display_name,'')) LIKE LOWER(?) OR LOWER(username) LIKE LOWER(?) OR LOWER(CAST(user_id AS TEXT)) LIKE LOWER(?))"
         order_sql = """CASE
             WHEN LOWER(COALESCE(display_name,'')) = LOWER(?) THEN 0
             WHEN LOWER(username) = LOWER(?) THEN 1
             ELSE 2 END, rk"""
-        search_params = params + [like, like, like, term, term]
+        search_params = [like, like, like, term, term]
+
+    if combined:
+        source_sql = ("SELECT r.user_id, r.guild_id, r.username, r.display_name, r.avatar_hash, a.total_xp "
+                      "FROM (SELECT user_id, guild_id, username, display_name, avatar_hash, "
+                      "ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY last_message DESC, rowid DESC) AS rn "
+                      "FROM users) AS r "
+                      "JOIN (SELECT user_id, SUM(total_xp) AS total_xp FROM users GROUP BY user_id) AS a "
+                      "ON a.user_id = r.user_id WHERE r.rn = 1")
+        rank_order = "total_xp DESC"
+        cache_key = f"lb_search:combined:{only_username}:{term}:{limit}"
+    else:
+        if guild_id:
+            source_sql = ("SELECT user_id, guild_id, username, display_name, avatar_hash, level, total_xp "
+                          "FROM users WHERE guild_id=?")
+            search_params = [guild_id] + search_params
+        else:
+            source_sql = "SELECT user_id, guild_id, username, display_name, avatar_hash, level, total_xp FROM users"
+        rank_order = "level DESC"
+        cache_key = f"lb_search:{guild_id}:{only_username}:{term}:{limit}"
 
     sql = f"""
-        SELECT user_id, guild_id, username, display_name, avatar_hash, rk, level, total_xp FROM (
-            SELECT user_id, guild_id, username, display_name, avatar_hash, level, total_xp,
-                   ROW_NUMBER() OVER (ORDER BY level DESC) AS rk
-            FROM users {where_sql}
+        SELECT user_id, guild_id, username, display_name, avatar_hash, rk, total_xp FROM (
+            SELECT user_id, guild_id, username, display_name, avatar_hash, total_xp,
+                   ROW_NUMBER() OVER (ORDER BY {rank_order}) AS rk
+            FROM ({source_sql}) AS src
         ) AS ranked
         WHERE {cond}
         ORDER BY {order_sql}
@@ -710,7 +854,7 @@ def api_leaderboard_search():
     search_params = search_params + [limit]
 
     rows = cached_query(
-        f"lb_search:{guild_id}:{only_username}:{term}:{limit}",
+        cache_key,
         sql,
         search_params,
         ttl=30
@@ -730,7 +874,7 @@ def api_leaderboard_search():
         ext = 'gif' if (r['avatar_hash'] or '').startswith('a_') else 'png'
         results.append({
             'user_id': r['user_id'],
-            'guild_id': r['guild_id'],
+            'guild_id': 0 if combined else r['guild_id'],
             'username': r['username'],
             'display_name': r['display_name'],
             'avatar': f'https://cdn.discordapp.com/avatars/{r["user_id"]}/{r["avatar_hash"]}.{ext}?size=64' if r['avatar_hash'] else 'https://cdn.discordapp.com/embed/avatars/0.png',
@@ -745,10 +889,11 @@ def api_leaderboard():
     direction = request.args.get('dir', 'desc')
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 25, type=int)
+    combined = request.args.get('mode') == 'combined'
     
     per_page = max(1, min(per_page, 100))
     
-    entries, total = get_leaderboard(guild_id=guild_id, sort_by=sort_by, direction=direction, page=page, per_page=per_page)
+    entries, total = get_leaderboard(guild_id=guild_id, sort_by=sort_by, direction=direction, page=page, per_page=per_page, combined=combined)
     
     data = []
     for i, entry in enumerate(entries):
