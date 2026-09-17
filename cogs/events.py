@@ -123,6 +123,9 @@ class EventsCog(commands.Cog):
         reminders_cog = self.bot.get_cog("ReminderCog")
         if reminders_cog:
             reminders_cog.reminder_loop.start()
+        giveaways_cog = self.bot.get_cog("GiveawayCog")
+        if giveaways_cog:
+            giveaways_cog.giveaway_loop.start()
         self.rotate_status.start()
         self.update_topgg.start()
         self.vote_dm_loop.start()
