@@ -19,6 +19,7 @@ LABELS = {
     "games": "Games",
     "music": "Music",
     "reminders": "Reminders",
+    "giveaways": "Giveaways",
     "moderation": "Moderation",
     "configuration": "Configuration",
 }
@@ -30,6 +31,7 @@ EMOJIS = {
     "games": "🎮",
     "music": "🎵",
     "reminders": "⏰",
+    "giveaways": "🎁",
     "moderation": "🛡️",
     "configuration": "⚙️",
 }
@@ -41,6 +43,7 @@ DOCUMENTED_COMMANDS = {
     "games": {"8ball", "rps", "tictactoe", "connectfour", "trivia-battle", "blackjack", "hangman", "wordle", "minesweeper", "battleship", "15puzzle"},
     "music": {"music play", "music queue", "music nowplaying", "music pause", "music resume", "music skip", "music stop", "music shuffle", "music loop", "music volume", "music seek", "music lyrics", "music lyricslive", "music autoplay", "music controller", "music disconnect"},
     "reminders": {"remind create", "remind list", "remind edit", "remind delete", "remind clear", "remind timezone"},
+    "giveaways": {"giveaway start", "giveaway end", "giveaway reroll", "giveaway cancel", "giveaway list"},
     "moderation": {"moderation kick", "moderation ban", "moderation unban", "moderation timeout", "moderation slowmode", "moderation lock", "moderation unlock", "moderation role add", "moderation role remove"},
     "configuration": {"config auto", "config view", "config test", "config help", "config level set_channel", "config level toggle_channel", "config level toggle_vote_announce", "config level add_role", "config level remove_role", "config qotd set_channel", "config qotd set_time", "config qotd enable", "config qotd set_role", "config qotd delete_old", "config ai toggle"},
 }
@@ -49,6 +52,7 @@ DOCUMENTED_ALIASES = {
     "level": "leveling", "xp": "leveling", "lb": "leveling", "stats": "leveling",
     "ping": "utilities", "up": "utilities", "uptime": "utilities", "src": "utilities", "source": "utilities",
     "reminder": "reminders", "reminders": "reminders", "remind": "reminders",
+    "giveaway": "giveaways", "giveaways": "giveaways", "gw": "giveaways",
     "calc": "fun", "calculator": "fun", "math": "fun",
     "mod": "moderation", "config": "configuration", "settings": "configuration",
     "ai": "utilities", "chat": "utilities",
@@ -56,7 +60,7 @@ DOCUMENTED_ALIASES = {
 
 
 def _check_help_docs(bot):
-    registered = {cmd.qualified_name for cmd in bot.tree.walk_commands()}
+    registered = {cmd.qualified_name for cmd in bot.tree.walk_commands() if not getattr(cmd, "commands", None)}
     documented = {cmd for cmds in DOCUMENTED_COMMANDS.values() for cmd in cmds}
     for cmd in sorted(registered - documented):
         logger.warning("Command /%s is registered but missing from the /help menu", cmd)
@@ -182,7 +186,7 @@ class GeneralCog(commands.Cog):
                 name="Commands",
                 value=(
                     "`/level [user] [hidden]` - Your (or a member's) server level\n"
-                    "`/leaderboard <sort> [global_lb]` - Server level leaderboard\n"
+                    "`/leaderboard <sort> [global_lb] [combined]` - Server level leaderboard (toggle Separate/Combined with the buttons)\n"
                     "`/profile [user]` - Detailed profile & stats"
                 ),
                 inline=False,
@@ -308,6 +312,24 @@ class GeneralCog(commands.Cog):
                 ),
                 inline=False,
             ),
+            "giveaways": discord.Embed(
+                title="🎁 Giveaways",
+                description=(
+                    "Host giveaways in your server. Members enter with a button, and winners are drawn "
+                    "automatically when the timer ends. Requires **Manage Server** to run the commands."
+                ),
+                color=discord.Color(0x7128fc),
+            ).add_field(
+                name="Commands",
+                value=(
+                    "`/giveaway start <prize> <duration> [winners] [channel] [required_role]` - Start a giveaway\n"
+                    "`/giveaway list` - List active giveaways in the server\n"
+                    "`/giveaway end <giveaway>` - End a giveaway early and draw winners\n"
+                    "`/giveaway reroll <giveaway> [winners]` - Draw new winners for an ended giveaway\n"
+                    "`/giveaway cancel <giveaway>` - Cancel a giveaway without winners"
+                ),
+                inline=False,
+            ),
             "moderation": discord.Embed(
                 title="🛡️ Moderation",
                 description="Requires the matching permission (granted to moderators).",
@@ -341,7 +363,7 @@ class GeneralCog(commands.Cog):
         return HelpCategorySelect(
             placeholder=current,
             disabled_category=current,
-            categories=["overview", "leveling", "utilities", "fun", "games", "music", "reminders", "moderation", "configuration"],
+            categories=["overview", "leveling", "utilities", "fun", "games", "music", "reminders", "giveaways", "moderation", "configuration"],
         )
 
     def _help_buttons(self):
