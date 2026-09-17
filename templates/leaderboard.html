@@ -18,9 +18,10 @@
 {% block content %}
 {% import "_icons.html" as icons %}
 <div class="lb-page">
+    {% set mode_q = '&mode=combined' if combined else '' %}
     <header class="bs-hero">
-        <h1 class="bs-title">Global <span>Leaderboard</span></h1>
-        <p class="bs-sub">See who's on top across all servers.</p>
+        <h1 class="bs-title">{% if combined %}Combined{% else %}Global{% endif %} <span>Leaderboard</span></h1>
+        <p class="bs-sub">{% if combined %}One row per user, combining stats from every server they share with the bot.{% else %}See who's on top across all servers.{% endif %}</p>
         <p class="bs-meta">Showing <strong>{{ leaderboard|length }}</strong> of <strong>{{ total }}</strong> ranked users</p>
     </header>
 
@@ -59,10 +60,16 @@
     </section>
 
     <div class="lb-controls-bar">
+        <div class="lb-mode-toggle" role="group" aria-label="Leaderboard mode">
+            <a class="lb-mode-btn {% if not combined %}active{% endif %}" href="?sort={{ sort_by }}&dir={{ direction }}{% if guild_id %}&guild={{ guild_id }}{% endif %}">Separate</a>
+            <a class="lb-mode-btn {% if combined %}active{% endif %}" href="?mode=combined&sort={{ sort_by }}&dir={{ direction }}">Combined</a>
+        </div>
+        {% if not combined %}
         <div class="guild-input">
             <input type="text" id="guildInput" placeholder="Filter by server ID" class="find-input" value="{{ guild_id if guild_id else '' }}">
             <button class="find-btn" id="guildBtn">Go</button>
         </div>
+        {% endif %}
         <div class="find-me">
             <input type="text" id="findMeInput" placeholder="Find a user... (@ for username)" class="find-input" value="{{ find_query if find_query else '' }}" autocomplete="off">
             <button class="find-btn" id="findMeBtn">Locate</button>
@@ -86,14 +93,14 @@
             <span class="lb-match-nav">
                 {% set prev = (find_idx - 1) % find_matches|length %}
                 {% set next = (find_idx + 1) % find_matches|length %}
-                <a class="lb-nav-btn" href="?guild={{ guild_id }}&sort={{ sort_by }}&dir={{ direction }}&find={{ find_query|urlencode }}&fi={{ prev }}" aria-label="Previous match">&#x2190;</a>
-                <a class="lb-nav-btn" href="?guild={{ guild_id }}&sort={{ sort_by }}&dir={{ direction }}&find={{ find_query|urlencode }}&fi={{ next }}" aria-label="Next match">&#x2192;</a>
+                <a class="lb-nav-btn" href="?guild={{ guild_id }}&sort={{ sort_by }}&dir={{ direction }}&find={{ find_query|urlencode }}&fi={{ prev }}{{ mode_q }}" aria-label="Previous match">&#x2190;</a>
+                <a class="lb-nav-btn" href="?guild={{ guild_id }}&sort={{ sort_by }}&dir={{ direction }}&find={{ find_query|urlencode }}&fi={{ next }}{{ mode_q }}" aria-label="Next match">&#x2192;</a>
             </span>
             {% endif %}
-            <a class="lb-nav-btn lb-clear" href="?guild={{ guild_id }}&sort={{ sort_by }}&dir={{ direction }}&page={{ page }}" aria-label="Clear search">&times;</a>
+            <a class="lb-nav-btn lb-clear" href="?guild={{ guild_id }}&sort={{ sort_by }}&dir={{ direction }}&page={{ page }}{{ mode_q }}" aria-label="Clear search">&times;</a>
         {% else %}
             <span class="lb-float-info">No match found for &ldquo;<strong>{{ find_query }}</strong>&rdquo;</span>
-            <a class="lb-nav-btn lb-clear" href="?guild={{ guild_id }}&sort={{ sort_by }}&dir={{ direction }}&page={{ page }}" aria-label="Clear search">&times;</a>
+            <a class="lb-nav-btn lb-clear" href="?guild={{ guild_id }}&sort={{ sort_by }}&dir={{ direction }}&page={{ page }}{{ mode_q }}" aria-label="Clear search">&times;</a>
         {% endif %}
     </div>
     {% endif %}
@@ -117,7 +124,7 @@
                 <div class="user-cell">
                     <img loading="lazy" class="user-avatar" src="{% if entry.avatar_hash %}https://cdn.discordapp.com/avatars/{{ entry.user_id }}/{{ entry.avatar_hash }}.png?size=128{% else %}https://cdn.discordapp.com/embed/avatars/0.png{% endif %}" onerror="this.onerror=null;this.src='https://cdn.discordapp.com/embed/avatars/0.png'" alt="{{ entry.display_name or entry.username }}">
                     <span class="user-name">
-                        <a href="/stats/{{ entry.guild_id }}/{{ entry.user_id }}">{{ entry.display_name or entry.username }}</a>
+                        <a href="/stats/{{ 0 if combined else entry.guild_id }}/{{ entry.user_id }}">{{ entry.display_name or entry.username }}</a>
                         {% if entry.display_name and entry.display_name != entry.username %}<span class="user-user">@{{ entry.username }}</span>{% endif %}
                     </span>
                 </div>
@@ -140,28 +147,28 @@
         {% if total_pages > 1 %}
         <div class="pagination">
             {% if page > 1 %}
-            <a href="?guild={{ guild_id }}&sort={{ sort_by }}&dir={{ direction }}&page={{ page - 1 }}">&#x2190;</a>
+            <a href="?guild={{ guild_id }}&sort={{ sort_by }}&dir={{ direction }}&page={{ page - 1 }}{{ mode_q }}">&#x2190;</a>
             {% endif %}
 
             {% set page_start = [1, page - 2] | max %}
             {% set page_end = [total_pages, page + 2] | min %}
 
             {% if page_start > 1 %}
-            <a href="?guild={{ guild_id }}&sort={{ sort_by }}&dir={{ direction }}&page=1">1</a>
+            <a href="?guild={{ guild_id }}&sort={{ sort_by }}&dir={{ direction }}&page=1{{ mode_q }}">1</a>
             {% if page_start > 2 %}<span class="dots">...</span>{% endif %}
             {% endif %}
 
             {% for p in range(page_start, page_end + 1) %}
-            <a href="?guild={{ guild_id }}&sort={{ sort_by }}&dir={{ direction }}&page={{ p }}" class="{% if p == page %}active{% endif %}">{{ p }}</a>
+            <a href="?guild={{ guild_id }}&sort={{ sort_by }}&dir={{ direction }}&page={{ p }}{{ mode_q }}" class="{% if p == page %}active{% endif %}">{{ p }}</a>
             {% endfor %}
 
             {% if page_end < total_pages %}
             {% if page_end < total_pages - 1 %}<span class="dots">...</span>{% endif %}
-            <a href="?guild={{ guild_id }}&sort={{ sort_by }}&dir={{ direction }}&page={{ total_pages }}">{{ total_pages }}</a>
+            <a href="?guild={{ guild_id }}&sort={{ sort_by }}&dir={{ direction }}&page={{ total_pages }}{{ mode_q }}">{{ total_pages }}</a>
             {% endif %}
 
             {% if page < total_pages %}
-            <a href="?guild={{ guild_id }}&sort={{ sort_by }}&dir={{ direction }}&page={{ page + 1 }}">&#x2192;</a>
+            <a href="?guild={{ guild_id }}&sort={{ sort_by }}&dir={{ direction }}&page={{ page + 1 }}{{ mode_q }}">&#x2192;</a>
             {% endif %}
         </div>
         {% endif %}
