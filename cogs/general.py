@@ -6,6 +6,7 @@ import datetime
 import logging
 from utils import startup, get_db, is_blocked, block_reply
 from cogs.rating import send_rating_prompt
+from cogs.config import config_help_embed
 
 logger = logging.getLogger("cogs.general")
 
@@ -17,6 +18,7 @@ LABELS = {
     "fun": "Fun",
     "games": "Games",
     "music": "Music",
+    "reminders": "Reminders",
     "moderation": "Moderation",
     "configuration": "Configuration",
 }
@@ -27,9 +29,75 @@ EMOJIS = {
     "fun": "🎉",
     "games": "🎮",
     "music": "🎵",
+    "reminders": "⏰",
     "moderation": "🛡️",
     "configuration": "⚙️",
 }
+
+DOCUMENTED_COMMANDS = {
+    "leveling": {"level", "leaderboard", "profile"},
+    "utilities": {"help", "ping", "uptime", "github", "vote", "vote-remind", "ai", "aitoggle", "userinfo", "feedback", "rate"},
+    "fun": {"animal", "calc", "flip", "random", "quote", "fact"},
+    "games": {"8ball", "rps", "tictactoe", "connectfour", "trivia-battle", "blackjack", "hangman", "wordle", "minesweeper", "battleship", "15puzzle"},
+    "music": {"music play", "music queue", "music nowplaying", "music pause", "music resume", "music skip", "music stop", "music shuffle", "music loop", "music volume", "music seek", "music lyrics", "music lyricslive", "music autoplay", "music controller", "music disconnect"},
+    "reminders": {"remind create", "remind list", "remind edit", "remind delete", "remind clear", "remind timezone"},
+    "moderation": {"moderation kick", "moderation ban", "moderation unban", "moderation timeout", "moderation slowmode", "moderation lock", "moderation unlock", "moderation role add", "moderation role remove"},
+    "configuration": {"config auto", "config view", "config test", "config help", "config level set_channel", "config level toggle_channel", "config level toggle_vote_announce", "config level add_role", "config level remove_role", "config qotd set_channel", "config qotd set_time", "config qotd enable", "config qotd set_role", "config qotd delete_old", "config ai toggle"},
+}
+
+DOCUMENTED_ALIASES = {
+    "level": "leveling", "xp": "leveling", "lb": "leveling", "stats": "leveling",
+    "ping": "utilities", "up": "utilities", "uptime": "utilities", "src": "utilities", "source": "utilities",
+    "reminder": "reminders", "reminders": "reminders", "remind": "reminders",
+    "calc": "fun", "calculator": "fun", "math": "fun",
+    "mod": "moderation", "config": "configuration", "settings": "configuration",
+    "ai": "utilities", "chat": "utilities",
+}
+
+
+def _check_help_docs(bot):
+    registered = {cmd.qualified_name for cmd in bot.tree.walk_commands()}
+    documented = {cmd for cmds in DOCUMENTED_COMMANDS.values() for cmd in cmds}
+    for cmd in sorted(registered - documented):
+        logger.warning("Command /%s is registered but missing from the /help menu", cmd)
+    for cmd in sorted(documented - registered):
+        logger.warning("Help menu documents /%s but it isn't registered (removed or renamed?)", cmd)
+
+
+async def _help_topic_autocomplete(interaction, current: str):
+    query = current.strip().lower().replace("/", "")
+    tokens = query.split()
+
+    def matches(text):
+        lowered = text.lower()
+        return all(token in lowered for token in tokens)
+
+    choices = []
+    for cat, label in LABELS.items():
+        if cat == "overview":
+            continue
+        if matches(f"{label} {cat}"):
+            choices.append(app_commands.Choice(name=f"{EMOJIS[cat]} {label} (category)", value=cat))
+    for cat, cmds in DOCUMENTED_COMMANDS.items():
+        for cmd in cmds:
+            if matches(cmd):
+                choices.append(app_commands.Choice(name=f"/{cmd}", value=cat))
+    alias_cat = DOCUMENTED_ALIASES.get(query.strip())
+    if alias_cat:
+        for cmd in sorted(DOCUMENTED_COMMANDS[alias_cat]):
+            choices.append(app_commands.Choice(name=f"/{cmd}", value=alias_cat))
+
+    seen = set()
+    out = []
+    for choice in choices:
+        key = (choice.name, choice.value)
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(choice)
+        if len(out) >= 25:
+            break
+    return out
 
 
 class HelpCategorySelect(discord.ui.Select):
@@ -68,7 +136,9 @@ class HelpView(discord.ui.View):
         self.cog = cog
         self.author_id = None
         self.add_item(select)
-        close = discord.ui.Button(label="Close", style=discord.ButtonStyle.secondary, row=1)
+        for button in cog._help_buttons():
+            self.add_item(button)
+        close = discord.ui.Button(label="Close", style=discord.ButtonStyle.secondary, row=2)
         close.callback = self._close
         self.add_item(close)
 
@@ -124,21 +194,17 @@ class GeneralCog(commands.Cog):
             ).add_field(
                 name="Commands",
                 value=(
+                    "`/help [topic]` - Browse all commands (or jump to a topic)\n"
                     "`/ping` - Bot latency\n"
                     "`/uptime` - Uptime & links\n"
                     "`/github` - Source code & issues\n"
                     "`/vote` - Vote for the bot on Top.gg\n"
                     "`/vote-remind` - Toggle vote reminders\n"
-                    "`/calc <expression>` - Calculator\n"
                     "`/ai <message>` - Chat with the AI\n"
                     "`/aitoggle [enabled]` - Turn AI replies on or off for yourself\n"
                     "`/userinfo <user>` - Look up a user\n"
                     "`/feedback <feedback>` - Message the developers\n"
-                    "`/rate` - Rate VoidWave\n"
-                    "`/remind create <time> <message> [recurring]` - DM reminder (e.g. 2h, tomorrow 16:00, friday 18:30)\n"
-                    "`/remind list` - List your reminders\n"
-                    "`/remind delete <id>` - Delete a reminder\n"
-                    "`/remind timezone [timezone]` - Set your reminder timezone (defaults to UTC)"
+                    "`/rate` - Rate VoidWave"
                 ),
                 inline=False,
             ),
@@ -150,10 +216,11 @@ class GeneralCog(commands.Cog):
                 name="Commands",
                 value=(
                     "`/flip [hidden]` - Flip a coin\n"
-                    "`/random <int> <int> [hidden]` - Random number\n"
-                    "`/quote <choice>` - A quote\n"
-                    "`/fact <choice>` - A daily fact\n"
-                    "`/animal <animal> [hidden]` - Random animal picture"
+                    "`/random <a> <b> [hidden]` - Random number between two values\n"
+                    "`/quote <choice>` - A quote (Today or Random)\n"
+                    "`/fact <choice>` - A daily fact (Today or Random)\n"
+                    "`/animal <animal> [hidden]` - Random animal picture\n"
+                    "`/calc <expression> [hidden]` - Calculator (e.g. 5×2+3, 2^10, sqrt(64))"
                 ),
                 inline=False,
             ),
@@ -216,7 +283,28 @@ class GeneralCog(commands.Cog):
                     "`/music lyrics` - Show lyrics for the current track\n"
                     "`/music lyricslive <on|off>` - Live synced lyrics on the player embed\n"
                     "`/music autoplay <on|off>` - Auto-play related tracks\n"
+                    "`/music controller` - Bring the player controller back into view\n"
                     "`/music disconnect` - Leave the voice channel"
+                ),
+                inline=False,
+            ),
+            "reminders": discord.Embed(
+                title="⏰ Reminders",
+                description=(
+                    "Get DM'd (or posted to a channel) at a time you choose. Times are human friendly: "
+                    "`10m`, `2h`, `tomorrow 16:00`, `friday 18:30`. Recurring options include hourly, "
+                    "daily, weekly, biweekly, weekdays, weekends, monthly, yearly, or a custom `every 2h`."
+                ),
+                color=discord.Color(0x7128fc),
+            ).add_field(
+                name="Commands",
+                value=(
+                    "`/remind create <time> <message> [recurring] [timezone]` - Set a reminder\n"
+                    "`/remind list` - List your active reminders\n"
+                    "`/remind edit <id> [message] [time] [timezone]` - Edit a reminder\n"
+                    "`/remind delete <id>` - Delete a reminder by ID\n"
+                    "`/remind clear` - Delete all your reminders\n"
+                    "`/remind timezone [timezone]` - Set your default timezone (defaults to UTC)"
                 ),
                 inline=False,
             ),
@@ -238,20 +326,7 @@ class GeneralCog(commands.Cog):
                 ),
                 inline=False,
             ),
-            "configuration": discord.Embed(
-                title="⚙️ Configuration",
-                description="Server setup, admin only.",
-                color=discord.Color(0x7128fc),
-            ).add_field(
-                name="Commands",
-                value=(
-                    "`/config auto [level] [qotd]` - One-command setup\n"
-                    "`/config view` - Show current config\n"
-                    "`/config help` - All config commands\n"
-                    "`/config ai toggle <on|off>` - Turn AI replies on or off for the server"
-                ),
-                inline=False,
-            ),
+            "configuration": config_help_embed("overview"),
         }
         embed = embeds[category]
         embed.set_footer(text="Vote for 2x XP! /vote")
@@ -266,22 +341,29 @@ class GeneralCog(commands.Cog):
         return HelpCategorySelect(
             placeholder=current,
             disabled_category=current,
-            categories=["overview", "leveling", "utilities", "fun", "games", "music", "moderation", "configuration"],
+            categories=["overview", "leveling", "utilities", "fun", "games", "music", "reminders", "moderation", "configuration"],
         )
+
+    def _help_buttons(self):
+        app_id = getattr(self.bot, "application_id", None) or (self.bot.user.id if self.bot.user else None)
+        invite = discord.utils.oauth_url(app_id) if app_id else "https://voidwave.xangey.dev/"
+        buttons = [
+            discord.ui.Button(label="Website", style=discord.ButtonStyle.link, url="https://voidwave.xangey.dev/", emoji="🌐", row=1),
+            discord.ui.Button(label="Invite", style=discord.ButtonStyle.link, url=invite, emoji="➕", row=1),
+            discord.ui.Button(label="Vote", style=discord.ButtonStyle.link, url="https://top.gg/bot/1442229230384709752/vote", emoji="🗳️", row=1),
+            discord.ui.Button(label="Source", style=discord.ButtonStyle.link, url="https://github.com/xangeyfun/VoidWave", emoji="📘", row=1),
+        ]
+        return buttons
+
+    @commands.Cog.listener()
+    async def on_ready(self):
+        _check_help_docs(self.bot)
 
     @discord.app_commands.allowed_installs(guilds=True, users=True)
     @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     @discord.app_commands.command(name="help", description="Get help about the bot.")
-    @app_commands.describe(topic="Get help for a specific category")
-    @app_commands.choices(topic=[
-        app_commands.Choice(name="Leveling", value="leveling"),
-        app_commands.Choice(name="Utilities", value="utilities"),
-        app_commands.Choice(name="Fun", value="fun"),
-        app_commands.Choice(name="Games", value="games"),
-        app_commands.Choice(name="Music", value="music"),
-        app_commands.Choice(name="Moderation", value="moderation"),
-        app_commands.Choice(name="Configuration", value="configuration"),
-    ])
+    @app_commands.describe(topic="Get help for a specific category (or search a command)")
+    @app_commands.autocomplete(topic=_help_topic_autocomplete)
     async def help_command(self, interaction: discord.Interaction, topic: str = None):
         category = topic or "overview"
         embed = self._help_embed(category)
