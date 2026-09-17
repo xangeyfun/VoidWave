@@ -4,6 +4,8 @@ from simpleeval import simple_eval
 import discord
 import random
 import logging
+import math
+import re
 import utils
 
 logger = logging.getLogger("cogs.fun")
@@ -98,15 +100,50 @@ class FunCog(commands.Cog):
     @discord.app_commands.allowed_installs(guilds=True, users=True)
     @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     @discord.app_commands.command(name="calc", description="Simple calculator")
-    @app_commands.describe(expression="an expression like 5*2+3", hidden="Hide the command from others")
+    @app_commands.describe(expression="an expression like 5×2+3, 2^10 or sqrt(64)", hidden="Hide the command from others")
     async def calc(self, interaction: Interaction, expression: str, hidden: bool = False):
-        allowed = "0123456789+-*/(). "
-        if any(c not in allowed for c in expression):
+        normalized = (expression
+                      .replace("×", "*").replace("✕", "*").replace("✖", "*")
+                      .replace("·", "*").replace("•", "*")
+                      .replace("÷", "/")
+                      .replace("²", "**2").replace("³", "**3")
+                      .replace("^", "**"))
+        normalized = re.sub(r"(?<=[\d)])\s*[xX]\s*(?=[\d(])", "*", normalized)
+        normalized = re.sub(r"√\(([^()]*)\)", r"sqrt(\1)", normalized)
+        normalized = re.sub(r"√(\d+(?:\.\d+)?)", r"sqrt(\1)", normalized)
+
+        functions = {
+            "sqrt": math.sqrt, "isqrt": math.isqrt, "cbrt": math.cbrt,
+            "sin": math.sin, "cos": math.cos, "tan": math.tan,
+            "asin": math.asin, "acos": math.acos, "atan": math.atan, "atan2": math.atan2,
+            "sinh": math.sinh, "cosh": math.cosh, "tanh": math.tanh,
+            "log": math.log, "log10": math.log10, "log2": math.log2,
+            "exp": math.exp, "pow": math.pow, "hypot": math.hypot,
+            "floor": math.floor, "ceil": math.ceil, "trunc": math.trunc,
+            "factorial": math.factorial, "degrees": math.degrees, "radians": math.radians,
+            "gcd": math.gcd, "lcm": math.lcm, "comb": math.comb, "perm": math.perm,
+            "abs": abs, "round": round, "min": min, "max": max,
+            "int": int, "float": float, "str": str,
+        }
+        names = {
+            "pi": math.pi, "e": math.e, "tau": math.tau,
+            "inf": math.inf, "nan": math.nan,
+            "True": True, "False": False, "None": None,
+        }
+
+        allowed = "0123456789+-*%/(). ,_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        if any(c not in allowed for c in normalized):
+            await interaction.response.send_message("> invalid expression", ephemeral=hidden)
+            return
+        if any(word in normalized.lstrip() for word in ("__", "lambda", "import", "exec", "eval", "open", "input", "globals", "locals", "getattr", "setattr", "delattr")):
             await interaction.response.send_message("> invalid expression", ephemeral=hidden)
             return
         try:
-            result = simple_eval(expression)
-            await interaction.response.send_message(f"`{expression}` = {result}", ephemeral=hidden)
+            result = simple_eval(normalized, functions=functions, names=names)
+            if isinstance(result, float):
+                await interaction.response.send_message(f"`{expression}` = {result:.10g}", ephemeral=hidden)
+            else:
+                await interaction.response.send_message(f"`{expression}` = {result}", ephemeral=hidden)
         except Exception as e:
             await interaction.response.send_message(f"Error evaluating expression: {e}", ephemeral=hidden)
 
