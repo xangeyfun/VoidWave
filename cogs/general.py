@@ -41,7 +41,7 @@ DOCUMENTED_COMMANDS = {
     "utilities": {"help", "ping", "uptime", "github", "vote", "vote-remind", "ai", "aitoggle", "userinfo", "feedback", "rate"},
     "fun": {"animal", "calc", "flip", "random", "quote", "fact"},
     "games": {"8ball", "rps", "tictactoe", "connectfour", "trivia-battle", "blackjack", "hangman", "wordle", "minesweeper", "battleship", "15puzzle"},
-    "music": {"music play", "music queue", "music nowplaying", "music pause", "music resume", "music skip", "music stop", "music shuffle", "music loop", "music volume", "music seek", "music lyrics", "music lyricslive", "music autoplay", "music controller", "music disconnect"},
+    "music": {"music play", "music queue", "music nowplaying", "music pause", "music resume", "music skip", "music stop", "music shuffle", "music loop", "music volume", "music seek", "music lyrics", "music lyricslive", "music autoplay", "music controller", "music disconnect", "music playlist create", "music playlist add", "music playlist remove", "music playlist rename", "music playlist delete", "music playlist list", "music playlist play"},
     "reminders": {"remind create", "remind list", "remind edit", "remind delete", "remind clear", "remind timezone"},
     "giveaways": {"giveaway start", "giveaway end", "giveaway reroll", "giveaway cancel", "giveaway list"},
     "moderation": {"moderation kick", "moderation ban", "moderation unban", "moderation timeout", "moderation slowmode", "moderation lock", "moderation unlock", "moderation role add", "moderation role remove"},
@@ -259,6 +259,8 @@ class GeneralCog(commands.Cog):
                 title="🎵 Music",
                 description=(
                     "Play music in voice channels. Join a voice channel and run `/music play`. "
+                    "Paste a YouTube URL, a Spotify link, or search by name. Spotify links are "
+                    "matched to their YouTube equivalent. "
                     "An interactive player embed with buttons appears. Control playback without typing commands. "
                     "The progress bar updates live. Skips are decided by vote (or owner can force-skip)."
                 ),
@@ -288,7 +290,20 @@ class GeneralCog(commands.Cog):
                     "`/music lyricslive <on|off>` - Live synced lyrics on the player embed\n"
                     "`/music autoplay <on|off>` - Auto-play related tracks\n"
                     "`/music controller` - Bring the player controller back into view\n"
-                    "`/music disconnect` - Leave the voice channel"
+                    "`/music disconnect` - Leave the voice channel\n\n"
+                    "**Idle behavior:** if the queue finishes, VoidWave waits "
+                    "**3 minutes** before leaving. If the voice channel becomes empty "
+                    "while music is playing, playback **pauses** and resumes when "
+                    "someone joins; if nobody joins within 3 minutes it leaves."
+                ),
+                inline=False,
+            ).add_field(
+                name="Playlists",
+                value=(
+                    "Save and play your own track lists, available in any server:\n"
+                    "`/music playlist create <name>` · Add tracks with `/music playlist add`\n"
+                    "`/music playlist list [name]` · Play with `/music playlist play <name>`\n"
+                    "`/music playlist remove` / `rename` / `delete`"
                 ),
                 inline=False,
             ),

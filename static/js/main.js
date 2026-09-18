@@ -819,6 +819,28 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // Docs page: sidebar scroll spy
+    const docsSidebar = document.querySelector('.docs-sidebar');
+    if (docsSidebar) {
+        const tocLinks = Array.from(docsSidebar.querySelectorAll('.docs-toc-link'));
+        const sections = tocLinks
+            .map(link => document.querySelector(link.getAttribute('href')))
+            .filter(Boolean);
+
+        const spy = new IntersectionObserver((entries) => {
+            const visible = entries
+                .filter(e => e.isIntersecting)
+                .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+            if (!visible.length) return;
+            const id = visible[0].target.id;
+            tocLinks.forEach(link => {
+                link.classList.toggle('active', link.getAttribute('href') === '#' + id);
+            });
+        }, { rootMargin: '-15% 0px -75% 0px', threshold: 0 });
+
+        sections.forEach(section => spy.observe(section));
+    }
+
     // Scroll to top
     const scrollTopBtn = document.getElementById('scrollTop');
     if (scrollTopBtn) {

@@ -312,6 +312,40 @@ if __name__ == "__main__":
     cur.execute("CREATE INDEX IF NOT EXISTS idx_giveaways_ends_at ON giveaways(ends_at)")
     conn.commit()
 
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS playlists (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        name TEXT NOT NULL,
+        name_lower TEXT NOT NULL,
+        created_at INTEGER NOT NULL
+    )
+    """)
+    conn.commit()
+
+    cur.execute("CREATE UNIQUE INDEX IF NOT EXISTS uniq_playlists ON playlists(user_id, name_lower)")
+    conn.commit()
+
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS playlist_tracks (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        playlist_id INTEGER NOT NULL,
+        position INTEGER NOT NULL,
+        query TEXT NOT NULL,
+        title TEXT,
+        author TEXT,
+        uri TEXT,
+        artwork TEXT,
+        length_ms INTEGER,
+        source TEXT,
+        added_at INTEGER NOT NULL
+    )
+    """)
+    conn.commit()
+
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_playlist_tracks ON playlist_tracks(playlist_id, position)")
+    conn.commit()
+
     try:
         cur.execute("ALTER TABLE reminders ADD COLUMN channel_id INTEGER")
     except sqlite3.OperationalError:

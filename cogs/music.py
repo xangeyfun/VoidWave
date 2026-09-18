@@ -5,18 +5,25 @@ import aiohttp
 import asyncio
 import os
 import logging
+import sqlite3
 import time
 from difflib import SequenceMatcher
 
+import re
+
 import wavelink
 
-from utils import is_blocked, block_reply
+from utils import is_blocked, block_reply, get_db
 
 logger = logging.getLogger("cogs.music")
 
 
 VOIDWAVE_COLOR = 0x7128fc
 QUEUE_PAGE_SIZE = 10
+_EMPTY_LEAVE_DELAY = 180
+_MAX_PLAYLISTS_PER_USER = 25
+_MAX_PLAYLIST_TRACKS = 200
+_MAX_PLAYLIST_NAME_LEN = 32
 _LYRIC_OFFSET_MS = 2500
 _LOOP_MODES = (wavelink.QueueMode.normal, wavelink.QueueMode.loop, wavelink.QueueMode.loop_all)
 _LOOP_LABELS = ("🔁", "🔂", "🔃")
@@ -100,9 +107,106 @@ def _normalize_query(query: str) -> str | None:
         query = query.split(":", 1)[1].strip() if ":" in query else query
     if not query:
         return None
+    if _SPOTIFY_URL_RE.match(query):
+        return query
+    if low.startswith("spsearch:"):
+        phrase = query.split(":", 1)[1].strip() if ":" in query else ""
+        return f"ytsearch:{phrase}" if phrase else None
     if query.lower().startswith(_KNOWN_PREFIXES):
         return query
     return f"ytsearch:{query}"
+
+
+_SPOTIFY_URL_RE = re.compile(
+    r"^(?:https?://open\.spotify\.com/|spotify:)(track|album|playlist|artist)[/:]([A-Za-z0-9]+)",
+    re.IGNORECASE,
+)
+
+_SPOTIFY_TITLE_PARSERS = {
+    "track": re.compile(r"^(?P<title>.+?)\s+-\s+song and lyrics by (?P<artist>.+?)\s+\|\s+Spotify$", re.IGNORECASE),
+    "album": re.compile(r"^(?P<title>.+?)\s+-\s+Album by (?P<artist>.+?)\s+\|\s+Spotify$", re.IGNORECASE),
+    "playlist": re.compile(r"^(?P<title>.+?)\s+\|\s+Spotify Playlist$", re.IGNORECASE),
+    "artist": re.compile(r"^(?P<title>.+?)\s+\|\s+Spotify$", re.IGNORECASE),
+}
+
+_SPOTIFY_TITLE_RE = re.compile(r"<title[^>]*>(.*?)</title>", re.IGNORECASE | re.DOTALL)
+_SPOTIFY_UA = "VoidWaveBot/2.0 (music resolver)"
+
+
+def _spotify_canonical_url(normalized: str):
+    m = _SPOTIFY_URL_RE.match(normalized or "")
+    if not m:
+        return None
+    kind = m.group(1).lower()
+    return kind, f"https://open.spotify.com/{kind}/{m.group(2)}"
+
+
+async def _spotify_oembed_title(canonical: str) -> str | None:
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(
+                "https://open.spotify.com/oembed",
+                params={"url": canonical, "format": "json"},
+                headers={"User-Agent": _SPOTIFY_UA},
+                timeout=aiohttp.ClientTimeout(total=8),
+            ) as resp:
+                if resp.status != 200:
+                    return None
+                data = await resp.json()
+                title = (data.get("title") or "").strip()
+                return title or None
+    except Exception as e:
+        logger.debug("Spotify oEmbed failed for '%s': %s", canonical, e)
+        return None
+
+
+async def _fetch_spotify_metadata(normalized: str) -> dict | None:
+    """Resolve a Spotify link to {title, artist} from the public entity page, falling back to oEmbed."""
+    parsed = _spotify_canonical_url(normalized)
+    if not parsed:
+        return None
+    kind, canonical = parsed
+    page = None
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(
+                canonical,
+                headers={"User-Agent": _SPOTIFY_UA, "Accept-Language": "en"},
+                timeout=aiohttp.ClientTimeout(total=8),
+            ) as resp:
+                if resp.status == 200:
+                    page = await resp.text()
+    except Exception as e:
+        logger.debug("Spotify page fetch failed for '%s': %s", canonical, e)
+
+    title = None
+    artist = None
+    if page:
+        m = _SPOTIFY_TITLE_RE.search(page)
+        if m:
+            raw = re.sub(r"\s+", " ", m.group(1)).strip()
+            parser = _SPOTIFY_TITLE_PARSERS.get(kind)
+            if parser:
+                tm = parser.match(raw)
+                if tm:
+                    groups = tm.groupdict()
+                    title = (groups.get("title") or "").strip() or None
+                    artist = (groups.get("artist") or "").strip() or None
+    if not title and kind == "track":
+        title = await _spotify_oembed_title(canonical)
+    if not title:
+        return None
+    return {"title": title, "artist": artist or ""}
+
+
+def _spotify_search_query(meta: dict) -> str | None:
+    parts = [meta.get("title", "")]
+    if meta.get("artist"):
+        parts.append(meta["artist"])
+    query = " ".join(p for p in (_clean_text(p) for p in parts) if p).strip()
+    if not query:
+        return None
+    return f"ytsearch:{query[:180]}"
 
 
 def _progress_bar(position_ms, length_ms, width=18):
@@ -729,6 +833,84 @@ class LyricsView(discord.ui.View):
 
 
 # ======================================================================
+# Paginated Playlist View
+# ======================================================================
+class PlaylistView(discord.ui.View):
+    def __init__(self, user_id, playlist_name, tracks, page=0):
+        super().__init__(timeout=120)
+        self.user_id = user_id
+        self.playlist_name = playlist_name
+        self.tracks = tracks
+        self.page = page
+        self._refresh_buttons()
+
+    def _total_pages(self):
+        return max(1, (len(self.tracks) + QUEUE_PAGE_SIZE - 1) // QUEUE_PAGE_SIZE)
+
+    def _refresh_buttons(self):
+        total = self._total_pages()
+        self.page = max(0, min(self.page, total - 1))
+        for child in self.children:
+            if getattr(child, "emoji", None) == "◀️":
+                child.disabled = self.page == 0
+            elif getattr(child, "emoji", None) == "▶️":
+                child.disabled = self.page >= total - 1
+
+    def build_embed(self):
+        total = len(self.tracks)
+        start = self.page * QUEUE_PAGE_SIZE
+        page_tracks = self.tracks[start:start + QUEUE_PAGE_SIZE]
+        embed = discord.Embed(
+            title=f"📋 {self.playlist_name} ({total} track{'s' if total != 1 else ''})",
+            color=VOIDWAVE_COLOR,
+        )
+        if page_tracks:
+            lines = []
+            for i, t in enumerate(page_tracks, start + 1):
+                title = t["title"] or t["query"]
+                author = t["author"] or ""
+                dur = fmt(t["length_ms"]) if t["length_ms"] else ""
+                line = f"`{i}.` **{title}**"
+                if author:
+                    line += f" - *{author}*"
+                if dur:
+                    line += f"  `{dur}`"
+                lines.append(line)
+            embed.add_field(name="Tracks", value="\n".join(lines), inline=False)
+        else:
+            embed.add_field(name="Tracks", value="This playlist is empty.", inline=False)
+        embed.set_footer(text=f"Page {self.page + 1}/{self._total_pages()}")
+        return embed
+
+    @discord.ui.button(emoji="◀️", style=discord.ButtonStyle.secondary, row=0)
+    async def on_prev_page(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id != self.user_id:
+            return await interaction.response.send_message("This isn't for you.", ephemeral=True)
+        self.page -= 1
+        self._refresh_buttons()
+        await interaction.response.edit_message(embed=self.build_embed(), view=self)
+
+    @discord.ui.button(emoji="▶️", style=discord.ButtonStyle.secondary, row=0)
+    async def on_next_page(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id != self.user_id:
+            return await interaction.response.send_message("This isn't for you.", ephemeral=True)
+        self.page += 1
+        self._refresh_buttons()
+        await interaction.response.edit_message(embed=self.build_embed(), view=self)
+
+    @discord.ui.button(label="Close", style=discord.ButtonStyle.danger, row=0)
+    async def on_close(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id != self.user_id:
+            return await interaction.response.send_message("This isn't for you.", ephemeral=True)
+        await interaction.response.edit_message(view=None)
+        self.stop()
+
+    async def on_timeout(self):
+        for child in self.children:
+            child.disabled = True
+
+
+# ======================================================================
 # Music Cog
 # ======================================================================
 class MusicCog(commands.Cog):
@@ -741,6 +923,12 @@ class MusicCog(commands.Cog):
         allowed_contexts=discord.app_commands.AppCommandContext(guild=True, dm_channel=False, private_channel=False),
     )
 
+    playlist = discord.app_commands.Group(
+        name="playlist",
+        description="Your saved music playlists",
+        parent=music,
+    )
+
     def __init__(self, bot):
         self.bot = bot
         self.players: dict[int, wavelink.Player] = {}
@@ -749,6 +937,8 @@ class MusicCog(commands.Cog):
         self.player_views: dict[int, MusicPlayerView] = {}
         self.player_messages: dict[int, discord.Message] = {}
         self._update_tasks: dict[int, asyncio.Task] = {}
+        self._idle_tasks: dict[int, asyncio.Task] = {}
+        self._empty_paused: dict[int, bool] = {}
         self.live_lyrics: dict[int, bool] = {}
         self._lyrics_cache: dict[str, list[tuple[int, str]]] = {}
         self._lyrics_loading: dict[str, asyncio.Task] = {}
@@ -792,8 +982,22 @@ class MusicCog(commands.Cog):
             self._search_cache.pop(k, None)
 
     async def _search_tracks(self, normalized: str, node: wavelink.Node) -> list | None:
+        query_text = None
+        is_spotify = bool(_SPOTIFY_URL_RE.match(normalized or ""))
+        if is_spotify:
+            meta = await _fetch_spotify_metadata(normalized)
+            if meta is None:
+                return None
+            rewritten = _spotify_search_query(meta)
+            if not rewritten:
+                return None
+            normalized = rewritten
+            query_text = " ".join(p for p in (meta.get("title", ""), meta.get("artist", "")) if p)
         cached = self._get_cached_search(normalized)
         if cached is not None:
+            if is_spotify:
+                best = _best_result(query_text, cached)
+                return [best] if best else []
             return cached
         try:
             tracks = await wavelink.Playable.search(normalized, node=node)
@@ -809,6 +1013,9 @@ class MusicCog(commands.Cog):
         else:
             results = [tracks]
         self._cache_search(normalized, results)
+        if is_spotify:
+            best = _best_result(query_text, results)
+            return [best] if best else []
         return results
 
     def _player_usable(self, player) -> bool:
@@ -818,8 +1025,65 @@ class MusicCog(commands.Cog):
             return False
         return getattr(player.guild.me, "voice", None) is not None
 
+    async def _ensure_player(self, interaction: discord.Interaction, *, hidden: bool) -> tuple | None:
+        """Defer the interaction and guarantee a usable player for the user's voice channel.
+
+        Returns (player, node) on success, or None after sending an error reply.
+        """
+        vc = interaction.user.voice
+        if not vc or not vc.channel:
+            await interaction.response.send_message("You need to be in a voice channel to play music.", ephemeral=hidden)
+            return None
+        if not wavelink.Pool.nodes:
+            await interaction.response.send_message("Music hasn't connected to the audio server yet, please try again in a moment.", ephemeral=hidden)
+            return None
+        try:
+            node = wavelink.Pool.get_node()
+        except Exception as e:
+            logger.error("No available Lavalink node: %s", e)
+            await interaction.response.send_message("Music server unavailable right now, please try again in a moment.", ephemeral=hidden)
+            return None
+        await interaction.response.defer(ephemeral=hidden)
+
+        try:
+            player = self.players.get(interaction.guild_id)
+            if isinstance(player, wavelink.Player) and not self._player_usable(player):
+                await self._teardown_guild(interaction.guild_id, embed_desc="The previous music session was interrupted. Starting a new one.")
+                player = None
+        except Exception as e:
+            logger.error("Music state cleanup failed for guild %s: %s", interaction.guild_id, e)
+            player = None
+
+        try:
+            if isinstance(player, wavelink.Player):
+                if player.channel and player.channel.id != vc.channel.id:
+                    try:
+                        await player.move_to(vc.channel)  # type: ignore
+                    except Exception as e:
+                        logger.error("Failed to move music player: %s", e)
+                        await self._teardown_guild(interaction.guild_id, embed_desc="Music stopped. Run /music play to start again.")
+                        await interaction.followup.send("I couldn't move to your voice channel. Please try again.", ephemeral=hidden)
+                        return None
+            else:
+                try:
+                    player = await vc.channel.connect(cls=wavelink.Player, self_deaf=True)  # type: ignore
+                    self.players[interaction.guild_id] = player  # type: ignore
+                    self.players_owner[interaction.guild_id] = interaction.user.id
+                except Exception as e:
+                    logger.error("Failed to connect music player to voice: %s", e)
+                    await interaction.followup.send("I couldn't join your voice channel. Please try again.", ephemeral=hidden)
+                    return None
+        except Exception as e:
+            logger.error("Music player setup failed in guild %s: %s", interaction.guild_id, e)
+            await interaction.followup.send("Something went wrong while setting up playback. Please try again.", ephemeral=hidden)
+            return None
+
+        return player, node
+
     async def _teardown_guild(self, guild_id: int, *, embed_title: str = "Disconnected", embed_desc: str = "Music stopped. Run /music play to start again."):
         self._cancel_update_task(guild_id)
+        self._cancel_idle(guild_id)
+        self._empty_paused.pop(guild_id, None)
         player = self.players.pop(guild_id, None)
         view = self.player_views.pop(guild_id, None)
         msg = self.player_messages.pop(guild_id, None)
@@ -857,6 +1121,45 @@ class MusicCog(commands.Cog):
         task = self._update_tasks.pop(guild_id, None)
         if task and not task.done():
             task.cancel()
+
+    # ------------------------------------------------------------------
+    # Idle leave countdown (empty VC / empty queue)
+    # ------------------------------------------------------------------
+    def _cancel_idle(self, guild_id: int):
+        task = self._idle_tasks.pop(guild_id, None)
+        if task and not task.done():
+            task.cancel()
+
+    def _start_idle_countdown(self, guild_id: int, *, paused_for_empty: bool = False):
+        if guild_id in self._idle_tasks:
+            return
+        if paused_for_empty:
+            self._empty_paused[guild_id] = True
+        self._idle_tasks[guild_id] = self.bot.loop.create_task(self._idle_countdown_loop(guild_id))
+
+    async def _idle_countdown_loop(self, guild_id: int):
+        try:
+            await asyncio.sleep(_EMPTY_LEAVE_DELAY)
+            player = self.players.get(guild_id)
+            if not isinstance(player, wavelink.Player) or not player.connected or not player.channel:
+                return
+            if self._empty_paused.get(guild_id):
+                humans = [m for m in player.channel.members if not m.bot]
+                if humans:
+                    if player.paused:
+                        await player.pause(False)
+                    self._empty_paused.pop(guild_id, None)
+                    await self._sync_player_view(guild_id)
+                    return
+                await self._disconnect(player, embed_desc="Left the voice channel because nobody returned within 3 minutes. Run /music play to start again.")
+                return
+            if player.playing and not player.paused:
+                return
+            await self._disconnect(player, embed_desc="Finished playing. Left after 3 minutes of inactivity. Run /music play to start again.")
+        except asyncio.CancelledError:
+            pass
+        except Exception as e:
+            logger.error("Idle leave countdown error in guild %s: %s", guild_id, e)
 
     def _cache_key(self, track) -> str:
         return f"{track.source or ''}|{track.title}|{track.author}"
@@ -1108,57 +1411,17 @@ class MusicCog(commands.Cog):
     # Play
     # ------------------------------------------------------------------
     @music.command(name="play", description="Play a song or add it to the queue")
-    @app_commands.describe(query='A Youtube URL or a search term', hidden="Hide the command from others")
+    @app_commands.describe(query='A YouTube URL, Spotify link, or search term', hidden="Hide the command from others")
     async def play_music(self, interaction: discord.Interaction, query: str, hidden: bool = False):
         if await self._deny_if_blocked(interaction):
             return
 
-        vc = interaction.user.voice
-        if not vc or not vc.channel:
-            await interaction.response.send_message("You need to be in a voice channel to play music.", ephemeral=hidden)
+        ensured = await self._ensure_player(interaction, hidden=hidden)
+        if ensured is None:
             return
-
-        if not wavelink.Pool.nodes:
-            await interaction.response.send_message("Music hasn't connected to the audio server yet, please try again in a moment.", ephemeral=hidden)
-            return
+        player, node = ensured
 
         try:
-            node = wavelink.Pool.get_node()
-        except Exception as e:
-            logger.error("No available Lavalink node: %s", e)
-            await interaction.response.send_message("Music server unavailable right now, please try again in a moment.", ephemeral=hidden)
-            return
-        await interaction.response.defer(ephemeral=hidden)
-
-        try:
-            player = self.players.get(interaction.guild_id)
-            if isinstance(player, wavelink.Player) and not self._player_usable(player):
-                await self._teardown_guild(interaction.guild_id, embed_desc="The previous music session was interrupted. Starting a new one.")
-                player = None
-        except Exception as e:
-            logger.error("Music state cleanup failed for guild %s: %s", interaction.guild_id, e)
-            player = None
-
-        try:
-            if isinstance(player, wavelink.Player):
-                if player.channel and player.channel.id != vc.channel.id:
-                    try:
-                        await player.move_to(vc.channel)  # type: ignore
-                    except Exception as e:
-                        logger.error("Failed to move music player: %s", e)
-                        await self._teardown_guild(interaction.guild_id, embed_desc="Music stopped. Run /music play to start again.")
-                        await interaction.followup.send("I couldn't move to your voice channel. Please try again.", ephemeral=hidden)
-                        return
-            else:
-                try:
-                    player = await vc.channel.connect(cls=wavelink.Player, self_deaf=True)  # type: ignore
-                    self.players[interaction.guild_id] = player  # type: ignore
-                    self.players_owner[interaction.guild_id] = interaction.user.id
-                except Exception as e:
-                    logger.error("Failed to connect music player to voice: %s", e)
-                    await interaction.followup.send("I couldn't join your voice channel. Please try again.", ephemeral=hidden)
-                    return
-
             normalized = _normalize_query(query)
             if normalized is None:
                 await interaction.followup.send("I couldn't find anything for that query. Please try again.", ephemeral=hidden)
@@ -1615,8 +1878,27 @@ class MusicCog(commands.Cog):
             return
         humans = [m for m in player.channel.members if not m.bot]
         if not humans:
-            logger.info("Leaving empty voice channel in guild %s", guild_id)
-            await self._disconnect(player, embed_desc="Left the voice channel because it was empty. Run /music play to start again.")
+            if player.playing and not player.paused:
+                logger.info("Voice channel empty in guild %s, pausing music and starting leave countdown", guild_id)
+                try:
+                    await player.pause(True)
+                except Exception as e:
+                    logger.error("Failed to pause music for empty channel in guild %s: %s", guild_id, e)
+                await self._sync_player_view(guild_id)
+                self._start_idle_countdown(guild_id, paused_for_empty=True)
+            else:
+                logger.info("Voice channel empty in guild %s, starting leave countdown", guild_id)
+                self._start_idle_countdown(guild_id)
+        else:
+            if self._empty_paused.pop(guild_id, None):
+                logger.info("Voice channel no longer empty in guild %s, resuming music", guild_id)
+                if player.paused:
+                    try:
+                        await player.pause(False)
+                    except Exception as e:
+                        logger.error("Failed to resume music on join in guild %s: %s", guild_id, e)
+                self._cancel_idle(guild_id)
+                await self._sync_player_view(guild_id)
 
     @commands.Cog.listener()
     async def on_wavelink_track_end(self, payload: wavelink.TrackEndEventPayload):
@@ -1627,7 +1909,7 @@ class MusicCog(commands.Cog):
         if player.autoplay == wavelink.AutoPlayMode.enabled:
             await asyncio.sleep(2)
             if player.guild and player.queue.is_empty and not player.playing:
-                await self._disconnect(player, embed_desc="Finished playing. Run /music play to start again.")
+                self._start_idle_countdown(player.guild.id)
             return
 
         next_track = None
@@ -1663,7 +1945,7 @@ class MusicCog(commands.Cog):
 
         await asyncio.sleep(2)
         if player.guild and player.queue.is_empty and not player.playing:
-            await self._disconnect(player, embed_desc="Finished playing. Run /music play to start again.")
+            self._start_idle_countdown(player.guild.id)
 
     @commands.Cog.listener()
     async def on_wavelink_track_start(self, payload: wavelink.TrackStartEventPayload):
@@ -1674,6 +1956,9 @@ class MusicCog(commands.Cog):
         track = payload.track
         if not track:
             return
+        if guild_id:
+            self._cancel_idle(guild_id)
+            self._empty_paused.pop(guild_id, None)
         if self.live_lyrics.get(guild_id):
             self._ensure_lyrics_loaded(track)
         msg = self.player_messages.get(guild_id)
@@ -1683,6 +1968,426 @@ class MusicCog(commands.Cog):
         if msg.channel is None:
             return
         await self._repost_player_message_channel(msg.channel, player)
+
+
+# ------------------------------------------------------------------
+    # Playlist helpers
+    # ------------------------------------------------------------------
+    def _find_playlist(self, user_id: int, name: str):
+        name_lower = (name or "").strip().lower()
+        if not name_lower:
+            return None
+        conn = get_db()
+        try:
+            return conn.execute(
+                "SELECT id, name FROM playlists WHERE user_id=? AND name_lower=?",
+                (user_id, name_lower),
+            ).fetchone()
+        except sqlite3.Error:
+            return None
+        finally:
+            conn.close()
+
+    async def _playlist_autocomplete(self, interaction: discord.Interaction, current: str):
+        current = (current or "").strip().lower()
+        conn = get_db()
+        try:
+            rows = conn.execute(
+                "SELECT name FROM playlists WHERE user_id=? AND name_lower LIKE ? "
+                "ORDER BY created_at ASC LIMIT 20",
+                (interaction.user.id, f"%{current}%"),
+            ).fetchall()
+        except sqlite3.Error:
+            return []
+        finally:
+            conn.close()
+        return [app_commands.Choice(name=r["name"], value=r["name"]) for r in rows]
+
+    # ------------------------------------------------------------------
+    # Playlists: create / delete / rename
+    # ------------------------------------------------------------------
+    @playlist.command(name="create", description="Create a new playlist")
+    @app_commands.describe(name="Name for the new playlist", hidden="Hide the command from others")
+    async def playlist_create(self, interaction: discord.Interaction, name: str, hidden: bool = False):
+        if await self._deny_if_blocked(interaction):
+            return
+        name = (name or "").strip()
+        if not name:
+            await interaction.response.send_message("Playlist names can't be empty.", ephemeral=hidden)
+            return
+        if len(name) > _MAX_PLAYLIST_NAME_LEN:
+            await interaction.response.send_message(f"Playlist names are limited to {_MAX_PLAYLIST_NAME_LEN} characters.", ephemeral=hidden)
+            return
+        user_id = interaction.user.id
+        conn = get_db()
+        try:
+            count = conn.execute("SELECT COUNT(*) AS c FROM playlists WHERE user_id=?", (user_id,)).fetchone()["c"]
+            if count >= _MAX_PLAYLISTS_PER_USER:
+                await interaction.response.send_message(f"You can have at most {_MAX_PLAYLISTS_PER_USER} playlists.", ephemeral=hidden)
+                return
+            try:
+                conn.execute(
+                    "INSERT INTO playlists (user_id, name, name_lower, created_at) VALUES (?, ?, ?, ?)",
+                    (user_id, name, name.lower(), int(time.time())),
+                )
+            except sqlite3.IntegrityError:
+                await interaction.response.send_message(f"You already have a playlist named **{name}**.", ephemeral=hidden)
+                return
+            conn.commit()
+        finally:
+            conn.close()
+        embed = discord.Embed(title="📁 Playlist created", description=f"**{name}**", color=VOIDWAVE_COLOR)
+        embed.add_field(name="Add songs", value="`/music playlist add <name> <query>`", inline=False)
+        embed.add_field(name="Play it", value="`/music playlist play <name>`", inline=False)
+        _footer(embed)
+        await interaction.response.send_message(embed=embed, ephemeral=hidden)
+
+    @playlist.command(name="delete", description="Delete one of your playlists")
+    @app_commands.describe(name="Playlist to delete", hidden="Hide the command from others")
+    async def playlist_delete(self, interaction: discord.Interaction, name: str, hidden: bool = False):
+        if await self._deny_if_blocked(interaction):
+            return
+        entry = self._find_playlist(interaction.user.id, name)
+        if entry is None:
+            await interaction.response.send_message("I couldn't find a playlist with that name.", ephemeral=hidden)
+            return
+        conn = get_db()
+        try:
+            conn.execute("DELETE FROM playlist_tracks WHERE playlist_id=?", (entry["id"],))
+            conn.execute("DELETE FROM playlists WHERE id=?", (entry["id"],))
+            conn.commit()
+        finally:
+            conn.close()
+        embed = discord.Embed(title="🗑️ Playlist deleted", description=f"**{entry['name']}**", color=VOIDWAVE_COLOR)
+        _footer(embed)
+        await interaction.response.send_message(embed=embed, ephemeral=hidden)
+
+    @playlist.command(name="rename", description="Rename one of your playlists")
+    @app_commands.describe(name="Current playlist name", new_name="New name", hidden="Hide the command from others")
+    async def playlist_rename(self, interaction: discord.Interaction, name: str, new_name: str, hidden: bool = False):
+        if await self._deny_if_blocked(interaction):
+            return
+        entry = self._find_playlist(interaction.user.id, name)
+        if entry is None:
+            await interaction.response.send_message("I couldn't find a playlist with that name.", ephemeral=hidden)
+            return
+        new_name = (new_name or "").strip()
+        if not new_name:
+            await interaction.response.send_message("The new name can't be empty.", ephemeral=hidden)
+            return
+        if len(new_name) > _MAX_PLAYLIST_NAME_LEN:
+            await interaction.response.send_message(f"Playlist names are limited to {_MAX_PLAYLIST_NAME_LEN} characters.", ephemeral=hidden)
+            return
+        conn = get_db()
+        try:
+            try:
+                conn.execute(
+                    "UPDATE playlists SET name=?, name_lower=? WHERE id=?",
+                    (new_name, new_name.lower(), entry["id"]),
+                )
+            except sqlite3.IntegrityError:
+                await interaction.response.send_message(f"You already have a playlist named **{new_name}**.", ephemeral=hidden)
+                return
+            conn.commit()
+        finally:
+            conn.close()
+        embed = discord.Embed(title="✏️ Playlist renamed", description=f"**{entry['name']}** → **{new_name}**", color=VOIDWAVE_COLOR)
+        _footer(embed)
+        await interaction.response.send_message(embed=embed, ephemeral=hidden)
+
+    @playlist_delete.autocomplete("name")
+    async def playlist_delete_autocomplete(self, interaction: discord.Interaction, current: str):
+        return await self._playlist_autocomplete(interaction, current)
+
+    @playlist_rename.autocomplete("name")
+    async def playlist_rename_autocomplete(self, interaction: discord.Interaction, current: str):
+        return await self._playlist_autocomplete(interaction, current)
+
+    # ------------------------------------------------------------------
+    # Playlists: add / remove
+    # ------------------------------------------------------------------
+    @playlist.command(name="add", description="Add a track to one of your playlists")
+    @app_commands.describe(name="Playlist to add to", query="A track URL or search term", hidden="Hide the command from others")
+    async def playlist_add(self, interaction: discord.Interaction, name: str, query: str, hidden: bool = False):
+        if await self._deny_if_blocked(interaction):
+            return
+        entry = self._find_playlist(interaction.user.id, name)
+        if entry is None:
+            await interaction.response.send_message("I couldn't find a playlist with that name.", ephemeral=hidden)
+            return
+        normalized = _normalize_query(query)
+        if normalized is None:
+            await interaction.response.send_message("That query doesn't look right. Please try again.", ephemeral=hidden)
+            return
+        if not wavelink.Pool.nodes:
+            await interaction.response.send_message("Music hasn't connected to the audio server yet, please try again in a moment.", ephemeral=hidden)
+            return
+        try:
+            node = wavelink.Pool.get_node()
+        except Exception as e:
+            logger.error("No available Lavalink node: %s", e)
+            await interaction.response.send_message("Music server unavailable right now, please try again in a moment.", ephemeral=hidden)
+            return
+        await interaction.response.defer(ephemeral=hidden)
+        try:
+            tracks = await self._search_tracks(normalized, node)
+        except Exception as e:
+            logger.error("Playlist search failed: %s", e)
+            await interaction.followup.send("Something went wrong while searching that. Please try again.", ephemeral=hidden)
+            return
+        if not tracks:
+            await interaction.followup.send(f"No results found for `{query}`.", ephemeral=hidden)
+            return
+        if isinstance(tracks, wavelink.Playlist):
+            if not tracks.tracks:
+                await interaction.followup.send(f"No results found for `{query}`.", ephemeral=hidden)
+                return
+            track = tracks.tracks[0]
+        else:
+            results = list(tracks)
+            track = _best_result(query, results) or results[0]
+
+        conn = get_db()
+        try:
+            count = conn.execute("SELECT COUNT(*) AS c FROM playlist_tracks WHERE playlist_id=?", (entry["id"],)).fetchone()["c"]
+            if count >= _MAX_PLAYLIST_TRACKS:
+                await interaction.followup.send(f"This playlist is full ({_MAX_PLAYLIST_TRACKS} tracks max).", ephemeral=hidden)
+                return
+            dup = conn.execute(
+                "SELECT 1 FROM playlist_tracks WHERE playlist_id=? AND title=?",
+                (entry["id"], track.title),
+            ).fetchone()
+            if dup:
+                await interaction.followup.send(f"**{track.title}** is already in **{entry['name']}**.", ephemeral=hidden)
+                return
+            position = count + 1
+            conn.execute(
+                "INSERT INTO playlist_tracks (playlist_id, position, query, title, author, uri, artwork, length_ms, source, added_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (entry["id"], position, query, track.title, track.author, track.uri, track.artwork, track.length, track.source, int(time.time())),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+        embed = discord.Embed(
+            title="🎵 Added to playlist",
+            description=f"**[{track.title}]({track.uri})**",
+            color=VOIDWAVE_COLOR,
+        )
+        embed.set_thumbnail(url=track.artwork or None)
+        embed.add_field(name="Playlist", value=f"**{entry['name']}** · `#{position}` of {count + 1}", inline=False)
+        _footer(embed)
+        await interaction.followup.send(embed=embed, ephemeral=hidden)
+
+    @playlist.command(name="remove", description="Remove a track from one of your playlists")
+    @app_commands.describe(name="Playlist to edit", position="Track number to remove, see /music playlist list", hidden="Hide the command from others")
+    async def playlist_remove(self, interaction: discord.Interaction, name: str, position: int, hidden: bool = False):
+        if await self._deny_if_blocked(interaction):
+            return
+        entry = self._find_playlist(interaction.user.id, name)
+        if entry is None:
+            await interaction.response.send_message("I couldn't find a playlist with that name.", ephemeral=hidden)
+            return
+        conn = get_db()
+        try:
+            rows = conn.execute(
+                "SELECT id, title, query FROM playlist_tracks WHERE playlist_id=? ORDER BY position ASC, id ASC",
+                (entry["id"],),
+            ).fetchall()
+            if not rows:
+                await interaction.response.send_message(f"**{entry['name']}** is empty.", ephemeral=hidden)
+                return
+            if position < 1 or position > len(rows):
+                await interaction.response.send_message(f"`{position}` isn't in range. This playlist has **{len(rows)}** track(s).", ephemeral=hidden)
+                return
+            removed = rows[position - 1]
+            removed_title = removed["title"] or removed["query"]
+            conn.execute("DELETE FROM playlist_tracks WHERE id=?", (removed["id"],))
+            remaining = conn.execute(
+                "SELECT id FROM playlist_tracks WHERE playlist_id=? ORDER BY position ASC, id ASC",
+                (entry["id"],),
+            ).fetchall()
+            for i, row in enumerate(remaining, 1):
+                conn.execute("UPDATE playlist_tracks SET position=? WHERE id=?", (i, row["id"]))
+            conn.commit()
+        finally:
+            conn.close()
+        embed = discord.Embed(
+            title="🗑️ Removed from playlist",
+            description=f"**{removed_title}**",
+            color=VOIDWAVE_COLOR,
+        )
+        embed.add_field(name="Playlist", value=f"**{entry['name']}** · **{len(rows) - 1}** track(s) left", inline=False)
+        _footer(embed)
+        await interaction.response.send_message(embed=embed, ephemeral=hidden)
+
+    @playlist_add.autocomplete("name")
+    async def playlist_add_autocomplete(self, interaction: discord.Interaction, current: str):
+        return await self._playlist_autocomplete(interaction, current)
+
+    @playlist_remove.autocomplete("name")
+    async def playlist_remove_autocomplete(self, interaction: discord.Interaction, current: str):
+        return await self._playlist_autocomplete(interaction, current)
+
+    # ------------------------------------------------------------------
+    # Playlists: list
+    # ------------------------------------------------------------------
+    @playlist.command(name="list", description="List your playlists or view one playlist's tracks")
+    @app_commands.describe(name="Optional playlist name to show its tracks", hidden="Hide the command from others")
+    async def playlist_list(self, interaction: discord.Interaction, name: str | None = None, hidden: bool = False):
+        if await self._deny_if_blocked(interaction):
+            return
+        user_id = interaction.user.id
+        entry = None
+        tracks = None
+        rows = None
+        conn = get_db()
+        try:
+            if name and name.strip():
+                entry = self._find_playlist(user_id, name)
+                if entry is None:
+                    await interaction.response.send_message("I couldn't find a playlist with that name.", ephemeral=hidden)
+                    return
+                tracks = conn.execute(
+                    "SELECT title, author, length_ms, query FROM playlist_tracks WHERE playlist_id=? ORDER BY position ASC, id ASC",
+                    (entry["id"],),
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    "SELECT p.id, p.name, COUNT(t.id) AS cnt FROM playlists p "
+                    "LEFT JOIN playlist_tracks t ON t.playlist_id = p.id "
+                    "WHERE p.user_id=? GROUP BY p.id ORDER BY p.created_at ASC, p.id ASC",
+                    (user_id,),
+                ).fetchall()
+        finally:
+            conn.close()
+
+        if tracks is None:
+            if not rows:
+                embed = discord.Embed(
+                    title="📁 Your playlists",
+                    description="You don't have any playlists yet. Create one with `/music playlist create`.",
+                    color=VOIDWAVE_COLOR,
+                )
+                _footer(embed)
+                await interaction.response.send_message(embed=embed, ephemeral=hidden)
+                return
+            body = "\n".join(
+                f"`{i}.` **{r['name']}** · `{r['cnt']}` song{'s' if r['cnt'] != 1 else ''}"
+                for i, r in enumerate(rows, 1)
+            )
+            embed = discord.Embed(title="📁 Your playlists", description=body, color=VOIDWAVE_COLOR)
+            embed.set_footer(text="View a playlist with /music playlist list <name>")
+            await interaction.response.send_message(embed=embed, ephemeral=hidden)
+            return
+
+        view = PlaylistView(user_id, entry["name"], list(tracks))
+        embed = view.build_embed()
+        _footer(embed)
+        await interaction.response.send_message(embed=embed, view=view, ephemeral=hidden)
+
+    @playlist_list.autocomplete("name")
+    async def playlist_list_autocomplete(self, interaction: discord.Interaction, current: str):
+        return await self._playlist_autocomplete(interaction, current)
+
+    # ------------------------------------------------------------------
+    # Playlists: play
+    # ------------------------------------------------------------------
+    @playlist.command(name="play", description="Play a saved playlist in your voice channel")
+    @app_commands.describe(name="Playlist to play", hidden="Hide the command from others")
+    async def playlist_play(self, interaction: discord.Interaction, name: str, hidden: bool = False):
+        if await self._deny_if_blocked(interaction):
+            return
+        entry = self._find_playlist(interaction.user.id, name)
+        if entry is None:
+            await interaction.response.send_message("I couldn't find a playlist with that name.", ephemeral=hidden)
+            return
+        conn = get_db()
+        try:
+            stored = conn.execute(
+                "SELECT query FROM playlist_tracks WHERE playlist_id=? ORDER BY position ASC, id ASC",
+                (entry["id"],),
+            ).fetchall()
+        finally:
+            conn.close()
+        if not stored:
+            await interaction.response.send_message(f"**{entry['name']}** is empty. Add tracks with `/music playlist add`.", ephemeral=hidden)
+            return
+
+        ensured = await self._ensure_player(interaction, hidden=hidden)
+        if ensured is None:
+            return
+        player, node = ensured
+
+        resolved = []
+        failed = 0
+        for row in stored:
+            try:
+                normalized = _normalize_query(row["query"])
+                if normalized is None:
+                    failed += 1
+                    continue
+                tracks = await self._search_tracks(normalized, node)
+                if not tracks:
+                    failed += 1
+                    continue
+                if isinstance(tracks, wavelink.Playlist):
+                    if tracks.tracks:
+                        resolved.append(tracks.tracks[0])
+                    else:
+                        failed += 1
+                else:
+                    results = list(tracks)
+                    resolved.append(_best_result(row["query"], results) or results[0])
+            except Exception:
+                failed += 1
+
+        if not resolved:
+            await interaction.followup.send("None of the tracks in this playlist could be resolved. Please try again.", ephemeral=hidden)
+            return
+
+        if player.playing:
+            try:
+                for track in resolved:
+                    await player.queue.put_wait(track)
+            except Exception as e:
+                logger.error("Failed to queue playlist in guild %s: %s", interaction.guild_id, e)
+                await self._teardown_guild(interaction.guild_id, embed_desc="Music stopped. Run /music play to start again.")
+                await interaction.followup.send("Something went wrong while queuing the playlist. Please try again.", ephemeral=hidden)
+                return
+            embed = discord.Embed(
+                title="🎵 Playlist added to queue",
+                description=f"**{entry['name']}** · **{len(resolved)}** track{'s' if len(resolved) != 1 else ''}",
+                color=VOIDWAVE_COLOR,
+            )
+            if failed:
+                embed.add_field(name="Skipped", value=f"`{failed}` track(s) couldn't be resolved", inline=False)
+            _footer(embed)
+            await interaction.followup.send(embed=embed, ephemeral=hidden)
+            await self._repost_player_message(interaction, player)
+            return
+
+        self._reset_skip_votes(interaction.guild_id)
+        try:
+            await player.queue.put_wait(resolved)
+        except Exception as e:
+            logger.error("Failed to queue playlist in guild %s: %s", interaction.guild_id, e)
+            await self._teardown_guild(interaction.guild_id, embed_desc="Music stopped. Run /music play to start again.")
+            await interaction.followup.send("Something went wrong while queuing the playlist. Please try again.", ephemeral=hidden)
+            return
+        first = player.queue.get()
+        if not await self._begin_playback(interaction, player, first):
+            return
+        await self._send_player_message(interaction, first, player)
+        if failed:
+            try:
+                await interaction.followup.send(f"Note: `{failed}` track(s) in **{entry['name']}** couldn't be resolved and were skipped.", ephemeral=hidden)
+            except discord.HTTPException:
+                pass
+
+    @playlist_play.autocomplete("name")
+    async def playlist_play_autocomplete(self, interaction: discord.Interaction, current: str):
+        return await self._playlist_autocomplete(interaction, current)
 
 
 async def setup(bot):
