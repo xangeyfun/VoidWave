@@ -10,7 +10,7 @@ BOT_SERVICE = "voidwave.service"
 
 TABLES = {
     "users", "bot_stats", "guild_settings", "level_roles", "vote_boosts",
-    "user_ratings",
+    "user_ratings", "playlists", "playlist_tracks",
 }
 
 BLOCK_FEATURES = {
@@ -80,6 +80,7 @@ RELATED_USER_TABLES = (
     "user_prefs",
     "vote_reminders",
     "user_ratings",
+    "playlists",
 )
 
 GUILD_SETTING_FIELDS = {

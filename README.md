@@ -107,6 +107,13 @@ LAVALINK_PASSWORD=youshallnotpass
   `ExecStart=/usr/bin/java -jar /path/to/Lavalink.jar` with `Restart=on-failure`.
 - Java 17+ is required.
 
+### Music idle behavior
+
+When the queue finishes, VoidWave waits **3 minutes** before leaving the voice
+channel. If the voice channel becomes empty while music is still playing,
+playback **pauses** and resumes automatically when someone joins; if nobody
+joins within 3 minutes, VoidWave leaves.
+
 ---
 
 ## Contributing

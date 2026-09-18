@@ -360,7 +360,7 @@ WHERE ai_enabled IS NOT NULL AND ai_enabled NOT IN (0, 1)""")
             f"{len(rows)} row(s)",
             sql="SELECT guild_id, user_id FROM users\nWHERE vc_minutes > 0 AND vc_xp_minutes = 0")
 
-        for table in ("vote_boosts", "user_blocks", "user_prefs", "vote_reminders", "user_ratings"):
+        for table in ("vote_boosts", "user_blocks", "user_prefs", "vote_reminders", "user_ratings", "playlists"):
             try:
                 rows = q(f"""SELECT user_id FROM {table}
                     WHERE user_id IS NOT NULL
@@ -371,6 +371,15 @@ WHERE ai_enabled IS NOT NULL AND ai_enabled NOT IN (0, 1)""")
                 add("Info", f"Orphan rows in {table}", True,
                     f"{len(rows)} user(s) not in users table",
                     sql=f"SELECT user_id FROM {table}\nWHERE user_id NOT IN (SELECT DISTINCT user_id FROM users)")
+
+        try:
+            rows = q("SELECT playlist_id FROM playlist_tracks WHERE playlist_id NOT IN (SELECT id FROM playlists)")
+        except Exception:
+            rows = []
+        if rows:
+            add("Info", "Orphan rows in playlist_tracks", True,
+                f"{len(rows)} track(s) pointing at missing playlists",
+                sql="SELECT playlist_id FROM playlist_tracks\nWHERE playlist_id NOT IN (SELECT id FROM playlists)")
 
         now = int(time.time())
         rows = q("SELECT user_id FROM vote_reminders WHERE remind_at IS NOT NULL AND remind_at <= ?", (now,))
