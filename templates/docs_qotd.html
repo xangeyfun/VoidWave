@@ -1,0 +1,199 @@
+{% extends "docs_page.html" %}
+
+{% block docs_page_title %}Question of the Day{% endblock %}
+
+{% block docs_meta_description %}How Question of the Day works in VoidWave: the daily schedule, thread discussions, ping roles, optional cleanup, and every admin command to set it up.{% endblock %}
+
+{% block docs_og_url %}/docs/qotd{% endblock %}
+{% block docs_og_title %}Question of the Day Guide{% endblock %}
+{% block docs_og_description %}Daily questions in their own thread, with role pings and automatic cleanup. Set it up in minutes.{% endblock %}
+
+{% block docs_hero_title %}Question of the Day{% endblock %}
+{% block docs_hero_lead %}A daily question posts in its own thread, kicks off discussion, and can ping a role when it goes out. Here is how it works and how to set it up.{% endblock %}
+
+{% block docs_content %}
+
+<div class="docs-intro-block">
+    <p class="docs-lead">Question of the Day, shortened to QOTD, posts one question to your channel every day. Each question appears in its own dedicated thread so answers stay tidy. Questions come from a large built in pool and do not repeat until the pool reshuffles.</p>
+</div>
+
+<!-- ------------------------------------------------------------------ -->
+<div class="docs-section" id="how-it-works">
+    <div class="docs-section-head">
+        <h2>How it works</h2>
+        <span class="docs-section-tag">one question a day</span>
+    </div>
+
+    <table class="doc-table">
+        <thead>
+            <tr>
+                <th>What</th>
+                <th>Details</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>Schedule</td>
+                <td>Posts once per day. The default time is 16:00 in the server timezone, which defaults to UTC.</td>
+            </tr>
+            <tr>
+                <td>Thread</td>
+                <td>Every question is posted with a thread named after the date, so discussion stays attached to the question. Threads auto archive after 24 hours.</td>
+            </tr>
+            <tr>
+                <td>Ping role</td>
+                <td>Optional. When set, the role is mentioned when the question posts, which can draw people in or route it to members who opted in.</td>
+            </tr>
+            <tr>
+                <td>Question pool</td>
+                <td>Questions are drawn in a shuffled order per server and never repeat until every question has been used, then the pool reshuffles.</td>
+            </tr>
+            <tr>
+                <td>Cleanup</td>
+                <td>With cleanup on, yesterday's question message and thread are removed when the new one posts, keeping the channel from piling up.</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- ------------------------------------------------------------------ -->
+<div class="docs-section" id="commands">
+    <div class="docs-section-head">
+        <h2>Commands</h2>
+        <span class="docs-section-tag">admins only</span>
+    </div>
+
+    <div class="doc-callout">
+        <p><strong>Admins only.</strong> Every QOTD command requires the <strong>Administrator</strong> permission. The fastest setup is <code>/config auto</code> with <code>qotd:true</code>, which creates the channel, creates a <strong>QOTD Ping</strong> role, and enables everything for you.</p>
+    </div>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/config qotd set_channel</code>
+            <span class="doc-tag admin">administrator</span>
+        </div>
+        <p class="doc-cmd-desc">Choose the channel where daily questions are posted. The bot checks that it can view and send messages there first.</p>
+        <div class="doc-cmd-widgets">
+            <div class="doc-widget">
+                <div class="doc-widget-label">Parameters</div>
+                <table class="doc-params">
+                    <tbody>
+                        <tr>
+                            <td><code>channel</code></td>
+                            <td>The text channel for daily questions.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/config qotd enable</code>
+            <span class="doc-tag admin">administrator</span>
+        </div>
+        <p class="doc-cmd-desc">Turns the daily post on or off. A channel must be set first. The bot verifies it can view the channel, send and embed messages, and create and post in threads before enabling.</p>
+        <div class="doc-cmd-widgets">
+            <div class="doc-widget">
+                <div class="doc-widget-label">Parameters</div>
+                <table class="doc-params">
+                    <tbody>
+                        <tr>
+                            <td><code>enabled</code></td>
+                            <td><code>True</code> to start posting, <code>False</code> to stop.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/config qotd set_time</code>
+            <span class="doc-tag admin">administrator</span>
+        </div>
+        <p class="doc-cmd-desc">Set the time of day the question posts, in 24 hour format, and optionally a timezone. Changing the schedule resets today's state so the next question posts at the new time even if one already went out.</p>
+        <div class="doc-cmd-widgets">
+            <div class="doc-widget">
+                <div class="doc-widget-label">Parameters</div>
+                <table class="doc-params">
+                    <tbody>
+                        <tr>
+                            <td><code>time</code></td>
+                            <td>24 hour HH:MM format, for example <code>18:30</code>.</td>
+                        </tr>
+                        <tr>
+                            <td><code>timezone</code></td>
+                            <td>IANA timezone such as <code>Europe/Amsterdam</code>. Autocompletes as you type. Defaults to UTC.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/config qotd set_role</code>
+            <span class="doc-tag admin">administrator</span>
+        </div>
+        <p class="doc-cmd-desc">Pick the role that is mentioned when a question posts. The role must sit below the bot's highest role so it can be mentioned reliably.</p>
+        <div class="doc-cmd-widgets">
+            <div class="doc-widget">
+                <div class="doc-widget-label">Parameters</div>
+                <table class="doc-params">
+                    <tbody>
+                        <tr>
+                            <td><code>role</code></td>
+                            <td>The role to ping with the question. Use <code>@everyone</code> to ping the whole server.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/config qotd delete_old</code>
+            <span class="doc-tag admin">administrator</span>
+        </div>
+        <p class="doc-cmd-desc">When enabled, the previous question's message and thread are deleted right before the next one posts. This keeps the channel to just the latest question.</p>
+        <div class="doc-cmd-widgets">
+            <div class="doc-widget">
+                <div class="doc-widget-label">Parameters</div>
+                <table class="doc-params">
+                    <tbody>
+                        <tr>
+                            <td><code>enabled</code></td>
+                            <td><code>True</code> to delete old questions, <code>False</code> to leave them up.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ------------------------------------------------------------------ -->
+<div class="docs-section" id="permissions">
+    <div class="docs-section-head">
+        <h2>Permissions for QOTD</h2>
+        <span class="docs-section-tag">what the bot needs</span>
+    </div>
+
+    <p class="docs-lead">To post questions the bot needs these permissions in the QOTD channel: <strong>View Channel</strong>, <strong>Send Messages</strong>, <strong>Embed Links</strong>, <strong>Create Public Threads</strong>, and <strong>Send Messages in Threads</strong>. If one is missing, the enable command names it for you. For cleanup it also needs <strong>Manage Messages</strong> and <strong>Manage Threads</strong>.</p>
+</div>
+
+<!-- ------------------------------------------------------------------ -->
+<div class="docs-section" id="start">
+    <div class="docs-section-head">
+        <h2>Where to go next</h2>
+        <span class="docs-section-tag">keep exploring</span>
+    </div>
+    <p class="docs-lead">See the whole admin toolkit in the <a href="/docs/config">Configuration reference</a>, or set up announcements for your community's growth with <a href="/docs/leveling">Leveling and XP</a>.</p>
+</div>
+
+{% endblock %}

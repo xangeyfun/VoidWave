@@ -1,0 +1,158 @@
+{% extends "docs_page.html" %}
+
+{% block docs_page_title %}Voting and boosts{% endblock %}
+
+{% block docs_meta_description %}How voting works for VoidWave: the Top.gg vote link, the 2x XP boost, vote reminders, vote announcements in your server, and the voters leaderboard.{% endblock %}
+
+{% block docs_og_url %}/docs/voting{% endblock %}
+{% block docs_og_title %}Voting and Boosts Guide{% endblock %}
+{% block docs_og_description %}Vote for VoidWave to double your XP, set up vote reminders, and announce votes in your server.{% endblock %}
+
+{% block docs_hero_title %}Voting and boosts{% endblock %}
+{% block docs_hero_lead %}Voting is free, takes a few seconds, and doubles your XP. Here is everything around voting: the boost, reminders, announcements, and the voters leaderboard.{% endblock %}
+
+{% block docs_content %}
+
+<div class="docs-intro-block">
+    <p class="docs-lead">Every vote for VoidWave on Top.gg grants a <strong>2x XP boost</strong> that applies everywhere, in every server, to both message and voice XP. The boost is tied to your user, not to a single server, so it follows you around.</p>
+</div>
+
+<!-- ------------------------------------------------------------------ -->
+<div class="docs-section" id="how-it-works">
+    <div class="docs-section-head">
+        <h2>How the boost works</h2>
+        <span class="docs-section-tag">vote, then earn double</span>
+    </div>
+
+    <table class="doc-table">
+        <thead>
+            <tr>
+                <th>What</th>
+                <th>Value</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>Boost</td>
+                <td>2x XP on messages and voice for the whole duration.</td>
+            </tr>
+            <tr>
+                <td>Duration</td>
+                <td>4 hours on a weekday, 6 hours on a weekend. Weekend votes on Top.gg carry double weight, which extends the boost.</td>
+            </tr>
+            <tr>
+                <td>Registration</td>
+                <td>Voting through the Top.gg link registers automatically via webhook. You get a <strong>thanks for voting</strong> DM right after.</td>
+            </tr>
+            <tr>
+                <td>Cooldown</td>
+                <td>Top.gg allows one boost per user every 12 hours.</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <div class="doc-callout">
+        <p><strong>Keep the streak going.</strong> After a vote, <code>/vote-remind</code> syncs a reminder to 12 hours after your most recent vote, so you are pinged right when you can vote again. You never have to remember the cooldown yourself.</p>
+    </div>
+</div>
+
+<!-- ------------------------------------------------------------------ -->
+<div class="docs-section" id="commands">
+    <div class="docs-section-head">
+        <h2>Commands</h2>
+        <span class="docs-section-tag">vote and reminders</span>
+    </div>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/vote</code>
+            <span class="doc-tag">servers, DMs and private channels</span>
+        </div>
+        <p class="doc-cmd-desc">Shows the Top.gg vote link, whether your 2x XP boost is currently active and for how long, and whether a reminder is set. The message is only visible to you.</p>
+    </div>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/vote-remind</code>
+            <span class="doc-tag">servers, DMs and private channels</span>
+        </div>
+        <p class="doc-cmd-desc">Turns DM reminders on or off. When you vote, the reminder re-syncs to your most recent vote, 12 hours ahead. When the cooldown is already over, the reminder fires within about a minute.</p>
+        <div class="doc-cmd-widgets">
+            <div class="doc-widget">
+                <div class="doc-widget-label">Parameters</div>
+                <table class="doc-params">
+                    <tbody>
+                        <tr>
+                            <td><code>enabled</code></td>
+                            <td><code>True</code> or <code>False</code> to set it explicitly. Leave it out to flip the current state.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/uptime</code>
+            <span class="doc-tag">servers, DMs and private channels</span>
+        </div>
+        <p class="doc-cmd-desc">Shows the bot uptime and lists the official links, including the vote pages on Top.gg, Discord List, and DiscordBotList.</p>
+    </div>
+</div>
+
+<!-- ------------------------------------------------------------------ -->
+<div class="docs-section" id="leaderboard">
+    <div class="docs-section-head">
+        <h2>Voters leaderboard</h2>
+        <span class="docs-section-tag">who voted, when</span>
+    </div>
+
+    <p class="docs-lead">The leaderboard has a <strong>Voters</strong> sort that lists members by when they last voted, most recent first. It works in the Discord command and on the <a href="/leaderboard">website leaderboard</a>. Through the command, scroll to the voters sort with the <code>sort</code> option.</p>
+</div>
+
+<!-- ------------------------------------------------------------------ -->
+<div class="docs-section" id="admin">
+    <div class="docs-section-head">
+        <h2>Server announcements</h2>
+        <span class="docs-section-tag">admins only</span>
+    </div>
+
+    <div class="doc-callout">
+        <p><strong>Admins only.</strong> Vote announcements require the <strong>Administrator</strong> permission.</p>
+    </div>
+
+    <p class="docs-lead">Admins can announce member votes in the level up channel. This nudges the whole server to vote, since each vote shows the voting member and their new 2x XP boost.</p>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/config level toggle_vote_announce</code>
+            <span class="doc-tag admin">administrator</span>
+        </div>
+        <p class="doc-cmd-desc">Enables or disables vote announcements. They are posted to your level up channel, so that channel must be set with <code>/config level set_channel</code> and enabled with <code>/config level toggle_channel</code>.</p>
+        <div class="doc-cmd-widgets">
+            <div class="doc-widget">
+                <div class="doc-widget-label">Parameters</div>
+                <table class="doc-params">
+                    <tbody>
+                        <tr>
+                            <td><code>enabled</code></td>
+                            <td><code>True</code> to announce votes, <code>False</code> to turn announcements off.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ------------------------------------------------------------------ -->
+<div class="docs-section" id="start">
+    <div class="docs-section-head">
+        <h2>Where to go next</h2>
+        <span class="docs-section-tag">keep growing</span>
+    </div>
+    <p class="docs-lead">See what the boost accelerates in the <a href="/docs/leveling">Leveling and XP</a> guide, or review all admin switches in the <a href="/docs/config">Configuration reference</a>.</p>
+</div>
+
+{% endblock %}

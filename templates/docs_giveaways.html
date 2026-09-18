@@ -1,0 +1,177 @@
+{% extends "docs_page.html" %}
+
+{% block docs_page_title %}Giveaways{% endblock %}
+
+{% block docs_meta_description %}VoidWave giveaways guide: start giveaways with prize duration and winner count, required role option, enter button, end early, reroll, cancel, and list active giveaways.{% endblock %}
+
+{% block docs_og_url %}/docs/giveaways{% endblock %}
+{% block docs_og_title %}Giveaways Guide{% endblock %}
+{% block docs_og_description %}Create, manage, end, reroll, and cancel giveaways with fair random winners plus an enter button.{% endblock %}
+
+{% block docs_hero_title %}Giveaways{% endblock %}
+{% block docs_hero_lead %}Create, manage, end, reroll, and cancel giveaways with fair random winners. Members enter with a button, winners are announced and DM'd.{% endblock %}
+
+{% block docs_content %}
+
+<div class="docs-intro-block">
+    <p class="docs-lead">Giveaways run entirely in your server. Admins with Manage Server permission start them, members enter with a button, and winners are drawn at the deadline, announced in the channel, and DM'd. All commands require the <strong>Manage Server</strong> permission.</p>
+</div>
+
+<!-- ------------------------------------------------------------------ -->
+<div class="docs-section" id="create">
+    <div class="docs-section-head">
+        <h2>Starting a giveaway</h2>
+        <span class="docs-section-tag">admins only</span>
+    </div>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/giveaway start</code>
+            <span class="doc-tag admin">manage server</span>
+        </div>
+        <p class="doc-cmd-desc">Create a new giveaway. The bot posts an embed with an Enter button in the chosen channel. Members click to enter. At the deadline winners are picked at random, announced, and DM'd.</p>
+        <div class="doc-cmd-widgets">
+            <div class="doc-widget">
+                <div class="doc-widget-label">Parameters</div>
+                <table class="doc-params">
+                    <tbody>
+                        <tr>
+                            <td><code>prize</code></td>
+                            <td>What the winner(s) receive. Required.</td>
+                        </tr>
+                        <tr>
+                            <td><code>duration</code></td>
+                            <td>How long it runs. Same formats as reminders: <code>1h</code>, <code>2d</code>, <code>tomorrow 18:00</code>, <code>friday 20:00</code>, <code>2026-09-20 12:00</code>. Required.</td>
+                        </tr>
+                        <tr>
+                            <td><code>winners</code></td>
+                            <td>How many winners to pick, from 1 to 50. Defaults to 1. Optional.</td>
+                        </tr>
+                        <tr>
+                            <td><code>channel</code></td>
+                            <td>Channel to post in. Defaults to the channel you run the command in. Optional.</td>
+                        </tr>
+                        <tr>
+                            <td><code>required_role</code></td>
+                            <td>Role members must have to enter. Optional.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="doc-callout">
+        <p><strong>Duration formats</strong> mirror the reminder system: <code>10m</code>, <code>2h</code>, <code>1h30m</code>, <code>3d</code>, <code>tomorrow 18:00</code>, <code>friday 20:00</code>, <code>2026-09-20 12:00</code>, etc.</p>
+    </div>
+
+    <div class="doc-callout">
+        <p><strong>Entering</strong> is done by clicking the <strong>Enter</strong> button on the giveaway message. The button persists across bot restarts. If a <code>required_role</code> is set, only members with that role can enter.</p>
+    </div>
+</div>
+
+<!-- ------------------------------------------------------------------ -->
+<div class="docs-section" id="manage">
+    <div class="docs-section-head">
+        <h2>Managing giveaways</h2>
+        <span class="docs-section-tag">admins only</span>
+    </div>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/giveaway list</code>
+            <span class="doc-tag admin">manage server</span>
+        </div>
+        <p class="doc-cmd-desc">List all active giveaways in the server with their entry counts and time remaining. Each entry shows the giveaway ID for use with other commands.</p>
+    </div>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/giveaway end</code>
+            <span class="doc-tag admin">manage server</span>
+        </div>
+        <p class="doc-cmd-desc">End a giveaway early and draw winners immediately. Pick the giveaway by ID (autocompletes from active giveaways).</p>
+        <div class="doc-cmd-widgets">
+            <div class="doc-widget">
+                <div class="doc-widget-label">Parameters</div>
+                <table class="doc-params">
+                    <tbody>
+                        <tr>
+                            <td><code>giveaway</code></td>
+                            <td>The giveaway to end. Type to autocomplete or paste the message ID. Required.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/giveaway reroll</code>
+            <span class="doc-tag admin">manage server</span>
+        </div>
+        <p class="doc-cmd-desc">Pick new winners for an already ended giveaway. Previous winners are excluded so someone new gets a chance. Specify how many to reroll.</p>
+        <div class="doc-cmd-widgets">
+            <div class="doc-widget">
+                <div class="doc-widget-label">Parameters</div>
+                <table class="doc-params">
+                    <tbody>
+                        <tr>
+                            <td><code>giveaway</code></td>
+                            <td>The ended giveaway to reroll. Autocompletes from ended giveaways. Required.</td>
+                        </tr>
+                        <tr>
+                            <td><code>winners</code></td>
+                            <td>How many new winners to pick, from 1 to 50. Defaults to 1. Optional.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/giveaway cancel</code>
+            <span class="doc-tag admin">manage server</span>
+        </div>
+        <p class="doc-cmd-desc">Cancel a running giveaway without picking any winners. The embed updates to show it was cancelled.</p>
+        <div class="doc-cmd-widgets">
+            <div class="doc-widget">
+                <div class="doc-widget-label">Parameters</div>
+                <table class="doc-params">
+                    <tbody>
+                        <tr>
+                            <td><code>giveaway</code></td>
+                            <td>The active giveaway to cancel. Autocompletes from active giveaways. Required.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ------------------------------------------------------------------ -->
+<div class="docs-section" id="winner">
+    <div class="docs-section-head">
+        <h2>Winner selection</h2>
+        <span class="docs-section-tag">fair and random</span>
+    </div>
+
+    <p class="docs-lead">When a giveaway ends (naturally or via <code>/giveaway end</code>), the bot picks the specified number of winners uniformly at random from all valid entries. Winners are announced in the giveaway channel, the embed updates with the winner list, and each winner receives a DM. If there are fewer entries than winners, all entrants win.</p>
+
+    <p class="docs-lead">Rerolls work the same way but exclude anyone who already won that giveaway, so the new winners are different people.</p>
+</div>
+
+<!-- ------------------------------------------------------------------ -->
+<div class="docs-section" id="start">
+    <div class="docs-section-head">
+        <h2>Where to go next</h2>
+        <span class="docs-section-tag">keep exploring</span>
+    </div>
+    <p class="docs-lead">Explore server safety tools in the <a href="/docs/moderation">Moderation</a> guide, or review everything admins control in the <a href="/docs/config">Configuration reference</a>.</p>
+</div>
+
+{% endblock %}

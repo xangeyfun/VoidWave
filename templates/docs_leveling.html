@@ -1,0 +1,351 @@
+{% extends "docs_page.html" %}
+
+{% block docs_page_title %}Leveling and XP{% endblock %}
+
+{% block docs_meta_description %}How VoidWave leveling works: earning XP from chat and voice, rank titles, server and global leaderboards, level roles and rewards, and the level command reference.{% endblock %}
+
+{% block docs_og_url %}/docs/leveling{% endblock %}
+{% block docs_og_title %}Leveling and XP Guide{% endblock %}
+{% block docs_og_description %}How VoidWave leveling works: earning XP from chat and voice, rank titles, leaderboards, level roles and rewards.{% endblock %}
+
+{% block docs_hero_title %}Leveling and XP{% endblock %}
+{% block docs_hero_lead %}Earn XP from messages and voice, climb the leaderboard, unlock rank titles, and earn reward roles. Find everything you need below.{% endblock %}
+
+{% block docs_content %}
+
+<div class="docs-intro-block">
+    <p class="docs-lead">VoidWave tracks leveling per server. Every server runs its own leaderboard, and your total across all servers is tracked as a global profile. XP comes from chatting and from hanging out in voice channels.</p>
+</div>
+
+<!-- ------------------------------------------------------------------ -->
+<div class="docs-section" id="how-xp-works">
+    <div class="docs-section-head">
+        <h2>How XP works</h2>
+        <span class="docs-section-tag">messages and voice</span>
+    </div>
+
+    <div class="doc-callout">
+        <p><strong>Voting doubles your XP.</strong> Vote with <code>/vote</code> to get a 2x XP boost for 4 hours, or 6 hours on weekends. The boost applies to both message and voice XP. See <a href="/docs/voting">Voting and boosts</a> for the full picture.</p>
+    </div>
+
+    <table class="doc-table">
+        <thead>
+            <tr>
+                <th>Source</th>
+                <th>XP</th>
+                <th>Rules</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>Messages</td>
+                <td>1 to 15 XP</td>
+                <td>The message must be at least 5 characters, and you can earn message XP at most once every 30 seconds in the same server. Message count is always recorded, even when XP is on cooldown.</td>
+            </tr>
+            <tr>
+                <td>Voice</td>
+                <td>1 to 8 XP</td>
+                <td>Rewarded roughly every 10 minutes. At least 2 non bot members must be in the channel, and you must not be self deafened. Time is always counted; XP only kicks in when those conditions hold.</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- ------------------------------------------------------------------ -->
+<div class="docs-section" id="levels-and-ranks">
+    <div class="docs-section-head">
+        <h2>Levels and rank titles</h2>
+        <span class="docs-section-tag">ascend the tiers</span>
+    </div>
+
+    <p class="docs-lead">Your level rises from total XP. Progress to your next level is shown as a bar on your stats (<code>progress / out_of</code> XP). The amount needed grows with your level.</p>
+
+    <p class="docs-lead">Along the way you earn cosmetic rank titles. Level 1 is <strong>Stardust</strong>, and every milestone level upgrades your title and its color. Reaching a milestone is announced as a <strong>Rank Up</strong> instead of a regular level up.</p>
+
+    <table class="doc-table">
+        <thead>
+            <tr>
+                <th>Level</th>
+                <th>Title</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr><td>1</td><td>Stardust</td></tr>
+            <tr><td>5</td><td>Nova</td></tr>
+            <tr><td>10</td><td>Orbit</td></tr>
+            <tr><td>15</td><td>Comet</td></tr>
+            <tr><td>20</td><td>Pulsar</td></tr>
+            <tr><td>25</td><td>Nebula</td></tr>
+            <tr><td>30</td><td>Eclipse</td></tr>
+            <tr><td>40</td><td>Supernova</td></tr>
+            <tr><td>50</td><td>Quasar</td></tr>
+            <tr><td>60</td><td>Singularity</td></tr>
+            <tr><td>80</td><td>Cosmic</td></tr>
+            <tr><td>100</td><td>Voidborne</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- ------------------------------------------------------------------ -->
+<div class="docs-section" id="commands">
+    <div class="docs-section-head">
+        <h2>Commands</h2>
+        <span class="docs-section-tag">check your stats</span>
+    </div>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/level</code>
+            <span class="doc-tag">server only</span>
+        </div>
+        <p class="doc-cmd-desc">Shows your level, rank in the server, global rank, total XP, progress to the next level, message and voice stats, an active vote boost if any, and the next level reward role if one is set.</p>
+        <div class="doc-cmd-widgets">
+            <div class="doc-widget">
+                <div class="doc-widget-label">Parameters</div>
+                <table class="doc-params">
+                    <tbody>
+                        <tr>
+                            <td><code>user</code></td>
+                            <td>View another member's level card instead of your own. Optional.</td>
+                        </tr>
+                        <tr>
+                            <td><code>hidden</code></td>
+                            <td>Send the result only to you instead of the channel. Optional.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/leaderboard</code>
+            <span class="doc-tag">server only</span>
+        </div>
+        <p class="doc-cmd-desc">Opens the interactive leaderboard for the server. Page through entries with the arrow buttons, jump to your own rank, and toggle between server, global, and combined views right from the embed. The same leaderboard is available on the website at <a href="/leaderboard">/leaderboard</a>.</p>
+        <div class="doc-cmd-widgets">
+            <div class="doc-widget">
+                <div class="doc-widget-label">Sort options</div>
+                <table class="doc-params">
+                    <tbody>
+                        <tr>
+                            <td><code>Level</code></td>
+                            <td>Ranked by level, with XP as the tiebreaker. The default.</td>
+                        </tr>
+                        <tr>
+                            <td><code>Total XP</code></td>
+                            <td>Ranked by lifetime XP.</td>
+                        </tr>
+                        <tr>
+                            <td><code>Total Messages</code></td>
+                            <td>Ranked by how many messages each member has sent.</td>
+                        </tr>
+                        <tr>
+                            <td><code>Total Voice</code></td>
+                            <td>Ranked by total time spent in voice channels.</td>
+                        </tr>
+                        <tr>
+                            <td><code>Voters</code></td>
+                            <td>Ranked by most recent vote. Shows when each person last voted for the bot.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="doc-widget">
+                <div class="doc-widget-label">Parameters</div>
+                <table class="doc-params">
+                    <tbody>
+                        <tr>
+                            <td><code>sort</code></td>
+                            <td>Which statistic to rank by, from the list above. Optional.</td>
+                        </tr>
+                        <tr>
+                            <td><code>global_lb</code></td>
+                            <td>Show the global leaderboard across all servers instead of this one. Optional.</td>
+                        </tr>
+                        <tr>
+                            <td><code>combined</code></td>
+                            <td>Merge your stats across every server into a single row, then rank globally. Not available for the voters list. Optional.</td>
+                        </tr>
+                        <tr>
+                            <td><code>hidden</code></td>
+                            <td>Show the leaderboard only to you. Optional. Note the embed still counts as interactive for the person who ran it.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/profile</code>
+            <span class="doc-tag">servers, DMs and private channels</span>
+        </div>
+        <p class="doc-cmd-desc">Your global profile, combining total XP, messages, and voice time across every server VoidWave tracks you in.</p>
+        <div class="doc-cmd-widgets">
+            <div class="doc-widget">
+                <div class="doc-widget-label">Parameters</div>
+                <table class="doc-params">
+                    <tbody>
+                        <tr>
+                            <td><code>user</code></td>
+                            <td>View another member's global profile. Optional.</td>
+                        </tr>
+                        <tr>
+                            <td><code>hidden</code></td>
+                            <td>Send the result only to you. Optional.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ------------------------------------------------------------------ -->
+<div class="docs-section" id="rewards">
+    <div class="docs-section-head">
+        <h2>Level rewards</h2>
+        <span class="docs-section-tag">roles for milestones</span>
+    </div>
+
+    <div class="doc-callout">
+        <p><strong>Admins only.</strong> The commands in this section require the <strong>Administrator</strong> permission in your server.</p>
+    </div>
+
+    <p class="docs-lead">Admins can tie roles to levels. When a member reaches a configured level, VoidWave grants the matching role automatically. Each level can only hold one role, so pick levels that make sense for your server.</p>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/config level add_role</code>
+            <span class="doc-tag admin">administrator</span>
+        </div>
+        <p class="doc-cmd-desc">Give a role at a specific level. The bot needs the <strong>Manage Roles</strong> permission, and the role must sit below the bot's highest role in the server settings so it can be assigned.</p>
+        <div class="doc-cmd-widgets">
+            <div class="doc-widget">
+                <div class="doc-widget-label">Parameters</div>
+                <table class="doc-params">
+                    <tbody>
+                        <tr>
+                            <td><code>level</code></td>
+                            <td>The level at which the role is granted.</td>
+                        </tr>
+                        <tr>
+                            <td><code>role</code></td>
+                            <td>The role to grant.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/config level remove_role</code>
+            <span class="doc-tag admin">administrator</span>
+        </div>
+        <p class="doc-cmd-desc">Remove a level reward. The level picker autocompletes from levels that already have a role assigned.</p>
+        <div class="doc-cmd-widgets">
+            <div class="doc-widget">
+                <div class="doc-widget-label">Parameters</div>
+                <table class="doc-params">
+                    <tbody>
+                        <tr>
+                            <td><code>level</code></td>
+                            <td>The level whose reward role should be removed.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ------------------------------------------------------------------ -->
+<div class="docs-section" id="admin">
+    <div class="docs-section-head">
+        <h2>Admin setup</h2>
+        <span class="docs-section-tag">announce level ups</span>
+    </div>
+
+    <div class="doc-callout">
+        <p><strong>Admins only.</strong> These commands require the <strong>Administrator</strong> permission. The fastest path is <code>/config auto</code>, which creates and enables a <code>voidwave-level-ups</code> channel for you and turns on a daily question channel too. Full details are in <a href="/docs/config">Configuration</a>.</p>
+    </div>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/config level set_channel</code>
+            <span class="doc-tag admin">administrator</span>
+        </div>
+        <p class="doc-cmd-desc">Pick the channel where level up and rank up announcements are posted. The bot checks that it can view and send messages in the channel first.</p>
+        <div class="doc-cmd-widgets">
+            <div class="doc-widget">
+                <div class="doc-widget-label">Parameters</div>
+                <table class="doc-params">
+                    <tbody>
+                        <tr>
+                            <td><code>channel</code></td>
+                            <td>The text channel for announcements.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/config level toggle_channel</code>
+            <span class="doc-tag admin">administrator</span>
+        </div>
+        <p class="doc-cmd-desc">Turn level up announcements on or off. You must set a channel first. The bot verifies it can view the channel, send messages, and embed links before enabling.</p>
+        <div class="doc-cmd-widgets">
+            <div class="doc-widget">
+                <div class="doc-widget-label">Parameters</div>
+                <table class="doc-params">
+                    <tbody>
+                        <tr>
+                            <td><code>enabled</code></td>
+                            <td><code>True</code> to announce level ups, <code>False</code> to stay quiet.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/config level toggle_vote_announce</code>
+            <span class="doc-tag admin">administrator</span>
+        </div>
+        <p class="doc-cmd-desc">Also announce when a member votes for the bot, posted to the same level up channel when enabled. Both this and the channel toggle must be on for announcements to show.</p>
+        <div class="doc-cmd-widgets">
+            <div class="doc-widget">
+                <div class="doc-widget-label">Parameters</div>
+                <table class="doc-params">
+                    <tbody>
+                        <tr>
+                            <td><code>enabled</code></td>
+                            <td><code>True</code> to announce votes, <code>False</code> to skip them.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ------------------------------------------------------------------ -->
+<div class="docs-section" id="start">
+    <div class="docs-section-head">
+        <h2>Where to go next</h2>
+        <span class="docs-section-tag">keep growing</span>
+    </div>
+    <p class="docs-lead">Double your XP gain with <a href="/docs/voting">Voting and boosts</a>, or review everything admins can control in the <a href="/docs/config">Configuration reference</a>.</p>
+</div>
+
+{% endblock %}

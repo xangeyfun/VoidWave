@@ -1,0 +1,541 @@
+{% extends "docs_page.html" %}
+
+{% block docs_page_title %}Music{% endblock %}
+
+{% block docs_meta_description %}VoidWave music guide: playing songs from YouTube and Spotify, the interactive player with live progress, skip voting, loop modes, and your own playlists.{% endblock %}
+
+{% block docs_og_url %}/docs/music{% endblock %}
+{% block docs_og_title %}Music Guide{% endblock %}
+{% block docs_og_description %}Play music from YouTube and Spotify, use the interactive player, and build your own playlists.{% endblock %}
+
+{% block docs_hero_title %}Music{% endblock %}
+{% block docs_hero_lead %}Play music in your voice channels with a live interactive player, vote to skip, and save your own playlists that work in any server.{% endblock %}
+
+{% block docs_content %}
+
+<div class="docs-intro-block">
+    <p class="docs-lead">VoidWave streams audio straight into your voice channel. When a track starts, a control embed appears in the text channel with buttons and a progress bar that updates live. Everyone in the voice channel can control the music.</p>
+</div>
+
+<!-- ------------------------------------------------------------------ -->
+<div class="docs-section" id="get-started">
+    <div class="docs-section-head">
+        <h2>Playing your first track</h2>
+        <span class="docs-section-tag">get started</span>
+    </div>
+
+    <p class="docs-lead">Join any voice channel, then run <code>/music play</code> with a song. That is all it takes. The bot joins you, the track starts, and the interactive player appears in the channel you ran the command from. Every music command needs you to be in the same voice channel as the bot.</p>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/music play</code>
+            <span class="doc-tag">server only</span>
+        </div>
+        <p class="doc-cmd-desc">Start playback or add to the queue. If the search returns several candidates, an interactive picker lets you choose the right one. When nothing is picked it auto plays the best match after a moment.</p>
+        <div class="doc-cmd-widgets">
+            <div class="doc-widget">
+                <div class="doc-widget-label">Accepted inputs</div>
+                <table class="doc-params">
+                    <tbody>
+                        <tr>
+                            <td>Search terms</td>
+                            <td>Plain text like <code>never gonna give you up</code> or <code>lofi jazz beats</code>.</td>
+                        </tr>
+                        <tr>
+                            <td>YouTube</td>
+                            <td>A video or playlist URL. Playlists are added to the queue as a group.</td>
+                        </tr>
+                        <tr>
+                            <td>Spotify</td>
+                            <td>Track, album, or playlist links. VoidWave reads the Spotify metadata and plays the matching YouTube audio, since Discord audio works best from YouTube.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="doc-widget">
+                <div class="doc-widget-label">Parameters</div>
+                <table class="doc-params">
+                    <tbody>
+                        <tr>
+                            <td><code>query</code></td>
+                            <td>The song, link, or search term. Required.</td>
+                        </tr>
+                        <tr>
+                            <td><code>hidden</code></td>
+                            <td>Keep the command response only to yourself. Optional.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ------------------------------------------------------------------ -->
+<div class="docs-section" id="interactive-player">
+    <div class="docs-section-head">
+        <h2>The interactive player</h2>
+        <span class="docs-section-tag">the control embed</span>
+    </div>
+
+    <p class="docs-lead">While music plays, a live embed sits in the channel where playback started. The progress bar updates in real time, and the buttons work for anyone in the voice channel.</p>
+
+    <table class="doc-table">
+        <thead>
+            <tr>
+                <th>Control</th>
+                <th>What it does</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>🔀 Shuffle</td>
+                <td>Randomize the upcoming queue.</td>
+            </tr>
+            <tr>
+                <td>⏮ Previous</td>
+                <td>Play the most recent track again from history.</td>
+            </tr>
+            <tr>
+                <td>⏯ Play / Pause</td>
+                <td>Pause and resume the current track.</td>
+            </tr>
+            <tr>
+                <td>⏭ Next</td>
+                <td>Skip the current track, using the vote system unless you are the queue owner.</td>
+            </tr>
+            <tr>
+                <td>🔁 Loop</td>
+                <td>Cycles through off, loop track, and loop queue.</td>
+            </tr>
+            <tr>
+                <td>👋 Leave</td>
+                <td>Stop playback, clear the queue, and leave the voice channel.</td>
+            </tr>
+            <tr>
+                <td>📜 Queue</td>
+                <td>Open the paginated queue with per track removal.</td>
+            </tr>
+            <tr>
+                <td>🎤 Live lyrics</td>
+                <td>Toggle synced lyrics on the player embed itself.</td>
+            </tr>
+            <tr>
+                <td>📝 Lyrics</td>
+                <td>Show the current track's lyrics in their own embed.</td>
+            </tr>
+            <tr>
+                <td>✨ Autoplay</td>
+                <td>Toggle related tracks continuing when the queue empties.</td>
+            </tr>
+            <tr>
+                <td>🔊 Volume</td>
+                <td>A dropdown that jumps to 10, 25, 50, 75 or 100 percent.</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <div class="doc-callout">
+        <p><strong>Lost the player?</strong> Run <code>/music controller</code> to post a fresh copy of the control embed into the current channel.</p>
+    </div>
+</div>
+
+<!-- ------------------------------------------------------------------ -->
+<div class="docs-section" id="commands">
+    <div class="docs-section-head">
+        <h2>Commands</h2>
+        <span class="docs-section-tag">full reference</span>
+    </div>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/music nowplaying</code>
+            <span class="doc-tag">server only</span>
+        </div>
+        <p class="doc-cmd-desc">Show the current track with artwork, position, and length.</p>
+    </div>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/music queue</code>
+            <span class="doc-tag">server only</span>
+        </div>
+        <p class="doc-cmd-desc">Open the paginated queue view. You can clear the queue or remove specific tracks from the view's buttons, and page through with next and previous.</p>
+    </div>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/music pause</code> and <code>/music resume</code>
+            <span class="doc-tag">server only</span>
+        </div>
+        <p class="doc-cmd-desc">Pause or resume the current track.</p>
+    </div>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/music skip</code>
+            <span class="doc-tag">server only</span>
+        </div>
+        <p class="doc-cmd-desc">Skip the current track. The person who started the queue skips instantly. Everyone else votes: the required number is half the non bot listeners in the channel, rounded up, plus one. Votes also count from the player's next button.</p>
+    </div>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/music seek</code>
+            <span class="doc-tag">server only</span>
+        </div>
+        <p class="doc-cmd-desc">Jump to a position in the current track. Accepts <code>1:30</code>, <code>90</code> (seconds), or <code>2h5m</code> style input.</p>
+        <div class="doc-cmd-widgets">
+            <div class="doc-widget">
+                <div class="doc-widget-label">Parameters</div>
+                <table class="doc-params">
+                    <tbody>
+                        <tr>
+                            <td><code>position</code></td>
+                            <td>Time to seek to. Required.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/music shuffle</code>
+            <span class="doc-tag">server only</span>
+        </div>
+        <p class="doc-cmd-desc">Shuffle the upcoming queue, leaving the current track playing.</p>
+    </div>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/music loop</code>
+            <span class="doc-tag">server only</span>
+        </div>
+        <p class="doc-cmd-desc">Set the loop mode: <code>off</code>, <code>track</code> to repeat the current audio, or <code>queue</code> to repeat the whole list.</p>
+        <div class="doc-cmd-widgets">
+            <div class="doc-widget">
+                <div class="doc-widget-label">Parameters</div>
+                <table class="doc-params">
+                    <tbody>
+                        <tr>
+                            <td><code>mode</code></td>
+                            <td><code>off</code>, <code>track</code>, or <code>queue</code>. Required.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/music volume</code>
+            <span class="doc-tag">server only</span>
+        </div>
+        <p class="doc-cmd-desc">Set the playback volume. The value is clamped between 1 and 100.</p>
+        <div class="doc-cmd-widgets">
+            <div class="doc-widget">
+                <div class="doc-widget-label">Parameters</div>
+                <table class="doc-params">
+                    <tbody>
+                        <tr>
+                            <td><code>level</code></td>
+                            <td>Volume level from 1 to 100. Required.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/music lyrics</code>
+            <span class="doc-tag">server only</span>
+        </div>
+        <p class="doc-cmd-desc">Fetch and display the current track's lyrics. When no track is playing it reports back.</p>
+    </div>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/music lyricslive</code>
+            <span class="doc-tag">server only</span>
+        </div>
+        <p class="doc-cmd-desc">Toggle synced, line by line lyrics on the player embed itself, so they follow the music in real time.</p>
+        <div class="doc-cmd-widgets">
+            <div class="doc-widget">
+                <div class="doc-widget-label">Parameters</div>
+                <table class="doc-params">
+                    <tbody>
+                        <tr>
+                            <td><code>mode</code></td>
+                            <td><code>on</code> or <code>off</code>. Required.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/music autoplay</code>
+            <span class="doc-tag">server only</span>
+        </div>
+        <p class="doc-cmd-desc">When on, related tracks keep playing once the queue runs out, so the music never stops until you leave.</p>
+        <div class="doc-cmd-widgets">
+            <div class="doc-widget">
+                <div class="doc-widget-label">Parameters</div>
+                <table class="doc-params">
+                    <tbody>
+                        <tr>
+                            <td><code>mode</code></td>
+                            <td><code>on</code> or <code>off</code>. Required.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/music stop</code>
+            <span class="doc-tag">server only</span>
+        </div>
+        <p class="doc-cmd-desc">Stop playback and clear the queue, staying in the voice channel.</p>
+    </div>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/music disconnect</code>
+            <span class="doc-tag">server only</span>
+        </div>
+        <p class="doc-cmd-desc">Stop playback, clear the queue, and leave the voice channel.</p>
+    </div>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/music controller</code>
+            <span class="doc-tag">server only</span>
+        </div>
+        <p class="doc-cmd-desc">Post a fresh interactive player embed into your channel if the original one has scrolled away.</p>
+    </div>
+</div>
+
+<!-- ------------------------------------------------------------------ -->
+<div class="docs-section" id="behaviour">
+    <div class="docs-section-head">
+        <h2>Idle behaviour</h2>
+        <span class="docs-section-tag">what happens when nothing plays</span>
+    </div>
+
+    <table class="doc-table">
+        <thead>
+            <tr>
+                <th>Situation</th>
+                <th>What VoidWave does</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>Queue finishes</td>
+                <td>Waits 3 minutes, then leaves the channel and clears everything.</td>
+            </tr>
+            <tr>
+                <td>Voice channel empties</td>
+                <td>Pauses playback immediately and starts the 3 minute leave countdown. If someone joins in time, music resumes by itself.</td>
+            </tr>
+            <tr>
+                <td>Autoplay running</td>
+                <td>Related tracks keep the music going instead of stopping when the queue empties.</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- ------------------------------------------------------------------ -->
+<div class="docs-section" id="playlists">
+    <div class="docs-section-head">
+        <h2>Playlists</h2>
+        <span class="docs-section-tag">your saved track lists</span>
+    </div>
+
+    <div class="doc-callout">
+        <p><strong>Note:</strong> playlists belong to your Discord account, not a server. They work in any server you play music in.</p>
+    </div>
+
+    <p class="docs-lead">You can keep up to 25 playlists, each with up to 200 tracks and a name up to 32 characters. Track names are checked so the same song is not added twice to one playlist.</p>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/music playlist create</code>
+            <span class="doc-tag">server only</span>
+        </div>
+        <p class="doc-cmd-desc">Create a new playlist.</p>
+        <div class="doc-cmd-widgets">
+            <div class="doc-widget">
+                <div class="doc-widget-label">Parameters</div>
+                <table class="doc-params">
+                    <tbody>
+                        <tr>
+                            <td><code>name</code></td>
+                            <td>Name for the new playlist. Required.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/music playlist add</code>
+            <span class="doc-tag">server only</span>
+        </div>
+        <p class="doc-cmd-desc">Add a track to a playlist. Accepts a URL or search term, exactly like <code>/music play</code>, and picks a matching result for you.</p>
+        <div class="doc-cmd-widgets">
+            <div class="doc-widget">
+                <div class="doc-widget-label">Parameters</div>
+                <table class="doc-params">
+                    <tbody>
+                        <tr>
+                            <td><code>name</code></td>
+                            <td>The playlist to add to. Autocompletes. Required.</td>
+                        </tr>
+                        <tr>
+                            <td><code>query</code></td>
+                            <td>A track URL or search term. Required.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/music playlist remove</code>
+            <span class="doc-tag">server only</span>
+        </div>
+        <p class="doc-cmd-desc">Remove a track from a playlist by its numbered position. Positions are shown by <code>/music playlist list</code>.</p>
+        <div class="doc-cmd-widgets">
+            <div class="doc-widget">
+                <div class="doc-widget-label">Parameters</div>
+                <table class="doc-params">
+                    <tbody>
+                        <tr>
+                            <td><code>name</code></td>
+                            <td>The playlist to edit. Required.</td>
+                        </tr>
+                        <tr>
+                            <td><code>position</code></td>
+                            <td>Track number to remove. Required.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/music playlist list</code>
+            <span class="doc-tag">server only</span>
+        </div>
+        <p class="doc-cmd-desc">List your playlists with track counts. Pass a name to open that playlist and page through its tracks.</p>
+        <div class="doc-cmd-widgets">
+            <div class="doc-widget">
+                <div class="doc-widget-label">Parameters</div>
+                <table class="doc-params">
+                    <tbody>
+                        <tr>
+                            <td><code>name</code></td>
+                            <td>Optional. When given, shows that playlist's tracks.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/music playlist play</code>
+            <span class="doc-tag">server only</span>
+        </div>
+        <p class="doc-cmd-desc">Play a saved playlist in your voice channel. Tracks are resolved at play time, and any that can no longer be found are reported and skipped.</p>
+        <div class="doc-cmd-widgets">
+            <div class="doc-widget">
+                <div class="doc-widget-label">Parameters</div>
+                <table class="doc-params">
+                    <tbody>
+                        <tr>
+                            <td><code>name</code></td>
+                            <td>The playlist to play. Required.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/music playlist rename</code>
+            <span class="doc-tag">server only</span>
+        </div>
+        <p class="doc-cmd-desc">Rename one of your playlists.</p>
+        <div class="doc-cmd-widgets">
+            <div class="doc-widget">
+                <div class="doc-widget-label">Parameters</div>
+                <table class="doc-params">
+                    <tbody>
+                        <tr>
+                            <td><code>name</code></td>
+                            <td>The current playlist name. Required.</td>
+                        </tr>
+                        <tr>
+                            <td><code>new_name</code></td>
+                            <td>The new name. Required.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/music playlist delete</code>
+            <span class="doc-tag">server only</span>
+        </div>
+        <p class="doc-cmd-desc">Delete a playlist along with all of its tracks.</p>
+        <div class="doc-cmd-widgets">
+            <div class="doc-widget">
+                <div class="doc-widget-label">Parameters</div>
+                <table class="doc-params">
+                    <tbody>
+                        <tr>
+                            <td><code>name</code></td>
+                            <td>The playlist to delete. Required.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ------------------------------------------------------------------ -->
+<div class="docs-section" id="start">
+    <div class="docs-section-head">
+        <h2>Where to go next</h2>
+        <span class="docs-section-tag">keep exploring</span>
+    </div>
+    <p class="docs-lead">Take a break between songs with the <a href="/docs/games">Games</a> guide, or check the rest of the basics like <a href="/docs/qotd">Question of the Day</a>.</p>
+</div>
+
+{% endblock %}

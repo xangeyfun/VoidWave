@@ -1,0 +1,186 @@
+{% extends "docs_page.html" %}
+
+{% block docs_page_title %}AI chat{% endblock %}
+
+{% block docs_meta_description %}Chat with VoidWave's self-hosted AI. How to talk to it, the Llama 3.2 model, per user and per server controls, cooldowns, and usage stats.{% endblock %}
+
+{% block docs_og_url %}/docs/ai-chat{% endblock %}
+{% block docs_og_title %}AI Chat Guide{% endblock %}
+{% block docs_og_description %}Talk to VoidWave's self-hosted Llama 3.2 AI. Mentions, replies, toggles, and privacy.{% endblock %}
+
+{% block docs_hero_title %}AI chat{% endblock %}
+{% block docs_hero_lead %}VoidWave runs a self-hosted Llama 3.2 language model, so you can chat with it directly in Discord. No third party AI services, no data leaving the server.{% endblock %}
+
+{% block docs_content %}
+
+<div class="docs-intro-block">
+    <p class="docs-lead">The AI lives on VoidWave's own hardware through Ollama. Prompts and replies are handled locally and are never sent to third party AI providers. You can talk to it anywhere the bot works: servers, DMs, and private channels.</p>
+</div>
+
+<!-- ------------------------------------------------------------------ -->
+<div class="docs-section" id="how-to-chat">
+    <div class="docs-section-head">
+        <h2>Ways to chat</h2>
+        <span class="docs-section-tag">three ways in</span>
+    </div>
+
+    <table class="doc-table">
+        <thead>
+            <tr>
+                <th>Method</th>
+                <th>How</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><code>/ai</code></td>
+                <td>The direct command. Pass your message as the <code>message</code> option.</td>
+            </tr>
+            <tr>
+                <td>Mention</td>
+                <td>Type <code>@VoidWave</code> followed by your message anywhere in a server.</td>
+            </tr>
+            <tr>
+                <td>Reply</td>
+                <td>Reply to VoidWave's own message and it will respond, using the replied to message as context.</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <div class="doc-callout">
+        <p><strong>Add <code>--stats</code></strong> at the end of your message to append model info to the answer: token count, generation time, and tokens per second. Works with both <code>/ai</code> and mentions.</p>
+    </div>
+</div>
+
+<!-- ------------------------------------------------------------------ -->
+<div class="docs-section" id="behaviour">
+    <div class="docs-section-head">
+        <h2>Behaviour and limits</h2>
+        <span class="docs-section-tag">cooldowns and queues</span>
+    </div>
+
+    <table class="doc-table">
+        <thead>
+            <tr>
+                <th>Limit</th>
+                <th>Value</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>Cooldown</td>
+                <td>15 seconds between AI requests per user, across both the command and message triggers.</td>
+            </tr>
+            <tr>
+                <td>Queue</td>
+                <td>The model processes one request at a time. If it is busy, your request is queued and a position message tells you where you stand.</td>
+            </tr>
+            <tr>
+                <td>Context</td>
+                <td>Replying to a message gives the model the replied to text as context. Mentioned users and channels in your message are expanded to their names.</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- ------------------------------------------------------------------ -->
+<div class="docs-section" id="commands">
+    <div class="docs-section-head">
+        <h2>Commands</h2>
+        <span class="docs-section-tag">chat and control</span>
+    </div>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/ai</code>
+            <span class="doc-tag">servers, DMs and private channels</span>
+        </div>
+        <p class="doc-cmd-desc">Send a message to the model and get the reply. Usable anywhere, even in servers where automatic replies are switched off.</p>
+        <div class="doc-cmd-widgets">
+            <div class="doc-widget">
+                <div class="doc-widget-label">Parameters</div>
+                <table class="doc-params">
+                    <tbody>
+                        <tr>
+                            <td><code>message</code></td>
+                            <td>What you want to say. Required.</td>
+                        </tr>
+                        <tr>
+                            <td><code>stats</code></td>
+                            <td>Append token count, time, and tokens per second to the reply. Optional.</td>
+                        </tr>
+                        <tr>
+                            <td><code>hidden</code></td>
+                            <td>Show the exchange only to you. Optional.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/aitoggle</code>
+            <span class="doc-tag">servers, DMs and private channels</span>
+        </div>
+        <p class="doc-cmd-desc">Turns AI replies on or off for you personally. Off by choice, on by default. When off, mentions and replies are ignored, and mentioning the bot returns a short notice instead.</p>
+        <div class="doc-cmd-widgets">
+            <div class="doc-widget">
+                <div class="doc-widget-label">Parameters</div>
+                <table class="doc-params">
+                    <tbody>
+                        <tr>
+                            <td><code>enabled</code></td>
+                            <td><code>True</code> or <code>False</code> to set it explicitly. Leave it out to flip the current state.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ------------------------------------------------------------------ -->
+<div class="docs-section" id="admin">
+    <div class="docs-section-head">
+        <h2>Server control</h2>
+        <span class="docs-section-tag">admins only</span>
+    </div>
+
+    <div class="doc-callout">
+        <p><strong>Admins only.</strong> The server wide AI switch requires the <strong>Administrator</strong> permission.</p>
+    </div>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/config ai toggle</code>
+            <span class="doc-tag admin">administrator</span>
+        </div>
+        <p class="doc-cmd-desc">Switches automatic AI replies on or off for the whole server. When off, members can no longer trigger the AI by mentioning or replying, but they can still run <code>/ai</code> themselves.</p>
+        <div class="doc-cmd-widgets">
+            <div class="doc-widget">
+                <div class="doc-widget-label">Parameters</div>
+                <table class="doc-params">
+                    <tbody>
+                        <tr>
+                            <td><code>enabled</code></td>
+                            <td><code>True</code> to allow replies, <code>False</code> to stop them.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ------------------------------------------------------------------ -->
+<div class="docs-section" id="start">
+    <div class="docs-section-head">
+        <h2>Where to go next</h2>
+        <span class="docs-section-tag">keep exploring</span>
+    </div>
+    <p class="docs-lead">Try the rest of the basics: <a href="/docs/leveling">Leveling and XP</a>, <a href="/docs/voting">Voting and boosts</a>, or the daily <a href="/docs/qotd">Question of the Day</a>.</p>
+</div>
+
+{% endblock %}

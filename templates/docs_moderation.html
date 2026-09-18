@@ -1,0 +1,365 @@
+{% extends "docs_page.html" %}
+
+{% block docs_page_title %}Moderation{% endblock %}
+
+{% block docs_meta_description %}VoidWave moderation guide: kick, ban, unban, timeout, slowmode, lock, unlock, role add and remove. All commands require specific permissions and hierarchy checks.{% endblock %}
+
+{% block docs_og_url %}/docs/moderation{% endblock %}
+{% block docs_og_title %}Moderation Guide{% endblock %}
+{% block docs_og_description %}Kick, ban, timeout, slowmode, lock, unlock, and manage roles with hierarchy protection.{% endblock %}
+
+{% block docs_hero_title %}Moderation{% endblock %}
+{% block docs_hero_lead %}Kick, ban, timeout, slowmode, lock, unlock, and manage roles. Every command checks role hierarchy so you can never act on someone above you or the bot.{% endblock %}
+
+{% block docs_content %}
+
+<div class="docs-intro-block">
+    <p class="docs-lead">All moderation commands work only in servers and require both you and the bot to hold the matching permission. Hierarchy checks prevent you from acting on the server owner, the bot itself, or anyone whose highest role is equal to or above yours (or the bot's).</p>
+</div>
+
+<!-- ------------------------------------------------------------------ -->
+<div class="docs-section" id="member">
+    <div class="docs-section-head">
+        <h2>Member actions</h2>
+        <span class="docs-section-tag">kick ban timeout unban</span>
+    </div>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/moderation kick</code>
+            <span class="doc-tag admin">kick members</span>
+        </div>
+        <p class="doc-cmd-desc">Remove a member from the server. They can rejoin if they have an invite.</p>
+        <div class="doc-cmd-widgets">
+            <div class="doc-widget">
+                <div class="doc-widget-label">Parameters</div>
+                <table class="doc-params">
+                    <tbody>
+                        <tr>
+                            <td><code>member</code></td>
+                            <td>The member to kick. Required.</td>
+                        </tr>
+                        <tr>
+                            <td><code>reason</code></td>
+                            <td>Reason for the kick. Optional.</td>
+                        </tr>
+                        <tr>
+                            <td><code>hidden</code></td>
+                            <td>Show the result only to you. Optional.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/moderation ban</code>
+            <span class="doc-tag admin">ban members</span>
+        </div>
+        <p class="doc-cmd-desc">Ban a member from the server. Optionally delete their recent messages from the last 0 to 7 days.</p>
+        <div class="doc-cmd-widgets">
+            <div class="doc-widget">
+                <div class="doc-widget-label">Parameters</div>
+                <table class="doc-params">
+                    <tbody>
+                        <tr>
+                            <td><code>member</code></td>
+                            <td>The member to ban. Required.</td>
+                        </tr>
+                        <tr>
+                            <td><code>delete_days</code></td>
+                            <td>Days of messages to delete, 0 to 7. Defaults to 0. Optional.</td>
+                        </tr>
+                        <tr>
+                            <td><code>reason</code></td>
+                            <td>Reason for the ban. Optional.</td>
+                        </tr>
+                        <tr>
+                            <td><code>hidden</code></td>
+                            <td>Show the result only to you. Optional.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/moderation unban</code>
+            <span class="doc-tag admin">ban members</span>
+        </div>
+        <p class="doc-cmd-desc">Unban a user by their Discord ID. Works even if the user is not in the server.</p>
+        <div class="doc-cmd-widgets">
+            <div class="doc-widget">
+                <div class="doc-widget-label">Parameters</div>
+                <table class="doc-params">
+                    <tbody>
+                        <tr>
+                            <td><code>user</code></td>
+                            <td>The user to unban. Required.</td>
+                        </tr>
+                        <tr>
+                            <td><code>reason</code></td>
+                            <td>Reason for the unban. Optional.</td>
+                        </tr>
+                        <tr>
+                            <td><code>hidden</code></td>
+                            <td>Show the result only to you. Optional.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/moderation timeout</code>
+            <span class="doc-tag admin">moderate members</span>
+        </div>
+        <p class="doc-cmd-desc">Temporarily prevent a member from sending messages, reacting, or joining voice. Duration is set with an amount and unit (minutes, hours, days). Maximum is 28 days.</p>
+        <div class="doc-cmd-widgets">
+            <div class="doc-widget">
+                <div class="doc-widget-label">Parameters</div>
+                <table class="doc-params">
+                    <tbody>
+                        <tr>
+                            <td><code>member</code></td>
+                            <td>The member to timeout. Required.</td>
+                        </tr>
+                        <tr>
+                            <td><code>amount</code></td>
+                            <td>How long the timeout lasts. Required.</td>
+                        </tr>
+                        <tr>
+                            <td><code>unit</code></td>
+                            <td>minutes, hours, or days. Defaults to minutes. Optional.</td>
+                        </tr>
+                        <tr>
+                            <td><code>reason</code></td>
+                            <td>Reason for the timeout. Optional.</td>
+                        </tr>
+                        <tr>
+                            <td><code>hidden</code></td>
+                            <td>Show the result only to you. Optional.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ------------------------------------------------------------------ -->
+<div class="docs-section" id="channel">
+    <div class="docs-section-head">
+        <h2>Channel controls</h2>
+        <span class="docs-section-tag">slowmode lock unlock</span>
+    </div>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/moderation slowmode</code>
+            <span class="doc-tag admin">manage channels</span>
+        </div>
+        <p class="doc-cmd-desc">Set or clear slowmode on a channel. Value is in seconds, 0 clears it, maximum is 21600 (6 hours).</p>
+        <div class="doc-cmd-widgets">
+            <div class="doc-widget">
+                <div class="doc-widget-label">Parameters</div>
+                <table class="doc-params">
+                    <tbody>
+                        <tr>
+                            <td><code>seconds</code></td>
+                            <td>Slowmode delay in seconds. 0 clears. Required.</td>
+                        </tr>
+                        <tr>
+                            <td><code>channel</code></td>
+                            <td>Channel to change. Defaults to the current channel. Optional.</td>
+                        </tr>
+                        <tr>
+                            <td><code>hidden</code></td>
+                            <td>Show the result only to you. Optional.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/moderation lock</code>
+            <span class="doc-tag admin">manage channels</span>
+        </div>
+        <p class="doc-cmd-desc">Prevent members from sending messages in a channel by denying Send Messages for @everyone. The bot keeps existing permission overwrites intact.</p>
+        <div class="doc-cmd-widgets">
+            <div class="doc-widget">
+                <div class="doc-widget-label">Parameters</div>
+                <table class="doc-params">
+                    <tbody>
+                        <tr>
+                            <td><code>channel</code></td>
+                            <td>Channel to lock. Defaults to the current channel. Optional.</td>
+                        </tr>
+                        <tr>
+                            <td><code>reason</code></td>
+                            <td>Reason for locking. Optional.</td>
+                        </tr>
+                        <tr>
+                            <td><code>hidden</code></td>
+                            <td>Show the result only to you. Optional.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/moderation unlock</code>
+            <span class="doc-tag admin">manage channels</span>
+        </div>
+        <p class="doc-cmd-desc">Remove the Send Messages deny for @everyone on a previously locked channel, restoring normal permissions. If the channel was not locked, the command tells you.</p>
+        <div class="doc-cmd-widgets">
+            <div class="doc-widget">
+                <div class="doc-widget-label">Parameters</div>
+                <table class="doc-params">
+                    <tbody>
+                        <tr>
+                            <td><code>channel</code></td>
+                            <td>Channel to unlock. Defaults to the current channel. Optional.</td>
+                        </tr>
+                        <tr>
+                            <td><code>hidden</code></td>
+                            <td>Show the result only to you. Optional.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ------------------------------------------------------------------ -->
+<div class="docs-section" id="roles">
+    <div class="docs-section-head">
+        <h2>Role management</h2>
+        <span class="docs-section-tag">add remove</span>
+    </div>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/moderation role add</code>
+            <span class="doc-tag admin">manage roles</span>
+        </div>
+        <p class="doc-cmd-desc">Give a role to a member. The role must be below both your highest role and the bot's highest role, and cannot be @everyone.</p>
+        <div class="doc-cmd-widgets">
+            <div class="doc-widget">
+                <div class="doc-widget-label">Parameters</div>
+                <table class="doc-params">
+                    <tbody>
+                        <tr>
+                            <td><code>member</code></td>
+                            <td>The member to give the role to. Required.</td>
+                        </tr>
+                        <tr>
+                            <td><code>role</code></td>
+                            <td>The role to add. Required.</td>
+                        </tr>
+                        <tr>
+                            <td><code>hidden</code></td>
+                            <td>Show the result only to you. Optional.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/moderation role remove</code>
+            <span class="doc-tag admin">manage roles</span>
+        </div>
+        <p class="doc-cmd-desc">Remove a role from a member. Same hierarchy restrictions apply. If the member does not have the role, the command reports that.</p>
+        <div class="doc-cmd-widgets">
+            <div class="doc-widget">
+                <div class="doc-widget-label">Parameters</div>
+                <table class="doc-params">
+                    <tbody>
+                        <tr>
+                            <td><code>member</code></td>
+                            <td>The member to remove the role from. Required.</td>
+                        </tr>
+                        <tr>
+                            <td><code>role</code></td>
+                            <td>The role to remove. Required.</td>
+                        </tr>
+                        <tr>
+                            <td><code>hidden</code></td>
+                            <td>Show the result only to you. Optional.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ------------------------------------------------------------------ -->
+<div class="docs-section" id="hierarchy">
+    <div class="docs-section-head">
+        <h2>Hierarchy protection</h2>
+        <span class="docs-section-tag">safety first</span>
+    </div>
+
+    <p class="docs-lead">Before any action the bot verifies:</p>
+
+    <table class="doc-table">
+        <thead>
+            <tr>
+                <th>Check</th>
+                <th>What it prevents</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>Server owner</td>
+                <td>You cannot kick, ban, timeout, or role manage the server owner.</td>
+            </tr>
+            <tr>
+                <td>Bot itself</td>
+                <td>You cannot act on the bot.</td>
+            </tr>
+            <tr>
+                <td>Bot top role</td>
+                <td>Target's highest role must be below the bot's highest role.</td>
+            </tr>
+            <tr>
+                <td>Your top role</td>
+                <td>Target's highest role must be below your highest role (unless you are the target).</td>
+            </tr>
+            <tr>
+                <td>Role is @everyone</td>
+                <td>Cannot add or remove the @everyone role.</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <p class="docs-lead">If any check fails, the command responds with a clear message explaining why.</p>
+</div>
+
+<!-- ------------------------------------------------------------------ -->
+<div class="docs-section" id="start">
+    <div class="docs-section-head">
+        <h2>Where to go next</h2>
+        <span class="docs-section-tag">keep exploring</span>
+    </div>
+    <p class="docs-lead">Review everything admins control in the <a href="/docs/config">Configuration reference</a>, or set up automated giveaways in the <a href="/docs/giveaways">Giveaways</a> guide.</p>
+</div>
+
+{% endblock %}

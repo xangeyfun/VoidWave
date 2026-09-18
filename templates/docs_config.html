@@ -1,0 +1,375 @@
+{% extends "docs_page.html" %}
+
+{% block docs_page_title %}Configuration{% endblock %}
+
+{% block docs_meta_description %}VoidWave configuration reference: view test auto setup, leveling channel and roles, QOTD channel time role cleanup, AI replies toggle. All commands require Administrator.{% endblock %}
+
+{% block docs_og_url %}/docs/config{% endblock %}
+{% block docs_og_title %}Configuration Reference{% endblock %}
+{% block docs_og_description %}Every admin command to configure leveling, Question of the Day, and AI replies in one place.{% endblock %}
+
+{% block docs_hero_title %}Configuration{% endblock %}
+{% block docs_hero_lead %}Everything admins control: leveling announcements and reward roles, daily questions with threads and pings, and server wide AI replies. One shot setup or granular control.{% endblock %}
+
+{% block docs_content %}
+
+<div class="docs-intro-block">
+    <p class="docs-lead">All configuration commands require the <strong>Administrator</strong> permission and work only in servers. The fastest way to get started is <code>/config auto</code> which creates channels, roles, and enables features in one go. For fine control use the individual commands below, or run <code>/config view</code> to see the current state and <code>/config test</code> to verify everything works.</p>
+</div>
+
+<!-- ------------------------------------------------------------------ -->
+<div class="docs-section" id="core">
+    <div class="docs-section-head">
+        <h2>Core commands</h2>
+        <span class="docs-section-tag">overview test help auto</span>
+    </div>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/config view</code>
+            <span class="doc-tag admin">administrator</span>
+        </div>
+        <p class="doc-cmd-desc">Shows an embed with the current configuration for leveling (channel, enabled state, vote announcements, AI replies, reward roles), QOTD (channel, enabled state, schedule, ping role, delete old), and AI replies.</p>
+    </div>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/config test</code>
+            <span class="doc-tag admin">administrator</span>
+        </div>
+        <p class="doc-cmd-desc">Runs a comprehensive health check on your leveling and QOTD setup. Reports missing channels, missing permissions, invalid times, unassignable roles, and more. Pass <code>send_test:true</code> to also send a test message into each configured channel and create a test thread for QOTD.</p>
+        <div class="doc-cmd-widgets">
+            <div class="doc-widget">
+                <div class="doc-widget-label">Parameters</div>
+                <table class="doc-params">
+                    <tbody>
+                        <tr>
+                            <td><code>send_test</code></td>
+                            <td>Also send test messages to verify delivery. Optional.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/config help</code>
+            <span class="doc-tag admin">administrator</span>
+        </div>
+        <p class="doc-cmd-desc">Interactive help for configuration. Run without arguments for an overview with a dropdown to pick Leveling, QOTD, or AI. Pass a topic to jump straight to that section.</p>
+        <div class="doc-cmd-widgets">
+            <div class="doc-widget">
+                <div class="doc-widget-label">Parameters</div>
+                <table class="doc-params">
+                    <tbody>
+                        <tr>
+                            <td><code>topic</code></td>
+                            <td><code>leveling</code>, <code>qotd</code>, or <code>ai</code>. Optional.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/config auto</code>
+            <span class="doc-tag admin">administrator</span>
+        </div>
+        <p class="doc-cmd-desc">One shot setup. Creates a <code>level-ups</code> channel with locked down permissions (only the bot can send), a <code>qotd</code> channel with thread permissions, a <strong>QOTD Ping</strong> mentionable role, and enables both features. Anything already configured is left alone. Requires Manage Channels and Manage Roles.</p>
+        <div class="doc-cmd-widgets">
+            <div class="doc-widget">
+                <div class="doc-widget-label">Parameters</div>
+                <table class="doc-params">
+                    <tbody>
+                        <tr>
+                            <td><code>level</code></td>
+                            <td>Set up leveling. Defaults to true. Optional.</td>
+                        </tr>
+                        <tr>
+                            <td><code>qotd</code></td>
+                            <td>Set up QOTD. Defaults to true. Optional.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ------------------------------------------------------------------ -->
+<div class="docs-section" id="leveling">
+    <div class="docs-section-head">
+        <h2>Leveling</h2>
+        <span class="docs-section-tag">channel roles announcements</span>
+    </div>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/config level set_channel</code>
+            <span class="doc-tag admin">administrator</span>
+        </div>
+        <p class="doc-cmd-desc">Choose the channel where level up and rank up announcements are posted. The bot checks it can view and send messages there first.</p>
+        <div class="doc-cmd-widgets">
+            <div class="doc-widget">
+                <div class="doc-widget-label">Parameters</div>
+                <table class="doc-params">
+                    <tbody>
+                        <tr>
+                            <td><code>channel</code></td>
+                            <td>The text channel for announcements. Required.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/config level toggle_channel</code>
+            <span class="doc-tag admin">administrator</span>
+        </div>
+        <p class="doc-cmd-desc">Enable or disable level up announcements. A channel must be set first. The bot verifies it can view the channel, send messages, and embed links before enabling.</p>
+        <div class="doc-cmd-widgets">
+            <div class="doc-widget">
+                <div class="doc-widget-label">Parameters</div>
+                <table class="doc-params">
+                    <tbody>
+                        <tr>
+                            <td><code>enabled</code></td>
+                            <td><code>true</code> to announce, <code>false</code> to silence. Required.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/config level toggle_vote_announce</code>
+            <span class="doc-tag admin">administrator</span>
+        </div>
+        <p class="doc-cmd-desc">Also announce when a member votes for the bot, posted to the same level up channel. Both this and the channel toggle must be on for announcements to show.</p>
+        <div class="doc-cmd-widgets">
+            <div class="doc-widget">
+                <div class="doc-widget-label">Parameters</div>
+                <table class="doc-params">
+                    <tbody>
+                        <tr>
+                            <td><code>enabled</code></td>
+                            <td><code>true</code> to announce votes, <code>false</code> to skip them. Required.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/config level add_role</code>
+            <span class="doc-tag admin">administrator</span>
+        </div>
+        <p class="doc-cmd-desc">Give a role at a specific level. The role must sit below the bot's highest role so it can be assigned. When a member reaches that level the role is granted automatically.</p>
+        <div class="doc-cmd-widgets">
+            <div class="doc-widget">
+                <div class="doc-widget-label">Parameters</div>
+                <table class="doc-params">
+                    <tbody>
+                        <tr>
+                            <td><code>level</code></td>
+                            <td>The level at which the role is granted. Required.</td>
+                        </tr>
+                        <tr>
+                            <td><code>role</code></td>
+                            <td>The role to grant. Required.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/config level remove_role</code>
+            <span class="doc-tag admin">administrator</span>
+        </div>
+        <p class="doc-cmd-desc">Remove a level reward role. The level picker autocompletes from levels that already have a role assigned.</p>
+        <div class="doc-cmd-widgets">
+            <div class="doc-widget">
+                <div class="doc-widget-label">Parameters</div>
+                <table class="doc-params">
+                    <tbody>
+                        <tr>
+                            <td><code>level</code></td>
+                            <td>The level whose reward role should be removed. Required.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ------------------------------------------------------------------ -->
+<div class="docs-section" id="qotd-config">
+    <div class="docs-section-head">
+        <h2>Question of the Day</h2>
+        <span class="docs-section-tag">channel time role cleanup</span>
+    </div>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/config qotd set_channel</code>
+            <span class="doc-tag admin">administrator</span>
+        </div>
+        <p class="doc-cmd-desc">Set the channel where daily questions are posted. The bot checks it can view and send messages there first.</p>
+        <div class="doc-cmd-widgets">
+            <div class="doc-widget">
+                <div class="doc-widget-label">Parameters</div>
+                <table class="doc-params">
+                    <tbody>
+                        <tr>
+                            <td><code>channel</code></td>
+                            <td>The text channel for daily questions. Required.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/config qotd set_time</code>
+            <span class="doc-tag admin">administrator</span>
+        </div>
+        <p class="doc-cmd-desc">Set the time of day the question posts in 24 hour format, and optionally a timezone. Changing the schedule resets today's state so the next question posts at the new time even if one already went out.</p>
+        <div class="doc-cmd-widgets">
+            <div class="doc-widget">
+                <div class="doc-widget-label">Parameters</div>
+                <table class="doc-params">
+                    <tbody>
+                        <tr>
+                            <td><code>time</code></td>
+                            <td>24 hour HH:MM format, e.g. <code>18:30</code>. Required.</td>
+                        </tr>
+                        <tr>
+                            <td><code>timezone</code></td>
+                            <td>IANA timezone such as <code>Europe/Amsterdam</code>. Autocompletes as you type. Defaults to UTC. Optional.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/config qotd enable</code>
+            <span class="doc-tag admin">administrator</span>
+        </div>
+        <p class="doc-cmd-desc">Turn the daily post on or off. A channel must be set first. The bot verifies it can view the channel, send and embed messages, and create and post in threads before enabling.</p>
+        <div class="doc-cmd-widgets">
+            <div class="doc-widget">
+                <div class="doc-widget-label">Parameters</div>
+                <table class="doc-params">
+                    <tbody>
+                        <tr>
+                            <td><code>enabled</code></td>
+                            <td><code>true</code> to start posting, <code>false</code> to stop. Required.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/config qotd set_role</code>
+            <span class="doc-tag admin">administrator</span>
+        </div>
+        <p class="doc-cmd-desc">Pick the role that is mentioned when a question posts. The role must be mentionable or the bot must have Mention Everyone permission. Use <code>@everyone</code> to ping the whole server.</p>
+        <div class="doc-cmd-widgets">
+            <div class="doc-widget">
+                <div class="doc-widget-label">Parameters</div>
+                <table class="doc-params">
+                    <tbody>
+                        <tr>
+                            <td><code>role</code></td>
+                            <td>The role to ping with the question. Required.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/config qotd delete_old</code>
+            <span class="doc-tag admin">administrator</span>
+        </div>
+        <p class="doc-cmd-desc">When enabled, the previous question's message and thread are deleted right before the next one posts. This keeps the channel to just the latest question. Requires Manage Threads permission in the channel.</p>
+        <div class="doc-cmd-widgets">
+            <div class="doc-widget">
+                <div class="doc-widget-label">Parameters</div>
+                <table class="doc-params">
+                    <tbody>
+                        <tr>
+                            <td><code>enabled</code></td>
+                            <td><code>true</code> to delete old questions, <code>false</code> to leave them up. Required.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ------------------------------------------------------------------ -->
+<div class="docs-section" id="ai-config">
+    <div class="docs-section-head">
+        <h2>AI replies</h2>
+        <span class="docs-section-tag">server wide toggle</span>
+    </div>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/config ai toggle</code>
+            <span class="doc-tag admin">administrator</span>
+        </div>
+        <p class="doc-cmd-desc">Switch automatic AI replies on or off for the whole server. When off, members can no longer trigger the AI by mentioning or replying, but they can still run <code>/ai</code> themselves.</p>
+        <div class="doc-cmd-widgets">
+            <div class="doc-widget">
+                <div class="doc-widget-label">Parameters</div>
+                <table class="doc-params">
+                    <tbody>
+                        <tr>
+                            <td><code>enabled</code></td>
+                            <td><code>true</code> to allow replies, <code>false</code> to stop them. Required.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ------------------------------------------------------------------ -->
+<div class="docs-section" id="start">
+    <div class="docs-section-head">
+        <h2>Where to go next</h2>
+        <span class="docs-section-tag">keep exploring</span>
+    </div>
+    <p class="docs-lead">See the full guides for <a href="/docs/leveling">Leveling and XP</a>, <a href="/docs/qotd">Question of the Day</a>, and <a href="/docs/ai-chat">AI chat</a> for how each feature works in practice.</p>
+</div>
+
+{% endblock %}

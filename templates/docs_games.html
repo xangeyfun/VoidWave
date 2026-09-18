@@ -1,0 +1,246 @@
+{% extends "docs_page.html" %}
+
+{% block docs_page_title %}Games{% endblock %}
+
+{% block docs_meta_description %}Every game VoidWave can play: magic 8-ball, rock paper scissors, tic-tac-toe, connect four, hangman, blackjack, trivia battles, wordle, minesweeper, battleship, and the 15 puzzle.{% endblock %}
+
+{% block docs_og_url %}/docs/games{% endblock %}
+{% block docs_og_title %}Games Guide{% endblock %}
+{% block docs_og_description %}Play 8-ball, trivia, wordle, minesweeper, battleship and more, solo or against friends.{% endblock %}
+
+{% block docs_hero_title %}Games{% endblock %}
+{% block docs_hero_lead %}Everything from a quick 8-ball answer to full tabletop battles. Play solo against the bot or challenge your friends, right inside Discord.{% endblock %}
+
+{% block docs_content %}
+
+<div class="docs-intro-block">
+    <p class="docs-lead">Every game runs in an interactive embed with buttons, so you play by pressing them rather than typing commands. Most games work in servers, DMs, and private channels. Games against other people start with a challenge the opponent accepts.</p>
+</div>
+
+<!-- ------------------------------------------------------------------ -->
+<div class="docs-section" id="solo">
+    <div class="docs-section-head">
+        <h2>Solo games</h2>
+        <span class="docs-section-tag">you against the bot</span>
+    </div>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/8ball</code>
+            <span class="doc-tag">servers, DMs and private channels</span>
+        </div>
+        <p class="doc-cmd-desc">Ask the magic 8-ball anything and get a random answer in a styled embed.</p>
+        <div class="doc-cmd-widgets">
+            <div class="doc-widget">
+                <div class="doc-widget-label">Parameters</div>
+                <table class="doc-params">
+                    <tbody>
+                        <tr>
+                            <td><code>question</code></td>
+                            <td>Your question. Required.</td>
+                        </tr>
+                        <tr>
+                            <td><code>hidden</code></td>
+                            <td>Show the result only to you. Optional.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/hangman</code>
+            <span class="doc-tag">servers, DMs and private channels</span>
+        </div>
+        <p class="doc-cmd-desc">Guess the hidden word one letter at a time before you run out of attempts. Letters are picked with the buttons on the embed.</p>
+    </div>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/wordle</code>
+            <span class="doc-tag">servers, DMs and private channels</span>
+        </div>
+        <p class="doc-cmd-desc">Guess the 5 letter word in 6 tries. Feedback colors tell you which letters are right, right but misplaced, or wrong, standard Wordle style.</p>
+    </div>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/minesweeper</code>
+            <span class="doc-tag">servers, DMs and private channels</span>
+        </div>
+        <p class="doc-cmd-desc">Clear the minefield without hitting a bomb. The grid is 20 cells, and you can choose how dense the mines are.</p>
+        <div class="doc-cmd-widgets">
+            <div class="doc-widget">
+                <div class="doc-widget-label">Parameters</div>
+                <table class="doc-params">
+                    <tbody>
+                        <tr>
+                            <td><code>mines</code></td>
+                            <td>Mine density as a percentage. Defaults to 25 percent (5 mines on the 20 cell grid). Optional.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/battleship</code>
+            <span class="doc-tag">servers, DMs and private channels</span>
+        </div>
+        <p class="doc-cmd-desc">Sink the enemy fleet with salvos across a grid before it sinks yours.</p>
+    </div>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/15puzzle</code>
+            <span class="doc-tag">servers, DMs and private channels</span>
+        </div>
+        <p class="doc-cmd-desc">Slide the tiles into order to solve the classic 15 puzzle. Moves are counted, so try to finish in as few as you can.</p>
+    </div>
+</div>
+
+<!-- ------------------------------------------------------------------ -->
+<div class="docs-section" id="multiplayer">
+    <div class="docs-section-head">
+        <h2>Multiplayer games</h2>
+        <span class="docs-section-tag">with friends, or the bot</span>
+    </div>
+
+    <p class="docs-lead">For the head to head games, leave the <code>opponent</code> option empty to play against VoidWave, or pass a member to send them a challenge. The challenge must be accepted before the match starts.</p>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/rps</code>
+            <span class="doc-tag">servers, DMs and private channels</span>
+        </div>
+        <p class="doc-cmd-desc">Rock, paper, scissors. Pick your move with a button and see who wins.</p>
+        <div class="doc-cmd-widgets">
+            <div class="doc-widget">
+                <div class="doc-widget-label">Parameters</div>
+                <table class="doc-params">
+                    <tbody>
+                        <tr>
+                            <td><code>opponent</code></td>
+                            <td>A member to play against. Leave empty to play the bot. Optional.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/tictactoe</code>
+            <span class="doc-tag">servers, DMs and private channels</span>
+        </div>
+        <p class="doc-cmd-desc">Classic 3 by 3 tic-tac-toe on a button board.</p>
+        <div class="doc-cmd-widgets">
+            <div class="doc-widget">
+                <div class="doc-widget-label">Parameters</div>
+                <table class="doc-params">
+                    <tbody>
+                        <tr>
+                            <td><code>opponent</code></td>
+                            <td>A member to challenge. Leave empty to play the bot. Optional.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/connectfour</code>
+            <span class="doc-tag">servers, DMs and private channels</span>
+        </div>
+        <p class="doc-cmd-desc">Drop your pieces into the grid and line up four to win.</p>
+        <div class="doc-cmd-widgets">
+            <div class="doc-widget">
+                <div class="doc-widget-label">Parameters</div>
+                <table class="doc-params">
+                    <tbody>
+                        <tr>
+                            <td><code>opponent</code></td>
+                            <td>A member to challenge. Leave empty to play the bot. Optional.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/blackjack</code>
+            <span class="doc-tag">servers, DMs and private channels</span>
+        </div>
+        <p class="doc-cmd-desc">Play blackjack against the dealer, or start a lobby where up to 4 players join and play a hand together.</p>
+        <div class="doc-cmd-widgets">
+            <div class="doc-widget">
+                <div class="doc-widget-label">Parameters</div>
+                <table class="doc-params">
+                    <tbody>
+                        <tr>
+                            <td><code>max_players</code></td>
+                            <td>How many players can join the table, from 2 to 4. Defaults to 4. Optional.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/trivia-battle</code>
+            <span class="doc-tag">servers, DMs and private channels</span>
+        </div>
+        <p class="doc-cmd-desc">A lobby based trivia showdown where players answer questions each round to rack up points and claim the win.</p>
+        <div class="doc-cmd-widgets">
+            <div class="doc-widget">
+                <div class="doc-widget-label">Parameters</div>
+                <table class="doc-params">
+                    <tbody>
+                        <tr>
+                            <td><code>category</code></td>
+                            <td>Question topic: General Knowledge, Video Games, Music, Science & Nature, Computers, Geography, History, Animals, Films, Books, or Any. Defaults to General Knowledge.</td>
+                        </tr>
+                        <tr>
+                            <td><code>difficulty</code></td>
+                            <td>Any, Easy, Medium, or Hard. Defaults to Easy.</td>
+                        </tr>
+                        <tr>
+                            <td><code>rounds</code></td>
+                            <td>From 1 to 10, defaults to 5.</td>
+                        </tr>
+                        <tr>
+                            <td><code>max_players</code></td>
+                            <td>From 2 to 8, defaults to 4.</td>
+                        </tr>
+                        <tr>
+                            <td><code>answer_time</code></td>
+                            <td>Seconds per round, from 10 to 60. Defaults to 20.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ------------------------------------------------------------------ -->
+<div class="docs-section" id="start">
+    <div class="docs-section-head">
+        <h2>Where to go next</h2>
+        <span class="docs-section-tag">keep exploring</span>
+    </div>
+    <p class="docs-lead">Keep the fun going with the rest of the guides, or set up <a href="/docs/qotd">Question of the Day</a> for a fresh prompt every day.</p>
+</div>
+
+{% endblock %}

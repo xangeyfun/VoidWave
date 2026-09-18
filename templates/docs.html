@@ -1,0 +1,126 @@
+{% extends "docs_page.html" %}
+
+{% block docs_page_title %}Documentation{% endblock %}
+
+{% block docs_meta_description %}VoidWave docs home: getting started, inviting the bot, the guided setup, and links to every category guide.{% endblock %}
+
+{% block docs_og_url %}/docs{% endblock %}
+{% block docs_og_title %}VoidWave Documentation{% endblock %}
+{% block docs_og_description %}VoidWave docs home: getting started, inviting the bot, the guided setup, plus links to every category guide.{% endblock %}
+
+{% block docs_hero_title %}Documentation{% endblock %}
+{% block docs_hero_lead %}Everything VoidWave does, how it works, and how to set it up for your server. Pick a category below or start with what is on this page.{% endblock %}
+
+{% block docs_content %}
+
+<!-- ------------------------------------------------------------------ -->
+<div class="docs-index-grid">
+
+    <div class="docs-index-card">
+        <span class="docs-index-card-tag">Start here</span>
+        <h3>Getting started</h3>
+        <p>Invite the botholde, run the quick welcome tour, and set up your server in a few commands.</p>
+        <a href="#getting-started">Open guide</a>
+    </div>
+
+    <div class="docs-index-card">
+        <span class="docs-index-card-tag">Growth</span>
+        <h3>Leveling and XP</h3>
+        <p>Earn XP from messages and voice, unlock ranks and roles, and climb the leaderboard.</p>
+        <a href="/docs/leveling">Read the guide</a>
+    </div>
+
+    <div class="docs-index-card">
+        <span class="docs-index-card-tag">Growth</span>
+        <h3>Voting and boosts</h3>
+        <p>Vote to double your XP for hours, keep a streak, and get reminded when you can vote again.</p>
+        <a href="/docs/voting">Read the guide</a>
+    </div>
+
+    <div class="docs-index-card">
+        <span class="docs-index-card-tag">Converse</span>
+        <h3>AI chat</h3>
+        <p>Talk to VoidWave's self-hosted local language model. Private, no third parties.</p>
+        <a href="/docs/ai-chat">Read the guide</a>
+    </div>
+
+    <div class="docs-index-card">
+        <span class="docs-index-card-tag">Daily</span>
+        <h3>Question of the Day</h3>
+        <p>Daily questions in their own thread, with optional role pings and automatic cleanup.</p>
+        <a href="/docs/qotd">Read the guide</a>
+    </div>
+
+    <div class="docs-index-card">
+        <span class="docs-index-card-tag">Automation</span>
+        <h3>Reminders</h3>
+        <p>One-off and repeating reminders with human-friendly time parsing.</p>
+        <a href="/docs/reminders">Read the guide</a>
+    </div>
+
+    <div class="docs-index-card">
+        <span class="docs-index-card-tag">Automation</span>
+        <h3>Giveaways</h3>
+        <p>Create, manage, end and reroll giveaways with fair, random winners.</p>
+        <a href="/docs/giveaways">Read the guide</a>
+    </div>
+
+    <div class="docs-index-card">
+        <span class="docs-index-card-tag">Server</span>
+        <h3>Moderation</h3>
+        <p>Kick, ban, timeout, slowmode, locks, roles and all the server safety tools.</p>
+        <a href="/docs/moderation">Read the guide</a>
+    </div>
+
+    <div class="docs-index-card">
+        <span class="docs-index-card-tag">Server</span>
+        <h3>Configuration</h3>
+        <p>Everything admins control: leveling, QOTD, AI chat and server automation.</p>
+        <a href="/docs/config">Read the guide</a>
+    </div>
+
+</div>
+
+<!-- ------------------------------------------------------------------ -->
+<div class="docs-section" id="getting-started">
+    <div class="docs-section-head">
+        <h2>Getting started</h2>
+        <span class="docs-section-tag">invite and basic setup</span>
+    </div>
+
+    <div class="doc-callout">
+        <p><strong>Add VoidWave:</strong> hit <strong>Add to Server</strong> on the <a href="/">homepage</a>, pick your server, and authorize the requested permissions. VoidWave works in servers, DMs and private channels. Then run <code>/config help</code> to see every configuration option, or <code>/config auto</code> for a guided one-shot setup. The guided walkthrough on this site lives at <a href="/setup">/setup</a>, or you can review settings with <code>/config view</code> at any time.</p>
+    </div>
+
+    <h3>First commands to try</h3>
+    <div class="doc-cmd">
+        <div class="doc-cmd-head"><code>/help</code></div>
+        <p class="doc-cmd-desc">Browse every command grouped by category. Not sure what something does? Start here.</p>
+    </div>
+    <div class="doc-cmd">
+        <div class="doc-cmd-head"><code>/ping</code></div>
+        <p class="doc-cmd-desc">Measure VoidWave's latency with a WebSocket ping.</p>
+    </div>
+    <div class="doc-cmd">
+        <div class="doc-cmd-head"><code>/uptime</code></div>
+        <p class="doc-cmd-desc">How long VoidWave has been online, along with useful links.</p>
+    </div>
+    <div class="doc-cmd">
+        <div class="doc-cmd-head"><code>/github</code></div>
+        <p class="doc-cmd-desc">Open the source code, report a bug, or request a feature.</p>
+    </div>
+    <div class="doc-cmd">
+        <div class="doc-cmd-head"><code>/vote</code> and <code>/vote-remind</code></div>
+        <p class="doc-cmd-desc">Vote to double your XP, and get a DM when you can vote again. More in <a href="/docs/voting">Voting and boosts</a>.</p>
+    </div>
+    <div class="doc-cmd">
+        <div class="doc-cmd-head"><code>/feedback</code></div>
+        <p class="doc-cmd-desc">Send feedback straight to the developers. Attach a screenshot with the optional parameter.</p>
+    </div>
+    <div class="doc-cmd">
+        <div class="doc-cmd-head"><code>/rate</code></div>
+        <p class="doc-cmd-desc">Rate VoidWave right from Discord; feedback is optional.</p>
+    </div>
+</div>
+
+{% endblock %}

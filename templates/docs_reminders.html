@@ -1,0 +1,254 @@
+{% extends "docs_page.html" %}
+
+{% block docs_page_title %}Reminders{% endblock %}
+
+{% block docs_meta_description %}VoidWave reminders guide: create one off or recurring reminders with human friendly time parsing, deliver to DMs or server channels, edit delete and manage them all.{% endblock %}
+
+{% block docs_og_url %}/docs/reminders{% endblock %}
+{% block docs_og_title %}Reminders Guide{% endblock %}
+{% block docs_og_description %}Set one off and repeating reminders with natural language times. Delivered to your DMs or a server channel.{% endblock %}
+
+{% block docs_hero_title %}Reminders{% endblock %}
+{% block docs_hero_lead %}Set one off and repeating reminders with human friendly time parsing. Delivered to your DMs or a server channel of your choice.{% endblock %}
+
+{% block docs_content %}
+
+<div class="docs-intro-block">
+    <p class="docs-lead">Reminders are personal. They belong to your Discord account and work in any server, DM, or private channel. By default they arrive in your DMs, but you can pick a server channel instead.</p>
+</div>
+
+<!-- ------------------------------------------------------------------ -->
+<div class="docs-section" id="create">
+    <div class="docs-section-head">
+        <h2>Creating a reminder</h2>
+        <span class="docs-section-tag">time message repeat</span>
+    </div>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/remind create</code>
+            <span class="doc-tag">servers, DMs and private channels</span>
+        </div>
+        <p class="doc-cmd-desc">Set a new reminder. The time parameter accepts natural language, durations, dates, and weekdays.</p>
+        <div class="doc-cmd-widgets">
+            <div class="doc-widget">
+                <div class="doc-widget-label">Parameters</div>
+                <table class="doc-params">
+                    <tbody>
+                        <tr>
+                            <td><code>time</code></td>
+                            <td>When to remind you. Examples: <code>10m</code>, <code>2h</code>, <code>tomorrow 16:00</code>, <code>friday 18:30</code>, <code>2026-09-20 12:00</code>. Required.</td>
+                        </tr>
+                        <tr>
+                            <td><code>message</code></td>
+                            <td>What to remind you about. Required.</td>
+                        </tr>
+                        <tr>
+                            <td><code>recurring</code></td>
+                            <td>Repeat schedule. Presets: <code>hourly</code>, <code>daily</code>, <code>weekly</code>, <code>biweekly</code>, <code>weekdays</code>, <code>weekends</code>, <code>monthly</code>, <code>yearly</code>. Or custom like <code>every 2h</code>, <code>every 1h30m</code>, <code>every 3d</code>. Optional.</td>
+                        </tr>
+                        <tr>
+                            <td><code>timezone</code></td>
+                            <td>Override your saved timezone for this reminder. Example: <code>Europe/Amsterdam</code>. Optional.</td>
+                        </tr>
+                        <tr>
+                            <td><code>channel</code></td>
+                            <td>Deliver in a server channel instead of your DMs. The bot needs View Channel and Send Messages there. Optional.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="doc-callout">
+        <p><strong>Time formats cheat sheet</strong></p>
+        <table class="doc-table">
+            <thead>
+                <tr>
+                    <th>Style</th>
+                    <th>Example</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Duration</td>
+                    <td><code>10m</code>, <code>2h</code>, <code>1h30m</code>, <code>3d</code>, <code>2w</code></td>
+                </tr>
+                <tr>
+                    <td>Relative</td>
+                    <td><code>today</code>, <code>tonight</code>, <code>tomorrow</code>, <code>tomorrow 16:00</code></td>
+                </tr>
+                <tr>
+                    <td>Weekday</td>
+                    <td><code>friday</code>, <code>next friday</code>, <code>friday 18:30</code></td>
+                </tr>
+                <tr>
+                    <td>ISO date</td>
+                    <td><code>2026-09-20 12:00</code></td>
+                </tr>
+                <tr>
+                    <td>DMY date</td>
+                    <td><code>20/09/2026 12:00</code></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="doc-callout">
+        <p><strong>Recurrence options</strong></p>
+        <table class="doc-table">
+            <thead>
+                <tr>
+                    <th>Preset</th>
+                    <th>Meaning</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td><code>hourly</code></td><td>Every hour</td></tr>
+                <tr><td><code>daily</code></td><td>Every day at the same time</td></tr>
+                <tr><td><code>weekly</code></td><td>Every week on the same weekday</td></tr>
+                <tr><td><code>biweekly</code></td><td>Every 2 weeks</td></tr>
+                <tr><td><code>weekdays</code></td><td>Monday through Friday</td></tr>
+                <tr><td><code>weekends</code></td><td>Saturday and Sunday</td></tr>
+                <tr><td><code>monthly</code></td><td>Same day each month</td></tr>
+                <tr><td><code>yearly</code></td><td>Same date each year</td></tr>
+                <tr><td><code>every 2h</code></td><td>Custom interval (also <code>every 1h30m</code>, <code>every 3d</code>, etc.)</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ------------------------------------------------------------------ -->
+<div class="docs-section" id="manage">
+    <div class="docs-section-head">
+        <h2>Managing reminders</h2>
+        <span class="docs-section-tag">list edit delete</span>
+    </div>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/remind list</code>
+            <span class="doc-tag">servers, DMs and private channels</span>
+        </div>
+        <p class="doc-cmd-desc">Shows all your active reminders with their next trigger time, destination (DM or channel), and recurrence if any. Shows up to 25, with a note if you have more.</p>
+    </div>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/remind delete</code>
+            <span class="doc-tag">servers, DMs and private channels</span>
+        </div>
+        <p class="doc-cmd-desc">Delete a single reminder by its ID. The ID is shown in the list and when you create the reminder. Autocompletes from your active reminders.</p>
+        <div class="doc-cmd-widgets">
+            <div class="doc-widget">
+                <div class="doc-widget-label">Parameters</div>
+                <table class="doc-params">
+                    <tbody>
+                        <tr>
+                            <td><code>id</code></td>
+                            <td>The reminder ID. Required.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/remind edit</code>
+            <span class="doc-tag">servers, DMs and private channels</span>
+        </div>
+        <p class="doc-cmd-desc">Change the message, trigger time, or timezone of an existing reminder. The recurrence pattern cannot be changed. Provide at least one of the optional parameters.</p>
+        <div class="doc-cmd-widgets">
+            <div class="doc-widget">
+                <div class="doc-widget-label">Parameters</div>
+                <table class="doc-params">
+                    <tbody>
+                        <tr>
+                            <td><code>id</code></td>
+                            <td>The reminder ID. Required.</td>
+                        </tr>
+                        <tr>
+                            <td><code>message</code></td>
+                            <td>New reminder text. Optional.</td>
+                        </tr>
+                        <tr>
+                            <td><code>time</code></td>
+                            <td>New trigger time in any accepted format. Optional.</td>
+                        </tr>
+                        <tr>
+                            <td><code>timezone</code></td>
+                            <td>New timezone for this reminder. Optional.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/remind clear</code>
+            <span class="doc-tag">servers, DMs and private channels</span>
+        </div>
+        <p class="doc-cmd-desc">Delete all your reminders at once. Asks for confirmation before removing everything, including recurring ones.</p>
+    </div>
+</div>
+
+<!-- ------------------------------------------------------------------ -->
+<div class="docs-section" id="timezone">
+    <div class="docs-section-head">
+        <h2>Timezone handling</h2>
+        <span class="docs-section-tag">your default zone</span>
+    </div>
+
+    <p class="docs-lead">Reminders use your saved timezone by default, which starts as UTC. You can set a default with <code>/remind timezone</code> or override it per reminder with the <code>timezone:</code> parameter.</p>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/remind timezone</code>
+            <span class="doc-tag">servers, DMs and private channels</span>
+        </div>
+        <p class="doc-cmd-desc">View or set your default reminder timezone. Uses IANA timezone names like <code>Europe/Amsterdam</code>, <code>America/New_York</code>, <code>Asia/Tokyo</code>. Autocompletes as you type.</p>
+        <div class="doc-cmd-widgets">
+            <div class="doc-widget">
+                <div class="doc-widget-label">Parameters</div>
+                <table class="doc-params">
+                    <tbody>
+                        <tr>
+                            <td><code>timezone</code></td>
+                            <td>IANA timezone name. Leave empty to see your current setting. Optional.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="doc-callout">
+        <p><strong>Note on recurring reminders.</strong> When a recurring reminder fires, it reschedules itself to the next occurrence using the reminder timezone. If you change your default timezone later, existing recurring reminders keep their original timezone unless you edit them.</p>
+    </div>
+</div>
+
+<!-- ------------------------------------------------------------------ -->
+<div class="docs-section" id="delivery">
+    <div class="docs-section-head">
+        <h2>Delivery to channels</h2>
+        <span class="docs-section-tag">server channels</span>
+    </div>
+
+    <p class="docs-lead">Pass the <code>channel:</code> parameter to deliver in a server text channel instead of your DMs. The bot checks that it can view and send messages in that channel before creating the reminder. If the channel is deleted or the bot loses permissions, the reminder falls back to DMs.</p>
+</div>
+
+<!-- ------------------------------------------------------------------ -->
+<div class="docs-section" id="start">
+    <div class="docs-section-head">
+        <h2>Where to go next</h2>
+        <span class="docs-section-tag">keep exploring</span>
+    </div>
+    <p class="docs-lead">Set up daily prompts for your server with <a href="/docs/qotd">Question of the Day</a>, or explore the rest of the guides.</p>
+</div>
+
+{% endblock %}
