@@ -1,0 +1,28 @@
+<nav>
+    <div class="docs-toc-group">
+        <div class="docs-toc-group-title">Overview</div>
+        <a class="docs-toc-link {% if request.path == '/docs' %}active{% endif %}" href="/docs">Docs home</a>
+    </div>
+    <div class="docs-toc-group">
+        <div class="docs-toc-group-title">Basics</div>
+        <a class="docs-toc-link {% if request.path == '/docs/leveling' %}active{% endif %}" href="/docs/leveling">Leveling and XP</a>
+        <a class="docs-toc-link {% if request.path == '/docs/voting' %}active{% endif %}" href="/docs/voting">Voting and boosts</a>
+        <a class="docs-toc-link {% if request.path == '/docs/ai-chat' %}active{% endif %}" href="/docs/ai-chat">AI chat</a>
+        <a class="docs-toc-link {% if request.path == '/docs/qotd' %}active{% endif %}" href="/docs/qotd">Question of the Day</a>
+    </div>
+    <div class="docs-toc-group">
+        <div class="docs-toc-group-title">Play and manage</div>
+        <a class="docs-toc-link {% if request.path == '/docs/music' %}active{% endif %}" href="/docs/music">Music</a>
+        <a class="docs-toc-link {% if request.path == '/docs/games' %}active{% endif %}" href="/docs/games">Games</a>
+    </div>
+    <div class="docs-toc-group">
+        <div class="docs-toc-group-title">Automation</div>
+        <a class="docs-toc-link {% if request.path == '/docs/reminders' %}active{% endif %}" href="/docs/reminders">Reminders</a>
+        <a class="docs-toc-link {% if request.path == '/docs/giveaways' %}active{% endif %}" href="/docs/giveaways">Giveaways</a>
+    </div>
+    <div class="docs-toc-group">
+        <div class="docs-toc-group-title">Server</div>
+        <a class="docs-toc-link {% if request.path == '/docs/moderation' %}active{% endif %}" href="/docs/moderation">Moderation</a>
+        <a class="docs-toc-link {% if request.path == '/docs/config' %}active{% endif %}" href="/docs/config">Configuration</a>
+    </div>
+</nav>

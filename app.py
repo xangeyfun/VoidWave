@@ -433,9 +433,29 @@ def index():
 def setup():
     return render_template('setup.html'), 200
 
-@app.route('/commands')
-def commands():
-    return render_template('commands.html'), 200
+_DOCS_PAGES = {
+    'leveling': 'docs_leveling.html',
+    'voting': 'docs_voting.html',
+    'ai-chat': 'docs_ai_chat.html',
+    'qotd': 'docs_qotd.html',
+    'music': 'docs_music.html',
+    'games': 'docs_games.html',
+    'reminders': 'docs_reminders.html',
+    'giveaways': 'docs_giveaways.html',
+    'moderation': 'docs_moderation.html',
+    'config': 'docs_config.html',
+}
+
+@app.route('/docs')
+def docs():
+    return render_template('docs.html'), 200
+
+@app.route('/docs/<slug>')
+def docs_category(slug):
+    template = _DOCS_PAGES.get(slug)
+    if template is None:
+        return render_template('404.html'), 404
+    return render_template(template), 200
 
 @app.route('/terms')
 def terms():
