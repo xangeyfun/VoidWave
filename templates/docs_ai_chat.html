@@ -2,14 +2,14 @@
 
 {% block docs_page_title %}AI chat{% endblock %}
 
-{% block docs_meta_description %}Chat with VoidWave's self-hosted AI. How to talk to it, the Llama 3.2 model, per user and per server controls, cooldowns, and usage stats.{% endblock %}
+{% block docs_meta_description %}Chat with VoidWave's self hosted AI. How to talk to it, the Llama 3.2 model, per user and per server controls, cooldowns, and usage stats.{% endblock %}
 
 {% block docs_og_url %}/docs/ai-chat{% endblock %}
 {% block docs_og_title %}AI Chat Guide{% endblock %}
-{% block docs_og_description %}Talk to VoidWave's self-hosted Llama 3.2 AI. Mentions, replies, toggles, and privacy.{% endblock %}
+{% block docs_og_description %}Talk to VoidWave's self hosted Llama 3.2 AI. Mentions, replies, toggles, and privacy.{% endblock %}
 
 {% block docs_hero_title %}AI chat{% endblock %}
-{% block docs_hero_lead %}VoidWave runs a self-hosted Llama 3.2 language model, so you can chat with it directly in Discord. No third party AI services, no data leaving the server.{% endblock %}
+{% block docs_hero_lead %}VoidWave runs a self hosted Llama 3.2 language model, so you can chat with it directly in Discord. No third party AI services, no data leaving the server.{% endblock %}
 
 {% block docs_content %}
 
@@ -73,7 +73,7 @@
             </tr>
             <tr>
                 <td>Queue</td>
-                <td>The model processes one request at a time. If it is busy, your request is queued and a position message tells you where you stand.</td>
+                <td>Mentions and replies go through a message queue. If the bot is busy, your request is queued and a position message tells you where you stand. The queue takes up to 10 requests. The <code>/ai</code> command does not queue: when the model is busy, it asks you to try again shortly.</td>
             </tr>
             <tr>
                 <td>Context</td>
