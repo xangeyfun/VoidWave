@@ -1,0 +1,151 @@
+# Deploying VoidWave in production
+
+This is how the live setup at `voidwave.xangey.dev` is wired together. It is a
+reference, not a requirement: the code only hard-depends on **systemd** because
+the admin panel / health page talk to the `systemctl` binary.
+
+## What runs where
+
+Three things keep the service alive, all sharing the same `database.db` in the
+repo root:
+
+| Piece | Command | Managed by |
+| ----- | ------- | ---------- |
+| Discord bot | `./venv/bin/python bot.py` | `voidwave.service` |
+| Web dashboard + admin | `./venv/bin/python app.py` (binds `127.0.0.1:8002`) | `voidwave_website.service` |
+| Stats graphs | `./venv/bin/python generate_graphs.py` | cron |
+
+The unit names `voidwave.service` / `voidwave_website.service` are checked
+directly by the code (`admin/helpers.py`, `admin/health.py`), so keep those names
+if you want the admin panel's start/stop and health checks to work.
+
+## Prerequisites
+
+- Python 3.11+ and a `venv/` with `requirements.txt` installed.
+- `.env` in the **repo root**. Scripts use `load_dotenv()` and relative paths
+  (`database.db`, `questions.json`, `prompts/`, `templates/`, `stats_history.json`),
+  so every service must run with the repo root as its working directory.
+- Full AI chat: Ollama on `localhost:11434` with the `MODEL` pulled.
+- Music: a Lavalink 4.x server reachable at `LAVALINK_URI` / `LAVALINK_PASSWORD`.
+
+## systemd units
+
+### Bot: `voidwave.service`
+
+```ini
+[Unit]
+Description=VoidWave Discord bot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=voidwave
+WorkingDirectory=/opt/VoidWave
+ExecStart=/opt/VoidWave/venv/bin/python bot.py
+Restart=on-failure
+RestartSec=5
+# EnvironmentFile=/opt/VoidWave/.env   # optional; bot.py reads .env itself
+
+[Install]
+WantedBy=multi-user.target
+```
+
+The bot creates/patches the DB schema on startup and **re-syncs all slash
+commands globally** (`cogs/events.py` `tree.sync()`), so a restart takes a few
+extra seconds before commands appear; that's expected.
+
+### Website + admin: `voidwave_website.service`
+
+```ini
+[Unit]
+Description=VoidWave web dashboard
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=voidwave
+WorkingDirectory=/opt/VoidWave
+ExecStart=/opt/VoidWave/venv/bin/python app.py
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+```
+
+`app.py` listens on `127.0.0.1:8002` only; put a reverse proxy in front of it
+(see below).
+
+## Reverse proxy (HTTPS required)
+
+`app.py` sets `SESSION_COOKIE_SECURE = True`, so **it must be served over HTTPS**
+or admin login sessions won't stick. Example nginx block:
+
+```nginx
+server {
+    listen 443 ssl http2;
+    server_name voidwave.xangey.dev;
+
+    ssl_certificate     /etc/letsencrypt/live/voidwave.xangey.dev/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/voidwave.xangey.dev/privkey.pem;
+
+    location / {
+        proxy_pass http://127.0.0.1:8002;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # optional: upgrade HTTP -> HTTPS
+    listen 80;
+    server_name voidwave.xangey.dev;
+    return 301 https://$host$request_uri;
+}
+```
+
+The admin panel lives at `/admin`. It needs `ADMIN_PASSWORD` set (otherwise it
+returns 503) and sends a 2FA code to `ADMIN_WEBHOOK_URL` on every login.
+`ERROR_WEBHOOK_URL` receives every `ERROR+` log from bot and dashboard
+(falls back to `ADMIN_WEBHOOK_URL`).
+
+## Stats graphs
+
+The bot writes one snapshot per hour to `stats_history.json`
+(`cogs/events.py` `stats_log_loop`). Regenerate the graphs regularly with cron,
+e.g. hourly:
+
+```
+15 * * * *  cd /opt/VoidWave && ./venv/bin/python generate_graphs.py >> graphs.log 2>&1
+```
+
+This rebuilds `Graphs/*.png` and `static/images/stats.png` (the README banner).
+All of these are gitignored runtime artifacts.
+
+## Backups
+
+Use the admin panel's **Backups** page (`/admin/backups`); it exports `database.db`
+to `~/Backups/VoidWave` (`Path.home()`, the `voidwave` user's home) and keeps the
+48 newest; it can also restore. The health page flags a backup as stale when the
+newest is older than 7 days.
+
+## Logs
+
+- `journalctl -u voidwave.service --no-pager -n 100`
+- `journalctl -u voidwave_website.service --no-pager -n 100` (also shown in the
+  admin panel's bot page)
+- Repo-root file logs: `admin.log`, `command_logs.txt`, `graphs.log` (gitignored).
+
+## Updating
+
+```bash
+cd /opt/VoidWave
+sudo -u voidwave git pull
+sudo systemctl restart voidwave.service voidwave_website.service
+```
+
+The admin panel can also stop/restart the bot via **Bot** → **Stop/Restart**
+(this requires the shell user to have passwordless `sudo systemctl ...` rights;
+`admin/helpers.py` tries `systemctl` and then `sudo -n systemctl`).
