@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: VoidWave docs
+    url: https://voidwave.xangey.dev/docs
+    about: Feature docs, FAQ, and setup guides.
+  - name: Support server
+    url: https://discord.gg/tyQksBReAS
+    about: Ask questions and get help in the Discord server.
