@@ -1307,7 +1307,7 @@ class MusicCog(commands.Cog):
         deadline = self._idle_deadline(guild_id)
         if deadline is not None:
             note = (
-                f"I'll leave the voice channel in <t:{int(deadline)}:R> "
+                f"I'll leave the voice channel <t:{int(deadline)}:R> "
                 f"(<t:{int(deadline)}:t>) if nothing changes. "
                 "Join the channel or play a song to cancel it."
             )
