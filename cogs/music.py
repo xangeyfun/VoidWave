@@ -328,19 +328,32 @@ def _current_line(entries: list[tuple[int, str]], position_ms: int) -> int | Non
     return idx
 
 
+def _short(text: str, limit: int = 30) -> str:
+    return text if len(text) <= limit else text[: limit - 1] + "…"
+
+
 def now_playing_embed(track, player, requester=None, preview_lyrics: str | None = None, live_line: str | None = None, live_next: str | None = None):
     paused = player.paused
     pos = player.position
     length = track.length
     remaining = max(0, length - pos)
-    pct = round((pos / length * 100) if length else 0)
     bar = _progress_bar(pos, length)
+
+    queue_count = player.queue.count
+    next_track = None
+    if queue_count:
+        try:
+            next_track = player.queue.peek()
+        except wavelink.QueueEmpty:
+            next_track = None
 
     title = f"{'⏸️ Paused' if paused else '▶️ Now Playing'}"
     stats = (
-        f"`{fmt(pos)}` • `{pct}%` • `{_loop_label(player.queue.mode)}` • "
-        f"`{player.volume}% vol`"
-        + (f" • `Autoplay on`" if player.autoplay == wavelink.AutoPlayMode.enabled else "")
+        f"`{queue_count} left`"
+        + (f" • `Next: {_short(next_track.title, 18)}`" if next_track else " • `No more songs`")
+        + f" • `{_loop_label(player.queue.mode)}` • "
+        f"`🔊 {player.volume}%`"
+        + (f" • `✨ Autoplay`" if player.autoplay == wavelink.AutoPlayMode.enabled else "")
     )
     desc = (
         f"**[{track.title}]({track.uri})**\n"
@@ -370,7 +383,7 @@ def now_playing_embed(track, player, requester=None, preview_lyrics: str | None 
 
 
 def _loop_label(mode):
-    return {"normal": "No loop", "loop": "One loop", "loop_all": "Loop all"}.get(getattr(mode, "name", None), "No loop")
+    return {"normal": "🔁 off", "loop": "🔁 one", "loop_all": "🔁 all"}.get(getattr(mode, "name", None), "🔁 off")
 
 
 # ======================================================================
@@ -719,7 +732,7 @@ class QueueView(discord.ui.View):
 # Interactive Search Picker
 # ======================================================================
 class SearchPickerView(discord.ui.View):
-    def __init__(self, cog, tracks, interaction, user_id, query=""):
+    def __init__(self, cog, tracks, interaction, user_id, query="", act=None, verb="Playing", status_title="🎵 Searching..."):
         super().__init__(timeout=30)
         self.cog = cog
         self.tracks = tracks[:_MAX_SEARCH_RESULTS]
@@ -727,6 +740,9 @@ class SearchPickerView(discord.ui.View):
         self.user_id = user_id
         self.query = query
         self.picked = False
+        self.verb = verb
+        self.status_title = status_title
+        self.act = act or self._play
 
         options = []
         for i, t in enumerate(self.tracks):
@@ -746,21 +762,31 @@ class SearchPickerView(discord.ui.View):
         self._select.callback = self._on_select
         self.add_item(self._select)
 
+    async def _play(self, track):
+        await self.cog._play_from_search(self.interaction, track)
+
+    async def _pick(self, track, responder):
+        """Disable the view and hand the chosen track to self.act.
+        responder is an async callable that edits the picking message."""
+        for child in self.children:
+            child.disabled = True
+        try:
+            await responder(
+                embed=discord.Embed(title=self.status_title, description=f"{self.verb} **{track.title}**", color=VOIDWAVE_COLOR),
+                view=self,
+            )
+        except discord.HTTPException:
+            pass
+        await self.act(track)
+
     async def _on_select(self, interaction: discord.Interaction):
         if interaction.user.id != self.user_id:
             return await interaction.response.send_message("This search isn't for you.", ephemeral=True)
         if self.picked:
             return await interaction.response.send_message("Already picked a track.", ephemeral=True)
         self.picked = True
-        for child in self.children:
-            child.disabled = True
         idx = int(interaction.data["values"][0])
-        track = self.tracks[idx]
-        await interaction.response.edit_message(
-            embed=discord.Embed(title="🎵 Searching...", description=f"Playing **{track.title}**", color=VOIDWAVE_COLOR),
-            view=self,
-        )
-        await self.cog._play_from_search(self.interaction, track)
+        await self._pick(self.tracks[idx], interaction.response.edit_message)
 
     @discord.ui.button(label="Cancel", style=discord.ButtonStyle.secondary, row=1)
     async def on_cancel(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -786,14 +812,8 @@ class SearchPickerView(discord.ui.View):
         if self.picked:
             return await interaction.response.send_message("Already picked a track.", ephemeral=True)
         self.picked = True
-        for child in self.children:
-            child.disabled = True
         track = _best_result(self.query, self.tracks) or self.tracks[0]
-        await interaction.response.edit_message(
-            embed=discord.Embed(title="🎵 Searching...", description=f"Playing **{track.title}**", color=VOIDWAVE_COLOR),
-            view=self,
-        )
-        await self.cog._play_from_search(self.interaction, track)
+        await self._pick(track, interaction.response.edit_message)
 
     async def on_timeout(self):
         if self.picked:
@@ -804,12 +824,12 @@ class SearchPickerView(discord.ui.View):
         track = _best_result(self.query, self.tracks) or self.tracks[0]
         try:
             await self.interaction.edit_original_response(
-                embed=discord.Embed(title="⏱️ Search timed out", description=f"Auto-playing **{track.title}**", color=VOIDWAVE_COLOR),
+                embed=discord.Embed(title="⏱️ Search timed out", description=f"Auto-{self.verb.lower()} **{track.title}**", color=VOIDWAVE_COLOR),
                 view=self,
             )
         except discord.HTTPException:
             pass
-        await self.cog._play_from_search(self.interaction, track)
+        await self.act(track)
 
 
 # ======================================================================
@@ -938,6 +958,7 @@ class MusicCog(commands.Cog):
         self.player_messages: dict[int, discord.Message] = {}
         self._update_tasks: dict[int, asyncio.Task] = {}
         self._idle_tasks: dict[int, asyncio.Task] = {}
+        self._idle_until: dict[int, float] = {}
         self._empty_paused: dict[int, bool] = {}
         self.live_lyrics: dict[int, bool] = {}
         self._lyrics_cache: dict[str, list[tuple[int, str]]] = {}
@@ -1057,6 +1078,12 @@ class MusicCog(commands.Cog):
         try:
             if isinstance(player, wavelink.Player):
                 if player.channel and player.channel.id != vc.channel.id:
+                    if player.current is not None:
+                        await interaction.followup.send(
+                            f"Music is already playing in {player.channel.mention}. Join that channel to control it.",
+                            ephemeral=hidden,
+                        )
+                        return None
                     try:
                         await player.move_to(vc.channel)  # type: ignore
                     except Exception as e:
@@ -1109,10 +1136,137 @@ class MusicCog(commands.Cog):
                 await msg.edit(embed=discord.Embed(title=embed_title, description=embed_desc, color=VOIDWAVE_COLOR), view=view)
             except discord.HTTPException:
                 pass
+            self._drop_controller(guild_id)
+        else:
+            await self._edit_stale_controller(guild_id, embed_title=embed_title, embed_desc=embed_desc)
 
     async def _disconnect(self, player: wavelink.Player, *, embed_title: str = "Disconnected", embed_desc: str = "Left the voice channel and cleared the queue."):
         guild_id = player.guild.id if player.guild else 0
         await self._teardown_guild(guild_id, embed_title=embed_title, embed_desc=embed_desc)
+
+    def _save_controller(self, guild_id: int, channel_id: int, message_id: int):
+        try:
+            conn = get_db()
+            try:
+                conn.execute(
+                    "INSERT INTO music_controller (guild_id, channel_id, message_id, updated_at) "
+                    "VALUES (?, ?, ?, ?) "
+                    "ON CONFLICT(guild_id) DO UPDATE SET channel_id=excluded.channel_id, "
+                    "message_id=excluded.message_id, updated_at=excluded.updated_at",
+                    (guild_id, channel_id, message_id, int(time.time())),
+                )
+                conn.commit()
+            finally:
+                conn.close()
+        except sqlite3.Error as e:
+            logger.error("Failed to persist music controller for guild %s: %s", guild_id, e)
+
+    def _drop_controller(self, guild_id: int):
+        try:
+            conn = get_db()
+            try:
+                conn.execute("DELETE FROM music_controller WHERE guild_id=?", (guild_id,))
+                conn.commit()
+            finally:
+                conn.close()
+        except sqlite3.Error:
+            pass
+
+    def _all_controllers(self) -> list[dict]:
+        try:
+            conn = get_db()
+            try:
+                rows = conn.execute("SELECT guild_id, channel_id, message_id FROM music_controller").fetchall()
+                return [dict(r) for r in rows]
+            finally:
+                conn.close()
+        except sqlite3.Error:
+            return []
+
+    def _controller_row(self, guild_id: int) -> dict | None:
+        try:
+            conn = get_db()
+            try:
+                row = conn.execute(
+                    "SELECT guild_id, channel_id, message_id FROM music_controller WHERE guild_id=?", (guild_id,)
+                ).fetchone()
+                return dict(row) if row else None
+            finally:
+                conn.close()
+        except sqlite3.Error:
+            return None
+
+    async def _edit_stale_controller(self, guild_id: int, *, embed_title: str = "Music stopped", embed_desc: str = "I came back online and playback was stopped. Run /music play to start again."):
+        """Edit a persisted controller message that this process has no in-memory reference to."""
+        row = self._controller_row(guild_id)
+        if not row:
+            return
+        channel = None
+        guild = self.bot.get_guild(guild_id)
+        if guild is not None:
+            channel = guild.get_channel(row["channel_id"])
+        if channel is None or not hasattr(channel, "fetch_message"):
+            self._drop_controller(guild_id)
+            return
+        try:
+            msg = await channel.fetch_message(row["message_id"])
+        except discord.HTTPException:
+            self._drop_controller(guild_id)
+            return
+        view = MusicPlayerView(self, guild_id)
+        for child in view.children:
+            child.disabled = True
+        try:
+            await msg.edit(embed=discord.Embed(title=embed_title, description=embed_desc, color=VOIDWAVE_COLOR), view=view)
+        except discord.HTTPException:
+            pass
+        self._drop_controller(guild_id)
+        logger.info("Edited stale music controller in guild %s", guild_id)
+
+    async def _recover_after_restart(self):
+        if getattr(self, "_recovery_done", False):
+            return
+        self._recovery_done = True
+        await asyncio.sleep(3)
+
+        stale_guilds: set[int] = set()
+        nodes = list(wavelink.Pool.nodes.values())
+        for node in nodes:
+            for gid in node.players:
+                if gid not in self.players:
+                    stale_guilds.add(gid)
+        for guild in self.bot.guilds:
+            if guild.id not in self.players and guild.me and guild.me.voice and guild.me.voice.channel:
+                stale_guilds.add(guild.id)
+
+        for gid in stale_guilds:
+            guild = self.bot.get_guild(gid)
+            if guild is None:
+                continue
+            player = None
+            for node in nodes:
+                candidate = node.players.get(gid)
+                if isinstance(candidate, wavelink.Player):
+                    player = candidate
+                    break
+            if isinstance(player, wavelink.Player) and player.connected:
+                try:
+                    await player.disconnect()
+                except Exception as e:
+                    logger.error("Failed to disconnect stale player in guild %s: %s", gid, e)
+                logger.info("Left stale voice connection in guild %s after restart", gid)
+            elif guild.me and guild.me.voice and guild.me.voice.channel:
+                try:
+                    await guild.change_voice_state(channel=None)
+                except Exception as e:
+                    logger.error("Failed to leave stale voice channel in guild %s: %s", gid, e)
+                logger.info("Left lingering voice channel in guild %s after restart", gid)
+
+        for row in self._all_controllers():
+            gid = row["guild_id"]
+            if gid in self.players:
+                continue
+            await self._edit_stale_controller(gid)
 
     # ------------------------------------------------------------------
     # Player view management
@@ -1127,19 +1281,61 @@ class MusicCog(commands.Cog):
     # ------------------------------------------------------------------
     def _cancel_idle(self, guild_id: int):
         task = self._idle_tasks.pop(guild_id, None)
+        self._idle_until.pop(guild_id, None)
         if task and not task.done():
             task.cancel()
 
     def _start_idle_countdown(self, guild_id: int, *, paused_for_empty: bool = False):
-        if guild_id in self._idle_tasks:
+        existing = self._idle_tasks.get(guild_id)
+        if existing and not existing.done():
             return
         if paused_for_empty:
             self._empty_paused[guild_id] = True
+        self._idle_until[guild_id] = time.time() + _EMPTY_LEAVE_DELAY
         self._idle_tasks[guild_id] = self.bot.loop.create_task(self._idle_countdown_loop(guild_id))
+        reason = "voice channel is empty" if paused_for_empty else "queue finished"
+        logger.info("Starting idle leave countdown in guild %s (%s), leaving in %ss", guild_id, reason, _EMPTY_LEAVE_DELAY)
+        asyncio.create_task(self._show_idle_leave_eta(guild_id))
+
+    def _idle_deadline(self, guild_id: int) -> float | None:
+        task = self._idle_tasks.get(guild_id)
+        if task and not task.done():
+            return self._idle_until.get(guild_id)
+        return None
+
+    def _add_idle_note(self, embed: discord.Embed, guild_id: int) -> discord.Embed:
+        deadline = self._idle_deadline(guild_id)
+        if deadline is not None:
+            note = (
+                f"I'll leave the voice channel in <t:{int(deadline)}:R> "
+                f"(<t:{int(deadline)}:t>) if nothing changes. "
+                "Join the channel or play a song to cancel it."
+            )
+            if len(embed.fields) >= 25:
+                embed.set_footer(text=note)
+            else:
+                embed.add_field(name="⏳ Leaving soon", value=note, inline=False)
+        return embed
+
+    async def _show_idle_leave_eta(self, guild_id: int):
+        """Update the player controller to show the idle leave countdown."""
+        msg = self.player_messages.get(guild_id)
+        view = self.player_views.get(guild_id)
+        if not msg or not view:
+            return
+        try:
+            embed = msg.embeds[0].copy() if msg.embeds else discord.Embed(title="Music finished", color=VOIDWAVE_COLOR)
+            self._add_idle_note(embed, guild_id)
+            await msg.edit(embed=embed, view=view)
+        except discord.HTTPException:
+            pass
 
     async def _idle_countdown_loop(self, guild_id: int):
         try:
             await asyncio.sleep(_EMPTY_LEAVE_DELAY)
+        except asyncio.CancelledError:
+            return
+        try:
             player = self.players.get(guild_id)
             if not isinstance(player, wavelink.Player) or not player.connected or not player.channel:
                 return
@@ -1151,15 +1347,22 @@ class MusicCog(commands.Cog):
                     self._empty_paused.pop(guild_id, None)
                     await self._sync_player_view(guild_id)
                     return
+                self._idle_tasks.pop(guild_id, None)
+                logger.info("Idle leave countdown expired in guild %s, leaving voice channel", guild_id)
                 await self._disconnect(player, embed_desc="Left the voice channel because nobody returned within 3 minutes. Run /music play to start again.")
                 return
             if player.playing and not player.paused:
+                logger.info("Music restarted during idle countdown in guild %s, staying connected.", guild_id)
                 return
+            self._idle_tasks.pop(guild_id, None)
+            logger.info("Idle leave countdown expired in guild %s, leaving voice channel", guild_id)
             await self._disconnect(player, embed_desc="Finished playing. Left after 3 minutes of inactivity. Run /music play to start again.")
         except asyncio.CancelledError:
             pass
         except Exception as e:
             logger.error("Idle leave countdown error in guild %s: %s", guild_id, e)
+        finally:
+            self._idle_tasks.pop(guild_id, None)
 
     def _cache_key(self, track) -> str:
         return f"{track.source or ''}|{track.title}|{track.author}"
@@ -1245,9 +1448,11 @@ class MusicCog(commands.Cog):
                     if self.live_lyrics.get(guild_id):
                         cur, nxt, _ = await self._live_lyric(guild_id, player, player.current)
                         last_line, last_line_next = cur, nxt
-                        await msg.edit(embed=now_playing_embed(player.current, player, live_line=cur, live_next=nxt), view=view)
+                        embed = now_playing_embed(player.current, player, live_line=cur, live_next=nxt)
                     else:
-                        await msg.edit(embed=now_playing_embed(player.current, player), view=view)
+                        embed = now_playing_embed(player.current, player)
+                    embed = self._add_idle_note(embed, guild_id)
+                    await msg.edit(embed=embed, view=view)
                 except discord.HTTPException:
                     break
         except asyncio.CancelledError:
@@ -1263,8 +1468,9 @@ class MusicCog(commands.Cog):
             return
         view._update_button_states(player)
         cur, nxt, _ = await self._live_lyric(guild_id, player, player.current)
+        embed = self._add_idle_note(now_playing_embed(player.current, player, live_line=cur, live_next=nxt), guild_id)
         try:
-            await msg.edit(embed=now_playing_embed(player.current, player, live_line=cur, live_next=nxt), view=view)
+            await msg.edit(embed=embed, view=view)
         except discord.HTTPException:
             pass
 
@@ -1282,6 +1488,7 @@ class MusicCog(commands.Cog):
         view._message_id = msg.id
         self.player_messages[guild_id] = msg
         self._start_update_task(guild_id, msg)
+        self._save_controller(guild_id, msg.channel.id, msg.id)
         if self.live_lyrics.get(guild_id):
             self._ensure_lyrics_loaded(track)
 
@@ -1320,6 +1527,7 @@ class MusicCog(commands.Cog):
             view._message_id = msg.id
             self.player_messages[guild_id] = msg
             self._start_update_task(guild_id, msg)
+            self._save_controller(guild_id, msg.channel.id, msg.id)
         except discord.HTTPException:
             return
 
@@ -1375,6 +1583,9 @@ class MusicCog(commands.Cog):
                 self._view_registered = True
             except Exception as e:
                 logger.error("Failed to register persistent music view: %s", e)
+        if not getattr(self, "_fallback_scheduled", False):
+            self._fallback_scheduled = True
+            self.bot.loop.create_task(self._fallback_recovery())
         if wavelink.Pool.nodes:
             return
         uri = os.getenv("LAVALINK_URI", "http://localhost:2333")
@@ -1385,9 +1596,15 @@ class MusicCog(commands.Cog):
         except Exception as e:
             logger.error("Failed to connect to Lavalink node at %s: %s", uri, e)
 
+    async def _fallback_recovery(self):
+        """Run recovery once regardless of node state, in case Lavalink is down at startup."""
+        await asyncio.sleep(60)
+        await self._recover_after_restart()
+
     @commands.Cog.listener()
     async def on_wavelink_node_ready(self, payload: wavelink.NodeReadyEventPayload):
         logger.info("Lavalink node ready: %s", payload.node.uri)
+        await self._recover_after_restart()
 
     @commands.Cog.listener()
     async def on_wavelink_node_closed(self, node, disconnected: list):
@@ -2145,8 +2362,30 @@ class MusicCog(commands.Cog):
             track = tracks.tracks[0]
         else:
             results = list(tracks)
-            track = _best_result(query, results) or results[0]
+            if len(results) > 1:
+                view = SearchPickerView(
+                    self,
+                    results,
+                    interaction,
+                    interaction.user.id,
+                    query=query,
+                    act=lambda t, entry=entry: self._add_track_to_playlist(interaction, t, entry, query, hidden),
+                    verb="Adding",
+                    status_title="🎵 Adding to playlist...",
+                )
+                lines = []
+                for i, t in enumerate(results[:_MAX_SEARCH_RESULTS], 1):
+                    icon = _source_icon(t.source)
+                    lines.append(f"**{i}.** {icon} [{t.title}]({t.uri}) - *{t.author}* `{fmt(t.length)}`")
+                embed = discord.Embed(title="🔍 Search Results", description="\n".join(lines), color=VOIDWAVE_COLOR)
+                embed.set_footer(text="Pick a result or wait to auto-add the best match")
+                await interaction.followup.send(embed=embed, view=view, ephemeral=hidden)
+                return
+            track = results[0]
 
+        await self._add_track_to_playlist(interaction, track, entry, query, hidden)
+
+    async def _add_track_to_playlist(self, interaction: discord.Interaction, track, entry, query: str, hidden: bool):
         conn = get_db()
         try:
             count = conn.execute("SELECT COUNT(*) AS c FROM playlist_tracks WHERE playlist_id=?", (entry["id"],)).fetchone()["c"]
