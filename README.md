@@ -66,6 +66,9 @@ so i built one that's clean, private, and actually free.
 
 you need python 3.11+, ollama with a model pulled, and a discord bot token.
 
+running this in production (systemd units, reverse proxy, graphs cron, backups)?
+see [DEPLOYMENT.md](DEPLOYMENT.md).
+
 ```bash
 git clone https://github.com/xangeyfun/VoidWave
 cd VoidWave
@@ -119,6 +122,10 @@ joins within 3 minutes, VoidWave leaves.
 ## Contributing
 
 contributions are welcome. open an issue or submit a pull request on github.
+
+please read [CONTRIBUTING.md](CONTRIBUTING.md) first. this project is governed by
+a [Code of Conduct](CODE_OF_CONDUCT.md); please report security issues privately
+per [SECURITY.md](SECURITY.md).
 
 ---
 
