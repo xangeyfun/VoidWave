@@ -1,0 +1,18 @@
+name: Feature request
+description: Suggest an idea for VoidWave
+labels: ["enhancement"]
+body:
+  - type: textarea
+    attributes:
+      label: What would you like added?
+      description: A clear description of the feature and what problem it solves.
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: How should it behave?
+      description: Command name, slash-command structure, or UI flow you imagine.
+  - type: textarea
+    attributes:
+      label: Additional context
+      description: Screenshots, links to similar bots/features, etc.
