@@ -14,6 +14,7 @@
 
 ![GitHub stars](https://img.shields.io/github/stars/xangeyfun/VoidWave?style=social)
 ![GitHub last commit](https://img.shields.io/github/last-commit/xangeyfun/VoidWave)
+![Tests](https://img.shields.io/github/actions/workflow/status/xangeyfun/VoidWave/tests.yml?branch=main)
 ![GitHub issues](https://img.shields.io/github/issues/xangeyfun/VoidWave)
 ![Code size](https://img.shields.io/github/languages/code-size/xangeyfun/VoidWave)
 

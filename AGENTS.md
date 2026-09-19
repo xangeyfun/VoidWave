@@ -1,6 +1,6 @@
 # AGENTS.md
 
-VoidWave: Discord bot (discord.py 2.x, `cogs/`) + Flask web dashboard (`app.py`, `templates/`, `static/`) that share a single SQLite DB as separate processes. No lint config, no pyproject; Python 3.11+ (local `venv/` is 3.13). Tests are a small network-free pytest suite in `tests/`, run in CI (`.github/workflows/tests.yml`); verify other changes by running the scripts.
+VoidWave: Discord bot (discord.py 2.x, `cogs/`) + Flask web dashboard (`app.py`, `templates/`, `static/`) that share a single SQLite DB as separate processes. Ruff config lives in `pyproject.toml` (rules `E4`,`E7`,`E9`,`F`,`I`); Python 3.11+ (local `venv/` is 3.13). Tests are a small network-free pytest suite in `tests/`, run in CI (`.github/workflows/tests.yml`); verify other changes by running the scripts.
 
 ## Run commands
 
@@ -9,6 +9,7 @@ venv/bin/python bot.py             # bot (applies/create_schema patch DB schema,
 venv/bin/python app.py             # web dashboard, 127.0.0.1:8002 (admin blueprint included)
 venv/bin/python generate_graphs.py # rebuild Graphs/*.png + README banner from stats_history.json
 venv/bin/python -m pytest -q       # run tests (needs ./venv/bin/pip install -r requirements-dev.txt; no Ollama/Lavalink/token needed)
+venv/bin/python -m ruff check .    # lint, also enforced in CI
 ```
 
 - Copy `.env.example` → `.env`. `ADMIN_PASSWORD` is required or /admin returns 503.
