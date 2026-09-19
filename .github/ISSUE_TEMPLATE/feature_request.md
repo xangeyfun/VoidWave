@@ -1,6 +1,6 @@
+---
 name: Feature request
 description: Suggest an idea for VoidWave
-labels: ["enhancement"]
 body:
   - type: textarea
     attributes:
@@ -16,3 +16,6 @@ body:
     attributes:
       label: Additional context
       description: Screenshots, links to similar bots/features, etc.
+---
+
+<!-- Thanks for the idea! -->
