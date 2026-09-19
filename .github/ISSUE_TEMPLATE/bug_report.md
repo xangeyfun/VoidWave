@@ -1,6 +1,6 @@
+---
 name: Bug report
-description: Report a bug or unexpectaffected behavior
-labels: ["bug"]
+description: Report a bug or unexpected behavior
 body:
   - type: checkboxes
     attributes:
@@ -51,3 +51,6 @@ body:
     attributes:
       label: Environment (optional)
       description: Python version, OS, discord.py version (`pip show discord.py`), Lavalink version, Ollama model.
+---
+
+<!-- Thanks for reporting! Fill in the fields above. -->
