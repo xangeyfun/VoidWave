@@ -31,7 +31,7 @@
             <code>/music play</code>
             <span class="doc-tag">server only</span>
         </div>
-        <p class="doc-cmd-desc">Start playback or add to the queue. If the search returns several candidates, an interactive picker lets you choose the right one. When nothing is picked it auto plays the best match after a moment.</p>
+        <p class="doc-cmd-desc">Start playback or add to the queue. If the search returns several candidates, an interactive picker lets you choose the right one. When nothing is picked within 30 seconds, it auto plays the best match.</p>
         <div class="doc-cmd-widgets">
             <div class="doc-widget">
                 <div class="doc-widget-label">Accepted inputs</div>
@@ -47,7 +47,7 @@
                         </tr>
                         <tr>
                             <td>Spotify</td>
-                            <td>Track, album, or playlist links. VoidWave reads the Spotify metadata and plays the matching YouTube audio, since Discord audio works best from YouTube.</td>
+                            <td>Track, album, or playlist links. VoidWave reads the Spotify metadata and plays the matching YouTube audio, since Discord audio works best from YouTube. A collection link plays its single best match rather than every track.</td>
                         </tr>
                     </tbody>
                 </table>
@@ -176,7 +176,7 @@
             <code>/music skip</code>
             <span class="doc-tag">server only</span>
         </div>
-        <p class="doc-cmd-desc">Skip the current track. The person who started the queue skips instantly. Everyone else votes: the required number is half the non bot listeners in the channel, rounded up, plus one. Votes also count from the player's next button.</p>
+        <p class="doc-cmd-desc">Skip the current track. The person who started the queue skips instantly. Everyone else votes: the required number is half of the non bot listeners in the channel, rounded down, plus one. Votes also count from the player's next button.</p>
     </div>
 
     <div class="doc-cmd">
@@ -395,7 +395,7 @@
             <code>/music playlist add</code>
             <span class="doc-tag">server only</span>
         </div>
-        <p class="doc-cmd-desc">Add a track to a playlist. Accepts a URL or search term, exactly like <code>/music play</code>, and picks a matching result for you.</p>
+        <p class="doc-cmd-desc">Add a track to a playlist. Accepts a URL or search term, exactly like <code>/music play</code>. If the search returns several candidates, the same picker lets you choose the right one, and auto adds the best match when nothing is picked within 30 seconds.</p>
         <div class="doc-cmd-widgets">
             <div class="doc-widget">
                 <div class="doc-widget-label">Parameters</div>
