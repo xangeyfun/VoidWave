@@ -1,13 +1,14 @@
+import asyncio
+import html as html_module
+import logging
+import random
+import time
+
+import discord
 from discord import app_commands
 from discord.ext import commands
-import discord
-import random
-import html as html_module
-import asyncio
-import time
-import logging
-import utils
 
+import utils
 
 VOIDWAVE_COLOR = 0x7128fc
 
@@ -1031,9 +1032,9 @@ class HangmanView(discord.ui.View):
         else:
             title = "✏️ Hangman"
             color = discord.Color(VOIDWAVE_COLOR)
-            description = f"> Guess the word! Select a letter below."
+            description = "> Guess the word! Select a letter below."
 
-        wrong_letters = " ".join(sorted(l for l in self.guessed if l not in self.word))
+        wrong_letters = " ".join(sorted(letter for letter in self.guessed if letter not in self.word))
         embed = discord.Embed(
             title=title,
             description=(
@@ -1091,7 +1092,7 @@ class _HangmanSelect(discord.ui.Select):
     def __init__(self, placeholder, letters, view, row=0):
         self.letters = list(letters)
         self.game_view = view
-        options = [discord.SelectOption(label=l, value=l) for l in self.letters]
+        options = [discord.SelectOption(label=letter, value=letter) for letter in self.letters]
         super().__init__(
             placeholder=placeholder,
             options=options,
@@ -1102,15 +1103,15 @@ class _HangmanSelect(discord.ui.Select):
         self._reset()
 
     def remaining(self):
-        return [l for l in self.letters if l not in self.game_view.guessed]
+        return [letter for letter in self.letters if letter not in self.game_view.guessed]
 
     def rebuild(self, guessed):
-        remaining = [l for l in self.letters if l not in guessed]
+        remaining = [letter for letter in self.letters if letter not in guessed]
         if not remaining:
             self.placeholder = "Done"
         else:
             self.placeholder = remaining[0] + "-" + remaining[-1]
-        self.options = [discord.SelectOption(label=l, value=l) for l in remaining]
+        self.options = [discord.SelectOption(label=letter, value=letter) for letter in remaining]
         if self.values:
             self._reset()
 

@@ -1,12 +1,14 @@
-from discord import app_commands
-from discord.ext import commands
-import discord
-import time
 import datetime
 import logging
-from utils import startup, get_db, is_blocked, block_reply
-from cogs.rating import send_rating_prompt
+import time
+
+import discord
+from discord import app_commands
+from discord.ext import commands
+
 from cogs.config import config_help_embed
+from cogs.rating import send_rating_prompt
+from utils import block_reply, get_db, is_blocked, startup
 
 logger = logging.getLogger("cogs.general")
 

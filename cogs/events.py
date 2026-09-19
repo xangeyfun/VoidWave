@@ -1,24 +1,41 @@
-from discord.ext import commands, tasks
-import discord
-import unicodedata
-import traceback
-import datetime
-import aiohttp
 import asyncio
+import datetime
 import io
-import time
-import os
 import json
 import logging
-from utils import (
-    get_db, log_stats, add_message_xp, send_qotd, llm_worker,
-    LLMRequest, get_command_path, extract_options, startup,
-    last_llm, llm_queue, llm_queue_size, LLM_COOLDOWN, TOPGG_TOKEN, DBL_TOKEN,
-    http_session as _http_session, log_admin_event, qotd_now, qotd_minutes,
-    is_blocked, block_reply,
-)
-from cogs.rating import send_rating_prompt
+import os
+import time
+import traceback
+import unicodedata
+
+import aiohttp
+import discord
+from discord.ext import commands, tasks
+
 import utils
+from cogs.rating import send_rating_prompt
+from utils import (
+    DBL_TOKEN,
+    LLM_COOLDOWN,
+    TOPGG_TOKEN,
+    LLMRequest,
+    add_message_xp,
+    block_reply,
+    extract_options,
+    get_command_path,
+    get_db,
+    is_blocked,
+    last_llm,
+    llm_queue,
+    llm_queue_size,
+    llm_worker,
+    log_admin_event,
+    log_stats,
+    qotd_minutes,
+    qotd_now,
+    send_qotd,
+    startup,
+)
 
 logger = logging.getLogger("cogs.events")
 
@@ -274,7 +291,7 @@ class EventsCog(commands.Cog):
             e = str(e)
             trace = traceback.format_exc()
             logger.error("Failed to process message for leveling: %s\n```\n%s```", e, trace)
-            await message.reply(f"Something went wrong while processing that message. The developers have been notified.", allowed_mentions=discord.AllowedMentions(users=False))
+            await message.reply("Something went wrong while processing that message. The developers have been notified.", allowed_mentions=discord.AllowedMentions(users=False))
             return
 
     async def relay_dm_feedback(self, message):
@@ -544,8 +561,8 @@ class EventsCog(commands.Cog):
         statuses = [
             f"/help • {guilds} Servers",
             f"/help • {members:,} Members",
-            f"/help • voidwave.xangey.dev",
-            f"/help • VoidWave",
+            "/help • voidwave.xangey.dev",
+            "/help • VoidWave",
         ]
 
         activity = discord.CustomActivity(

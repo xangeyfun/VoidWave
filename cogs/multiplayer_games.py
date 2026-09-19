@@ -1,12 +1,12 @@
-from discord import app_commands
-from discord.ext import commands
-import discord
+import logging
 import random
 import time
-import logging
+
+import discord
+from discord import app_commands
+from discord.ext import commands
 
 from . import games as gm
-
 
 VOIDWAVE_COLOR = gm.VOIDWAVE_COLOR
 CHALLENGE_TIME = 60

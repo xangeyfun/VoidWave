@@ -1,19 +1,18 @@
-from discord import app_commands
-from discord.ext import commands
-import discord
-import aiohttp
 import asyncio
-import os
 import logging
+import os
+import re
 import sqlite3
 import time
 from difflib import SequenceMatcher
 
-import re
-
+import aiohttp
+import discord
 import wavelink
+from discord import app_commands
+from discord.ext import commands
 
-from utils import is_blocked, block_reply, get_db
+from utils import block_reply, get_db, is_blocked
 
 logger = logging.getLogger("cogs.music")
 
@@ -353,7 +352,7 @@ def now_playing_embed(track, player, requester=None, preview_lyrics: str | None 
         + (f" • `Next: {_short(next_track.title, 18)}`" if next_track else " • `No more songs`")
         + f" • `{_loop_label(player.queue.mode)}` • "
         f"`🔊 {player.volume}%`"
-        + (f" • `✨ Autoplay`" if player.autoplay == wavelink.AutoPlayMode.enabled else "")
+        + (" • `✨ Autoplay`" if player.autoplay == wavelink.AutoPlayMode.enabled else "")
     )
     desc = (
         f"**[{track.title}]({track.uri})**\n"
@@ -690,7 +689,7 @@ class QueueView(discord.ui.View):
         upcoming = list(player.queue)
         if idx < 0 or idx >= len(upcoming):
             return await interaction.response.defer()
-        removed = player.queue.delete(idx)
+        player.queue.delete(idx)
         await interaction.response.edit_message(embed=self.build_embed(), view=self)
 
     @discord.ui.button(emoji="◀️", style=discord.ButtonStyle.secondary, row=0)
@@ -1430,7 +1429,6 @@ class MusicCog(commands.Cog):
         self._update_tasks[guild_id] = self.bot.loop.create_task(self._player_update_loop(guild_id))
 
     async def _player_update_loop(self, guild_id: int):
-        last_line = last_line_next = None
         try:
             while True:
                 await asyncio.sleep(1.0)
@@ -1447,7 +1445,7 @@ class MusicCog(commands.Cog):
                 try:
                     if self.live_lyrics.get(guild_id):
                         cur, nxt, _ = await self._live_lyric(guild_id, player, player.current)
-                        last_line, last_line_next = cur, nxt
+                        _last_line, _last_line_next = cur, nxt
                         embed = now_playing_embed(player.current, player, live_line=cur, live_next=nxt)
                     else:
                         embed = now_playing_embed(player.current, player)

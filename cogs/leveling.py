@@ -1,12 +1,25 @@
-from discord import app_commands
-from discord.ext import commands, tasks
 import asyncio
-import discord
+import logging
 import math
 import random
 import time
-import logging
-from utils import get_db, format_minutes, last_vc, VC_COOLDOWN, last_xp, XP_COOLDOWN, get_vote_boost, build_level_up_embed, log_admin_event, LEVEL_TIERS, LEVEL_RANK_UP_LEVELS
+
+import discord
+from discord import app_commands
+from discord.ext import commands, tasks
+
+from utils import (
+    LEVEL_RANK_UP_LEVELS,
+    LEVEL_TIERS,
+    VC_COOLDOWN,
+    XP_COOLDOWN,
+    build_level_up_embed,
+    format_minutes,
+    get_db,
+    last_vc,
+    last_xp,
+    log_admin_event,
+)
 
 logger = logging.getLogger("cogs.leveling")
 

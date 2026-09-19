@@ -1,10 +1,11 @@
 import datetime
-from zoneinfo import ZoneInfo, available_timezones
 import logging
+from zoneinfo import ZoneInfo, available_timezones
 
+import discord
 from discord import app_commands
 from discord.ext import commands
-import discord
+
 from utils import get_db, level_autocomplete, qotd_minutes, qotd_now, qotd_tz_label
 
 logger = logging.getLogger("cogs.config")
@@ -288,7 +289,7 @@ class ConfigCog(commands.Cog):
             qotd_channel = cur.execute("SELECT qotd_channel, qotd_enabled, delete_old_qotd, qotd_time, qotd_tz FROM guild_settings WHERE guild_id = ?", (interaction.guild.id,)).fetchone() # type: ignore
         except Exception as e:
             logger.error("Failed to fetch config: %s", e)
-            await interaction.response.send_message(f"Failed to fetch config. Please try again later.", ephemeral=True)
+            await interaction.response.send_message("Failed to fetch config. Please try again later.", ephemeral=True)
             return
         finally:
             conn.close()
@@ -714,7 +715,7 @@ class ConfigCog(commands.Cog):
 
         except Exception as e:
             logger.error("Failed to toggle level channel: %s", e)
-            await interaction.response.send_message(f"Failed to update level up message setting. Please try again later.", ephemeral=True)
+            await interaction.response.send_message("Failed to update level up message setting. Please try again later.", ephemeral=True)
             return
         finally:
             conn.close()
@@ -824,7 +825,7 @@ class ConfigCog(commands.Cog):
 
         except Exception as e:
             logger.error("Failed to set QOTD channel: %s", e)
-            await interaction.response.send_message(f"Failed to set QOTD channel. Please try again later.", ephemeral=True)
+            await interaction.response.send_message("Failed to set QOTD channel. Please try again later.", ephemeral=True)
             return
         finally:
             conn.close()
@@ -872,7 +873,7 @@ class ConfigCog(commands.Cog):
             conn.commit()
         except Exception as e:
             logger.error("Failed to set QOTD time: %s", e)
-            await interaction.response.send_message(f"Failed to set QOTD time. Please try again later.", ephemeral=True)
+            await interaction.response.send_message("Failed to set QOTD time. Please try again later.", ephemeral=True)
             return
         finally:
             conn.close()
@@ -917,7 +918,7 @@ class ConfigCog(commands.Cog):
 
         except Exception as e:
             logger.error("Failed to set QOTD enabled: %s", e)
-            await interaction.response.send_message(f"Failed to update QOTD setting. Please try again later.", ephemeral=True)
+            await interaction.response.send_message("Failed to update QOTD setting. Please try again later.", ephemeral=True)
             return
         finally:
             conn.close()
@@ -948,7 +949,7 @@ class ConfigCog(commands.Cog):
 
         except Exception as e:
             logger.error("Failed to set QOTD role: %s", e)
-            await interaction.response.send_message(f"Failed to set QOTD role. Please try again later.", ephemeral=True)
+            await interaction.response.send_message("Failed to set QOTD role. Please try again later.", ephemeral=True)
             return
         finally:
             conn.close()
@@ -992,7 +993,7 @@ class ConfigCog(commands.Cog):
 
         except Exception as e:
             logger.error("Failed to set delete old QOTD: %s", e)
-            await interaction.response.send_message(f"Failed to update delete old QOTD setting. Please try again later.", ephemeral=True)
+            await interaction.response.send_message("Failed to update delete old QOTD setting. Please try again later.", ephemeral=True)
             return
         finally:
             conn.close()

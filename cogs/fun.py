@@ -1,11 +1,13 @@
-from discord import app_commands, Interaction
-from discord.ext import commands
-from simpleeval import simple_eval
-import discord
-import random
 import logging
 import math
+import random
 import re
+
+import discord
+from discord import Interaction, app_commands
+from discord.ext import commands
+from simpleeval import simple_eval
+
 import utils
 
 logger = logging.getLogger("cogs.fun")

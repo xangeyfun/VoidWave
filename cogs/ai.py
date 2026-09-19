@@ -1,9 +1,20 @@
+import logging
+import time
+
+import discord
 from discord import app_commands
 from discord.ext import commands
-import discord
-import time
-import logging
-from utils import get_db, get_llm_response, last_llm, llm_queue_size, ai_processing, LLM_COOLDOWN, is_blocked, block_reply
+
+from utils import (
+    LLM_COOLDOWN,
+    ai_processing,
+    block_reply,
+    get_db,
+    get_llm_response,
+    is_blocked,
+    last_llm,
+    llm_queue_size,
+)
 
 logger = logging.getLogger("cogs.ai")
 
