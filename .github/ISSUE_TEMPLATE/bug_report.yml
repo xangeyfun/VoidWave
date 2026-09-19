@@ -1,4 +1,3 @@
----
 name: Bug report
 description: Report a bug or unexpected behavior
 body:
@@ -25,7 +24,7 @@ body:
       placeholder: |
         1. Invite the bot to a server
         2. Run /music play https://...
-        3. …
+        3. ...
     validations:
       required: true
   - type: textarea
@@ -51,6 +50,3 @@ body:
     attributes:
       label: Environment (optional)
       description: Python version, OS, discord.py version (`pip show discord.py`), Lavalink version, Ollama model.
----
-
-<!-- Thanks for reporting! Fill in the fields above. -->
