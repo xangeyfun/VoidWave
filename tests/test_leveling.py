@@ -1,8 +1,6 @@
-import sqlite3
 import time
 
 import utils
-
 
 G = 1001
 U = 2002

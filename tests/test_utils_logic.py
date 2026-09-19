@@ -81,8 +81,8 @@ def test_block_reply_no_block():
 
 
 def test_block_reply_with_expiry_and_note():
-    import sqlite3
     import time
+
     import utils as u
 
     conn = u.get_db()

@@ -1,15 +1,16 @@
 import matplotlib
+
 matplotlib.use("Agg")
 
+import json
+import logging
+import os
+from datetime import datetime
+
+import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
-import matplotlib.dates as mdates
-from matplotlib.patches import FancyBboxPatch
-from datetime import datetime
 import numpy as np
-import json
-import os
-import logging
 
 logger = logging.getLogger("generate_graphs")
 

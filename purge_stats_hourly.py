@@ -4,8 +4,8 @@
 Keeps the most recent snapshot in each hour bucket, preserving order.
 Run once (stats_history.json.bak already exists as a backup).
 """
-import json
 import datetime
+import json
 import sys
 
 FILE = "stats_history.json"

@@ -1,14 +1,15 @@
+import asyncio
+import logging
+import os
+import sqlite3
+
+import discord
 from discord.ext import commands
 from dotenv import load_dotenv
-import discord
-import sqlite3
-import os
-import logging
-import asyncio
 
-from utils import is_blocked, block_reply, start_admin_event_writer
 from logconf import setup_logging
 from schema import create_schema
+from utils import block_reply, is_blocked, start_admin_event_writer
 
 setup_logging()
 
@@ -68,7 +69,7 @@ async def on_app_command_error(interaction: discord.Interaction, error: discord.
 
     logger.critical("Unhandled command error in '/%s'", getattr(interaction.command, 'qualified_name', '?'), exc_info=error)
     try:
-        await interaction.response.send_message(f"Something went wrong while running that command. Please try again later.", ephemeral=True)
+        await interaction.response.send_message("Something went wrong while running that command. Please try again later.", ephemeral=True)
     except discord.HTTPException:
         pass
 
