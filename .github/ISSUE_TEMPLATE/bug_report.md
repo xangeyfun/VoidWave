@@ -1,0 +1,53 @@
+name: Bug report
+description: Report a bug or unexpectaffected behavior
+labels: ["bug"]
+body:
+  - type: checkboxes
+    attributes:
+      label: Are you sure it's a bug?
+      options:
+        - label: I'm running the latest commit on `main`
+        - label: I checked existing issues and this isn't a duplicate
+  - type: textarea
+    attributes:
+      label: What happened?
+      description: What went wrong? Paste the command and any error message.
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: What did you expect?
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Invite the bot to a server
+        2. Run /music play https://...
+        3. …
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Logs
+      description: Relevant lines from `command_logs.txt`, `admin.log`, `graphs.log`, or `journalctl -u voidwave.service`. Redact tokens/user IDs and don't paste `.env`.
+  - type: dropdown
+    attributes:
+      label: Affected part
+      options:
+        - Bot commands
+        - Music / Lavalink
+        - AI chat / Ollama
+        - Web dashboard (app.py)
+        - Admin panel (/admin)
+        - Leveling / XP
+        - QOTD
+        - Reminders / giveaways
+        - Other
+    validations:
+      required: true
+  - type: input
+    attributes:
+      label: Environment (optional)
+      description: Python version, OS, discord.py version (`pip show discord.py`), Lavalink version, Ollama model.
