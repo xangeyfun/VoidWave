@@ -1,8 +1,8 @@
-from flask import render_template, redirect, url_for, request, jsonify, abort, flash
+from flask import abort, flash, jsonify, redirect, render_template, request, url_for
 
 from . import admin_bp
-from .helpers import _log, _service_status, _service_logs, _service_stop, _service_start
 from .constants import BOT_SERVICE
+from .helpers import _log, _service_logs, _service_start, _service_status, _service_stop
 
 
 @admin_bp.route("/bot")

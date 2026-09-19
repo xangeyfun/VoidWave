@@ -1,8 +1,8 @@
 from flask import jsonify, request
 
 from . import admin_bp
-from .helpers import _db
 from .health import _run_checks
+from .helpers import _db
 
 
 @admin_bp.route("/api/health")

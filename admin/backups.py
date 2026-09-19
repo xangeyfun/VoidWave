@@ -2,12 +2,19 @@ import hmac
 import shutil
 from pathlib import Path
 
-from flask import render_template, redirect, url_for, request, abort, flash
+from flask import abort, flash, redirect, render_template, request, url_for
 
 from . import admin_bp
 from .helpers import (
-    _db, _log, _clear_cache, _list_backups, _backup_current, _prune_backups,
-    _service_active, _service_stop, _service_start,
+    _backup_current,
+    _clear_cache,
+    _db,
+    _list_backups,
+    _log,
+    _prune_backups,
+    _service_active,
+    _service_start,
+    _service_stop,
 )
 
 
@@ -110,6 +117,7 @@ def backup_restore(name):
 @admin_bp.route("/backups/<name>/restore-user", methods=["GET", "POST"])
 def backup_restore_user(name):
     import sqlite3
+
     from .constants import BACKUP_DIR
 
     path = BACKUP_DIR / name

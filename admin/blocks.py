@@ -1,10 +1,10 @@
 import time
 
-from flask import render_template, request, redirect, url_for, flash
+from flask import flash, redirect, render_template, request, url_for
 
 from . import admin_bp
+from .constants import BLOCK_DURATIONS, BLOCK_FEATURES, VALID_BLOCK_DURATIONS
 from .helpers import _db, _log, _log_event
-from .constants import BLOCK_FEATURES, BLOCK_DURATIONS, VALID_BLOCK_DURATIONS
 
 
 def _known_user(conn, user_id):

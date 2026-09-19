@@ -1,17 +1,19 @@
-import time
 import json
 import subprocess
+import time
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-from flask import render_template, redirect, url_for, session, jsonify, abort, flash
+from flask import abort, flash, jsonify, redirect, render_template, session, url_for
 
 from . import admin_bp
-from .helpers import _db, _log, _clear_cache, _normalize_progress, _list_backups
 from .constants import (
-    TABLES, REQUIRED_USERS_COLUMNS, REQUIRED_GUILD_COLUMNS, REQUIRED_VOTE_BOOST_COLUMNS,
+    REQUIRED_GUILD_COLUMNS,
+    REQUIRED_USERS_COLUMNS,
+    REQUIRED_VOTE_BOOST_COLUMNS,
+    TABLES,
 )
-
+from .helpers import _clear_cache, _db, _list_backups, _log, _normalize_progress
 
 _GUILD_SCHEMA_FIXES = (
     ("level_channel_enabled", "BOOLEAN DEFAULT 0"),

@@ -1,9 +1,9 @@
-import time
 import json
+import time
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from flask import render_template, redirect, url_for, request
+from flask import render_template
 
 from . import admin_bp
 from .helpers import _db

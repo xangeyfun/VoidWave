@@ -1,7 +1,7 @@
 from flask import render_template, request
 
 from . import admin_bp
-from .helpers import _read_log_lines, _parse_log_line
+from .helpers import _parse_log_line, _read_log_lines
 
 
 @admin_bp.route("/logs")

@@ -1,24 +1,26 @@
-import sqlite3
-import time
-import os
-import ipaddress
-import hmac
 import hashlib
-import secrets
+import hmac
+import ipaddress
 import json
+import os
+import secrets
 import shutil
+import sqlite3
 import subprocess
+import time
 import urllib.request
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 from pathlib import Path
 
-from flask import request, session, abort
+from flask import abort, request, session
 
 from .constants import (
-    ADMIN_LOG_FILE, RATE_LIMIT_MAX, RATE_LIMIT_WINDOW, TWOFA_TTL,
-    BACKUP_DIR, KEEP_BACKUPS, BOT_SERVICE,
+    ADMIN_LOG_FILE,
+    BACKUP_DIR,
+    KEEP_BACKUPS,
+    RATE_LIMIT_WINDOW,
+    TWOFA_TTL,
 )
-
 
 # ---------------------------------------------------------------------------
 # DB helpers

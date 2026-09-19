@@ -1,13 +1,13 @@
-import time
 import hmac
 import json
+import time
 from datetime import datetime, timedelta
 
-from flask import render_template, request, redirect, url_for, session, abort
+from flask import abort, render_template, request, session
 
 from . import admin_bp
-from .helpers import _db, _log, _clear_cache, _parse_int, _read_log_lines
 from .constants import TABLES
+from .helpers import _clear_cache, _db, _log, _parse_int, _read_log_lines
 
 
 def _stale_user_sql(days):

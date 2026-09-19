@@ -1,15 +1,20 @@
-import time
-import json
+import csv
 import datetime
 import io
-import csv
-from flask import render_template, request, redirect, url_for, session, abort, flash, Response
+import json
+import time
+
+from flask import Response, abort, flash, redirect, render_template, request, url_for
 
 from . import admin_bp
+from .constants import RELATED_USER_TABLES, USER_FIELDS, USER_PK_FIELDS
 from .helpers import (
-    _db, _log, _clear_cache, _parse_int, _normalize_progress,
+    _clear_cache,
+    _db,
+    _log,
+    _normalize_progress,
+    _parse_int,
 )
-from .constants import USER_FIELDS, USER_PK_FIELDS, RELATED_USER_TABLES
 
 
 def _parse_timestamp(value):
