@@ -346,6 +346,16 @@ if __name__ == "__main__":
     cur.execute("CREATE INDEX IF NOT EXISTS idx_playlist_tracks ON playlist_tracks(playlist_id, position)")
     conn.commit()
 
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS music_controller (
+        guild_id INTEGER PRIMARY KEY,
+        channel_id INTEGER NOT NULL,
+        message_id INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+    )
+    """)
+    conn.commit()
+
     try:
         cur.execute("ALTER TABLE reminders ADD COLUMN channel_id INTEGER")
     except sqlite3.OperationalError:
