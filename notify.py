@@ -2,6 +2,7 @@ import concurrent.futures
 import json
 import logging
 import os
+import sys
 import threading
 import time
 import urllib.request
@@ -56,6 +57,8 @@ class DiscordAlertHandler(logging.Handler):
 
     def emit(self, record):
         try:
+            if sys.is_finalizing():
+                return
             if not self._allowed(record):
                 return
             if not self._rate_ok(record):
@@ -64,9 +67,19 @@ class DiscordAlertHandler(logging.Handler):
             if not url:
                 return
             payload = self._build_payload(record)
+            if self._executor is None:
+                return
             self._executor.submit(self._post, url, payload)
         except Exception:
             self.handleError(record)
+
+    def close(self):
+        try:
+            if self._executor is not None:
+                self._executor.shutdown(wait=False, cancel_futures=True)
+        finally:
+            self._executor = None
+            super().close()
 
     def _build_payload(self, record):
         text = self.format(record)[:MAX_TEXT_LEN]
