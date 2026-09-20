@@ -100,13 +100,12 @@ def _best_result(query, results):
     return best
 
 
-def _interleave_results(a: list, b: list) -> list:
+def _interleave(*lists: list) -> list:
     combined = []
-    for i in range(max(len(a), len(b))):
-        if i < len(a):
-            combined.append(a[i])
-        if i < len(b):
-            combined.append(b[i])
+    for i in range(max((len(lst) for lst in lists), default=0)):
+        for lst in lists:
+            if i < len(lst):
+                combined.append(lst[i])
     return combined
 
 
@@ -1186,13 +1185,14 @@ class MusicCog(commands.Cog):
 
     async def _search_text(self, query: str, source: str, node: wavelink.Node) -> list:
         platforms = {"youtube": ["youtube"], "soundcloud": ["soundcloud"], "spotify": ["spotify"]}.get(
-            source, ["youtube", "soundcloud"]
+            source, ["youtube", "soundcloud", "spotify"]
         )
         batches = await asyncio.gather(*(self._search_platform(query, p, node) for p in platforms))
         batches = [b.tracks if isinstance(b, wavelink.Playlist) else list(b or []) for b in batches]
-        if len(batches) == 1:
-            return self._filter_platform(batches[0], platforms[0])
-        return _interleave_results(self._filter_platform(batches[0], "youtube"), self._filter_platform(batches[1], "soundcloud"))
+        filtered = [self._filter_platform(b, p) for b, p in zip(batches, platforms)]
+        if len(filtered) == 1:
+            return filtered[0]
+        return _interleave(*filtered)
 
     @staticmethod
     def _filter_platform(tracks: list, platform: str) -> list:
@@ -1848,11 +1848,11 @@ class MusicCog(commands.Cog):
     @music.command(name="play", description="Play a song or add it to the queue")
     @app_commands.describe(
         query='A search term, or a YouTube, Spotify, or SoundCloud link',
-        source="Where to search: both, YouTube only, SoundCloud only, or Spotify",
+        source="Where to search: all sources, YouTube, SoundCloud, or Spotify",
         hidden="Hide the command from others",
     )
     @app_commands.choices(source=[
-        app_commands.Choice(name="Both", value="auto"),
+        app_commands.Choice(name="All", value="auto"),
         app_commands.Choice(name="YouTube", value="youtube"),
         app_commands.Choice(name="SoundCloud", value="soundcloud"),
         app_commands.Choice(name="Spotify", value="spotify"),
