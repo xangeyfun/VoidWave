@@ -36,7 +36,7 @@
 * DM or channel reminders with human-friendly times (`10m`, `tomorrow 16:00`, `friday 18:30`) and recurring options (`daily`, `weekly`, `every 2h`)
 * Fun commands (animal pics, quotes, facts, calculator)
 * Games (8-ball, rock-paper-scissors, tic-tac-toe, connect four, hangman, blackjack, trivia, wordle, minesweeper, battleship, 15-puzzle)
-* Music playback (YouTube, Spotify, SoundCloud, playlists) via Lavalink
+* Music playback (YouTube, Spotify, SoundCloud, playlists) via Lavalink, with source + requester shown on each track
 * All slash commands, no prefix needed
 
 ## Tech Stack

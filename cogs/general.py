@@ -264,6 +264,8 @@ class GeneralCog(commands.Cog):
                     "Paste a YouTube, Spotify, or SoundCloud link, or search by name. Spotify links are "
                     "matched to their YouTube equivalent; SoundCloud plays natively. "
                     "An interactive player embed with buttons appears. Control playback without typing commands. "
+                    "The player embed always shows the track's source (YouTube/Spotify/SoundCloud) and who added it; "
+                    "autoplay tracks are tagged as such. "
                     "The progress bar updates live. Skips are decided by vote (or owner can force-skip)."
                 ),
                 color=discord.Color(0x7128fc),

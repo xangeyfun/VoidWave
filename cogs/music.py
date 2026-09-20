@@ -283,6 +283,30 @@ def _source_icon(source: str) -> str:
     return _SOURCE_ICONS.get((source or "").lower(), "🎵")
 
 
+def _source_label(source: str) -> str:
+    return {
+        "youtube": "YouTube",
+        "spotify": "Spotify",
+        "soundcloud": "SoundCloud",
+    }.get((source or "").lower(), (source or "Unknown").capitalize())
+
+
+def _tag_requester(track, requester_name: str) -> None:
+    try:
+        track.extras.requester_name = requester_name
+    except Exception:
+        pass
+
+
+def _requester_name(track, default: str = "Autoplay") -> str:
+    if track is None:
+        return default
+    try:
+        return getattr(track.extras, "requester_name", None) or default
+    except Exception:
+        return default
+
+
 _LRC_TIME_RE = None
 
 
@@ -357,6 +381,7 @@ def now_playing_embed(track, player, requester=None, preview_lyrics: str | None 
     desc = (
         f"**[{track.title}]({track.uri})**\n"
         f"{track.author}\n\n"
+        f"{_source_icon(track.source)} **{_source_label(track.source)}** · **added by {_requester_name(track)}**\n\n"
         f"`{bar}`\n"
         f"`{fmt(pos)}` / `{fmt(length)}` (`{fmt(remaining)}` left)\n\n"
         f"{stats}"
@@ -654,14 +679,20 @@ class QueueView(discord.ui.View):
 
         embed = discord.Embed(title=f"📋 Queue ({total} track{'s' if total != 1 else ''})", color=VOIDWAVE_COLOR)
         if current:
-            embed.description = f"**Now playing:** [{current.title}]({current.uri})\n`{fmt(player.position)}` / `{fmt(current.length)}`"
+            embed.description = (
+                f"**Now playing:** {_source_icon(current.source)} [{current.title}]({current.uri}) · *{_requester_name(current)}*\n"
+                f"`{fmt(player.position)}` / `{fmt(current.length)}`"
+            )
         else:
             embed.description = "**Now playing:** nothing"
 
         start = self.page * QUEUE_PAGE_SIZE
         page_tracks = upcoming[start:start + QUEUE_PAGE_SIZE]
         if page_tracks:
-            lines = [f"`{i}.` **{t.title}** - *{t.author}*  `{fmt(t.length)}`" for i, t in enumerate(page_tracks, start + 1)]
+            lines = [
+                f"`{i}.` {_source_icon(t.source)} **{t.title}** - *{t.author}* · *{_requester_name(t)}*  `{fmt(t.length)}`"
+                for i, t in enumerate(page_tracks, start + 1)
+            ]
             embed.add_field(name="Up next", value="\n".join(lines), inline=False)
         else:
             embed.add_field(name="Up next", value="Nothing in the queue.", inline=False)
@@ -1553,6 +1584,7 @@ class MusicCog(commands.Cog):
 
     async def _play_from_search(self, interaction: discord.Interaction, track):
         """Play a track chosen from the search picker. interaction must already be deferred."""
+        _tag_requester(track, interaction.user.display_name)
         player = self._player(interaction)
         if not isinstance(player, wavelink.Player):
             return
@@ -1651,6 +1683,8 @@ class MusicCog(commands.Cog):
                 return
 
             if isinstance(tracks, wavelink.Playlist):
+                for t in tracks.tracks:
+                    _tag_requester(t, interaction.user.display_name)
                 await player.queue.put_wait(tracks.tracks)
                 if not player.playing and tracks.tracks:
                     self._reset_skip_votes(interaction.guild_id)
@@ -1685,6 +1719,7 @@ class MusicCog(commands.Cog):
                 await interaction.followup.send(embed=embed, view=view, ephemeral=hidden)
             else:
                 track = results[0]
+                _tag_requester(track, interaction.user.display_name)
                 if player.playing:
                     await player.queue.put_wait(track)
                     embed = discord.Embed(
@@ -2582,6 +2617,9 @@ class MusicCog(commands.Cog):
         if not resolved:
             await interaction.followup.send("None of the tracks in this playlist could be resolved. Please try again.", ephemeral=hidden)
             return
+
+        for track in resolved:
+            _tag_requester(track, interaction.user.display_name)
 
         if player.playing:
             try:
