@@ -1,6 +1,6 @@
 # AGENTS.md
 
-VoidWave: Discord bot (discord.py 2.x, `cogs/`) + Flask web dashboard (`app.py`, `templates/`, `static/`) that share a single SQLite DB as separate processes. Ruff config lives in `pyproject.toml` (rules `E4`,`E7`,`E9`,`F`,`I`); Python 3.11+ is targeted (local `.venv/` is 3.14, production `venv/` is 3.13 — docs reference `venv/` on prod hosts). Tests are a small network-free pytest suite in `tests/`, run in CI (`.github/workflows/tests.yml`); verify other changes by running the scripts.
+VoidWave: Discord bot (discord.py 2.x, `cogs/`) + Flask web dashboard (`app.py`, `templates/`, `static/`) that share a single SQLite DB as separate processes. Ruff config lives in `pyproject.toml` (rules `E4`,`E7`,`E9`,`F`,`I`); Python 3.11+ is targeted (local `.venv/` is 3.14, production `venv/` is 3.13; docs reference `venv/` on prod hosts). Tests are a small network-free pytest suite in `tests/`, run in CI (`.github/workflows/tests.yml`); verify other changes by running the scripts.
 
 ## Run commands
 
@@ -33,10 +33,10 @@ VoidWave: Discord bot (discord.py 2.x, `cogs/`) + Flask web dashboard (`app.py`,
 - QOTD runs on a 1-minute loop (`cogs/events.py`); per-guild time is `HH:MM` + IANA tz stored in `guild_settings` (`qotd_time`, `qotd_tz`).
 - The admin panel controls the bot through systemd unit `voidwave.service` (`admin/helpers.py` `_service_*`); start/stop/restart workflow assumes a production host with systemctl. See `DEPLOYMENT.md` for full production setup (units `voidwave.service` + `voidwave_website.service`, reverse proxy, graphs cron).
 - The `/help` menu is data-driven: `DOCUMENTED_COMMANDS`/`DOCUMENTED_ALIASES` in `cogs/general.py` drive the help topics and autocomplete, and `_check_help_docs` runs on startup warning about any registered command missing from it (or any documented one that no longer exists). The website `/docs` pages (`templates/docs_*.html`, mapped in `app.py::_DOCS_PAGES`) are a hand-maintained mirror of that same user-facing content; keep all three in sync.
-- Embed footers: the `_footer()` helper (cogs/music.py:46) sets the "Vote for 2x XP" footer, but `now_playing_embed()`, `QueueView.build_embed()`, and `PlaylistView.build_embed()` set their own footers — calling `_footer()` on top of those silently overwrites them (the live offender is `playlist_list`, which stacks `_footer()` on a `PlaylistView.build_embed()`). Don't stack `set_footer` calls.
+- Embed footers: the `_footer()` helper (cogs/music.py:46) sets the "Vote for 2x XP" footer, but `now_playing_embed()`, `QueueView.build_embed()`, and `PlaylistView.build_embed()` set their own footers; calling `_footer()` on top of those silently overwrites them (the live offender is `playlist_list`, which stacks `_footer()` on a `PlaylistView.build_embed()`). Don't stack `set_footer` calls.
 - Music tracks carry who added them in `track.extras.requester_name` (set via `_tag_requester`, default `Autoplay`); the skip-instant owner is the user who started playback (`MusicCog.players_owner`).
 - Music search: `/music play` defaults to searching **all** sources in the order Spotify → SoundCloud → YouTube (`_search_text`); the `source` option (`all`/`youtube`/`soundcloud`/`spotify`) or the `spsearch:`/`ytsearch:`/`scsearch:` prefixes pin one source. `_track_source` resolves a track's source from `extras.requested_source`, falling back to `track.source`.
-- There is a test for the pure music helpers in `tests/test_music.py`; keep it network-free (no wavelink/Lavalink) by only exercising module-level helpers.
+- There is a test for the pure music helpers in `tests/test_music.py`; keep it network free (no wavelink/Lavalink) by only exercising module-level helpers.
 
 ## Adding a command
 
