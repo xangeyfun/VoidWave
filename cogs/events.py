@@ -103,6 +103,18 @@ class EventsCog(commands.Cog):
         self.bot = bot
         self.feedback_webhook = None
 
+    async def _graceful_exit(self, code: int = 1) -> None:
+        """Ask bot.py's runner to shut down cleanly (closes the gateway, avoids
+        the ~60s stale-session ratelimit on the forced auto-restart)."""
+        stop = getattr(self.bot, "_stop_event", None)
+        if stop is not None and not stop.is_set():
+            logger.critical("Fatal startup error; shutting down gracefully (code=%s)...", code)
+            setattr(self.bot, "_exit_code", code)
+            stop.set()
+        else:
+            logger.critical("No graceful shutdown hook available; exiting hard.")
+            os._exit(code)
+
     @commands.Cog.listener()
     async def on_ready(self):
         utils.http_session = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=10))
@@ -114,7 +126,7 @@ class EventsCog(commands.Cog):
             done = time.time()
         except Exception as e:
             logger.critical("Error while syncing commands: %s", e)
-            exit(1)
+            await self._graceful_exit(1)
         total_guilds = len(self.bot.guilds)
         total_members = sum(guild.member_count or 0 for guild in self.bot.guilds)
         sync_time = f"{done - start_sync:.2f}s"
@@ -122,7 +134,7 @@ class EventsCog(commands.Cog):
         if self.bot.user:
             logger.info("Invite link: https://discord.com/api/oauth2/authorize?client_id=%s", self.bot.user.id)
         else:
-            exit(1)
+            await self._graceful_exit(1)
         logger.debug("Connected to %s guilds (%s members)", total_guilds, total_members)
         logger.debug("Synced %s slash commands in %s", len(synced), sync_time)
         logger.debug("Startup time: %.4f seconds", done - startup)
@@ -702,7 +714,13 @@ class EventsCog(commands.Cog):
             if not channel or not isinstance(channel, discord.TextChannel):
                 continue
             guild = channel.guild
-            if guild and guild.get_member(user_id) is None:
+            member_present = bool(guild and guild.get_member(user_id))
+            if not member_present and guild:
+                try:
+                    member_present = await guild.fetch_member(user_id) is not None
+                except discord.HTTPException:
+                    member_present = False
+            if not member_present:
                 continue
             try:
                 await channel.send(embed=embed)
