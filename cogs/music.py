@@ -94,10 +94,23 @@ def _best_result(query, results):
         length_ms = getattr(r, "length", 0) or 0
         if length_ms > 3 * 3600 * 1000:
             score -= 1.5
+        extra = [
+            w
+            for w in _word_tokens(title)
+            if not any(w == qw or _fuzzy_score(qw, w) > 0.8 for qw in q_words)
+        ]
+        score -= 0.6 * len(extra)
         if score > best_score:
             best_score = score
             best = r
     return best
+
+
+def _word_tokens(text):
+    return [
+        w for w in " ".join(text.translate(_DASHES).split()).split()
+        if w and len(w) > 1
+    ]
 
 
 def _normalize_query(query: str) -> str | None:
