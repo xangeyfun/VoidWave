@@ -26,7 +26,60 @@ if you want the admin panel's start/stop and health checks to work.
   (`database.db`, `questions.json`, `prompts/`, `templates/`, `stats_history.json`),
   so every service must run with the repo root as its working directory.
 - Full AI chat: Ollama on `localhost:11434` with the `MODEL` pulled.
-- Music: a Lavalink 4.x server reachable at `LAVALINK_URI` / `LAVALINK_PASSWORD`.
+- Music: a Lavalink 4.x server reachable at `LAVALINK_URI` / `LAVALINK_PASSWORD`
+  running the **LavaSrc plugin** (4.8.x) for native Spotify, plus a
+  **Spotify Tokener** service for anonymous tokens (see below).
+
+## Music: Lavalink + LavaSrc + Spotify Tokener
+
+Spotify playback lives entirely on the Lavalink side (`cogs/music.py` hands
+Spotify URLs/queries straight to Lavalink; no scraping).
+
+1. Install the LavaSrc plugin under `lavalink.plugins`:
+   ```yaml
+   lavalink:
+     plugins:
+       - dependency: "com.github.topi314.lavasrc:lavasrc-plugin:4.8.3"
+         snapshot: false
+         repository: "https://maven.lavalink.dev/releases"
+   ```
+2. Register a Spotify API app at <https://developer.spotify.com/dashboard>, then
+   enable LavaSrc with your credentials. Only Spotify is enabled here:
+   ```yaml
+   plugins:
+     lavasrc:
+       sources:
+         spotify: true
+         applemusic: false
+         deezer: false
+         yandexmusic: false
+         flowerytts: false
+         youtube: false
+         vkmusic: false
+       spotify:
+         clientId: "SPOTIFY_CLIENT_ID"
+         clientSecret: "SPOTIFY_CLIENT_SECRET"
+         customTokenEndpoint: "http://127.0.0.1:8080/api/token"
+         preferPartnerApi: true
+   ```
+   Keep the credentials in `application.yml` only — never put them in `.env` or git.
+3. Recommended: enable **Extended Quota Mode** for the Spotify app (dashboard
+   &rarr; app &rarr; "Extended quota mode"). Fresh apps in default *limited quota*
+   mode cannot use API batch endpoints and newer playlist endpoints.
+4. Newly created Spotify apps must also use *anonymous token* auth for
+   playlists/generated playlists and recommendations. Run
+   [topi314/spotify-tokener](https://github.com/topi314/spotify-tokener) as a
+   container (valid anonymous token JSON is served at `/api/token`):
+   ```bash
+   docker run -d --name spotify-tokener --restart unless-stopped \
+     -p 127.0.0.1:8080:8080 ghcr.io/topi314/spotify-tokener:master
+   ```
+   LavaSrc fetches it via `customTokenEndpoint`, so the cron/systemd restart
+   flow must bring up the tokener before Lavalink needs it.
+5. The bot uses a `VoidWavePlayer` subclass whose autoplay emits LavaSrc's
+   `sprec:<trackIds>` format (wavelink's default `sprec:seed_tracks=...` form is
+   incompatible with LavaSrc 4.x). If you bump `wavelink`, re-check
+   `_do_recommendation` in `cogs/music.py`.
 
 ## systemd units
 
