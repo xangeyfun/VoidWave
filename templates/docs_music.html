@@ -2,11 +2,11 @@
 
 {% block docs_page_title %}Music{% endblock %}
 
-{% block docs_meta_description %}VoidWave music guide: playing songs from YouTube and Spotify, the interactive player with live progress, skip voting, loop modes, and your own playlists.{% endblock %}
+{% block docs_meta_description %}VoidWave music guide: playing songs from YouTube, Spotify and SoundCloud, the interactive player with live progress, skip voting, loop modes, and your own playlists.{% endblock %}
 
 {% block docs_og_url %}/docs/music{% endblock %}
 {% block docs_og_title %}Music Guide{% endblock %}
-{% block docs_og_description %}Play music from YouTube and Spotify, use the interactive player, and build your own playlists.{% endblock %}
+{% block docs_og_description %}Play music from YouTube, Spotify and SoundCloud, use the interactive player, and build your own playlists.{% endblock %}
 
 {% block docs_hero_title %}Music{% endblock %}
 {% block docs_hero_lead %}Play music in your voice channels with a live interactive player, vote to skip, and save your own playlists that work in any server.{% endblock %}
@@ -49,6 +49,10 @@
                             <td>Spotify</td>
                             <td>Track, album, or playlist links. VoidWave reads the Spotify metadata and plays the matching YouTube audio, since Discord audio works best from YouTube. A collection link plays its single best match rather than every track.</td>
                         </tr>
+                        <tr>
+                            <td>SoundCloud</td>
+                            <td>A track or playlist URL, or search. SoundCloud tracks play natively from the source.</td>
+                        </tr>
                     </tbody>
                 </table>
             </div>
@@ -78,7 +82,7 @@
         <span class="docs-section-tag">the control embed</span>
     </div>
 
-    <p class="docs-lead">While music plays, a live embed sits in the channel where playback started. The progress bar updates in real time, and the buttons work for anyone in the voice channel.</p>
+    <p class="docs-lead">While music plays, a live embed sits in the channel where playback started. The progress bar updates in real time, and the buttons work for anyone in the voice channel. The embed's footer always shows the track's source (YouTube, Spotify or SoundCloud) and who added it; autoplay tracks are tagged as such.</p>
 
     <table class="doc-table">
         <thead>
