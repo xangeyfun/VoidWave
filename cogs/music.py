@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import os
+import random
 import re
 import sqlite3
 import time
@@ -118,12 +119,15 @@ def _normalize_query(query: str) -> str | None:
         query = query.split(":", 1)[1].strip() if ":" in query else query
     if not query:
         return None
+    low = query.lower()
     if _SPOTIFY_URL_RE.match(query):
         return query
     for prefix in ("spsearch:", "ytsearch:", "ytmsearch:", "scsearch:"):
         if low.startswith(prefix):
             phrase = query.split(":", 1)[1].strip() if ":" in query else ""
-            return phrase or None
+            if not phrase:
+                return None
+            return f"{prefix}{phrase}" if prefix == "spsearch:" else phrase
     if low.startswith(("http://", "https://")):
         return query
     return query
@@ -134,95 +138,44 @@ def _is_link(query: str) -> bool:
 
 
 _SPOTIFY_URL_RE = re.compile(
-    r"^(?:https?://open\.spotify\.com/|spotify:)(track|album|playlist|artist)[/:]([A-Za-z0-9]+)",
+    r"^(?:https?://open\.spotify\.com/(?:[a-zA-Z-]+/)?|spotify:)(track|album|playlist|artist)[/:]([A-Za-z0-9]+)",
     re.IGNORECASE,
 )
 
-_SPOTIFY_TITLE_PARSERS = {
-    "track": re.compile(r"^(?P<title>.+?)\s+-\s+song and lyrics by (?P<artist>.+?)\s+\|\s+Spotify$", re.IGNORECASE),
-    "album": re.compile(r"^(?P<title>.+?)\s+-\s+Album by (?P<artist>.+?)\s+\|\s+Spotify$", re.IGNORECASE),
-    "playlist": re.compile(r"^(?P<title>.+?)\s+\|\s+Spotify Playlist$", re.IGNORECASE),
-    "artist": re.compile(r"^(?P<title>.+?)\s+\|\s+Spotify$", re.IGNORECASE),
-}
 
-_SPOTIFY_TITLE_RE = re.compile(r"<title[^>]*>(.*?)</title>", re.IGNORECASE | re.DOTALL)
-_SPOTIFY_UA = "VoidWaveBot/2.0 (music resolver)"
-
-
-def _spotify_canonical_url(normalized: str):
+def _spotify_link(normalized: str) -> str | None:
+    """Return the canonical https URL for a Spotify link, handling `spotify:` URIs."""
     m = _SPOTIFY_URL_RE.match(normalized or "")
     if not m:
         return None
     kind = m.group(1).lower()
-    return kind, f"https://open.spotify.com/{kind}/{m.group(2)}"
+    ident = m.group(2)
+    if _is_link(normalized):
+        return normalized
+    return f"https://open.spotify.com/{kind}/{ident}"
 
 
-async def _spotify_oembed_title(canonical: str) -> str | None:
+def _track_artwork(track):
+    """Artwork for a track, falling back to the LavaSrc pluginInfo album art."""
+    if track is None:
+        return None
     try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(
-                "https://open.spotify.com/oembed",
-                params={"url": canonical, "format": "json"},
-                headers={"User-Agent": _SPOTIFY_UA},
-                timeout=aiohttp.ClientTimeout(total=8),
-            ) as resp:
-                if resp.status != 200:
-                    return None
-                data = await resp.json()
-                title = (data.get("title") or "").strip()
-                return title or None
-    except Exception as e:
-        logger.debug("Spotify oEmbed failed for '%s': %s", canonical, e)
-        return None
-
-
-async def _fetch_spotify_metadata(normalized: str) -> dict | None:
-    """Resolve a Spotify link to {title, artist} from the public entity page, falling back to oEmbed."""
-    parsed = _spotify_canonical_url(normalized)
-    if not parsed:
-        return None
-    kind, canonical = parsed
-    page = None
+        art = track.artwork
+    except Exception:
+        art = None
+    if art:
+        return art
     try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(
-                canonical,
-                headers={"User-Agent": _SPOTIFY_UA, "Accept-Language": "en"},
-                timeout=aiohttp.ClientTimeout(total=8),
-            ) as resp:
-                if resp.status == 200:
-                    page = await resp.text()
-    except Exception as e:
-        logger.debug("Spotify page fetch failed for '%s': %s", canonical, e)
-
-    title = None
-    artist = None
-    if page:
-        m = _SPOTIFY_TITLE_RE.search(page)
-        if m:
-            raw = re.sub(r"\s+", " ", m.group(1)).strip()
-            parser = _SPOTIFY_TITLE_PARSERS.get(kind)
-            if parser:
-                tm = parser.match(raw)
-                if tm:
-                    groups = tm.groupdict()
-                    title = (groups.get("title") or "").strip() or None
-                    artist = (groups.get("artist") or "").strip() or None
-    if not title and kind == "track":
-        title = await _spotify_oembed_title(canonical)
-    if not title:
-        return None
-    return {"title": title, "artist": artist or ""}
-
-
-def _spotify_search_query(meta: dict) -> str | None:
-    parts = [meta.get("title", "")]
-    if meta.get("artist"):
-        parts.append(meta["artist"])
-    query = " ".join(p for p in (_clean_text(p) for p in parts) if p).strip()
-    if not query:
-        return None
-    return f"ytsearch:{query[:180]}"
+        raw = getattr(track, "_raw_data", None)
+        plugin = (raw or {}).get("pluginInfo") if isinstance(raw, dict) else None
+        if isinstance(plugin, dict):
+            for key in ("albumArtUrl", "artworkUrl", "artwork"):
+                url = plugin.get(key)
+                if url:
+                    return url
+    except Exception:
+        pass
+    return None
 
 
 def _progress_bar(position_ms, length_ms, width=18):
@@ -433,7 +386,7 @@ def now_playing_embed(track, player, requester=None, preview_lyrics: str | None 
         desc += f"\n\n📝 *{preview}*"
 
     embed = discord.Embed(title=title, description=desc, color=VOIDWAVE_COLOR)
-    embed.set_thumbnail(url=track.artwork or None)
+    embed.set_thumbnail(url=_track_artwork(track))
     if requester is not None:
         embed.set_author(name=requester.display_name, icon_url=requester.display_avatar.url)
     embed.set_footer(
@@ -715,8 +668,9 @@ class QueueView(discord.ui.View):
 
         embed = discord.Embed(title=f"📋 Queue ({total} track{'s' if total != 1 else ''})", color=VOIDWAVE_COLOR)
         if current:
-            if current.artwork:
-                embed.set_thumbnail(url=current.artwork)
+            current_artwork = _track_artwork(current)
+            if current_artwork:
+                embed.set_thumbnail(url=current_artwork)
             embed.description = (
                 f"**Now playing:** {_source_icon(_track_source(current))} [{current.title}]({current.uri}) · *{_requester_name(current)}*\n"
                 f"`{fmt(player.position)}` / `{fmt(current.length)}`"
@@ -1001,6 +955,130 @@ class PlaylistView(discord.ui.View):
 # ======================================================================
 # Music Cog
 # ======================================================================
+class VoidWavePlayer(wavelink.Player):
+    """wavelink player whose autoplay speaks LavaSrc's `sprec:` format."""
+
+    async def _do_recommendation(self, *, populate_track=None, max_population=None) -> None:
+        assert self.guild is not None
+        assert self.queue.history is not None and self.auto_queue.history is not None
+
+        max_population_: int = max_population if max_population else self._auto_cutoff
+
+        if len(self.auto_queue) > self._auto_cutoff + 1 and not populate_track:
+            self._inactivity_start()
+
+            track = self.auto_queue.get()
+            self.auto_queue.history.put(track)
+
+            await self.play(track, add_history=False)
+            return
+
+        weighted_history = self.queue.history[::-1][: max(5, 5 * self._auto_weight)]
+        weighted_upcoming = self.auto_queue[: max(3, int((5 * self._auto_weight) / 3))]
+        choices = [*weighted_history, *weighted_upcoming, self._current, self._previous]
+
+        _previous = self.__previous_seeds._queue
+        seeds = [t for t in choices if t is not None and t.identifier not in _previous]
+        random.shuffle(seeds)
+
+        if populate_track:
+            seeds.insert(0, populate_track)
+
+        spotify = [t.identifier for t in seeds if t.source == "spotify"]
+        youtube = [t.identifier for t in seeds if t.source == "youtube"]
+
+        spotify_query: str | None = None
+        youtube_query: str | None = None
+
+        count: int = len(self.queue.history)
+        changed_by: int = min(3, count) if self._history_count is None else count - self._history_count
+
+        if changed_by > 0:
+            self._history_count = count
+
+        changed_history = self.queue.history[::-1]
+
+        added: int = 0
+        for i in range(min(changed_by, 3)):
+            track = changed_history[i]
+
+            if added == 2 and track.source == "spotify":
+                break
+
+            if track.source == "spotify":
+                spotify.insert(0, track.identifier)
+                added += 1
+
+            elif track.source == "youtube":
+                youtube[0] = track.identifier
+
+        if spotify:
+            spotify_seeds = spotify[:3]
+            # LavaSrc 4.x expects bare track ids after `sprec:` (not the `seed_tracks=` form wavelink uses).
+            spotify_query = f"sprec:{','.join(spotify_seeds)}"
+
+            for s_seed in spotify_seeds:
+                self._add_to_previous_seeds(s_seed)
+
+        if youtube:
+            ytm_seed: str = youtube[0]
+            youtube_query = f"https://music.youtube.com/watch?v={ytm_seed}8&list=RD{ytm_seed}"
+            self._add_to_previous_seeds(ytm_seed)
+
+        async def _search(query):
+            if query is None:
+                return []
+
+            try:
+                search = await wavelink.Pool.fetch_tracks(query, node=self._node)
+            except (wavelink.LavalinkLoadException, wavelink.LavalinkException):
+                return []
+
+            if not search:
+                return []
+
+            tracks = search.tracks.copy() if isinstance(search, wavelink.Playlist) else search
+            return tracks
+
+        results = await asyncio.gather(_search(spotify_query), _search(youtube_query))
+
+        filtered_r = [t for r in results for t in r]
+
+        if not filtered_r and not self.auto_queue:
+            logger.info('Player "%s" could not load any songs via AutoPlay.', self.guild.id)
+            self._inactivity_start()
+            return
+
+        history = (
+            self.auto_queue[:40] + self.queue[:40] + self.queue.history[:-41:-1] + self.auto_queue.history[:-61:-1]
+        )
+
+        added = 0
+
+        random.shuffle(filtered_r)
+        for track in filtered_r:
+            if track in history:
+                continue
+
+            track._recommended = True
+            added += await self.auto_queue.put_wait(track)
+
+            if added >= max_population_:
+                break
+
+        logger.debug('Player "%s" added "%s" tracks to the auto_queue via AutoPlay.', self.guild.id, added)
+
+        if not self._current and not populate_track:
+            try:
+                now = self.auto_queue.get()
+                self.auto_queue.history.put(now)
+
+                await self.play(now, add_history=False)
+            except wavelink.QueueEmpty:
+                logger.info('Player "%s" could not load any songs via AutoPlay.', self.guild.id)
+                self._inactivity_start()
+
+
 class MusicCog(commands.Cog):
     """Play music in voice channels via Lavalink."""
 
@@ -1072,40 +1150,25 @@ class MusicCog(commands.Cog):
             self._search_cache.pop(k, None)
 
     async def _search_tracks(self, normalized: str, node: wavelink.Node, source: str = "auto") -> list | None:
-        query_text = None
-        is_spotify = bool(_SPOTIFY_URL_RE.match(normalized or ""))
-        if is_spotify:
-            meta = await _fetch_spotify_metadata(normalized)
-            if meta is None:
-                return None
-            rewritten = _spotify_search_query(meta)
-            if not rewritten:
-                return None
-            normalized = rewritten
-            query_text = " ".join(p for p in (meta.get("title", ""), meta.get("artist", "")) if p)
         cache_key = f"{source}:{normalized}"
         cached = self._get_cached_search(cache_key)
         if cached is not None:
-            if is_spotify:
-                best = _best_result(query_text, cached)
-                if best:
-                    _tag_source(best, "spotify")
-                return [best] if best else []
             return cached
-        if is_spotify or _is_link(normalized):
-            link_results = await self._search_platform(normalized, "youtube" if is_spotify else None, node)
-            if isinstance(link_results, wavelink.Playlist):
-                self._cache_search(cache_key, link_results)
-                return link_results
-            results = self._filter_platform(link_results, "youtube") if is_spotify else link_results
+        norm_low = normalized.lower()
+        is_spotify_url = bool(_SPOTIFY_URL_RE.match(normalized or ""))
+        if is_spotify_url or _is_link(normalized):
+            link = _spotify_link(normalized) if is_spotify_url else normalized
+            results = await self._search_platform(link, None, node)
+        elif norm_low.startswith("spsearch:") or source == "spotify":
+            platform = None if norm_low.startswith("spsearch:") else "spotify"
+            results = await self._search_platform(normalized, platform, node)
         else:
             results = await self._search_text(normalized, source, node)
+        if isinstance(results, wavelink.Playlist):
+            self._cache_search(cache_key, results)
+            return results
+        results = list(results or [])
         self._cache_search(cache_key, results)
-        if is_spotify:
-            best = _best_result(query_text, results)
-            if best:
-                _tag_source(best, "spotify")
-            return [best] if best else []
         return results
 
     @staticmethod
@@ -1113,6 +1176,7 @@ class MusicCog(commands.Cog):
         src = {
             "youtube": wavelink.TrackSource.YouTube,
             "soundcloud": wavelink.TrackSource.SoundCloud,
+            "spotify": "spsearch:",
         }.get(platform)
         try:
             return await wavelink.Playable.search(query, source=src, node=node)
@@ -1121,7 +1185,9 @@ class MusicCog(commands.Cog):
             return []
 
     async def _search_text(self, query: str, source: str, node: wavelink.Node) -> list:
-        platforms = {"youtube": ["youtube"], "soundcloud": ["soundcloud"]}.get(source, ["youtube", "soundcloud"])
+        platforms = {"youtube": ["youtube"], "soundcloud": ["soundcloud"], "spotify": ["spotify"]}.get(
+            source, ["youtube", "soundcloud"]
+        )
         batches = await asyncio.gather(*(self._search_platform(query, p, node) for p in platforms))
         batches = [b.tracks if isinstance(b, wavelink.Playlist) else list(b or []) for b in batches]
         if len(batches) == 1:
@@ -1134,6 +1200,8 @@ class MusicCog(commands.Cog):
             return []
         if platform == "soundcloud":
             return [t for t in tracks if (t.source or "").lower() == "soundcloud"] or list(tracks)
+        if platform == "spotify":
+            return [t for t in tracks if (t.source or "").lower() == "spotify"] or list(tracks)
         return [t for t in tracks if (t.source or "").lower() in ("youtube", "youtubemusic")] or list(tracks)
 
     def _player_usable(self, player) -> bool:
@@ -1190,7 +1258,7 @@ class MusicCog(commands.Cog):
                         return None
             else:
                 try:
-                    player = await vc.channel.connect(cls=wavelink.Player, self_deaf=True)  # type: ignore
+                    player = await vc.channel.connect(cls=VoidWavePlayer, self_deaf=True)  # type: ignore
                     self.players[interaction.guild_id] = player  # type: ignore
                     self.players_owner[interaction.guild_id] = interaction.user.id
                 except Exception as e:
@@ -1780,13 +1848,14 @@ class MusicCog(commands.Cog):
     @music.command(name="play", description="Play a song or add it to the queue")
     @app_commands.describe(
         query='A search term, or a YouTube, Spotify, or SoundCloud link',
-        source="Where to search: both, YouTube only, or SoundCloud only",
+        source="Where to search: both, YouTube only, SoundCloud only, or Spotify",
         hidden="Hide the command from others",
     )
     @app_commands.choices(source=[
         app_commands.Choice(name="Both", value="auto"),
         app_commands.Choice(name="YouTube", value="youtube"),
         app_commands.Choice(name="SoundCloud", value="soundcloud"),
+        app_commands.Choice(name="Spotify", value="spotify"),
     ])
     async def play_music(self, interaction: discord.Interaction, query: str, source: str = "auto", hidden: bool = False):
         if await self._deny_if_blocked(interaction):
@@ -1832,7 +1901,7 @@ class MusicCog(commands.Cog):
                     )
                     if tracks.tracks:
                         embed.add_field(name="First up", value=f"`{tracks.tracks[0].title}`", inline=False)
-                        embed.set_thumbnail(url=tracks.tracks[0].artwork or None)
+                        embed.set_thumbnail(url=_track_artwork(tracks.tracks[0]))
                     _footer(embed)
                     await interaction.followup.send(embed=embed, ephemeral=hidden)
                     await self._repost_player_message(interaction, player)
@@ -1848,8 +1917,8 @@ class MusicCog(commands.Cog):
                     lines.append(f"**{i}.** {icon} [{t.title}]({t.uri}) - *{t.author}* `{fmt(t.length)}`")
                 embed = discord.Embed(title="🔍 Search Results", description="\n".join(lines), color=VOIDWAVE_COLOR)
                 best = _best_result(query, results) or results[0]
-                if best.artwork:
-                    embed.set_thumbnail(url=best.artwork)
+                if _track_artwork(best):
+                    embed.set_thumbnail(url=_track_artwork(best))
                 embed.set_footer(text="Pick a result or wait to auto-play the best match")
                 await interaction.followup.send(embed=embed, view=view, ephemeral=hidden)
             else:
@@ -1865,7 +1934,7 @@ class MusicCog(commands.Cog):
                         ),
                         color=VOIDWAVE_COLOR,
                     )
-                    embed.set_thumbnail(url=track.artwork or None)
+                    embed.set_thumbnail(url=_track_artwork(track))
                     embed.add_field(name="Position in queue", value=f"`#{player.queue.count}`", inline=True)
                     embed.add_field(name="Length", value=f"`{fmt(track.length)}`", inline=True)
                     await interaction.followup.send(embed=embed, ephemeral=hidden)
@@ -2697,7 +2766,7 @@ class MusicCog(commands.Cog):
             conn.execute(
                 "INSERT INTO playlist_tracks (playlist_id, position, query, title, author, uri, artwork, length_ms, source, added_at) "
                 "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                (entry["id"], position, query, track.title, track.author, track.uri, track.artwork, track.length, track.source, int(time.time())),
+                (entry["id"], position, query, track.title, track.author, track.uri, _track_artwork(track), track.length, track.source, int(time.time())),
             )
             conn.commit()
         finally:
@@ -2711,7 +2780,7 @@ class MusicCog(commands.Cog):
             ),
             color=VOIDWAVE_COLOR,
         )
-        embed.set_thumbnail(url=track.artwork or None)
+        embed.set_thumbnail(url=_track_artwork(track))
         embed.add_field(name="Playlist", value=f"**{entry['name']}** · `#{position}` of {count + 1}", inline=False)
         _footer(embed)
         await interaction.followup.send(embed=embed, ephemeral=hidden)
