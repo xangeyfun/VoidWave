@@ -2,22 +2,28 @@
 
 This is how the live setup at `voidwave.xangey.dev` is wired together. It is a
 reference, not a requirement: the code only hard-depends on **systemd** because
-the admin panel / health page talk to the `systemctl` binary.
+the admin panel / health page talk to the `systemctl` binary (unit names
+`voidwave.service` / `voidwave_website.service` are checked directly by
+`admin/constants.py`, `admin/health.py`, `admin/helpers.py`).
+
+> The values below are the **actual live setup** as of this writing (host
+> `debianlaptop`, bot run from `~/github/VoidWave`, venv `venv/` with Python
+> 3.13, website served by gunicorn). Adjust paths/users to your own box.
 
 ## What runs where
 
 Three things keep the service alive, all sharing the same `database.db` in the
 repo root:
 
-| Piece | Command | Managed by |
+| Piece | Command (real values) | Managed by |
 | ----- | ------- | ---------- |
-| Discord bot | `./venv/bin/python bot.py` | `voidwave.service` |
-| Web dashboard + admin | `./venv/bin/python app.py` (binds `127.0.0.1:8002`) | `voidwave_website.service` |
+| Discord bot | `~/github/VoidWave/venv/bin/python3 -u bot.py` | `voidwave.service` |
+| Web dashboard + admin | `gunicorn -w 4 -b 127.0.0.1:8002 app:app --access-logfile - --error-logfile -` | `voidwave_website.service` |
 | Stats graphs | `./venv/bin/python generate_graphs.py` | cron |
 
-The unit names `voidwave.service` / `voidwave_website.service` are checked
-directly by the code (`admin/helpers.py`, `admin/health.py`), so keep those names
-if you want the admin panel's start/stop and health checks to work.
+`app.py` only runs as a WSGI target under gunicorn in production; running
+`python app.py` gives you the same dashboard on `127.0.0.1:8002` for local
+development.
 
 ## Prerequisites
 
@@ -83,22 +89,26 @@ Spotify URLs/queries straight to Lavalink; no scraping).
 
 ## systemd units
 
+The live units use `User=xangey`, `WorkingDirectory=/home/xangey/github/VoidWave`
+and `venv/bin/python3 -u` (the `-u` keeps the bot's stdout unbuffered so
+`journalctl` shows logs promptly).
+
 ### Bot: `voidwave.service`
 
 ```ini
 [Unit]
-Description=VoidWave Discord bot
-After=network-online.target
-Wants=network-online.target
+Description=VoidWave discord bot
+After=network.target voidwave-lavalink.service
+StartLimitIntervalSec=60
+StartLimitBurst=10
 
 [Service]
-Type=simple
-User=voidwave
-WorkingDirectory=/opt/VoidWave
-ExecStart=/opt/VoidWave/venv/bin/python bot.py
-Restart=on-failure
+User=xangey
+WorkingDirectory=/home/xangey/github/VoidWave
+ExecStart=/home/xangey/github/VoidWave/venv/bin/python3 -u bot.py
+Restart=always
 RestartSec=5
-# EnvironmentFile=/opt/VoidWave/.env   # optional; bot.py reads .env itself
+# bot.py reads .env itself, so no EnvironmentFile is needed
 
 [Install]
 WantedBy=multi-user.target
@@ -121,25 +131,30 @@ authoritative membership check can use `guild.fetch_member()`.
 
 ### Website + admin: `voidwave_website.service`
 
+The dashboard runs under gunicorn (installed system-wide, `/usr/bin/gunicorn`),
+so `python app.py` inside the venv is only for local dev:
+
 ```ini
 [Unit]
-Description=VoidWave web dashboard
-After=network-online.target
-Wants=network-online.target
+Description=VoidWave Flask App
+After=network.target
+StartLimitIntervalSec=60
+StartLimitBurst=10
 
 [Service]
-Type=simple
-User=voidwave
-WorkingDirectory=/opt/VoidWave
-ExecStart=/opt/VoidWave/venv/bin/python app.py
-Restart=on-failure
+User=xangey
+WorkingDirectory=/home/xangey/github/VoidWave
+ExecStart=/usr/bin/gunicorn -w 4 -b 127.0.0.1:8002 app:app \
+          --access-logfile - \
+          --error-logfile -
+Restart=always
 RestartSec=5
 
 [Install]
 WantedBy=multi-user.target
 ```
 
-`app.py` listens on `127.0.0.1:8002` only; put a reverse proxy in front of it
+The app listens on `127.0.0.1:8002` only; put a reverse proxy in front of it
 (see below).
 
 ## Reverse proxy (HTTPS required)
@@ -182,7 +197,7 @@ The bot writes one snapshot per hour to `stats_history.json`
 e.g. hourly:
 
 ```
-15 * * * *  cd /opt/VoidWave && ./venv/bin/python generate_graphs.py >> graphs.log 2>&1
+15 * * * *  cd /home/xangey/github/VoidWave && ./venv/bin/python generate_graphs.py >> graphs.log 2>&1
 ```
 
 This rebuilds `Graphs/*.png` and `static/images/stats.png` (the README banner).
@@ -191,9 +206,9 @@ All of these are gitignored runtime artifacts.
 ## Backups
 
 Use the admin panel's **Backups** page (`/admin/backups`); it exports `database.db`
-to `~/Backups/VoidWave` (`Path.home()`, the `voidwave` user's home) and keeps the
-48 newest; it can also restore. The health page flags a backup as stale when the
-newest is older than 7 days.
+to `~/Backups/VoidWave` (`Path.home()` — the unit's service user, `xangey` on the
+live host) and keeps the 48 newest; it can also restore. The health page flags a
+backup as stale when the newest is older than 7 days.
 
 ## Logs
 
@@ -205,8 +220,8 @@ newest is older than 7 days.
 ## Updating
 
 ```bash
-cd /opt/VoidWave
-sudo -u voidwave git pull
+cd ~/github/VoidWave
+git pull
 sudo systemctl restart voidwave.service voidwave_website.service
 ```
 
