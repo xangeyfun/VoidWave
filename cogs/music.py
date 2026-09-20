@@ -1722,7 +1722,7 @@ class MusicCog(commands.Cog):
         if self.live_lyrics.get(guild_id):
             self._ensure_lyrics_loaded(track)
 
-        if old_msg and old_view and old_msg.id != msg.id:
+        if old_msg and old_view and old_msg.id != msg.id and self.player_messages.get(guild_id) is msg:
             try:
                 for child in old_view.children:
                     child.disabled = True
@@ -1761,7 +1761,7 @@ class MusicCog(commands.Cog):
         except discord.HTTPException:
             return
 
-        if old_msg and old_view and old_msg.id != msg.id:
+        if old_msg and old_view and old_msg.id != msg.id and self.player_messages.get(guild_id) is msg:
             try:
                 for child in old_view.children:
                     child.disabled = True
@@ -2457,9 +2457,11 @@ class MusicCog(commands.Cog):
         view = self.player_views.get(guild_id)
         if not msg or not view:
             return
-        if msg.channel is None:
-            return
-        await self._repost_player_message_channel(msg.channel, player)
+        try:
+            await msg.edit(embed=now_playing_embed(track, player), view=view)
+        except discord.HTTPException:
+            if msg.channel is not None:
+                await self._repost_player_message_channel(msg.channel, player)
 
     @commands.Cog.listener()
     async def on_wavelink_track_exception(self, payload: wavelink.TrackExceptionEventPayload):
