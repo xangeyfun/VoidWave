@@ -55,6 +55,17 @@ The bot creates/patches the DB schema on startup and **re-syncs all slash
 commands globally** (`cogs/events.py` `tree.sync()`), so a restart takes a few
 extra seconds before commands appear; that's expected.
 
+The bot installs SIGTERM/SIGINT handlers that close the gateway and other
+connections cleanly before exiting.
+
+On startup the bot does **not** chunk members across all guilds
+(`chunk_guilds_at_startup=False`). Chunking sends one `REQUEST_MEMBERS` per
+guild at connect time, and with 100+ guilds that burst blows through Discord's
+110-messages-per-60-seconds gateway limit, stalling the connect with
+"WebSocket in shard ID None is ratelimited, waiting ~59 seconds" on every
+startup. Members are still cached as they interact; any code that needs an
+authoritative membership check can use `guild.fetch_member()`.
+
 ### Website + admin: `voidwave_website.service`
 
 ```ini
