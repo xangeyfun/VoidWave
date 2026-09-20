@@ -1,7 +1,7 @@
 [tool.ruff]
 target-version = "py311"
 line-length = 120
-extend-exclude = ["prompts", "venv"]
+extend-exclude = ["prompts", ".venv", "venv"]
 
 [tool.ruff.lint]
 select = ["E4", "E7", "E9", "F", "I"]
