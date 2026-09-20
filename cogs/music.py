@@ -976,7 +976,7 @@ class VoidWavePlayer(wavelink.Player):
         weighted_upcoming = self.auto_queue[: max(3, int((5 * self._auto_weight) / 3))]
         choices = [*weighted_history, *weighted_upcoming, self._current, self._previous]
 
-        _previous = self.__previous_seeds._queue
+        _previous = self._Player__previous_seeds._queue
         seeds = [t for t in choices if t is not None and t.identifier not in _previous]
         random.shuffle(seeds)
 
