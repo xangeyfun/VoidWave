@@ -381,7 +381,6 @@ def now_playing_embed(track, player, requester=None, preview_lyrics: str | None 
     desc = (
         f"**[{track.title}]({track.uri})**\n"
         f"{track.author}\n\n"
-        f"{_source_icon(track.source)} **{_source_label(track.source)}** · **added by {_requester_name(track)}**\n\n"
         f"`{bar}`\n"
         f"`{fmt(pos)}` / `{fmt(length)}` (`{fmt(remaining)}` left)\n\n"
         f"{stats}"
@@ -401,8 +400,11 @@ def now_playing_embed(track, player, requester=None, preview_lyrics: str | None 
 
     embed = discord.Embed(title=title, description=desc, color=VOIDWAVE_COLOR)
     embed.set_thumbnail(url=track.artwork or None)
-    if requester:
+    if requester is not None:
         embed.set_author(name=requester.display_name, icon_url=requester.display_avatar.url)
+    embed.set_footer(
+        text=f"{_source_icon(track.source)} {_source_label(track.source)} · added by {_requester_name(track)}"
+    )
     return embed
 
 
@@ -679,6 +681,8 @@ class QueueView(discord.ui.View):
 
         embed = discord.Embed(title=f"📋 Queue ({total} track{'s' if total != 1 else ''})", color=VOIDWAVE_COLOR)
         if current:
+            if current.artwork:
+                embed.set_thumbnail(url=current.artwork)
             embed.description = (
                 f"**Now playing:** {_source_icon(current.source)} [{current.title}]({current.uri}) · *{_requester_name(current)}*\n"
                 f"`{fmt(player.position)}` / `{fmt(current.length)}`"
@@ -1695,7 +1699,10 @@ class MusicCog(commands.Cog):
                 else:
                     embed = discord.Embed(
                         title="🎵 Playlist added to queue",
-                        description=f"**[{tracks.name}]({query})** · **{len(tracks.tracks)}** songs",
+                        description=(
+                            f"**[{tracks.name}]({query})** · **{len(tracks.tracks)}** songs · "
+                            f"added by **{interaction.user.display_name}**"
+                        ),
                         color=VOIDWAVE_COLOR,
                     )
                     if tracks.tracks:
@@ -1715,6 +1722,9 @@ class MusicCog(commands.Cog):
                     icon = _source_icon(t.source)
                     lines.append(f"**{i}.** {icon} [{t.title}]({t.uri}) - *{t.author}* `{fmt(t.length)}`")
                 embed = discord.Embed(title="🔍 Search Results", description="\n".join(lines), color=VOIDWAVE_COLOR)
+                best = _best_result(query, results) or results[0]
+                if best.artwork:
+                    embed.set_thumbnail(url=best.artwork)
                 embed.set_footer(text="Pick a result or wait to auto-play the best match")
                 await interaction.followup.send(embed=embed, view=view, ephemeral=hidden)
             else:
@@ -1724,7 +1734,10 @@ class MusicCog(commands.Cog):
                     await player.queue.put_wait(track)
                     embed = discord.Embed(
                         title="🎵 Added to queue",
-                        description=f"**[{track.title}]({track.uri})**",
+                        description=(
+                            f"{_source_icon(track.source)} **{_source_label(track.source)}** · "
+                            f"**[{track.title}]({track.uri})** · added by **{interaction.user.display_name}**"
+                        ),
                         color=VOIDWAVE_COLOR,
                     )
                     embed.set_thumbnail(url=track.artwork or None)
@@ -1869,7 +1882,6 @@ class MusicCog(commands.Cog):
 
         view = QueueView(self, interaction.guild_id, interaction.user.id)
         embed = view.build_embed()
-        _footer(embed)
         await interaction.response.send_message(embed=embed, view=view, ephemeral=hidden)
 
     # ------------------------------------------------------------------
@@ -1887,7 +1899,6 @@ class MusicCog(commands.Cog):
 
         track = player.current
         embed = now_playing_embed(track, player, requester=interaction.user)
-        _footer(embed)
         await interaction.response.send_message(embed=embed, ephemeral=hidden)
 
     # ------------------------------------------------------------------
@@ -2441,9 +2452,13 @@ class MusicCog(commands.Cog):
             conn.commit()
         finally:
             conn.close()
+        _tag_requester(track, interaction.user.display_name)
         embed = discord.Embed(
             title="🎵 Added to playlist",
-            description=f"**[{track.title}]({track.uri})**",
+            description=(
+                f"{_source_icon(track.source)} **{_source_label(track.source)}** · "
+                f"**[{track.title}]({track.uri})** · added by **{interaction.user.display_name}**"
+            ),
             color=VOIDWAVE_COLOR,
         )
         embed.set_thumbnail(url=track.artwork or None)
