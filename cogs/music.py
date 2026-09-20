@@ -1121,6 +1121,7 @@ class MusicCog(commands.Cog):
         self._lyrics_loading: dict[str, asyncio.Task] = {}
         self._search_cache: dict[str, tuple[float, list]] = {}
         self._track_errors: dict[int, wavelink.Playable] = {}
+        self._sc_fallback_cache: dict[str, wavelink.Playable | None] = {}
 
     # ------------------------------------------------------------------
     # Helpers
@@ -2386,6 +2387,8 @@ class MusicCog(commands.Cog):
         if failed is not None:
             recovered = await self._try_youtube_fallback(player, failed)
             if recovered is not None:
+                if player.current and player.playing and player.current.identifier == recovered.identifier:
+                    return
                 if player.guild:
                     self._reset_skip_votes(player.guild.id)
                 try:
@@ -2480,6 +2483,29 @@ class MusicCog(commands.Cog):
             getattr(track, "title", track),
             f" ({message})" if message else "",
         )
+        if (getattr(track, "source", None) or "").lower() != "soundcloud":
+            return
+        if not player.connected or not player.current or player.current.identifier != track.identifier or player.playing:
+            return
+        recovered = await self._try_youtube_fallback(player, track)
+        if recovered is None:
+            return
+        try:
+            await player.play(recovered)
+        except Exception as e:
+            logger.error("Failed to play YouTube fallback in guild %s: %s", guild_id, e)
+            return
+        self._reset_skip_votes(guild_id)
+        if self.live_lyrics.get(guild_id):
+            self._ensure_lyrics_loaded(recovered)
+        msg = self.player_messages.get(guild_id)
+        view = self.player_views.get(guild_id)
+        if msg and view and msg.channel is not None:
+            try:
+                await msg.edit(embed=now_playing_embed(recovered, player), view=view)
+            except discord.HTTPException:
+                pass
+        logger.info("Swapped failed SoundCloud track for its YouTube version in guild %s: %s", guild_id, getattr(recovered, "title", recovered))
 
     async def _show_failed_track_status(self, guild_id: int, track_title: str):
         msg = self.player_messages.get(guild_id)
@@ -2502,6 +2528,9 @@ class MusicCog(commands.Cog):
             return None
         if not player.guild or player.node is None or player.node.status is not wavelink.NodeStatus.CONNECTED:
             return None
+        cached = self._sc_fallback_cache.get(failed.identifier)
+        if cached is not None or failed.identifier in self._sc_fallback_cache:
+            return cached
         query = _clean_text(f"{getattr(failed, 'title', '') or ''} {getattr(failed, 'author', '') or ''}").strip()
         if not query:
             return None
@@ -2516,6 +2545,10 @@ class MusicCog(commands.Cog):
         _tag_source(best, "youtube")
         _tag_requester(best, _requester_name(failed))
         logger.info("Playing YouTube fallback for failed SoundCloud track in guild %s: %s", player.guild.id, getattr(best, "title", best))
+        self._sc_fallback_cache[failed.identifier] = best
+        if len(self._sc_fallback_cache) > 100:
+            for k in list(self._sc_fallback_cache)[:40]:
+                self._sc_fallback_cache.pop(k, None)
         return best
 
     async def _autoplay_recommend(self, player) -> bool:
