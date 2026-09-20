@@ -25,7 +25,7 @@ class AICog(commands.Cog):
 
     @discord.app_commands.allowed_installs(guilds=True, users=True)
     @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
-    @discord.app_commands.command(name="ai", description="Chat with the bot's AI (powered by Llama 3.2)")
+    @discord.app_commands.command(name="ai", description="Chat with the bot's self-hosted AI")
     @app_commands.describe(message="The message to send to the AI", stats="Show additional information about the AI response", hidden="Hide the command from others")
     async def ai(self, interaction: discord.Interaction, message: str, stats: bool = False, hidden: bool = False):
         global ai_processing
