@@ -26,7 +26,11 @@ _MAX_PLAYLIST_NAME_LEN = 32
 _LYRIC_OFFSET_MS = 2500
 _LOOP_MODES = (wavelink.QueueMode.normal, wavelink.QueueMode.loop, wavelink.QueueMode.loop_all)
 _LOOP_LABELS = ("🔁", "🔂", "🔃")
-_SOURCE_ICONS = {"youtube": "🎵", "spotify": "🎧", "soundcloud": "☁️"}
+_SOURCE_ICONS = {
+    "youtube": "<:youtube_logo:1551219463704281129>",
+    "spotify": "<:spotify_logo:1551219622211096606>",
+    "soundcloud": "<:soundcloud_logo:1551219548882075700>",
+}
 
 
 def fmt(len_ms):
@@ -42,8 +46,6 @@ def _footer(embed):
     embed.set_footer(text="Vote for 2x XP! /vote")
     return embed
 
-
-_KNOWN_PREFIXES = ("ytsearch:", "ytmsearch:", "scsearch:", "spsearch:", "http://", "https://")
 
 _DASHES = str.maketrans({"—": " ", "–": " ", "-": " "})
 
@@ -97,6 +99,16 @@ def _best_result(query, results):
     return best
 
 
+def _interleave_results(a: list, b: list) -> list:
+    combined = []
+    for i in range(max(len(a), len(b))):
+        if i < len(a):
+            combined.append(a[i])
+        if i < len(b):
+            combined.append(b[i])
+    return combined
+
+
 def _normalize_query(query: str) -> str | None:
     if not query or not query.strip():
         return None
@@ -108,12 +120,17 @@ def _normalize_query(query: str) -> str | None:
         return None
     if _SPOTIFY_URL_RE.match(query):
         return query
-    if low.startswith("spsearch:"):
-        phrase = query.split(":", 1)[1].strip() if ":" in query else ""
-        return f"ytsearch:{phrase}" if phrase else None
-    if query.lower().startswith(_KNOWN_PREFIXES):
+    for prefix in ("spsearch:", "ytsearch:", "ytmsearch:", "scsearch:"):
+        if low.startswith(prefix):
+            phrase = query.split(":", 1)[1].strip() if ":" in query else ""
+            return phrase or None
+    if low.startswith(("http://", "https://")):
         return query
-    return f"ytsearch:{query}"
+    return query
+
+
+def _is_link(query: str) -> bool:
+    return bool(re.match(r"^https?://", query or "", re.IGNORECASE))
 
 
 _SPOTIFY_URL_RE = re.compile(
@@ -291,6 +308,23 @@ def _source_label(source: str) -> str:
     }.get((source or "").lower(), (source or "Unknown").capitalize())
 
 
+def _tag_source(track, source: str) -> None:
+    try:
+        track.extras.requested_source = source
+    except Exception:
+        pass
+
+
+def _track_source(track) -> str:
+    if track is None:
+        return ""
+    try:
+        tagged = getattr(track.extras, "requested_source", None)
+    except Exception:
+        tagged = None
+    return tagged or (track.source or "")
+
+
 def _tag_requester(track, requester_name: str) -> None:
     try:
         track.extras.requester_name = requester_name
@@ -403,7 +437,7 @@ def now_playing_embed(track, player, requester=None, preview_lyrics: str | None 
     if requester is not None:
         embed.set_author(name=requester.display_name, icon_url=requester.display_avatar.url)
     embed.set_footer(
-        text=f"{_source_icon(track.source)} {_source_label(track.source)} · added by {_requester_name(track)}"
+        text=f"{_source_label(_track_source(track))} · added by {_requester_name(track)}"
     )
     return embed
 
@@ -684,7 +718,7 @@ class QueueView(discord.ui.View):
             if current.artwork:
                 embed.set_thumbnail(url=current.artwork)
             embed.description = (
-                f"**Now playing:** {_source_icon(current.source)} [{current.title}]({current.uri}) · *{_requester_name(current)}*\n"
+                f"**Now playing:** {_source_icon(_track_source(current))} [{current.title}]({current.uri}) · *{_requester_name(current)}*\n"
                 f"`{fmt(player.position)}` / `{fmt(current.length)}`"
             )
         else:
@@ -694,7 +728,7 @@ class QueueView(discord.ui.View):
         page_tracks = upcoming[start:start + QUEUE_PAGE_SIZE]
         if page_tracks:
             lines = [
-                f"`{i}.` {_source_icon(t.source)} **{t.title}** - *{t.author}* · *{_requester_name(t)}*  `{fmt(t.length)}`"
+                f"`{i}.` {_source_icon(_track_source(t))} **{t.title}** - *{t.author}* · *{_requester_name(t)}*  `{fmt(t.length)}`"
                 for i, t in enumerate(page_tracks, start + 1)
             ]
             embed.add_field(name="Up next", value="\n".join(lines), inline=False)
@@ -786,7 +820,7 @@ class SearchPickerView(discord.ui.View):
                 label=f"{i + 1}. {title}",
                 description=desc,
                 value=str(i),
-                emoji=_source_icon(t.source),
+                emoji=_source_icon(_track_source(t)),
             ))
         self._select = discord.ui.Select(
             placeholder="Pick a track to play...",
@@ -998,6 +1032,7 @@ class MusicCog(commands.Cog):
         self._lyrics_cache: dict[str, list[tuple[int, str]]] = {}
         self._lyrics_loading: dict[str, asyncio.Task] = {}
         self._search_cache: dict[str, tuple[float, list]] = {}
+        self._track_errors: dict[int, wavelink.Playable] = {}
 
     # ------------------------------------------------------------------
     # Helpers
@@ -1036,7 +1071,7 @@ class MusicCog(commands.Cog):
         for k in stale:
             self._search_cache.pop(k, None)
 
-    async def _search_tracks(self, normalized: str, node: wavelink.Node) -> list | None:
+    async def _search_tracks(self, normalized: str, node: wavelink.Node, source: str = "auto") -> list | None:
         query_text = None
         is_spotify = bool(_SPOTIFY_URL_RE.match(normalized or ""))
         if is_spotify:
@@ -1048,30 +1083,58 @@ class MusicCog(commands.Cog):
                 return None
             normalized = rewritten
             query_text = " ".join(p for p in (meta.get("title", ""), meta.get("artist", "")) if p)
-        cached = self._get_cached_search(normalized)
+        cache_key = f"{source}:{normalized}"
+        cached = self._get_cached_search(cache_key)
         if cached is not None:
             if is_spotify:
                 best = _best_result(query_text, cached)
+                if best:
+                    _tag_source(best, "spotify")
                 return [best] if best else []
             return cached
-        try:
-            tracks = await wavelink.Playable.search(normalized, node=node)
-        except Exception as e:
-            logger.error("Music search failed: %s", e)
-            return None
-        if not tracks:
-            return []
-        if isinstance(tracks, wavelink.Playlist):
-            return tracks
-        if isinstance(tracks, (list, tuple)):
-            results = [t for t in list(tracks) if (t.source or "").lower() == "youtube"] or list(tracks)
+        if is_spotify or _is_link(normalized):
+            link_results = await self._search_platform(normalized, "youtube" if is_spotify else None, node)
+            if isinstance(link_results, wavelink.Playlist):
+                self._cache_search(cache_key, link_results)
+                return link_results
+            results = self._filter_platform(link_results, "youtube") if is_spotify else link_results
         else:
-            results = [tracks]
-        self._cache_search(normalized, results)
+            results = await self._search_text(normalized, source, node)
+        self._cache_search(cache_key, results)
         if is_spotify:
             best = _best_result(query_text, results)
+            if best:
+                _tag_source(best, "spotify")
             return [best] if best else []
         return results
+
+    @staticmethod
+    async def _search_platform(query: str, platform: str | None, node: wavelink.Node) -> list | wavelink.Playlist:
+        src = {
+            "youtube": wavelink.TrackSource.YouTube,
+            "soundcloud": wavelink.TrackSource.SoundCloud,
+        }.get(platform)
+        try:
+            return await wavelink.Playable.search(query, source=src, node=node)
+        except Exception as e:
+            logger.error("Music search failed (%s): %s", platform or "link", e)
+            return []
+
+    async def _search_text(self, query: str, source: str, node: wavelink.Node) -> list:
+        platforms = {"youtube": ["youtube"], "soundcloud": ["soundcloud"]}.get(source, ["youtube", "soundcloud"])
+        batches = await asyncio.gather(*(self._search_platform(query, p, node) for p in platforms))
+        batches = [b.tracks if isinstance(b, wavelink.Playlist) else list(b or []) for b in batches]
+        if len(batches) == 1:
+            return self._filter_platform(batches[0], platforms[0])
+        return _interleave_results(self._filter_platform(batches[0], "youtube"), self._filter_platform(batches[1], "soundcloud"))
+
+    @staticmethod
+    def _filter_platform(tracks: list, platform: str) -> list:
+        if not tracks:
+            return []
+        if platform == "soundcloud":
+            return [t for t in tracks if (t.source or "").lower() == "soundcloud"] or list(tracks)
+        return [t for t in tracks if (t.source or "").lower() in ("youtube", "youtubemusic")] or list(tracks)
 
     def _player_usable(self, player) -> bool:
         if not isinstance(player, wavelink.Player):
@@ -1141,7 +1204,7 @@ class MusicCog(commands.Cog):
 
         return player, node
 
-    async def _teardown_guild(self, guild_id: int, *, embed_title: str = "Disconnected", embed_desc: str = "Music stopped. Run /music play to start again."):
+    async def _teardown_guild(self, guild_id: int, *, embed_title: str = "Disconnected", embed_desc: str = "Music stopped. Run /music play to start again.", keep_controller: bool = False):
         self._cancel_update_task(guild_id)
         self._cancel_idle(guild_id)
         self._empty_paused.pop(guild_id, None)
@@ -1151,6 +1214,7 @@ class MusicCog(commands.Cog):
         self._reset_skip_votes(guild_id)
         self.players_owner.pop(guild_id, None)
         self.live_lyrics.pop(guild_id, None)
+        self._track_errors.pop(guild_id, None)
         if view:
             for child in view.children:
                 child.disabled = True
@@ -1170,13 +1234,32 @@ class MusicCog(commands.Cog):
                 await msg.edit(embed=discord.Embed(title=embed_title, description=embed_desc, color=VOIDWAVE_COLOR), view=view)
             except discord.HTTPException:
                 pass
-            self._drop_controller(guild_id)
+            if keep_controller:
+                try:
+                    self._save_controller(guild_id, msg.channel.id, msg.id)
+                except Exception as e:
+                    logger.error("Failed to persist music controller for guild %s during shutdown: %s", guild_id, e)
+            else:
+                self._drop_controller(guild_id)
         else:
-            await self._edit_stale_controller(guild_id, embed_title=embed_title, embed_desc=embed_desc)
+            await self._edit_stale_controller(guild_id, embed_title=embed_title, embed_desc=embed_desc, drop=not keep_controller)
 
     async def _disconnect(self, player: wavelink.Player, *, embed_title: str = "Disconnected", embed_desc: str = "Left the voice channel and cleared the queue."):
         guild_id = player.guild.id if player.guild else 0
         await self._teardown_guild(guild_id, embed_title=embed_title, embed_desc=embed_desc)
+
+    async def shutdown_all(self, *, reason: str = "The bot is restarting. Playback stopped; I'll be right back."):
+        """Leave every voice channel and update all player embeds during shutdown.
+
+        Controller rows are kept so that after the restart, recovery can edit each
+        embed again to tell users the bot is back online.
+        """
+        guild_ids = set(self.players) | set(self.player_views) | set(self.player_messages)
+        for guild_id in guild_ids:
+            try:
+                await self._teardown_guild(guild_id, embed_title="Restarting...", embed_desc=reason, keep_controller=True)
+            except Exception as e:
+                logger.error("Failed to tear down music in guild %s during shutdown: %s", guild_id, e)
 
     def _save_controller(self, guild_id: int, channel_id: int, message_id: int):
         try:
@@ -1230,7 +1313,7 @@ class MusicCog(commands.Cog):
         except sqlite3.Error:
             return None
 
-    async def _edit_stale_controller(self, guild_id: int, *, embed_title: str = "Music stopped", embed_desc: str = "I came back online and playback was stopped. Run /music play to start again."):
+    async def _edit_stale_controller(self, guild_id: int, *, embed_title: str = "Music stopped", embed_desc: str = "I came back online and playback was stopped. Run /music play to start again.", drop: bool = True):
         """Edit a persisted controller message that this process has no in-memory reference to."""
         row = self._controller_row(guild_id)
         if not row:
@@ -1240,12 +1323,14 @@ class MusicCog(commands.Cog):
         if guild is not None:
             channel = guild.get_channel(row["channel_id"])
         if channel is None or not hasattr(channel, "fetch_message"):
-            self._drop_controller(guild_id)
+            if drop:
+                self._drop_controller(guild_id)
             return
         try:
             msg = await channel.fetch_message(row["message_id"])
         except discord.HTTPException:
-            self._drop_controller(guild_id)
+            if drop:
+                self._drop_controller(guild_id)
             return
         view = MusicPlayerView(self, guild_id)
         for child in view.children:
@@ -1254,7 +1339,8 @@ class MusicCog(commands.Cog):
             await msg.edit(embed=discord.Embed(title=embed_title, description=embed_desc, color=VOIDWAVE_COLOR), view=view)
         except discord.HTTPException:
             pass
-        self._drop_controller(guild_id)
+        if drop:
+            self._drop_controller(guild_id)
         logger.info("Edited stale music controller in guild %s", guild_id)
 
     async def _recover_after_restart(self):
@@ -1358,11 +1444,34 @@ class MusicCog(commands.Cog):
         if not msg or not view:
             return
         try:
-            embed = msg.embeds[0].copy() if msg.embeds else discord.Embed(title="Music finished", color=VOIDWAVE_COLOR)
+            if isinstance(view, MusicPlayerView):
+                view._update_button_states(self.players.get(guild_id))
+            paused_state = False
+            player = self.players.get(guild_id)
+            if isinstance(player, wavelink.Player) and player.current is not None and (player.paused or self._empty_paused.get(guild_id)):
+                paused_state = True
+            if paused_state:
+                embed = now_playing_embed(player.current, player)
+            else:
+                embed = self._idle_embed(guild_id)
             self._add_idle_note(embed, guild_id)
             await msg.edit(embed=embed, view=view)
         except discord.HTTPException:
             pass
+
+    def _idle_embed(self, guild_id: int, player=None):
+        """A clear 'nothing is playing' embed for the player controller."""
+        if not isinstance(player, wavelink.Player):
+            player = self.players.get(guild_id)
+        queue_count = player.queue.count if isinstance(player, wavelink.Player) else 0
+        if queue_count:
+            desc = (
+                f"Nothing is playing right now, but `{queue_count}` track{'s' if queue_count != 1 else ''} "
+                "are still in the queue."
+            )
+        else:
+            desc = "The queue is finished. Run /music play to start something new."
+        return discord.Embed(title="⏹️ Nothing playing", description=desc, color=VOIDWAVE_COLOR)
 
     async def _idle_countdown_loop(self, guild_id: int):
         try:
@@ -1497,9 +1606,16 @@ class MusicCog(commands.Cog):
         player = self.players.get(guild_id)
         view = self.player_views.get(guild_id)
         msg = self.player_messages.get(guild_id)
-        if not (isinstance(player, wavelink.Player) and player.connected and player.current and view and msg):
+        if not (isinstance(player, wavelink.Player) and player.connected and view and msg):
             return
         view._update_button_states(player)
+        if player.current is None:
+            embed = self._idle_embed(guild_id, player)
+            try:
+                await msg.edit(embed=embed, view=view)
+            except discord.HTTPException:
+                pass
+            return
         cur, nxt, _ = await self._live_lyric(guild_id, player, player.current)
         embed = self._add_idle_note(now_playing_embed(player.current, player, live_line=cur, live_next=nxt), guild_id)
         try:
@@ -1662,8 +1778,17 @@ class MusicCog(commands.Cog):
     # Play
     # ------------------------------------------------------------------
     @music.command(name="play", description="Play a song or add it to the queue")
-    @app_commands.describe(query='A search term, or a YouTube, Spotify, or SoundCloud link', hidden="Hide the command from others")
-    async def play_music(self, interaction: discord.Interaction, query: str, hidden: bool = False):
+    @app_commands.describe(
+        query='A search term, or a YouTube, Spotify, or SoundCloud link',
+        source="Where to search: both, YouTube only, or SoundCloud only",
+        hidden="Hide the command from others",
+    )
+    @app_commands.choices(source=[
+        app_commands.Choice(name="Both", value="auto"),
+        app_commands.Choice(name="YouTube", value="youtube"),
+        app_commands.Choice(name="SoundCloud", value="soundcloud"),
+    ])
+    async def play_music(self, interaction: discord.Interaction, query: str, source: str = "auto", hidden: bool = False):
         if await self._deny_if_blocked(interaction):
             return
 
@@ -1677,7 +1802,7 @@ class MusicCog(commands.Cog):
             if normalized is None:
                 await interaction.followup.send("I couldn't find anything for that query. Please try again.", ephemeral=hidden)
                 return
-            tracks = await self._search_tracks(normalized, node)
+            tracks = await self._search_tracks(normalized, node, source=source)
             if tracks is None:
                 await interaction.followup.send("I couldn't find anything for that query. Please try again.", ephemeral=hidden)
                 return
@@ -1719,7 +1844,7 @@ class MusicCog(commands.Cog):
                 view = SearchPickerView(self, results, interaction, interaction.user.id, query=query)
                 lines = []
                 for i, t in enumerate(results[:_MAX_SEARCH_RESULTS], 1):
-                    icon = _source_icon(t.source)
+                    icon = _source_icon(_track_source(t))
                     lines.append(f"**{i}.** {icon} [{t.title}]({t.uri}) - *{t.author}* `{fmt(t.length)}`")
                 embed = discord.Embed(title="🔍 Search Results", description="\n".join(lines), color=VOIDWAVE_COLOR)
                 best = _best_result(query, results) or results[0]
@@ -1735,7 +1860,7 @@ class MusicCog(commands.Cog):
                     embed = discord.Embed(
                         title="🎵 Added to queue",
                         description=(
-                            f"{_source_icon(track.source)} **{_source_label(track.source)}** · "
+                            f"{_source_icon(_track_source(track))} **{_source_label(_track_source(track))}** · "
                             f"**[{track.title}]({track.uri})** · added by **{interaction.user.display_name}**"
                         ),
                         color=VOIDWAVE_COLOR,
@@ -2168,10 +2293,29 @@ class MusicCog(commands.Cog):
             return
 
         if player.autoplay == wavelink.AutoPlayMode.enabled:
-            await asyncio.sleep(2)
-            if player.guild and player.queue.is_empty and not player.playing:
-                self._start_idle_countdown(player.guild.id)
+            await asyncio.sleep(3)
+            if player.guild and player.current is None and not player.playing and player.queue.is_empty:
+                if not await self._autoplay_recommend(player):
+                    self._start_idle_countdown(player.guild.id)
             return
+
+        failed = self._track_errors.pop(player.guild.id, None) if player.guild else None
+
+        if failed is not None:
+            recovered = await self._try_youtube_fallback(player, failed)
+            if recovered is not None:
+                if player.guild:
+                    self._reset_skip_votes(player.guild.id)
+                try:
+                    await player.play(recovered)
+                except Exception as e:
+                    recovered = None
+                    logger.error("Failed to play YouTube fallback in guild %s: %s", player.guild.id, e)
+                if recovered is not None:
+                    guild_id = player.guild.id if player.guild else 0
+                    if self.live_lyrics.get(guild_id):
+                        self._ensure_lyrics_loaded(recovered)
+                    return
 
         next_track = None
         try:
@@ -2204,6 +2348,10 @@ class MusicCog(commands.Cog):
                 self._ensure_lyrics_loaded(next_track)
             return
 
+        if failed is not None:
+            failed_title = getattr(failed, "title", None) or "that track"
+            await self._show_failed_track_status(player.guild.id, failed_title)
+
         await asyncio.sleep(2)
         if player.guild and player.queue.is_empty and not player.playing:
             self._start_idle_countdown(player.guild.id)
@@ -2220,6 +2368,7 @@ class MusicCog(commands.Cog):
         if guild_id:
             self._cancel_idle(guild_id)
             self._empty_paused.pop(guild_id, None)
+            self._track_errors.pop(guild_id, None)
         if self.live_lyrics.get(guild_id):
             self._ensure_lyrics_loaded(track)
         msg = self.player_messages.get(guild_id)
@@ -2229,6 +2378,107 @@ class MusicCog(commands.Cog):
         if msg.channel is None:
             return
         await self._repost_player_message_channel(msg.channel, player)
+
+    @commands.Cog.listener()
+    async def on_wavelink_track_exception(self, payload: wavelink.TrackExceptionEventPayload):
+        """Record a failed track so the user gets feedback instead of silence."""
+        player = payload.player
+        if not isinstance(player, wavelink.Player) or not player.guild:
+            return
+        guild_id = player.guild.id
+        track = payload.track
+        self._track_errors[guild_id] = track
+        exception = payload.exception
+        message = exception.get("message", "") if isinstance(exception, dict) else ""
+        logger.warning(
+            "Track failed to play in guild %s: %s%s",
+            guild_id,
+            getattr(track, "title", track),
+            f" ({message})" if message else "",
+        )
+
+    async def _show_failed_track_status(self, guild_id: int, track_title: str):
+        msg = self.player_messages.get(guild_id)
+        view = self.player_views.get(guild_id)
+        if not msg or not view:
+            return
+        desc = f"I couldn't play **{track_title}**. It may have been removed or blocked. Run /music play to play something else."
+        try:
+            await msg.edit(
+                embed=discord.Embed(title="Couldn't play that track", description=desc, color=VOIDWAVE_COLOR),
+                view=view,
+            )
+        except discord.HTTPException:
+            pass
+
+    async def _try_youtube_fallback(self, player, failed):
+        """Try to play the YouTube version of a SoundCloud track that failed to load."""
+        source = (getattr(failed, "source", None) or "").lower()
+        if source != "soundcloud":
+            return None
+        if not player.guild or player.node is None or player.node.status is not wavelink.NodeStatus.CONNECTED:
+            return None
+        query = _clean_text(f"{getattr(failed, 'title', '') or ''} {getattr(failed, 'author', '') or ''}").strip()
+        if not query:
+            return None
+        try:
+            results = await wavelink.Playable.search(query, source=wavelink.TrackSource.YouTube, node=player.node)
+        except Exception as e:
+            logger.warning("YouTube fallback search failed in guild %s: %s", player.guild.id, e)
+            return None
+        if not results:
+            return None
+        best = _best_result(query, results) or results[0]
+        _tag_source(best, "youtube")
+        _tag_requester(best, _requester_name(failed))
+        logger.info("Playing YouTube fallback for failed SoundCloud track in guild %s: %s", player.guild.id, getattr(best, "title", best))
+        return best
+
+    async def _autoplay_recommend(self, player) -> bool:
+        """Generate a related track when wavelink's autoplay has no source to seed from.
+
+        Wavelink's autoplay only builds recommendations from YouTube or Spotify
+        identifiers, so it has nothing to work with after SoundCloud playback. In that
+        case search YouTube for the last played track and start from its match.
+        """
+        seed = player.current
+        try:
+            recent = list(player.queue.history)[-8:]
+        except Exception:
+            recent = []
+        candidates = ([seed] if seed is not None else []) + recent
+        if any((getattr(t, "source", None) or "").lower() in ("youtube", "youtubemusic", "spotify") for t in candidates):
+            return False
+        if seed is None:
+            try:
+                seed = player.queue.history[-1]
+            except Exception:
+                seed = None
+        if seed is None:
+            return False
+        if player.node is None or player.node.status is not wavelink.NodeStatus.CONNECTED:
+            return False
+        query = _clean_text(f"{getattr(seed, 'title', '') or ''} {getattr(seed, 'author', '') or ''}").strip()
+        if not query:
+            return False
+        try:
+            results = await wavelink.Playable.search(query, source=wavelink.TrackSource.YouTube, node=player.node)
+        except Exception as e:
+            logger.warning("AutoPlay fallback search failed in guild %s: %s", player.guild.id, e)
+            return False
+        if not results:
+            return False
+        track = _best_result(query, results) or results[0]
+        if track.identifier == getattr(seed, "identifier", None):
+            return False
+        _tag_requester(track, _requester_name(seed))
+        try:
+            await player.play(track)
+        except Exception as e:
+            logger.warning("AutoPlay fallback play failed in guild %s: %s", player.guild.id, e)
+            return False
+        logger.info("AutoPlay fallback playing %s in guild %s", getattr(track, "title", track), player.guild.id)
+        return True
 
 
 # ------------------------------------------------------------------
@@ -2419,7 +2669,7 @@ class MusicCog(commands.Cog):
                 )
                 lines = []
                 for i, t in enumerate(results[:_MAX_SEARCH_RESULTS], 1):
-                    icon = _source_icon(t.source)
+                    icon = _source_icon(_track_source(t))
                     lines.append(f"**{i}.** {icon} [{t.title}]({t.uri}) - *{t.author}* `{fmt(t.length)}`")
                 embed = discord.Embed(title="🔍 Search Results", description="\n".join(lines), color=VOIDWAVE_COLOR)
                 embed.set_footer(text="Pick a result or wait to auto-add the best match")
@@ -2456,7 +2706,7 @@ class MusicCog(commands.Cog):
         embed = discord.Embed(
             title="🎵 Added to playlist",
             description=(
-                f"{_source_icon(track.source)} **{_source_label(track.source)}** · "
+                f"{_source_icon(_track_source(track))} **{_source_label(_track_source(track))}** · "
                 f"**[{track.title}]({track.uri})** · added by **{interaction.user.display_name}**"
             ),
             color=VOIDWAVE_COLOR,
