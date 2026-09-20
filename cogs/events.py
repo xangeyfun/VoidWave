@@ -122,7 +122,7 @@ class EventsCog(commands.Cog):
         try:
             logger.debug("Syncing commands...")
             start_sync = time.time()
-            synced = await self.bot.tree.sync() # guild=guild)
+            synced = await self.bot.tree.sync()
             done = time.time()
         except Exception as e:
             logger.critical("Error while syncing commands: %s", e)
