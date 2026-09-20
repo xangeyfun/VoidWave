@@ -68,7 +68,7 @@ Spotify URLs/queries straight to Lavalink; no scraping).
          customTokenEndpoint: "http://127.0.0.1:8080/api/token"
          preferPartnerApi: true
    ```
-   Keep the credentials in `application.yml` only — never put them in `.env` or git.
+   Keep the credentials in `application.yml` only (never put them in `.env` or git).
 3. Recommended: enable **Extended Quota Mode** for the Spotify app (dashboard
    &rarr; app &rarr; "Extended quota mode"). Fresh apps in default *limited quota*
    mode cannot use API batch endpoints and newer playlist endpoints.
@@ -131,7 +131,7 @@ authoritative membership check can use `guild.fetch_member()`.
 
 ### Website + admin: `voidwave_website.service`
 
-The dashboard runs under gunicorn (installed system-wide, `/usr/bin/gunicorn`),
+The dashboard runs under gunicorn (installed system wide, `/usr/bin/gunicorn`),
 so `python app.py` inside the venv is only for local dev:
 
 ```ini
@@ -206,7 +206,7 @@ All of these are gitignored runtime artifacts.
 ## Backups
 
 Use the admin panel's **Backups** page (`/admin/backups`); it exports `database.db`
-to `~/Backups/VoidWave` (`Path.home()` — the unit's service user, `xangey` on the
+to `~/Backups/VoidWave` (`Path.home()`, the unit's service user `xangey` on the
 live host) and keeps the 48 newest; it can also restore. The health page flags a
 backup as stale when the newest is older than 7 days.
 
