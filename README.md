@@ -27,7 +27,7 @@
 
 * XP & leveling from messages and voice chat, works instantly
 * Cross-server global profiles and leaderboards
-* AI chat powered by Llama 3.2, free and unlimited
+* AI chat powered by a self-hosted LLM (Ollama), free and unlimited
 * Shareable web profiles with OpenGraph embeds
 * Auto role rewards at level milestones
 * Daily Question of the Day with auto-threads
@@ -47,7 +47,7 @@
 | Website  | Flask               |
 | Database | SQLite              |
 | Frontend | Jinja + vanilla CSS |
-| AI       | Ollama + Llama 3.2  |
+| AI       | Ollama (self-hosted LLM) |
 | Music    | Lavalink + wavelink |
 
 The bot and website share the same SQLite database but run as separate processes.
