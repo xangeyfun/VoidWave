@@ -261,8 +261,8 @@ class GeneralCog(commands.Cog):
                 title="🎵 Music",
                 description=(
                     "Play music in voice channels. Join a voice channel and run `/music play`. "
-                    "Paste a YouTube URL, a Spotify link, or search by name. Spotify links are "
-                    "matched to their YouTube equivalent. "
+                    "Paste a YouTube, Spotify, or SoundCloud link, or search by name. Spotify links are "
+                    "matched to their YouTube equivalent; SoundCloud plays natively. "
                     "An interactive player embed with buttons appears. Control playback without typing commands. "
                     "The progress bar updates live. Skips are decided by vote (or owner can force-skip)."
                 ),
