@@ -15,7 +15,7 @@ venv/bin/python -m ruff check .    # lint, also enforced in CI
 - Copy `.env.example` → `.env`. `ADMIN_PASSWORD` is required or /admin returns 503.
 - AI chat needs Ollama at `localhost:11434`; `PROMPT_NAME` selects `prompts/<name>.txt`.
 - Music cog needs a Lavalink 4.x server (`LAVALINK_URI`/`LAVALINK_PASSWORD`); wavelink pinned `>=3.5,<4`.
-- Slash commands are synced globally in `cogs/events.py:96` (`tree.sync()`). `GUILD_ID`/`APPLICATION_ID` are currently **unused**; `ALLOWED_USER_ID` is only used to ping on critical alerts (`notify.py`).
+- Slash commands are synced globally from `cogs/events.py` `on_ready` (`tree.sync()`). `GUILD_ID`/`APPLICATION_ID` are currently **unused**; `ALLOWED_USER_ID` is only used to ping on critical alerts (`notify.py`).
 
 ## Architecture & gotchas
 
@@ -31,8 +31,10 @@ venv/bin/python -m ruff check .    # lint, also enforced in CI
 - `prompts/` is gitignored except `prompts/default.txt`; new persona files won't be committed by default.
 - QOTD runs on a 1-minute loop (`cogs/events.py`); per-guild time is `HH:MM` + IANA tz stored in `guild_settings` (`qotd_time`, `qotd_tz`).
 - The admin panel controls the bot through systemd unit `voidwave.service` (`admin/helpers.py` `_service_*`); start/stop/restart workflow assumes a production host with systemctl. See `DEPLOYMENT.md` for full production setup (units `voidwave.service` + `voidwave_website.service`, reverse proxy, graphs cron).
-- Working tree currently has uncommitted changes in `cogs/music.py`; check `git status` before editing.
+- The `/help` menu is data-driven: `DOCUMENTED_COMMANDS`/`DOCUMENTED_ALIASES` in `cogs/general.py` drive the help topics and autocomplete, and `_check_help_docs` runs on startup warning about any registered command missing from it (or any documented one that no longer exists). The website `/docs` pages (`templates/docs_*.html`, mapped in `app.py::_DOCS_PAGES`) are a hand-maintained mirror of that same user-facing content; keep all three in sync.
+- Embed footers: the `_footer()` helper (cogs/music.py:41) sets the "Vote for 2x XP" footer, but `now_playing_embed()` and `QueueView.build_embed()` set their own footers — calling `_footer()` on top of those silently overwrites them. Don't stack `set_footer` calls.
+- Music tracks carry who added them in `track.extras.requester_name` (set via `_tag_requester`, default `Autoplay`); the skip-instant owner is the user who started playback (`MusicCog.players_owner`).
 
 ## Adding a command
 
-Add a new cog file to `cogs/` and load it in `bot.py::setup_hook` (the list is explicit, not auto-discovered). Cogs are mostly slash-command `@app_commands` groups; interaction handlers and background loops (e.g. QOTD, giveaways) are started from `cogs/events.py::on_ready`.
+Add a new cog file to `cogs/` and load it in `bot.py::setup_hook` (the list is explicit, not auto-discovered). Cogs are mostly slash-command `@app_commands` groups; interaction handlers and background loops (e.g. QOTD, giveaways) are started from `cogs/events.py::on_ready`. Register every new slash command (subcommands too, as `group name`) in `DOCUMENTED_COMMANDS` in `cogs/general.py` so `/help` and its autocomplete list it.
