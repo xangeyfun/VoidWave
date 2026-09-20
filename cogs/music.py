@@ -671,11 +671,18 @@ class QueueView(discord.ui.View):
         start = self.page * QUEUE_PAGE_SIZE
         page_tracks = upcoming[start:start + QUEUE_PAGE_SIZE]
         if page_tracks:
-            lines = [
-                f"`{i}.` {_source_icon(_track_source(t))} **{t.title}** - *{t.author}* · *{_requester_name(t)}*  `{fmt(t.length)}`"
-                for i, t in enumerate(page_tracks, start + 1)
-            ]
-            embed.add_field(name="Up next", value="\n".join(lines), inline=False)
+            block = []
+            for i, t in enumerate(page_tracks, start + 1):
+                line = (
+                    f"`{i}.` {_source_icon(_track_source(t))} **{_short(t.title, 80)}** - "
+                    f"*{_short(t.author, 40)}* · *{_short(_requester_name(t), 20)}*  `{fmt(t.length)}`"
+                )
+                if block and len("\n".join(block)) + len(line) + 1 > 1000:
+                    break
+                block.append(line)
+            embed.add_field(name="Up next", value="\n".join(block), inline=False)
+            if len(block) < len(page_tracks):
+                embed.add_field(name="More", value=f"See page {self.page + 1} buttons for the next tracks", inline=False)
         else:
             embed.add_field(name="Up next", value="Nothing in the queue.", inline=False)
 
