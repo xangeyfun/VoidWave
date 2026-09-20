@@ -100,15 +100,6 @@ def _best_result(query, results):
     return best
 
 
-def _interleave(*lists: list) -> list:
-    combined = []
-    for i in range(max((len(lst) for lst in lists), default=0)):
-        for lst in lists:
-            if i < len(lst):
-                combined.append(lst[i])
-    return combined
-
-
 def _normalize_query(query: str) -> str | None:
     if not query or not query.strip():
         return None
@@ -1184,15 +1175,17 @@ class MusicCog(commands.Cog):
             return []
 
     async def _search_text(self, query: str, source: str, node: wavelink.Node) -> list:
+        # Default (auto) order is Spotify, then SoundCloud, then YouTube, so the
+        # picker shows top results from each source instead of interleaved rows.
         platforms = {"youtube": ["youtube"], "soundcloud": ["soundcloud"], "spotify": ["spotify"]}.get(
-            source, ["youtube", "soundcloud", "spotify"]
+            source, ["spotify", "soundcloud", "youtube"]
         )
         batches = await asyncio.gather(*(self._search_platform(query, p, node) for p in platforms))
         batches = [b.tracks if isinstance(b, wavelink.Playlist) else list(b or []) for b in batches]
-        filtered = [self._filter_platform(b, p) for b, p in zip(batches, platforms)]
-        if len(filtered) == 1:
-            return filtered[0]
-        return _interleave(*filtered)
+        results = []
+        for batch, platform in zip(batches, platforms):
+            results.extend(self._filter_platform(batch, platform))
+        return results
 
     @staticmethod
     def _filter_platform(tracks: list, platform: str) -> list:
