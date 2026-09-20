@@ -13,5 +13,9 @@ body:
       description: Command name, slash-command structure, or UI flow you imagine.
   - type: textarea
     attributes:
+      label: Why would this be useful?
+      description: What problem would this feature solve for you?
+  - type: textarea
+    attributes:
       label: Additional context
       description: Screenshots, links to similar bots/features, etc.
