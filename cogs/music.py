@@ -1029,7 +1029,6 @@ class VoidWavePlayer(wavelink.Player):
         spotify = [t.identifier for t in seeds if t.source == "spotify"]
         youtube = [t.identifier for t in seeds if t.source == "youtube"]
 
-        spotify_query: str | None = None
         youtube_query: str | None = None
 
         count: int = len(self.queue.history)
@@ -1054,10 +1053,13 @@ class VoidWavePlayer(wavelink.Player):
             elif track.source == "youtube":
                 youtube[0] = track.identifier
 
+        spotify_queries: list[str] = []
         if spotify:
             spotify_seeds = spotify[:3]
-            # LavaSrc 4.x expects bare track ids after `sprec:` (not the `seed_tracks=` form wavelink uses).
-            spotify_query = f"sprec:{','.join(spotify_seeds)}"
+            # LavaSrc 4.x only accepts a single bare track id after `sprec:`;
+            # a comma separated list resolves to nothing, so query each seed
+            # on its own and merge the results.
+            spotify_queries = [f"sprec:{s}" for s in spotify_seeds]
 
             for s_seed in spotify_seeds:
                 self._add_to_previous_seeds(s_seed)
@@ -1082,7 +1084,10 @@ class VoidWavePlayer(wavelink.Player):
             tracks = search.tracks.copy() if isinstance(search, wavelink.Playlist) else search
             return tracks
 
-        results = await asyncio.gather(_search(spotify_query), _search(youtube_query))
+        coros = [_search(q) for q in spotify_queries]
+        if youtube_query:
+            coros.append(_search(youtube_query))
+        results = await asyncio.gather(*coros)
 
         filtered_r = [t for r in results for t in r]
 
@@ -1154,6 +1159,7 @@ class MusicCog(commands.Cog):
         self._search_cache: dict[str, tuple[float, list]] = {}
         self._track_errors: dict[int, wavelink.Playable] = {}
         self._sc_fallback_cache: dict[str, wavelink.Playable | None] = {}
+        self._controller_locks: dict[int, asyncio.Lock] = {}
 
     # ------------------------------------------------------------------
     # Helpers
@@ -1737,31 +1743,44 @@ class MusicCog(commands.Cog):
         except discord.HTTPException:
             pass
 
+    def _controller_lock(self, guild_id: int) -> asyncio.Lock:
+        lock = self._controller_locks.get(guild_id)
+        if lock is None:
+            lock = asyncio.Lock()
+            self._controller_locks[guild_id] = lock
+        return lock
+
+    async def _retire_controller(self, old_msg, old_view, current_msg):
+        if not (old_msg and old_view and old_msg.id != current_msg.id):
+            return
+        try:
+            for child in old_view.children:
+                child.disabled = True
+            await old_msg.delete()
+        except discord.HTTPException:
+            pass
+
     async def _send_player_message(self, interaction: discord.Interaction, track, player, requester=None):
         guild_id = interaction.guild_id
-        old_msg = self.player_messages.get(guild_id)
-        old_view = self.player_views.get(guild_id)
-        self._cancel_update_task(guild_id)
+        async with self._controller_lock(guild_id):
+            old_msg = self.player_messages.get(guild_id)
+            old_view = self.player_views.get(guild_id)
+            self._cancel_update_task(guild_id)
 
-        view = MusicPlayerView(self, guild_id)
-        view._update_button_states(player)
-        self.player_views[guild_id] = view
-        embed = now_playing_embed(track, player, requester or interaction.user)
-        msg = await interaction.followup.send(embed=embed, view=view)
-        view._message_id = msg.id
-        self.player_messages[guild_id] = msg
-        self._start_update_task(guild_id, msg)
-        self._save_controller(guild_id, msg.channel.id, msg.id)
-        if self.live_lyrics.get(guild_id):
-            self._ensure_lyrics_loaded(track)
+            view = MusicPlayerView(self, guild_id)
+            view._update_button_states(player)
+            self.player_views[guild_id] = view
+            embed = now_playing_embed(track, player, requester or interaction.user)
+            msg = await interaction.followup.send(embed=embed, view=view)
+            view._message_id = msg.id
+            self.player_messages[guild_id] = msg
+            self._start_update_task(guild_id, msg)
+            self._save_controller(guild_id, msg.channel.id, msg.id)
+            if self.live_lyrics.get(guild_id):
+                self._ensure_lyrics_loaded(track)
 
-        if old_msg and old_view and old_msg.id != msg.id and self.player_messages.get(guild_id) is msg:
-            try:
-                for child in old_view.children:
-                    child.disabled = True
-                await old_msg.delete()
-            except discord.HTTPException:
-                pass
+            await self._retire_controller(old_msg, old_view, msg)
+
     async def _repost_player_message(self, interaction: discord.Interaction, player):
         """Repost the controller to the current channel to bring it back into view."""
         channel = interaction.channel
@@ -1774,33 +1793,28 @@ class MusicCog(commands.Cog):
         guild_id = player.guild.id if player.guild else None
         if guild_id is None:
             return
-        old_msg = self.player_messages.get(guild_id)
-        old_view = self.player_views.get(guild_id)
-        self._cancel_update_task(guild_id)
+        async with self._controller_lock(guild_id):
+            old_msg = self.player_messages.get(guild_id)
+            old_view = self.player_views.get(guild_id)
+            self._cancel_update_task(guild_id)
 
-        current = player.current
-        if current is None:
-            return
-        view = MusicPlayerView(self, guild_id)
-        view._update_button_states(player)
-        self.player_views[guild_id] = view
-        embed = now_playing_embed(current, player)
-        try:
-            msg = await channel.send(embed=embed, view=view)
+            current = player.current
+            if current is None:
+                return
+            view = MusicPlayerView(self, guild_id)
+            view._update_button_states(player)
+            self.player_views[guild_id] = view
+            embed = now_playing_embed(current, player)
+            try:
+                msg = await channel.send(embed=embed, view=view)
+            except discord.HTTPException:
+                return
             view._message_id = msg.id
             self.player_messages[guild_id] = msg
             self._start_update_task(guild_id, msg)
             self._save_controller(guild_id, msg.channel.id, msg.id)
-        except discord.HTTPException:
-            return
 
-        if old_msg and old_view and old_msg.id != msg.id and self.player_messages.get(guild_id) is msg:
-            try:
-                for child in old_view.children:
-                    child.disabled = True
-                await old_msg.delete()
-            except discord.HTTPException:
-                pass
+            await self._retire_controller(old_msg, old_view, msg)
 
     async def _begin_playback(self, interaction: discord.Interaction, player: wavelink.Player, track) -> bool:
         """Start a track. On failure the player is torn down so the next attempt reconnects fresh."""
@@ -2492,11 +2506,8 @@ class MusicCog(commands.Cog):
         view = self.player_views.get(guild_id)
         if not msg or not view:
             return
-        try:
-            await msg.edit(embed=now_playing_embed(track, player), view=view)
-        except discord.HTTPException:
-            if msg.channel is not None:
-                await self._repost_player_message_channel(msg.channel, player)
+        if msg.channel is not None:
+            await self._repost_player_message_channel(msg.channel, player)
 
     @commands.Cog.listener()
     async def on_wavelink_track_exception(self, payload: wavelink.TrackExceptionEventPayload):
