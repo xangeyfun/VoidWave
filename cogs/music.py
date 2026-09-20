@@ -1626,7 +1626,7 @@ class MusicCog(commands.Cog):
     # Play
     # ------------------------------------------------------------------
     @music.command(name="play", description="Play a song or add it to the queue")
-    @app_commands.describe(query='A YouTube URL, Spotify link, or search term', hidden="Hide the command from others")
+    @app_commands.describe(query='A search term, or a YouTube, Spotify, or SoundCloud link', hidden="Hide the command from others")
     async def play_music(self, interaction: discord.Interaction, query: str, hidden: bool = False):
         if await self._deny_if_blocked(interaction):
             return
