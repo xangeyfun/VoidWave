@@ -280,7 +280,7 @@ class GeneralCog(commands.Cog):
             ).add_field(
                 name="Slash Commands",
                 value=(
-                    "`/music play <query> [source]` - Play a song or add to the queue (source: both/youtube/soundcloud)\n"
+                    "`/music play <query> [source]` - Play a song or add to the queue (source: all/youtube/soundcloud/spotify)\n"
                     "`/music queue` - View the current queue\n"
                     "`/music nowplaying` - Show the current track\n"
                     "`/music pause` / `/music resume` - Pause and resume\n"
