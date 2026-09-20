@@ -113,6 +113,38 @@ def _word_tokens(text):
     ]
 
 
+def _balanced_pick(results: list, limit: int = _MAX_SEARCH_RESULTS) -> list:
+    """Spread the picker across sources while keeping source priority order.
+
+    Without this, a single source whose results come first (Spotify) fills every
+    slot of the picker and the other sources never show up.
+    """
+    if len(results) <= limit:
+        return list(results)
+    order = []
+    for r in results:
+        source = _track_source(r)
+        if source not in order:
+            order.append(source)
+    if len(order) <= 1:
+        return list(results[:limit])
+    per = limit // len(order)
+    quota = dict.fromkeys(order, per)
+    for source in order:
+        if sum(quota.values()) >= limit:
+            break
+        quota[source] += 1
+    picked = []
+    for r in results:
+        source = _track_source(r)
+        if quota.get(source, 0) > 0:
+            picked.append(r)
+            quota[source] -= 1
+        if len(picked) >= limit:
+            break
+    return picked
+
+
 def _normalize_query(query: str) -> str | None:
     if not query or not query.strip():
         return None
@@ -767,7 +799,7 @@ class SearchPickerView(discord.ui.View):
     def __init__(self, cog, tracks, interaction, user_id, query="", act=None, verb="Playing", status_title="🎵 Searching..."):
         super().__init__(timeout=30)
         self.cog = cog
-        self.tracks = tracks[:_MAX_SEARCH_RESULTS]
+        self.tracks = _balanced_pick(tracks)
         self.interaction = interaction
         self.user_id = user_id
         self.query = query
@@ -1926,7 +1958,7 @@ class MusicCog(commands.Cog):
             if len(results) > 1:
                 view = SearchPickerView(self, results, interaction, interaction.user.id, query=query)
                 lines = []
-                for i, t in enumerate(results[:_MAX_SEARCH_RESULTS], 1):
+                for i, t in enumerate(view.tracks, 1):
                     icon = _source_icon(_track_source(t))
                     lines.append(f"**{i}.** {icon} [{t.title}]({t.uri}) - *{t.author}* `{fmt(t.length)}`")
                 embed = discord.Embed(title="🔍 Search Results", description="\n".join(lines), color=VOIDWAVE_COLOR)
@@ -2785,7 +2817,7 @@ class MusicCog(commands.Cog):
                     status_title="🎵 Adding to playlist...",
                 )
                 lines = []
-                for i, t in enumerate(results[:_MAX_SEARCH_RESULTS], 1):
+                for i, t in enumerate(view.tracks, 1):
                     icon = _source_icon(_track_source(t))
                     lines.append(f"**{i}.** {icon} [{t.title}]({t.uri}) - *{t.author}* `{fmt(t.length)}`")
                 embed = discord.Embed(title="🔍 Search Results", description="\n".join(lines), color=VOIDWAVE_COLOR)
