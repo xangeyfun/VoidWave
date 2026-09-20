@@ -31,7 +31,7 @@
             <code>/music play</code>
             <span class="doc-tag">server only</span>
         </div>
-        <p class="doc-cmd-desc">Start playback or add to the queue. If the search returns several candidates, an interactive picker lets you choose the right one. When nothing is picked within 30 seconds, it auto plays the best match. A <code>source</code> option limits the search: <code>both</code> (YouTube + SoundCloud, default), <code>youtube</code>, or <code>soundcloud</code>.</p>
+        <p class="doc-cmd-desc">Start playback or add to the queue. If the search returns several candidates, an interactive picker lets you choose the right one. When nothing is picked within 30 seconds, it auto plays the best match. A <code>source</code> option limits the search: <code>both</code> (YouTube + SoundCloud, default), <code>youtube</code>, <code>soundcloud</code>, or <code>spotify</code>. You can also search a specific source with a prefix (<code>spsearch:</code>, <code>ytsearch:</code>, <code>scsearch:</code>).</p>
         <div class="doc-cmd-widgets">
             <div class="doc-widget">
                 <div class="doc-widget-label">Accepted inputs</div>
@@ -47,7 +47,7 @@
                         </tr>
                         <tr>
                             <td>Spotify</td>
-                            <td>Track, album, or playlist links. VoidWave reads the Spotify metadata and plays the matching YouTube audio, since Discord audio works best from YouTube. A collection link plays its single best match rather than every track.</td>
+                            <td>Track, album, playlist, or artist links, and full Spotify search (<code>spsearch:</code>). Spotify plays natively from the Spotify API, so tracks keep their real title, artist, and artwork.</td>
                         </tr>
                         <tr>
                             <td>SoundCloud</td>
