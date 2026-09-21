@@ -40,7 +40,7 @@ EMOJIS = {
 
 DOCUMENTED_COMMANDS = {
     "leveling": {"level", "leaderboard", "profile"},
-    "utilities": {"help", "ping", "uptime", "github", "vote", "vote-remind", "ai", "aitoggle", "userinfo", "feedback", "rate"},
+    "utilities": {"help", "ping", "uptime", "github", "vote", "vote-remind", "ai", "aitoggle", "kirkify", "userinfo", "feedback", "rate"},
     "fun": {"animal", "calc", "flip", "random", "quote", "fact"},
     "games": {"8ball", "rps", "tictactoe", "connectfour", "trivia-battle", "blackjack", "hangman", "wordle", "minesweeper", "battleship", "15puzzle"},
     "music": {"music play", "music queue", "music nowplaying", "music pause", "music resume", "music skip", "music stop", "music shuffle", "music loop", "music volume", "music seek", "music lyrics", "music lyricslive", "music autoplay", "music controller", "music disconnect", "music playlist create", "music playlist add", "music playlist remove", "music playlist rename", "music playlist delete", "music playlist list", "music playlist play"},
@@ -208,6 +208,7 @@ class GeneralCog(commands.Cog):
                     "`/vote-remind` - Toggle vote reminders\n"
                     "`/ai <message>` - Chat with the AI\n"
                     "`/aitoggle [enabled]` - Turn AI replies on or off for yourself\n"
+                    "`/kirkify <image> [hidden]` - Kirkify an image with AI (Kirk swap)\n"
                     "`/userinfo <user>` - Look up a user\n"
                     "`/feedback <feedback>` - Message the developers\n"
                     "`/rate` - Rate VoidWave"
