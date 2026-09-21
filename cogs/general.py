@@ -281,25 +281,23 @@ class GeneralCog(commands.Cog):
             ).add_field(
                 name="Slash Commands",
                 value=(
-                    "`/music play <query> [source]` - Play a song or add to the queue (source: all/youtube/soundcloud/spotify)\n"
-                    "`/music queue` - View the current queue\n"
+                    "`/music play <query> [source]` - Play or queue a song (source: all/youtube/soundcloud/spotify)\n"
+                    "`/music queue` - View the queue\n"
                     "`/music nowplaying` - Show the current track\n"
-                    "`/music pause` / `/music resume` - Pause and resume\n"
+                    "`/music pause` / `resume` - Pause and resume\n"
                     "`/music skip` - Skip the current track\n"
                     "`/music stop` - Stop and clear the queue\n"
                     "`/music shuffle` - Shuffle the queue\n"
                     "`/music loop <mode>` - Loop off/track/queue\n"
-                    "`/music volume <level>` - Set volume (1-100)\n"
+                    "`/music volume <level>` - Volume (1-100)\n"
                     "`/music seek <time>` - Seek to a position (e.g. 1:30)\n"
-                    "`/music lyrics` - Show lyrics for the current track\n"
-                    "`/music lyricslive <on|off>` - Live synced lyrics on the player embed\n"
+                    "`/music lyrics` - Lyrics for the current track\n"
+                    "`/music lyricslive <on|off>` - Live synced lyrics on the player\n"
                     "`/music autoplay <on|off>` - Auto-play related tracks\n"
-                    "`/music controller` - Bring the player controller back into view\n"
+                    "`/music controller` - Re-open the player controller\n"
                     "`/music disconnect` - Leave the voice channel\n\n"
-                    "**Idle behavior:** if the queue finishes, VoidWave waits "
-                    "**3 minutes** before leaving. If the voice channel becomes empty "
-                    "while music is playing, playback **pauses** and resumes when "
-                    "someone joins; if nobody joins within 3 minutes it leaves."
+                    "**Idle:** leaves 3 minutes after the queue ends. If the voice channel "
+                    "empties, playback pauses until someone rejoins (leaves after 3 minutes)."
                 ),
                 inline=False,
             ).add_field(
