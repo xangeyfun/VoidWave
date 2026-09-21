@@ -1,23 +1,25 @@
 # Deploying VoidWave in production
 
-This is how the live setup at `voidwave.xangey.dev` is wired together. It is a
-reference, not a requirement: the code only hard-depends on **systemd** because
-the admin panel / health page talk to the `systemctl` binary (unit names
-`voidwave.service` / `voidwave_website.service` are checked directly by
-`admin/constants.py`, `admin/health.py`, `admin/helpers.py`).
+This is a reference for running VoidWave in production, wired together the same
+way as the live instance. It is a reference, not a requirement: the
+code only hard-depends on **systemd** because the admin panel / health page talk
+to the `systemctl` binary (unit names `voidwave.service` /
+`voidwave_website.service` are checked directly by `admin/constants.py`,
+`admin/health.py`, `admin/helpers.py`).
 
-> The values below are the **actual live setup** as of this writing (host
-> `debianlaptop`, bot run from `~/github/VoidWave`, venv `venv/` with Python
-> 3.13, website served by gunicorn). Adjust paths/users to your own box.
+> The values below are a **portable example** (host nicknamed `production-host`,
+> user `your-user`, repo cloned to `~/VoidWave`, venv `venv/` with Python 3.11+,
+> website served by gunicorn). Adjust paths, users and the domain to your own
+> box.
 
 ## What runs where
 
 Three things keep the service alive, all sharing the same `database.db` in the
 repo root:
 
-| Piece | Command (real values) | Managed by |
+| Piece | Command (example values) | Managed by |
 | ----- | ------- | ---------- |
-| Discord bot | `~/github/VoidWave/venv/bin/python3 -u bot.py` | `voidwave.service` |
+| Discord bot | `~/VoidWave/venv/bin/python3 -u bot.py` | `voidwave.service` |
 | Web dashboard + admin | `gunicorn -w 4 -b 127.0.0.1:8002 app:app --access-logfile - --error-logfile -` | `voidwave_website.service` |
 | Stats graphs | `./venv/bin/python generate_graphs.py` | cron |
 
@@ -32,6 +34,11 @@ development.
   (`database.db`, `questions.json`, `prompts/`, `templates/`, `stats_history.json`),
   so every service must run with the repo root as its working directory.
 - Full AI chat: Ollama on `localhost:11434` with the `MODEL` pulled.
+- Kirkify (`/kirkify`): the face-swap tool lives in `third_party/kirkify.py`
+  (gitignored) with its `inswapper_128.onnx` model and the extra pip deps from
+  `requirements.txt` (`opencv-python`, `insightface`, `onnxruntime`). Clone the
+  repo there and run its `python3 kirkify.py init` once to pre-warm the model
+  (see [Kirkify](#kirkify) below).
 - Music: a Lavalink 4.x server reachable at `LAVALINK_URI` / `LAVALINK_PASSWORD`
   running the **LavaSrc plugin** (4.8.x) for native Spotify, plus a
   **Spotify Tokener** service for anonymous tokens (see below).
@@ -87,9 +94,28 @@ Spotify URLs/queries straight to Lavalink; no scraping).
    incompatible with LavaSrc 4.x). If you bump `wavelink`, re-check
    `_do_recommendation` in `cogs/music.py`.
 
+## Kirkify
+
+The `/kirkify` slash command runs `kirkify.py` from the gitignored
+`third_party/` directory (clone of https://github.com/dylanoonk/kirkify.py) as a
+subprocess, so the bot process must be able to reach it:
+
+1. Clone the tool so it ends up at
+   `<repo root>/third_party/kirkify.py/kirkify.py`.
+2. Download the face-swap model into that same directory using the `curl`
+   command from the tool's own README (saves as `inswapper_128.onnx`, ~528 MB),
+   then run `venv/bin/python kirkify.py init` once from the repo root.
+3. `requirements.txt` already lists the extra deps (`opencv-python`,
+   `insightface`, `onnxruntime`, `tqdm`), so a fresh `pip install -r
+   requirements.txt` in the production `venv/` covers them.
+
+The tool needs the **same Python that the bot runs with**; the command spawns it
+via `sys.executable`, so it uses whichever venv the bot itself runs in — just
+make sure that venv has the extra deps installed.
+
 ## systemd units
 
-The live units use `User=xangey`, `WorkingDirectory=/home/xangey/github/VoidWave`
+The example units use `User=your-user`, `WorkingDirectory=/home/your-user/VoidWave`
 and `venv/bin/python3 -u` (the `-u` keeps the bot's stdout unbuffered so
 `journalctl` shows logs promptly).
 
@@ -103,9 +129,9 @@ StartLimitIntervalSec=60
 StartLimitBurst=10
 
 [Service]
-User=xangey
-WorkingDirectory=/home/xangey/github/VoidWave
-ExecStart=/home/xangey/github/VoidWave/venv/bin/python3 -u bot.py
+User=your-user
+WorkingDirectory=/home/your-user/VoidWave
+ExecStart=/home/your-user/VoidWave/venv/bin/python3 -u bot.py
 Restart=always
 RestartSec=5
 # bot.py reads .env itself, so no EnvironmentFile is needed
@@ -142,8 +168,8 @@ StartLimitIntervalSec=60
 StartLimitBurst=10
 
 [Service]
-User=xangey
-WorkingDirectory=/home/xangey/github/VoidWave
+User=your-user
+WorkingDirectory=/home/your-user/VoidWave
 ExecStart=/usr/bin/gunicorn -w 4 -b 127.0.0.1:8002 app:app \
           --access-logfile - \
           --error-logfile -
@@ -165,10 +191,10 @@ or admin login sessions won't stick. Example nginx block:
 ```nginx
 server {
     listen 443 ssl http2;
-    server_name voidwave.xangey.dev;
+    server_name yourbot.example.com;
 
-    ssl_certificate     /etc/letsencrypt/live/voidwave.xangey.dev/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/voidwave.xangey.dev/privkey.pem;
+    ssl_certificate     /etc/letsencrypt/live/yourbot.example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/yourbot.example.com/privkey.pem;
 
     location / {
         proxy_pass http://127.0.0.1:8002;
@@ -180,7 +206,7 @@ server {
 
     # optional: upgrade HTTP -> HTTPS
     listen 80;
-    server_name voidwave.xangey.dev;
+    server_name yourbot.example.com;
     return 301 https://$host$request_uri;
 }
 ```
@@ -197,7 +223,7 @@ The bot writes one snapshot per hour to `stats_history.json`
 e.g. hourly:
 
 ```
-15 * * * *  cd /home/xangey/github/VoidWave && ./venv/bin/python generate_graphs.py >> graphs.log 2>&1
+15 * * * *  cd /home/your-user/VoidWave && ./venv/bin/python generate_graphs.py >> graphs.log 2>&1
 ```
 
 This rebuilds `Graphs/*.png` and `static/images/stats.png` (the README banner).
@@ -206,9 +232,9 @@ All of these are gitignored runtime artifacts.
 ## Backups
 
 Use the admin panel's **Backups** page (`/admin/backups`); it exports `database.db`
-to `~/Backups/VoidWave` (`Path.home()`, the unit's service user `xangey` on the
-live host) and keeps the 48 newest; it can also restore. The health page flags a
-backup as stale when the newest is older than 7 days.
+to `~/Backups/VoidWave` (`Path.home()`, the unit's service user) and keeps the 48
+newest; it can also restore. The health page flags a backup as stale when the
+newest is older than 7 days.
 
 ## Logs
 
@@ -220,7 +246,7 @@ backup as stale when the newest is older than 7 days.
 ## Updating
 
 ```bash
-cd ~/github/VoidWave
+cd ~/VoidWave
 git pull
 sudo systemctl restart voidwave.service voidwave_website.service
 ```
