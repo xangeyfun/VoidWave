@@ -28,6 +28,7 @@
 * XP & leveling from messages and voice chat, works instantly
 * Cross-server global profiles and leaderboards
 * AI chat powered by a self hosted LLM (Ollama), free and unlimited
+* Kirkify any image with a self hosted AI face swap (`/kirkify`), same privacy guarantee
 * Shareable web profiles with OpenGraph embeds
 * Auto role rewards at level milestones
 * Daily Question of the Day with auto-threads
