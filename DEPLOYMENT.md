@@ -124,7 +124,8 @@ and `venv/bin/python3 -u` (the `-u` keeps the bot's stdout unbuffered so
 ```ini
 [Unit]
 Description=VoidWave discord bot
-After=network.target voidwave-lavalink.service
+After=network-online.target tailscaled.service voidwave-lavalink.service
+Wants=network-online.target
 StartLimitIntervalSec=60
 StartLimitBurst=10
 
@@ -146,6 +147,12 @@ extra seconds before commands appear; that's expected.
 
 The bot installs SIGTERM/SIGINT handlers that close the gateway and other
 connections cleanly before exiting.
+
+If the bot cannot come online within 60s of boot (e.g. DNS isn't up yet because
+name resolution goes through Tailscale, which starts just after this unit), it
+exits non-zero so `Restart=always` retries instead of hanging idly. A runtime
+watchdog also exits (non-zero) if the gateway stays disconnected for ~3 minutes,
+covering silent reconnect hangs.
 
 On startup the bot does **not** chunk members across all guilds
 (`chunk_guilds_at_startup=False`). Chunking sends one `REQUEST_MEMBERS` per

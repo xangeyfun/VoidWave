@@ -3,6 +3,7 @@ import logging
 import os
 import signal
 import sqlite3
+import time
 
 import discord
 from discord.ext import commands
@@ -88,6 +89,92 @@ async def on_app_command_error(interaction: discord.Interaction, error: discord.
     except discord.HTTPException:
         pass
 
+_STARTUP_TIMEOUT = 60
+
+
+async def _wait_until_ready(
+    bot: commands.Bot, stop: asyncio.Event, bot_task: asyncio.Task
+) -> None:
+    ready = asyncio.ensure_future(bot.wait_until_ready())
+    sigstop = asyncio.ensure_future(stop.wait())
+    try:
+        done, pending = await asyncio.wait(
+            {ready, sigstop, bot_task},
+            timeout=_STARTUP_TIMEOUT,
+            return_when=asyncio.FIRST_COMPLETED,
+        )
+    finally:
+        for task in pending:
+            if task is bot_task:
+                continue
+            task.cancel()
+    if stop.is_set():
+        return
+    failed = None
+    for task in (ready, bot_task):
+        if task in done and not task.cancelled() and task.exception() is not None:
+            failed = task.exception()
+            break
+    if failed is not None:
+        logger.error(
+            "Discord gateway failed during startup (%r); exiting to let systemd retry.",
+            failed,
+        )
+    elif ready not in done:
+        logger.error(
+            "Bot did not reach on_ready within %ss (DNS/network may not have been up "
+            "yet); exiting to let systemd retry.",
+            _STARTUP_TIMEOUT,
+        )
+    else:
+        return
+    bot._exit_code = 1
+    stop.set()
+
+
+_CHECK_INTERVAL = 20
+_GRACE_SECONDS = 90
+
+
+async def _connection_watchdog(
+    bot: commands.Bot, stop: asyncio.Event, bot_task: asyncio.Task
+) -> None:
+    closed_since = None
+    while True:
+        await asyncio.sleep(_CHECK_INTERVAL)
+        if stop.is_set():
+            return
+        if bot_task.done():
+            if bot_task.cancelled():
+                return
+            failed = bot_task.exception()
+            logger.error(
+                "Discord gateway connection ended without a stop request (%s); "
+                "exiting so systemd can restart it.",
+                repr(failed) if failed else "clean close",
+            )
+            bot._exit_code = 1
+            stop.set()
+            return
+        ws = bot.ws
+        alive = ws is not None and ws.open
+        if alive:
+            closed_since = None
+            continue
+        now = time.monotonic()
+        if closed_since is None:
+            closed_since = now
+        elif now - closed_since >= _GRACE_SECONDS:
+            logger.error(
+                "Gateway websocket has been closed for %ss; exiting so systemd can "
+                "restart it.",
+                _GRACE_SECONDS,
+            )
+            bot._exit_code = 1
+            stop.set()
+            break
+
+
 if __name__ == "__main__":
     conn = sqlite3.connect("database.db")
     create_schema(conn)
@@ -109,9 +196,14 @@ if __name__ == "__main__":
                 signal.signal(sig, lambda *_: _request_stop())
 
         bot_task = asyncio.ensure_future(bot.start(TOKEN))
+        watchdog = asyncio.ensure_future(_connection_watchdog(bot, stop, bot_task))
         try:
-            await stop.wait()
+            await _wait_until_ready(bot, stop, bot_task)
+            if not stop.is_set():
+                await stop.wait()
         finally:
+            watchdog.cancel()
+            await asyncio.gather(watchdog, return_exceptions=True)
             music_cog = bot.get_cog("MusicCog")
             if music_cog is not None:
                 try:
