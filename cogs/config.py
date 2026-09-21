@@ -217,7 +217,8 @@ def config_help_embed(category):
             value=(
                 "`/config ai toggle [enabled]` - Turn AI replies on or off for the whole server\n"
                 "`/aitoggle [enabled]` - Turn AI replies on or off for a single user\n"
-                "`/ai <message>` - Chat with the AI directly"
+                "`/ai <message>` - Chat with the AI directly\n"
+                "`/kirkify <image>` - Kirkify an image with AI (Kirk swap)"
             ),
             inline=False,
         ),
