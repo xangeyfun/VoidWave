@@ -33,7 +33,7 @@ _SOURCE_ICONS = {
     "soundcloud": "<:soundcloud_logo:1551219548882075700>",
 }
 
-_NOT_CONNECTED_MSG = "I'm not in a voice channel. Join one and run `/music play` — I'll join you automatically."
+_NOT_CONNECTED_MSG = "I'm not in a voice channel. Join one and run `/music play` and I'll join you automatically."
 
 
 def fmt(len_ms):
@@ -1272,7 +1272,7 @@ class MusicCog(commands.Cog):
         """
         vc = interaction.user.voice
         if not vc or not vc.channel:
-            await interaction.response.send_message("You're not in a voice channel. Join one and run `/music play` again — I'll join you automatically.", ephemeral=hidden)
+            await interaction.response.send_message("You're not in a voice channel. Join one and run `/music play` again and I'll join you automatically.", ephemeral=hidden)
             return None
         if not wavelink.Pool.nodes:
             await interaction.response.send_message("Music hasn't connected to the audio server yet, please try again in a moment.", ephemeral=hidden)
