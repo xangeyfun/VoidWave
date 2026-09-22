@@ -33,6 +33,8 @@ _SOURCE_ICONS = {
     "soundcloud": "<:soundcloud_logo:1551219548882075700>",
 }
 
+_NOT_CONNECTED_MSG = "I'm not in a voice channel. Join one and run `/music play` — I'll join you automatically."
+
 
 def fmt(len_ms):
     total = max(0, int(len_ms)) // 1000
@@ -563,7 +565,7 @@ class MusicPlayerView(discord.ui.View):
     async def on_queue(self, interaction: discord.Interaction, button: discord.ui.Button):
         player = self.cog._player(interaction)
         if not isinstance(player, wavelink.Player) or not player.connected:
-            return await interaction.response.send_message("Not connected to a voice channel.", ephemeral=True)
+            return await interaction.response.send_message(_NOT_CONNECTED_MSG, ephemeral=True)
         view = QueueView(self.cog, self.guild_id, interaction.user.id)
         embed = view.build_embed()
         await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
@@ -574,7 +576,7 @@ class MusicPlayerView(discord.ui.View):
             return
         player = self.cog._player(interaction)
         if not isinstance(player, wavelink.Player) or not player.connected:
-            return await interaction.response.send_message("Not connected to a voice channel.", ephemeral=True)
+            return await interaction.response.send_message(_NOT_CONNECTED_MSG, ephemeral=True)
         guild_id = self.guild_id
         if guild_id in self.cog.live_lyrics:
             self.cog.live_lyrics.pop(guild_id, None)
@@ -644,7 +646,7 @@ class MusicPlayerView(discord.ui.View):
     async def _check(self, interaction: discord.Interaction) -> bool:
         player = self.cog._player(interaction)
         if not isinstance(player, wavelink.Player) or not player.connected:
-            await interaction.response.send_message("Not connected to a voice channel.", ephemeral=True)
+            await interaction.response.send_message(_NOT_CONNECTED_MSG, ephemeral=True)
             return False
         if not self.cog._same_vc(interaction, player):
             await interaction.response.send_message("You need to be in the same voice channel as me to control music.", ephemeral=True)
@@ -693,7 +695,7 @@ class QueueView(discord.ui.View):
     def build_embed(self):
         player = self.cog.players.get(self.guild_id)
         if not isinstance(player, wavelink.Player) or not player.connected:
-            return discord.Embed(title="📋 Queue", description="Not connected.", color=VOIDWAVE_COLOR)
+            return discord.Embed(title="📋 Queue", description="Not connected. Join a voice channel and run `/music play`.", color=VOIDWAVE_COLOR)
 
         current = player.current
         upcoming = list(player.queue)
@@ -1270,7 +1272,7 @@ class MusicCog(commands.Cog):
         """
         vc = interaction.user.voice
         if not vc or not vc.channel:
-            await interaction.response.send_message("You need to be in a voice channel to play music.", ephemeral=hidden)
+            await interaction.response.send_message("You're not in a voice channel. Join one and run `/music play` again — I'll join you automatically.", ephemeral=hidden)
             return None
         if not wavelink.Pool.nodes:
             await interaction.response.send_message("Music hasn't connected to the audio server yet, please try again in a moment.", ephemeral=hidden)
@@ -2039,7 +2041,7 @@ class MusicCog(commands.Cog):
             return
         player = self._player(interaction)
         if not isinstance(player, wavelink.Player) or not player.connected:
-            await interaction.response.send_message("I'm not connected to a voice channel.", ephemeral=hidden)
+            await interaction.response.send_message(_NOT_CONNECTED_MSG, ephemeral=hidden)
             return
         if not self._same_vc(interaction, player):
             await interaction.response.send_message("You need to be in the same voice channel as me to control music.", ephemeral=hidden)
@@ -2125,7 +2127,7 @@ class MusicCog(commands.Cog):
             return
         player = self._player(interaction)
         if not isinstance(player, wavelink.Player) or not player.connected:
-            await interaction.response.send_message("I'm not connected to a voice channel.", ephemeral=hidden)
+            await interaction.response.send_message(_NOT_CONNECTED_MSG, ephemeral=hidden)
             return
 
         current = player.current
@@ -2187,7 +2189,7 @@ class MusicCog(commands.Cog):
             return
         player = self._player(interaction)
         if not isinstance(player, wavelink.Player) or not player.connected:
-            await interaction.response.send_message("I'm not connected to a voice channel.", ephemeral=hidden)
+            await interaction.response.send_message(_NOT_CONNECTED_MSG, ephemeral=hidden)
             return
         if not self._same_vc(interaction, player):
             await interaction.response.send_message("You need to be in the same voice channel as me to control music.", ephemeral=hidden)
@@ -2210,7 +2212,7 @@ class MusicCog(commands.Cog):
             return
         player = self._player(interaction)
         if not isinstance(player, wavelink.Player) or not player.connected:
-            await interaction.response.send_message("I'm not connected to a voice channel.", ephemeral=hidden)
+            await interaction.response.send_message(_NOT_CONNECTED_MSG, ephemeral=hidden)
             return
         if not self._same_vc(interaction, player):
             await interaction.response.send_message("You need to be in the same voice channel as me to control music.", ephemeral=hidden)
@@ -2235,7 +2237,7 @@ class MusicCog(commands.Cog):
             return
         player = self._player(interaction)
         if not isinstance(player, wavelink.Player) or not player.connected:
-            await interaction.response.send_message("I'm not connected to a voice channel.", ephemeral=hidden)
+            await interaction.response.send_message(_NOT_CONNECTED_MSG, ephemeral=hidden)
             return
         if not self._same_vc(interaction, player):
             await interaction.response.send_message("You need to be in the same voice channel as me to control music.", ephemeral=hidden)
@@ -2312,7 +2314,7 @@ class MusicCog(commands.Cog):
             return
         player = self._player(interaction)
         if not isinstance(player, wavelink.Player) or not player.connected:
-            await interaction.response.send_message("I'm not connected to a voice channel.", ephemeral=hidden)
+            await interaction.response.send_message(_NOT_CONNECTED_MSG, ephemeral=hidden)
             return
         if not self._same_vc(interaction, player):
             await interaction.response.send_message("You need to be in the same voice channel as me to control music.", ephemeral=hidden)
@@ -2344,7 +2346,7 @@ class MusicCog(commands.Cog):
             return
         player = self._player(interaction)
         if not isinstance(player, wavelink.Player) or not player.connected:
-            await interaction.response.send_message("I'm not connected to a voice channel.", ephemeral=hidden)
+            await interaction.response.send_message(_NOT_CONNECTED_MSG, ephemeral=hidden)
             return
         if not self._same_vc(interaction, player):
             await interaction.response.send_message("You need to be in the same voice channel as me to control music.", ephemeral=hidden)
@@ -2367,7 +2369,7 @@ class MusicCog(commands.Cog):
             return
         player = self._player(interaction)
         if not isinstance(player, wavelink.Player) or not player.connected:
-            await interaction.response.send_message("I'm not in a voice channel.", ephemeral=hidden)
+            await interaction.response.send_message(_NOT_CONNECTED_MSG, ephemeral=hidden)
             return
         if not self._same_vc(interaction, player):
             await interaction.response.send_message("You need to be in the same voice channel as me to control music.", ephemeral=hidden)
