@@ -438,19 +438,16 @@ class EventsCog(commands.Cog):
         welcome_embed = discord.Embed(
             title="Hey! Thanks for adding VoidWave!",
             description=(
-                "I'm here to make your server more fun with **levels**, **questions of the day**, and more.\n\n"
-                "**Love VoidWave? Help it grow!**\n"
-                "Voting is free and takes 5 seconds. You'll get **2x XP for 4 hours** (6h on weekends) and it helps VoidWave reach more servers.\n"
+                "Hey, I'm VoidWave! Excited to be here.\n\n"
+                "The good news? I basically run myself. No setup required to start earning XP and having fun.\n\n"
+                "**Quick start (optional but recommended):**\n"
+                "`/config auto` sets everything up with sensible defaults.\n"
+                "`/config help` explains every option if you want to tweak things.\n"
+                "`/help` lists all of my commands.\n\n"
+                "**One thing I'd love from you:**\n"
+                "Voting is free, takes 5 seconds, and gives you **2x XP for 4 hours** (6h on weekends).\n"
                 "Run `/vote` in any channel to claim your boost!\n\n"
-                "**Leveling works automatically**\n"
-                "Members earn XP just by chatting and hanging out in voice channels. No setup needed.\n\n"
-                "**AI replies are on by default**\n"
-                "Mention VoidWave or reply to it and it will chat back. Prefer not? Run `/config ai toggle` to turn AI replies off for the whole server.\n\n"
-                "**Getting started**\n"
-                "`/config auto` sets everything up in one command.\n"
-                "`/config help` shows all configuration options.\n"
-                "`/help` lists all available commands.\n\n"
-                "Need help? Visit [voidwave.xangey.dev/setup](https://voidwave.xangey.dev/setup) for the full guide."
+                "Want the full tour? Check out the setup guide: <https://voidwave.xangey.dev/setup>"
             ),
             color=0x7128fc,
             timestamp=datetime.datetime.now(datetime.timezone.utc)
