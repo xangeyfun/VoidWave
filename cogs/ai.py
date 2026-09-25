@@ -1,4 +1,5 @@
 import asyncio
+import io
 import logging
 import sys
 import tempfile
@@ -18,22 +19,117 @@ from utils import (
     is_blocked,
     last_llm,
     llm_queue_size,
+    resolve_hidden,
 )
 
-kirkify_lock = asyncio.Lock()
+KIRKIFY_QUEUE_MAX = 5
+KIRKIFY_WAIT_TIMEOUT = 14 * 60
+KIRKIFY_ESTIMATE_FALLBACK = 30.0
 VOIDWAVE_COLOR = 0x7128fc
 logger = logging.getLogger("cogs.ai")
+
+
+def _fmt_duration(seconds: float) -> str:
+    seconds = max(0, int(seconds))
+    m, s = divmod(seconds, 60)
+    if m == 0:
+        return f"about {s}s"
+    if s == 0:
+        return f"about {m}m"
+    return f"about {m}m {s}s"
 
 
 class AICog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        self.kirkify_queue = asyncio.Queue(maxsize=KIRKIFY_QUEUE_MAX)
+        self._kirkify_worker_task = None
+        self._kirkify_seq = 0
+        self._kirkify_done = 0
+        self._kirkify_times = []
+
+    async def cog_load(self):
+        self._kirkify_worker_task = asyncio.create_task(self._kirkify_worker())
+
+    async def cog_unload(self):
+        if self._kirkify_worker_task:
+            self._kirkify_worker_task.cancel()
+
+    async def _kirkify_worker(self):
+        while True:
+            entry = await self.kirkify_queue.get()
+            try:
+                fut, interaction, image, hidden = entry
+                if fut.done():
+                    continue
+                try:
+                    started = time.monotonic()
+                    output_data = await self._run_kirkify(interaction, image, hidden)
+                    self._kirkify_times.append(time.monotonic() - started)
+                    self._kirkify_times = self._kirkify_times[-8:]
+                    if not fut.done():
+                        fut.set_result(output_data)
+                except Exception as e:
+                    logger.error("Kirkify failed for user %s: %s", interaction.user.id, e)
+                    if not fut.done():
+                        fut.set_exception(e)
+            finally:
+                self._kirkify_done += 1
+                self.kirkify_queue.task_done()
+
+    async def _run_kirkify(self, interaction, image, hidden):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            input_path = tmp / "input.png"
+            output_path = tmp / "output.png"
+            await image.save(input_path)
+
+            try:
+                import cv2
+            except ImportError:
+                cv2 = None
+
+            if cv2 is not None:
+                img = cv2.imread(str(input_path))
+                if img is None:
+                    raise ValueError(
+                        "That file isn't a readable image. Try a PNG, JPG, GIF, or WebP instead."
+                    )
+                cv2.imwrite(str(input_path), img)
+
+            process = await asyncio.create_subprocess_exec(
+                sys.executable,
+                "kirkify.py",
+                str(input_path),
+                str(output_path),
+                "--fast",
+                cwd=Path("third_party/kirkify.py"),
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+
+            try:
+                stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=60)
+            except asyncio.TimeoutError:
+                process.kill()
+                await process.wait()
+                raise TimeoutError("kirkify timed out")
+
+            if process.returncode != 0:
+                err = stderr.decode(errors="replace").strip()
+                detail = " | ".join(err.splitlines()[-6:]) if err else f"exit code {process.returncode}"
+                raise RuntimeError(f"kirkify subprocess failed: {detail}")
+
+            data = output_path.read_bytes()
+            logger.info("Kirkified %s request from %s", image.id, interaction.user.id)
+            return data
 
     @discord.app_commands.allowed_installs(guilds=True, users=True)
     @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     @discord.app_commands.command(name="ai", description="Chat with the bot's self hosted AI")
     @app_commands.describe(message="The message to send to the AI", stats="Show additional information about the AI response", hidden="Hide the command from others")
-    async def ai(self, interaction: discord.Interaction, message: str, stats: bool = False, hidden: bool = False):
+    async def ai(self, interaction: discord.Interaction, message: str, stats: bool = False, hidden: bool | None = None):
+        hidden = resolve_hidden(interaction.user.id, hidden)
         global ai_processing
 
         if is_blocked(interaction.user.id, "ai"):
@@ -101,55 +197,64 @@ class AICog(commands.Cog):
     @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     @discord.app_commands.command(name="kirkify", description="Kirkify someone using AI.")
     @discord.app_commands.describe(image="The image to kirkify", hidden="Hide the command from others")
-    async def kirkify(self, interaction: discord.Interaction, image: discord.Attachment, hidden: bool = False):
-        if kirkify_lock.locked():
-            await interaction.response.send_message("Kirkify is currently busy. Please try again later.", ephemeral=True)
-            return
-
+    async def kirkify(self, interaction: discord.Interaction, image: discord.Attachment, hidden: bool | None = None):
+        hidden = resolve_hidden(interaction.user.id, hidden)
         if image.size > 10 * 1024 * 1024:  # 10 MB limit
             await interaction.response.send_message("The image is too large. Please upload an image smaller than 10 MB.", ephemeral=True)
             return
 
-        async with kirkify_lock:
-            await interaction.response.defer(ephemeral=hidden)
+        if self.kirkify_queue.full():
+            await interaction.response.send_message(
+                "Kirkify's queue is full right now. Please try again in a bit.", ephemeral=True
+            )
+            return
 
-            with tempfile.TemporaryDirectory() as tmp:
-                tmp = Path(tmp)
+        if not self._kirkify_worker_task or self._kirkify_worker_task.done():
+            self._kirkify_worker_task = asyncio.create_task(self._kirkify_worker())
 
-                input_path = tmp / "input.png"
-                output_path = tmp / "output.png"
+        fut = asyncio.get_running_loop().create_future()
+        seq = self._kirkify_seq
+        self._kirkify_seq += 1
+        await self.kirkify_queue.put((fut, interaction, image, hidden))
 
-                await image.save(input_path)
+        await interaction.response.defer(ephemeral=hidden)
 
-                process = await asyncio.create_subprocess_exec(
-                    sys.executable,
-                    "kirkify.py",
-                    str(input_path),
-                    str(output_path),
-                    "--fast",
-                    cwd=Path("third_party/kirkify.py"),
-                    stdout=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.PIPE,
+        ahead = max(0, seq - self._kirkify_done)
+        if ahead == 0:
+            status = "Processing your image now; give it a few seconds."
+        else:
+            if self._kirkify_times:
+                estimate = (sum(self._kirkify_times) / len(self._kirkify_times)) * ahead
+            else:
+                estimate = KIRKIFY_ESTIMATE_FALLBACK * ahead
+            status = (
+                f"Queued! There {'is' if ahead == 1 else 'are'} **{ahead}** "
+                f"{('request' if ahead == 1 else 'requests')} ahead of you "
+                f"(est. wait {_fmt_duration(estimate)}). I'll post the result here when it's done."
+            )
+        thinking = await interaction.followup.send(status, wait=True)
+
+        try:
+            output_data = await asyncio.wait_for(fut, timeout=KIRKIFY_WAIT_TIMEOUT)
+        except asyncio.TimeoutError:
+            await thinking.edit(content="Kirkify is taking longer than expected. Please try again later.")
+            return
+        except Exception:
+            await thinking.edit(
+                content=(
+                    "Failed to kirkify that image. Make sure it's a PNG, JPG, GIF, or WebP and faces are visible. "
+                "Please try again later."
                 )
+            )
+            return
 
-                try:
-                    stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=60)
-                except asyncio.TimeoutError:
-                    process.kill()
-                    await process.wait()
-                    logger.error("Kirkify timed out for user %s", interaction.user.id)
-                    await interaction.followup.send("Kirkify took too long to process. Please try again later.", ephemeral=hidden)
-                    return
-
-                if process.returncode != 0:
-                    logger.error("Kirkify failed: %s", stderr.decode())
-                    await interaction.followup.send("Failed to kirkify the image. Please try again later.", ephemeral=hidden)
-                    return
-
-                embed = discord.Embed(title="Kirkified!", color=VOIDWAVE_COLOR)
-                embed.set_image(url="attachment://output.png")
-
-                await interaction.followup.send(embed=embed, file=discord.File(output_path, filename="output.png"), ephemeral=hidden)
+        embed = discord.Embed(title="Kirkified!", color=VOIDWAVE_COLOR)
+        embed.set_image(url="attachment://output.png")
+        await thinking.edit(
+            content=None,
+            embed=embed,
+            attachments=[discord.File(io.BytesIO(output_data), filename="output.png")],
+        )
 
 
 async def setup(bot):
