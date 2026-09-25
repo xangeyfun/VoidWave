@@ -19,6 +19,7 @@ from utils import (
     last_vc,
     last_xp,
     log_admin_event,
+    resolve_hidden,
 )
 
 logger = logging.getLogger("cogs.leveling")
@@ -495,7 +496,8 @@ class LevelingCog(commands.Cog):
     @discord.app_commands.allowed_contexts(guilds=True, dms=False, private_channels=False)
     @discord.app_commands.command(name="level", description="Check your server level")
     @app_commands.describe(hidden="Hide the command from others", user='Select a user to view their level')
-    async def level(self, interaction: discord.Interaction, hidden: bool = False, user: discord.Member | None = None):
+    async def level(self, interaction: discord.Interaction, hidden: bool | None = None, user: discord.Member | None = None):
+        hidden = resolve_hidden(interaction.user.id, hidden)
         await interaction.response.defer(ephemeral=hidden)
         if not interaction.guild:
             await interaction.followup.send("This command only works in servers.", ephemeral=True)
@@ -617,7 +619,8 @@ class LevelingCog(commands.Cog):
             app_commands.Choice(name="Voters", value="Voters")
         ]
     )
-    async def leaderboard(self, interaction: discord.Interaction, sort: str = "Level", global_lb: bool = False, combined: bool = False, hidden: bool = False):
+    async def leaderboard(self, interaction: discord.Interaction, sort: str = "Level", global_lb: bool = False, combined: bool = False, hidden: bool | None = None):
+        hidden = resolve_hidden(interaction.user.id, hidden)
         await interaction.response.defer(ephemeral=hidden)
         if not interaction.guild:
             await interaction.followup.send("This command only works in servers.", ephemeral=True)
@@ -663,7 +666,8 @@ class LevelingCog(commands.Cog):
     @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     @discord.app_commands.command(name="profile", description="Check your profile")
     @app_commands.describe(hidden="Hide the command from others", user='Select a user to view their profile')
-    async def profile(self, interaction: discord.Interaction, hidden: bool = False, user: discord.User | discord.Member | None = None):
+    async def profile(self, interaction: discord.Interaction, hidden: bool | None = None, user: discord.User | discord.Member | None = None):
+        hidden = resolve_hidden(interaction.user.id, hidden)
         await interaction.response.defer(ephemeral=hidden)
         user = user if user else interaction.user
 
