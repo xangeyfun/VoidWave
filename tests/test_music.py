@@ -1,6 +1,105 @@
+import sqlite3
 from types import SimpleNamespace
 
-from cogs.music import MusicCog, _normalize_query, _source_label, _track_source
+from cogs.music import (
+    MusicCog,
+    _delete_playlist_track,
+    _insert_track_row,
+    _move_playlist_track,
+    _normalize_query,
+    _playlist_dup_check,
+    _playlist_track_rows,
+    _shuffle_playlist,
+    _source_label,
+    _track_source,
+)
+
+
+def _make_playable(title, author, uri, length_ms=180_000, source="youtube"):
+    return SimpleNamespace(title=title, author=author, uri=uri, length=length_ms, source=source)
+
+
+def _playlist_conn():
+    conn = sqlite3.connect(":memory:")
+    conn.row_factory = sqlite3.Row
+    conn.execute(
+        "CREATE TABLE playlist_tracks ("
+        "id INTEGER PRIMARY KEY AUTOINCREMENT, playlist_id INTEGER, position INTEGER, "
+        "query TEXT, title TEXT, author TEXT, uri TEXT, artwork TEXT, length_ms INTEGER, "
+        "source TEXT, added_at INTEGER)"
+    )
+    return conn
+
+
+def test_insert_track_row_adds_and_counts_position():
+    conn = _playlist_conn()
+    try:
+        assert _insert_track_row(conn, 1, _make_playable("A", "Me", "a1"), "query", 1000) == ("added", 1)
+        assert _insert_track_row(conn, 1, _make_playable("B", "Me", "b2"), "query", 1000) == ("added", 2)
+        rows = _playlist_track_rows(conn, 1)
+        assert [r["position"] for r in rows] == [1, 2]
+        assert [r["uri"] for r in rows] == ["a1", "b2"]
+    finally:
+        conn.close()
+
+
+def test_insert_track_row_dedupes_uri_and_title():
+    conn = _playlist_conn()
+    try:
+        _insert_track_row(conn, 1, _make_playable("Hello", "World", "u1"), "q", 1000)
+        assert _insert_track_row(conn, 1, _make_playable("Hello 2", "Other", "u1"), "q", 1000)[0] == "dup"
+        assert _insert_track_row(conn, 1, _make_playable("hello", "world", "u9"), "q", 1000)[0] == "dup"
+        assert _insert_track_row(conn, 1, _make_playable("Different", "World", "u3"), "q", 1000)[0] == "added"
+    finally:
+        conn.close()
+
+
+def test_delete_playlist_track_renumbers():
+    conn = _playlist_conn()
+    try:
+        for i in range(3):
+            _insert_track_row(conn, 1, _make_playable(f"T{i}", "Me", f"u{i}"), "q", 1000)
+        removed = _delete_playlist_track(conn, 1, 1)
+        assert removed["title"] == "T1"
+        assert [r["position"] for r in _playlist_track_rows(conn, 1)] == [1, 2]
+    finally:
+        conn.close()
+
+
+def test_move_playlist_track_persists_order():
+    conn = _playlist_conn()
+    try:
+        for i in range(4):
+            _insert_track_row(conn, 1, _make_playable(f"T{i}", "Me", f"u{i}"), "q", 1000)
+        assert _move_playlist_track(conn, 1, 3, 0) is True
+        assert [r["title"] for r in _playlist_track_rows(conn, 1)] == ["T3", "T1", "T2", "T0"]
+        assert _move_playlist_track(conn, 1, 0, 3) is True
+        assert [r["title"] for r in _playlist_track_rows(conn, 1)] == ["T0", "T1", "T2", "T3"]
+        assert _move_playlist_track(conn, 1, 0, 99) is False
+    finally:
+        conn.close()
+
+
+def test_shuffle_playlist_keeps_all_tracks():
+    conn = _playlist_conn()
+    try:
+        for i in range(5):
+            _insert_track_row(conn, 1, _make_playable(f"T{i}", "Me", f"u{i}"), "q", 1000)
+        count = _shuffle_playlist(conn, 1)
+        assert count == 5
+        assert sorted(r["title"] for r in _playlist_track_rows(conn, 1)) == ["T0", "T1", "T2", "T3", "T4"]
+    finally:
+        conn.close()
+
+
+def test_playlist_dup_check_uri():
+    conn = _playlist_conn()
+    try:
+        assert _playlist_dup_check(conn, 1, "u1", "Hello", "World") is False
+        _insert_track_row(conn, 1, _make_playable("Hello", "World", "u1"), "q", 1000)
+        assert _playlist_dup_check(conn, 1, "u1", "Hello", "World") is True
+    finally:
+        conn.close()
 
 
 def test_normalize_query_empty():
