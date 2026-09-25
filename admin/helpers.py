@@ -127,14 +127,37 @@ def _twofa_enabled():
     return os.getenv("ADMIN_REQUIRE_2FA", "true").lower() not in ("0", "false", "no", "off")
 
 
+def _trusted_proxy_networks():
+    raw = os.getenv("TRUSTED_PROXIES", "127.0.0.1, ::1")
+    networks = []
+    for part in raw.split(","):
+        part = part.strip()
+        if not part:
+            continue
+        try:
+            networks.append(ipaddress.ip_network(part, strict=False))
+        except ValueError:
+            continue
+    return networks
+
+
 def _client_ip():
+    peer = request.remote_addr or "unknown"
+    if peer == "unknown":
+        return peer
+    try:
+        trusted = any(ipaddress.ip_address(peer) in net for net in _trusted_proxy_networks())
+    except ValueError:
+        trusted = False
+    if not trusted:
+        return peer
     cf = request.headers.get("CF-Connecting-IP")
-    if cf and cf.strip():
+    if cf and cf.strip() and cf.strip() not in ("unknown", "Unknown"):
         return cf.strip()
     fwd = request.headers.get("X-Forwarded-For")
     if fwd:
-        return fwd.split(",")[0].strip()
-    return request.remote_addr or "unknown"
+        return fwd.split(",")[-1].strip()
+    return peer
 
 
 # ---------------------------------------------------------------------------
