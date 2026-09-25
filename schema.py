@@ -280,6 +280,42 @@ def create_schema(conn):
         pass
     conn.commit()
 
+    try:
+        cur.execute("ALTER TABLE user_prefs ADD COLUMN remind_recurring TEXT")
+    except sqlite3.OperationalError:
+        pass
+    conn.commit()
+
+    try:
+        cur.execute("ALTER TABLE user_prefs ADD COLUMN default_hidden BOOLEAN DEFAULT 0")
+    except sqlite3.OperationalError:
+        pass
+    conn.commit()
+
+    try:
+        cur.execute("ALTER TABLE user_prefs ADD COLUMN music_source TEXT")
+    except sqlite3.OperationalError:
+        pass
+    conn.commit()
+
+    try:
+        cur.execute("ALTER TABLE user_prefs ADD COLUMN music_autoplay BOOLEAN DEFAULT 0")
+    except sqlite3.OperationalError:
+        pass
+    conn.commit()
+
+    try:
+        cur.execute("ALTER TABLE user_prefs ADD COLUMN remind_channel INTEGER")
+    except sqlite3.OperationalError:
+        pass
+    conn.commit()
+
+    try:
+        cur.execute("ALTER TABLE user_prefs ADD COLUMN remind_time TEXT")
+    except sqlite3.OperationalError:
+        pass
+    conn.commit()
+
     cur.execute("""
     CREATE TABLE IF NOT EXISTS user_blocks (
         user_id INTEGER,
