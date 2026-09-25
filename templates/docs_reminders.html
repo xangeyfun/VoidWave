@@ -29,19 +29,19 @@
             <code>/remind create</code>
             <span class="doc-tag">servers, DMs and private channels</span>
         </div>
-        <p class="doc-cmd-desc">Set a new reminder. The time parameter accepts natural language, durations, dates, and weekdays.</p>
+        <p class="doc-cmd-desc">Set a new reminder. The time parameter accepts natural language, durations, dates, and weekdays, and can be omitted when you have saved a default time via <code>/remind defaults</code>.</p>
         <div class="doc-cmd-widgets">
             <div class="doc-widget">
                 <div class="doc-widget-label">Parameters</div>
                 <table class="doc-params">
                     <tbody>
                         <tr>
-                            <td><code>time</code></td>
-                            <td>When to remind you. Examples: <code>10m</code>, <code>2h</code>, <code>tomorrow 16:00</code>, <code>friday 18:30</code>, <code>2026-09-20 12:00</code>. Required.</td>
-                        </tr>
-                        <tr>
                             <td><code>message</code></td>
                             <td>What to remind you about. Required.</td>
+                        </tr>
+                        <tr>
+                            <td><code>time</code></td>
+                            <td>When to remind you. Examples: <code>10m</code>, <code>2h</code>, <code>tomorrow 16:00</code>, <code>friday 18:30</code>, <code>2026-09-20 12:00</code>. Omit to use your saved default time. Optional if you have a default saved.</td>
                         </tr>
                         <tr>
                             <td><code>recurring</code></td>
@@ -204,7 +204,44 @@
         <span class="docs-section-tag">your default zone</span>
     </div>
 
-    <p class="docs-lead">Reminders use your saved timezone by default, which starts as UTC. You can set a default with <code>/remind timezone</code> or override it per reminder with the <code>timezone:</code> parameter.</p>
+    <p class="docs-lead">Reminders use your saved defaults, which start as UTC timezone and no repeat. Set them with <code>/remind defaults</code>, or use <code>/remind timezone</code> for just the zone, or override either per reminder with the <code>timezone:</code> and <code>recurring:</code> parameters.</p>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/remind defaults</code>
+            <span class="doc-tag">servers, DMs and private channels</span>
+        </div>
+        <p class="doc-cmd-desc">View or set your default timezone, default repeat, default time of day, and default delivery channel in one place. Combine with the timezone, repeat, time and channel parameters on <code>/remind create</code> so simple commands like <code>/remind create water the plants</code> pick everything up automatically.</p>
+        <div class="doc-cmd-widgets">
+            <div class="doc-widget">
+                <div class="doc-widget-label">Parameters</div>
+                <table class="doc-params">
+                    <tbody>
+                        <tr>
+                            <td><code>timezone</code></td>
+                            <td>IANA timezone name. Leave empty to keep the current one. Optional.</td>
+                        </tr>
+                        <tr>
+                            <td><code>recurring</code></td>
+                            <td>Default repeat, e.g. <code>daily</code>, <code>weekly</code>, <code>every 2h</code>. Use <code>none</code> to clear it. Optional.</td>
+                        </tr>
+                        <tr>
+                            <td><code>time</code></td>
+                            <td>Default time of day, e.g. <code>09:30</code> or <code>17:00</code>. Optional.</td>
+                        </tr>
+                        <tr>
+                            <td><code>channel</code></td>
+                            <td>Default delivery channel instead of your DMs. Optional.</td>
+                        </tr>
+                        <tr>
+                            <td><code>clear</code></td>
+                            <td><code>none</code> (default), <code>channel</code>, <code>time</code>, or <code>all</code>. Clears the saved default channel and/or time when you leave a server or change plans. Optional.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
 
     <div class="doc-cmd">
         <div class="doc-cmd-head">
@@ -225,6 +262,10 @@
                 </table>
             </div>
         </div>
+    </div>
+
+    <div class="doc-callout">
+        <p><strong>Tips when creating reminders.</strong> When you create a reminder without a <code>timezone:</code> or <code>recurring:</code> value, the output shows a tip pointing at <code>/remind timezone</code> and <code>/remind defaults</code> so you can save them once and skip them later.</p>
     </div>
 
     <div class="doc-callout">
