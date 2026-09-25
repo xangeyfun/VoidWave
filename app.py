@@ -445,6 +445,7 @@ _DOCS_PAGES = {
     'giveaways': 'docs_giveaways.html',
     'moderation': 'docs_moderation.html',
     'config': 'docs_config.html',
+    'prefs': 'docs_prefs.html',
 }
 
 @app.route('/docs')
