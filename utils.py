@@ -49,6 +49,62 @@ def get_db():
     return conn
 
 
+_PREF_COLUMNS = {
+    "ai_enabled": "BOOLEAN",
+    "default_hidden": "BOOLEAN",
+    "music_source": "TEXT",
+    "music_autoplay": "BOOLEAN",
+    "remind_channel": "INTEGER",
+    "remind_time": "TEXT",
+    "remind_tz": "TEXT",
+    "remind_recurring": "TEXT",
+}
+
+
+def get_user_pref(user_id, column):
+    """Return a single user_prefs value (None when unset). Column is whitelisted."""
+    if column not in _PREF_COLUMNS:
+        raise ValueError(f"Unknown user pref: {column}")
+    try:
+        conn = get_db()
+        try:
+            row = conn.execute(f"SELECT {column} FROM user_prefs WHERE user_id = ?", (user_id,)).fetchone()
+            return row[column] if row else None
+        finally:
+            conn.close()
+    except sqlite3.Error:
+        return None
+
+
+def set_user_pref(user_id, **values):
+    """Upsert columns into user_prefs; only the given columns are touched."""
+    for key in values:
+        if key not in _PREF_COLUMNS:
+            raise ValueError(f"Unknown user pref: {key}")
+    if not values:
+        return
+    columns = ", ".join(values)
+    placeholders = ", ".join("?" for _ in values)
+    updates = ", ".join(f"{key} = excluded.{key}" for key in values)
+    conn = get_db()
+    try:
+        conn.execute(
+            f"INSERT INTO user_prefs (user_id, {columns}) VALUES (?, {placeholders}) "
+            f"ON CONFLICT(user_id) DO UPDATE SET {updates}",
+            (user_id, *values.values()),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def resolve_hidden(user_id, hidden):
+    """Resolve a command's hidden flag: explicit override wins, else the user pref."""
+    if hidden is not None:
+        return bool(hidden)
+    return bool(get_user_pref(user_id, "default_hidden"))
+
+
 BLOCK_FEATURES = ("ai", "feedback", "leveling", "commands", "music")
 
 
