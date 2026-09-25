@@ -1,0 +1,150 @@
+{% extends "docs_page.html" %}
+
+{% block docs_page_title %}User Preferences{% endblock %}
+
+{% block docs_meta_description %}VoidWave user preferences guide: save your defaults for private replies, music source, autoplay, and reminder timezone, repeat, time of day and delivery channel.{% endblock %}
+
+{% block docs_og_url %}/docs/prefs{% endblock %}
+{% block docs_og_title %}User Preferences Guide{% endblock %}
+{% block docs_og_description %}Save your default settings once and skip them later: private replies, music source and autoplay, and reminder timezone, repeat, time of day and delivery channel.{% endblock %}
+
+{% block docs_hero_title %}User Preferences{% endblock %}
+{% block docs_hero_lead %}Set how VoidWave behaves towards you once, then use simpler commands. Defaults apply everywhere you use the bot and are yours alone.{% endblock %}
+
+{% block docs_content %}
+
+<div class="docs-intro-block">
+    <p class="docs-lead">Preferences are personal and follow your account across every server and DM. They fill in the gaps when you skip optional command parameters, and any parameter still overrides them for that single command. Check yours with <code>/prefs view</code>.</p>
+</div>
+
+<!-- ------------------------------------------------------------------ -->
+<div class="docs-section" id="prefs">
+    <div class="docs-section-head">
+        <h2>Your preferences</h2>
+        <span class="docs-section-tag"><code>/prefs</code></span>
+    </div>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/prefs view</code>
+            <span class="doc-tag">servers, DMs and private channels</span>
+        </div>
+        <p class="doc-cmd-desc">Shows every saved default: private replies, music source, autoplay on play, and reminder timezone, repeat, time of day and delivery channel. Only you can see the response.</p>
+    </div>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/prefs private</code>
+            <span class="doc-tag">servers, DMs and private channels</span>
+        </div>
+        <p class="doc-cmd-desc">Makes command replies private to you by default. Affects commands with a <code>hidden:</code> option, such as the fun commands, games, leveling, music, and moderation. Passing <code>hidden:</code> on a command still decides that command.</p>
+        <div class="doc-cmd-widgets">
+            <div class="doc-widget">
+                <div class="doc-widget-label">Parameters</div>
+                <table class="doc-params">
+                    <tbody>
+                        <tr>
+                            <td><code>enabled</code></td>
+                            <td><code>true</code> for private-by-default, <code>false</code> for normal public replies. Required.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/prefs source</code>
+            <span class="doc-tag">servers, DMs and private channels</span>
+        </div>
+        <p class="doc-cmd-desc">Default source for <code>/music play</code> and <code>/music random</code>. <code>All</code> is the default unless you save another value; when <code>source:</code> is left as All, your saved default is used instead.</p>
+        <div class="doc-cmd-widgets">
+            <div class="doc-widget">
+                <div class="doc-widget-label">Parameters</div>
+                <table class="doc-params">
+                    <tbody>
+                        <tr>
+                            <td><code>source</code></td>
+                            <td><code>All</code>, <code>YouTube</code>, <code>SoundCloud</code>, or <code>Spotify</code>. Required.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/prefs autoplay</code>
+            <span class="doc-tag">servers, DMs and private channels</span>
+        </div>
+        <p class="doc-cmd-desc">Turns autoplay on automatically whenever you start a fresh playback session through <code>/music play</code> or <code>/music random</code>. Fresh means nothing was playing and the queue was empty, so ending a session and starting a new one re-enables it for you.</p>
+        <div class="doc-cmd-widgets">
+            <div class="doc-widget">
+                <div class="doc-widget-label">Parameters</div>
+                <table class="doc-params">
+                    <tbody>
+                        <tr>
+                            <td><code>enabled</code></td>
+                            <td><code>true</code> to auto-enable autoplay, <code>false</code> to leave it as-is. Required.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ------------------------------------------------------------------ -->
+<div class="docs-section" id="reminder-defaults">
+    <div class="docs-section-head">
+        <h2>Reminder defaults</h2>
+        <span class="docs-section-tag"><code>/remind defaults</code></span>
+    </div>
+
+    <p class="docs-lead">Reminder defaults are saved through <code>/remind defaults</code>. They combine with <code>/prefs</code> so nearly every <code>/remind create</code> can be as short as <code>/remind create water the plants</code> when the rest is saved.</p>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/remind defaults</code>
+            <span class="doc-tag">servers, DMs and private channels</span>
+        </div>
+        <p class="doc-cmd-desc">View or set your default timezone, repeat, time of day, and delivery channel in one place. With no parameters it shows everything currently saved.</p>
+        <div class="doc-cmd-widgets">
+            <div class="doc-widget">
+                <div class="doc-widget-label">Parameters</div>
+                <table class="doc-params">
+                    <tbody>
+                        <tr>
+                            <td><code>timezone</code></td>
+                            <td>IANA timezone name used for the time of day and the reminder itself. Optional.</td>
+                        </tr>
+                        <tr>
+                            <td><code>recurring</code></td>
+                            <td>Default repeat, e.g. <code>daily</code>, <code>weekly</code>, <code>every 2h</code>. Use <code>none</code> to clear it. Optional.</td>
+                        </tr>
+                        <tr>
+                            <td><code>time</code></td>
+                            <td>Default time of day, e.g. <code>09:30</code>. Used when you create a reminder without a time. Optional.</td>
+                        </tr>
+                        <tr>
+                            <td><code>channel</code></td>
+                            <td>Default delivery channel. Reminders go here unless you pass <code>channel:</code>. Optional.</td>
+                        </tr>
+                        <tr>
+                            <td><code>clear</code></td>
+                            <td><code>none</code> (default), <code>channel</code>, <code>time</code>, or <code>all</code>. Clears the saved channel and/or time. Optional.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="doc-callout">
+        <p><strong>Falling back safely.</strong> If a saved default channel disappears, or you lose the permission to post there, reminders fall back to your DMs. If you leave that server entirely, clear it with <code>/remind defaults clear:channel</code>.</p>
+    </div>
+</div>
+
+{% endblock %}
