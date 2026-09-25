@@ -5,6 +5,8 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
+import utils
+
 logger = logging.getLogger("cogs.moderation")
 
 
@@ -61,7 +63,8 @@ class ModerationCog(commands.Cog):
     @discord.app_commands.checks.has_permissions(kick_members=True)
     @moderation.command(name="kick", description="Kick a member from the server")
     @app_commands.describe(member="The member to kick", reason="Reason for the kick", hidden="Hide the command from others")
-    async def kick(self, interaction: discord.Interaction, member: discord.Member, reason: str | None = None, hidden: bool = False):
+    async def kick(self, interaction: discord.Interaction, member: discord.Member, reason: str | None = None, hidden: bool | None = None):
+        hidden = utils.resolve_hidden(interaction.user.id, hidden)
         err = self._hierarchy_error(interaction, member, "kick")
         if err:
             await interaction.response.send_message(err, ephemeral=True)
@@ -86,7 +89,8 @@ class ModerationCog(commands.Cog):
     @discord.app_commands.checks.has_permissions(ban_members=True)
     @moderation.command(name="ban", description="Ban a member from the server")
     @app_commands.describe(member="The member to ban", delete_days="Delete recent messages (0-7)", reason="Reason for the ban", hidden="Hide the command from others")
-    async def ban(self, interaction: discord.Interaction, member: discord.Member, delete_days: int = 0, reason: str | None = None, hidden: bool = False):
+    async def ban(self, interaction: discord.Interaction, member: discord.Member, delete_days: int = 0, reason: str | None = None, hidden: bool | None = None):
+        hidden = utils.resolve_hidden(interaction.user.id, hidden)
         err = self._hierarchy_error(interaction, member, "ban")
         if err:
             await interaction.response.send_message(err, ephemeral=True)
@@ -112,7 +116,8 @@ class ModerationCog(commands.Cog):
     @discord.app_commands.checks.has_permissions(ban_members=True)
     @moderation.command(name="unban", description="Unban a user by ID")
     @app_commands.describe(user="The user to unban", reason="Reason for the unban", hidden="Hide the command from others")
-    async def unban(self, interaction: discord.Interaction, user: discord.User, reason: str | None = None, hidden: bool = False):
+    async def unban(self, interaction: discord.Interaction, user: discord.User, reason: str | None = None, hidden: bool | None = None):
+        hidden = utils.resolve_hidden(interaction.user.id, hidden)
         await interaction.response.defer(ephemeral=hidden)
         try:
             await interaction.guild.unban(user, reason=reason)  # type: ignore
@@ -132,7 +137,8 @@ class ModerationCog(commands.Cog):
         app_commands.Choice(name="hours", value="hours"),
         app_commands.Choice(name="days", value="days"),
     ])
-    async def timeout(self, interaction: discord.Interaction, member: discord.Member, amount: int, unit: str = "minutes", reason: str | None = None, hidden: bool = False):
+    async def timeout(self, interaction: discord.Interaction, member: discord.Member, amount: int, unit: str = "minutes", reason: str | None = None, hidden: bool | None = None):
+        hidden = utils.resolve_hidden(interaction.user.id, hidden)
         err = self._hierarchy_error(interaction, member, "timeout")
         if err:
             await interaction.response.send_message(err, ephemeral=True)
@@ -159,7 +165,8 @@ class ModerationCog(commands.Cog):
     @discord.app_commands.checks.has_permissions(manage_channels=True)
     @moderation.command(name="slowmode", description="Set or clear slowmode on a channel")
     @app_commands.describe(seconds="Slowmode in seconds (0 to clear, max 21600)", channel="The channel to change (defaults to this one)", hidden="Hide the command from others")
-    async def slowmode(self, interaction: discord.Interaction, seconds: int, channel: discord.TextChannel | None = None, hidden: bool = False):
+    async def slowmode(self, interaction: discord.Interaction, seconds: int, channel: discord.TextChannel | None = None, hidden: bool | None = None):
+        hidden = utils.resolve_hidden(interaction.user.id, hidden)
         channel = channel or interaction.channel  # type: ignore
         if isinstance(channel, discord.Thread):
             channel = channel.parent
@@ -186,7 +193,8 @@ class ModerationCog(commands.Cog):
     @discord.app_commands.checks.has_permissions(manage_channels=True)
     @moderation.command(name="lock", description="Lock a channel so members can't send messages")
     @app_commands.describe(channel="The channel to lock (defaults to this one)", reason="Reason for locking", hidden="Hide the command from others")
-    async def lock(self, interaction: discord.Interaction, channel: discord.TextChannel | None = None, reason: str | None = None, hidden: bool = False):
+    async def lock(self, interaction: discord.Interaction, channel: discord.TextChannel | None = None, reason: str | None = None, hidden: bool | None = None):
+        hidden = utils.resolve_hidden(interaction.user.id, hidden)
         channel = channel or interaction.channel  # type: ignore
         if isinstance(channel, discord.Thread):
             channel = channel.parent
@@ -214,7 +222,8 @@ class ModerationCog(commands.Cog):
     @discord.app_commands.checks.has_permissions(manage_channels=True)
     @moderation.command(name="unlock", description="Unlock a previously locked channel")
     @app_commands.describe(channel="The channel to unlock (defaults to this one)", hidden="Hide the command from others")
-    async def unlock(self, interaction: discord.Interaction, channel: discord.TextChannel | None = None, hidden: bool = False):
+    async def unlock(self, interaction: discord.Interaction, channel: discord.TextChannel | None = None, hidden: bool | None = None):
+        hidden = utils.resolve_hidden(interaction.user.id, hidden)
         channel = channel or interaction.channel  # type: ignore
         if isinstance(channel, discord.Thread):
             channel = channel.parent
@@ -246,7 +255,8 @@ class ModerationCog(commands.Cog):
     @discord.app_commands.checks.has_permissions(manage_roles=True)
     @role.command(name="add", description="Add a role to a member")
     @app_commands.describe(member="The member to give the role to", role="The role to add", hidden="Hide the command from others")
-    async def role_add(self, interaction: discord.Interaction, member: discord.Member, role: discord.Role, hidden: bool = False):
+    async def role_add(self, interaction: discord.Interaction, member: discord.Member, role: discord.Role, hidden: bool | None = None):
+        hidden = utils.resolve_hidden(interaction.user.id, hidden)
         err = self._role_error(interaction, role, "give")
         if err:
             await interaction.response.send_message(err, ephemeral=True)
@@ -274,7 +284,8 @@ class ModerationCog(commands.Cog):
     @discord.app_commands.checks.has_permissions(manage_roles=True)
     @role.command(name="remove", description="Remove a role from a member")
     @app_commands.describe(member="The member to remove the role from", role="The role to remove", hidden="Hide the command from others")
-    async def role_remove(self, interaction: discord.Interaction, member: discord.Member, role: discord.Role, hidden: bool = False):
+    async def role_remove(self, interaction: discord.Interaction, member: discord.Member, role: discord.Role, hidden: bool | None = None):
+        hidden = utils.resolve_hidden(interaction.user.id, hidden)
         err = self._role_error(interaction, role, "remove")
         if err:
             await interaction.response.send_message(err, ephemeral=True)
