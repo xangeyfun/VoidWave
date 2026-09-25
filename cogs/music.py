@@ -13,7 +13,7 @@ import wavelink
 from discord import app_commands
 from discord.ext import commands
 
-from utils import block_reply, get_db, is_blocked
+from utils import block_reply, get_db, get_user_pref, is_blocked, resolve_hidden
 
 logger = logging.getLogger("cogs.music")
 
@@ -24,6 +24,7 @@ _EMPTY_LEAVE_DELAY = 180
 _MAX_PLAYLISTS_PER_USER = 25
 _MAX_PLAYLIST_TRACKS = 200
 _MAX_PLAYLIST_NAME_LEN = 32
+_PLAYLIST_RESOLVE_CONCURRENCY = 5
 _LYRIC_OFFSET_MS = 2500
 _LOOP_MODES = (wavelink.QueueMode.normal, wavelink.QueueMode.loop, wavelink.QueueMode.loop_all)
 _LOOP_LABELS = ("🔁", "🔂", "🔃")
@@ -34,6 +35,22 @@ _SOURCE_ICONS = {
 }
 
 _NOT_CONNECTED_MSG = "I'm not in a voice channel. Join one and run `/music play` and I'll join you automatically."
+
+_RANDOM_GENRES = [
+    "pop", "rock", "hip hop", "rap", "r&b", "lo-fi", "chill", "phonk",
+    "edm", "house", "techno", "drum and bass", "synthwave", "metal",
+    "punk", "grunge", "indie", "alternative", "jazz", "blues", "soul",
+    "country", "folk", "reggae", "ska", "classical", "kpop", "latin",
+    "afrobeats", "trap",
+]
+
+
+async def _random_genre_autocomplete(interaction: discord.Interaction, current: str) -> list[app_commands.Choice[str]]:
+    return [
+        app_commands.Choice(name=g, value=g)
+        for g in _RANDOM_GENRES
+        if current.lower() in g.lower()
+    ][:25]
 
 
 def fmt(len_ms):
@@ -320,6 +337,102 @@ def _tag_requester(track, requester_name: str) -> None:
         track.extras.requester_name = requester_name
     except Exception:
         pass
+
+
+def _playlist_dup_check(conn, playlist_id: int, uri, title, author) -> bool:
+    """True if a track with the same uri (or the same title+author) is already saved."""
+    uri = (uri or "").strip()
+    if uri:
+        row = conn.execute(
+            "SELECT 1 FROM playlist_tracks WHERE playlist_id=? AND uri=? LIMIT 1",
+            (playlist_id, uri),
+        ).fetchone()
+        if row:
+            return True
+    if not title:
+        return False
+    row = conn.execute(
+        "SELECT 1 FROM playlist_tracks WHERE playlist_id=? AND lower(title)=lower(?) "
+        "AND lower(coalesce(author, ''))=lower(coalesce(?, '')) LIMIT 1",
+        (playlist_id, title or "", author or ""),
+    ).fetchone()
+    return row is not None
+
+
+def _playlist_track_rows(conn, playlist_id: int):
+    return conn.execute(
+        "SELECT id, position, title, author, length_ms, uri, query FROM playlist_tracks "
+        "WHERE playlist_id=? ORDER BY position ASC, id ASC",
+        (playlist_id,),
+    ).fetchall()
+
+
+def _renumber_playlist_positions(conn, playlist_id: int):
+    rows = _playlist_track_rows(conn, playlist_id)
+    for i, r in enumerate(rows, 1):
+        conn.execute("UPDATE playlist_tracks SET position=? WHERE id=?", (i, r["id"]))
+    conn.commit()
+
+
+def _move_playlist_track(conn, playlist_id: int, from_idx: int, to_idx: int) -> bool:
+    rows = _playlist_track_rows(conn, playlist_id)
+    if from_idx < 0 or from_idx >= len(rows) or to_idx < 0 or to_idx >= len(rows):
+        return False
+    rows[from_idx], rows[to_idx] = rows[to_idx], rows[from_idx]
+    for i, r in enumerate(rows, 1):
+        conn.execute("UPDATE playlist_tracks SET position=? WHERE id=?", (i, r["id"]))
+    conn.commit()
+    return True
+
+
+def _delete_playlist_track(conn, playlist_id: int, idx: int):
+    rows = _playlist_track_rows(conn, playlist_id)
+    if idx < 0 or idx >= len(rows):
+        return None
+    removed = rows[idx]
+    conn.execute("DELETE FROM playlist_tracks WHERE id=?", (removed["id"],))
+    _renumber_playlist_positions(conn, playlist_id)
+    return removed
+
+
+def _insert_track_row(conn, playlist_id: int, track, query: str, added_at: int):
+    """Insert a playable into a playlist. Returns ('added', position) / ('dup', None) / ('full', None)."""
+    count = conn.execute(
+        "SELECT COUNT(*) AS c FROM playlist_tracks WHERE playlist_id=?", (playlist_id,)
+    ).fetchone()["c"]
+    if count >= _MAX_PLAYLIST_TRACKS:
+        return "full", None
+    if _playlist_dup_check(conn, playlist_id, getattr(track, "uri", None), getattr(track, "title", None), getattr(track, "author", None)):
+        return "dup", None
+    conn.execute(
+        "INSERT INTO playlist_tracks (playlist_id, position, query, title, author, uri, artwork, length_ms, source, added_at) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        (
+            playlist_id,
+            count + 1,
+            query,
+            getattr(track, "title", None),
+            getattr(track, "author", None),
+            getattr(track, "uri", None),
+            _track_artwork(track),
+            getattr(track, "length", None),
+            getattr(track, "source", None),
+            added_at,
+        ),
+    )
+    return "added", count + 1
+
+
+def _shuffle_playlist(conn, playlist_id: int) -> int:
+    rows = _playlist_track_rows(conn, playlist_id)
+    ids = [r["id"] for r in rows]
+    if not ids:
+        return 0
+    random.shuffle(ids)
+    for i, tid in enumerate(ids, 1):
+        conn.execute("UPDATE playlist_tracks SET position=? WHERE id=?", (i, tid))
+    conn.commit()
+    return len(ids)
 
 
 def _requester_name(track, default: str = "Autoplay") -> str:
@@ -921,80 +1034,232 @@ class LyricsView(discord.ui.View):
 # ======================================================================
 # Paginated Playlist View
 # ======================================================================
+# ======================================================================
+# Paginated Playlist View
+# ======================================================================
 class PlaylistView(discord.ui.View):
-    def __init__(self, user_id, playlist_name, tracks, page=0):
-        super().__init__(timeout=120)
+    """Per-playlist track manager: page through tracks, pick one, then play / reorder / remove."""
+
+    def __init__(self, cog, user_id, playlist_id, playlist_name, tracks, hidden, page=0):
+        super().__init__(timeout=180)
+        self.cog = cog
         self.user_id = user_id
+        self.playlist_id = playlist_id
         self.playlist_name = playlist_name
-        self.tracks = tracks
+        self.hidden = hidden
+        self.tracks = list(tracks)
         self.page = page
+        self.selected_pos = None
+        self._build_select()
         self._refresh_buttons()
 
     def _total_pages(self):
         return max(1, (len(self.tracks) + QUEUE_PAGE_SIZE - 1) // QUEUE_PAGE_SIZE)
 
+    def _page_start(self):
+        return self.page * QUEUE_PAGE_SIZE
+
+    def _page_tracks(self):
+        return self.tracks[self._page_start():self._page_start() + QUEUE_PAGE_SIZE]
+
+    def _selected_index(self):
+        if self.selected_pos is None:
+            return None
+        for i, t in enumerate(self.tracks):
+            if t["position"] == self.selected_pos:
+                return i
+        return None
+
+    async def _can_edit(self, interaction) -> bool:
+        if interaction.user.id == self.user_id:
+            return True
+        await interaction.response.send_message("This isn't for you.", ephemeral=True)
+        return False
+
+    def _reload(self):
+        conn = get_db()
+        try:
+            self.tracks = _playlist_track_rows(conn, self.playlist_id)
+        finally:
+            conn.close()
+
+    def _build_select(self):
+        for child in list(self.children):
+            if isinstance(child, discord.ui.Select):
+                self.remove_item(child)
+        page_tracks = self._page_tracks()
+        options = []
+        for t in page_tracks:
+            label = (t["title"] or t["query"] or "Untitled")[:80]
+            options.append(discord.SelectOption(label=label, value=str(t["position"])))
+        select = discord.ui.Select(
+            placeholder="Select a track to manage...",
+            options=options or [discord.SelectOption(label="This playlist is empty", value="none")],
+            row=1,
+        )
+        if not options:
+            select.disabled = True
+        select.callback = self._on_track_select
+        self.add_item(select)
+
     def _refresh_buttons(self):
         total = self._total_pages()
         self.page = max(0, min(self.page, total - 1))
+        selected_ok = self.selected_pos is not None
         for child in self.children:
-            if getattr(child, "emoji", None) == "◀️":
+            if isinstance(child, discord.ui.Select):
+                continue
+            emoji = getattr(child, "emoji", None)
+            label = getattr(child, "label", "") or ""
+            if emoji and emoji.name == "◀️":
                 child.disabled = self.page == 0
-            elif getattr(child, "emoji", None) == "▶️":
+            elif emoji and emoji.name == "▶️":
                 child.disabled = self.page >= total - 1
+            elif label in ("▶️ Play", "⏫ Move up", "⏬ Move down", "🗑️ Remove"):
+                child.disabled = not selected_ok
 
     def build_embed(self):
         total = len(self.tracks)
-        start = self.page * QUEUE_PAGE_SIZE
-        page_tracks = self.tracks[start:start + QUEUE_PAGE_SIZE]
-        embed = discord.Embed(
-            title=f"📋 {self.playlist_name} ({total} track{'s' if total != 1 else ''})",
-            color=VOIDWAVE_COLOR,
-        )
-        if page_tracks:
-            lines = []
-            for i, t in enumerate(page_tracks, start + 1):
-                title = t["title"] or t["query"]
-                author = t["author"] or ""
-                dur = fmt(t["length_ms"]) if t["length_ms"] else ""
-                line = f"`{i}.` **{title}**"
-                if author:
-                    line += f" - *{author}*"
-                if dur:
-                    line += f"  `{dur}`"
-                lines.append(line)
-            embed.add_field(name="Tracks", value="\n".join(lines), inline=False)
-        else:
-            embed.add_field(name="Tracks", value="This playlist is empty.", inline=False)
-        embed.set_footer(text=f"Page {self.page + 1}/{self._total_pages()}")
+        total_ms = sum(t["length_ms"] or 0 for t in self.tracks) if total else 0
+        embed = discord.Embed(title=f"📋 {self.playlist_name} ({total} track{'s' if total != 1 else ''})", color=VOIDWAVE_COLOR)
+        if total:
+            embed.add_field(name="Total length", value=fmt(total_ms), inline=False)
+        lines = []
+        for i, t in enumerate(self._page_tracks(), self._page_start() + 1):
+            title = t["title"] or t["query"] or "Unknown"
+            prefix = "☑️" if t["position"] == self.selected_pos else f"`{i}.`"
+            line = f"{prefix} **{title}**"
+            if t["author"]:
+                line += f" - *{t['author']}*"
+            if t["length_ms"]:
+                line += f"  `{fmt(t['length_ms'])}`"
+            lines.append(line)
+        embed.add_field(name="Tracks", value="\n".join(lines) if lines else "This playlist is empty.", inline=False)
+        embed.set_footer(text=f"Page {self.page + 1}/{self._total_pages()} · Vote for 2x XP! /vote")
         return embed
+
+    def _selected_row(self):
+        i = self._selected_index()
+        if i is None:
+            return None
+        return self.tracks[i]
+
+    async def _on_track_select(self, interaction: discord.Interaction):
+        if not await self._can_edit(interaction):
+            return
+        value = interaction.data.get("values") or [None]
+        raw = value[0]
+        if raw in (None, "none"):
+            return
+        self.selected_pos = int(raw)
+        self._refresh_buttons()
+        await interaction.response.edit_message(embed=self.build_embed(), view=self)
 
     @discord.ui.button(emoji="◀️", style=discord.ButtonStyle.secondary, row=0)
     async def on_prev_page(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if interaction.user.id != self.user_id:
-            return await interaction.response.send_message("This isn't for you.", ephemeral=True)
+        if not await self._can_edit(interaction):
+            return
+        if self.page == 0:
+            return
         self.page -= 1
+        self.selected_pos = None
+        self._build_select()
         self._refresh_buttons()
         await interaction.response.edit_message(embed=self.build_embed(), view=self)
 
     @discord.ui.button(emoji="▶️", style=discord.ButtonStyle.secondary, row=0)
     async def on_next_page(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if interaction.user.id != self.user_id:
-            return await interaction.response.send_message("This isn't for you.", ephemeral=True)
+        if not await self._can_edit(interaction):
+            return
+        if self.page >= self._total_pages() - 1:
+            return
         self.page += 1
+        self.selected_pos = None
+        self._build_select()
         self._refresh_buttons()
         await interaction.response.edit_message(embed=self.build_embed(), view=self)
 
+    @discord.ui.button(label="▶️ Play", style=discord.ButtonStyle.success, row=2)
+    async def on_play(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not await self._can_edit(interaction):
+            return
+        row = self._selected_row()
+        if row is None:
+            return
+        await self.cog._play_playlist_track(interaction, self.playlist_id, self.selected_pos, self.hidden)
+
+    @discord.ui.button(label="⏫ Move up", style=discord.ButtonStyle.secondary, row=2)
+    async def on_move_up(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not await self._can_edit(interaction):
+            return
+        idx = self._selected_index()
+        if idx is None or idx == 0:
+            return
+        conn = get_db()
+        try:
+            _move_playlist_track(conn, self.playlist_id, idx, idx - 1)
+        finally:
+            conn.close()
+        self.selected_pos = self._move_selected(idx, idx - 1)
+        await self._reload_and_rebuild(interaction)
+
+    @discord.ui.button(label="⏬ Move down", style=discord.ButtonStyle.secondary, row=2)
+    async def on_move_down(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not await self._can_edit(interaction):
+            return
+        idx = self._selected_index()
+        if idx is None or idx >= len(self.tracks) - 1:
+            return
+        conn = get_db()
+        try:
+            _move_playlist_track(conn, self.playlist_id, idx, idx + 1)
+        finally:
+            conn.close()
+        self.selected_pos = self._move_selected(idx, idx + 1)
+        await self._reload_and_rebuild(interaction)
+
+    def _move_selected(self, from_idx, to_idx):
+        return to_idx + 1
+
+    async def _reload_and_rebuild(self, interaction: discord.Interaction):
+        self._reload()
+        self._build_select()
+        self._refresh_buttons()
+        await interaction.response.edit_message(embed=self.build_embed(), view=self)
+
+    @discord.ui.button(label="🗑️ Remove", style=discord.ButtonStyle.danger, row=2)
+    async def on_remove(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not await self._can_edit(interaction):
+            return
+        row = self._selected_row()
+        if row is None:
+            return
+        removed_title = row["title"] or row["query"] or "that track"
+        conn = get_db()
+        try:
+            _delete_playlist_track(conn, self.playlist_id, self._selected_index())
+        finally:
+            conn.close()
+        self.selected_pos = None
+        if self.page > self._total_pages() - 1:
+            self.page = self._total_pages() - 1
+        self._reload()
+        self._build_select()
+        self._refresh_buttons()
+        embed = self.build_embed()
+        embed.add_field(name="Removed", value=removed_title, inline=False)
+        await interaction.response.edit_message(embed=embed, view=self)
+
     @discord.ui.button(label="Close", style=discord.ButtonStyle.danger, row=0)
     async def on_close(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if interaction.user.id != self.user_id:
-            return await interaction.response.send_message("This isn't for you.", ephemeral=True)
+        if not await self._can_edit(interaction):
+            return
         await interaction.response.edit_message(view=None)
         self.stop()
 
     async def on_timeout(self):
         for child in self.children:
             child.disabled = True
-
 
 # ======================================================================
 # Music Cog
@@ -1098,17 +1363,31 @@ class VoidWavePlayer(wavelink.Player):
             self._inactivity_start()
             return
 
-        history = (
-            self.auto_queue[:40] + self.queue[:40] + self.queue.history[:-41:-1] + self.auto_queue.history[:-61:-1]
-        )
+        history_identifiers = {
+            t.identifier
+            for t in (
+                self.auto_queue[:40]
+                + self.queue[:40]
+                + self.queue.history[:-41:-1]
+                + self.auto_queue.history[:-61:-1]
+            )
+        }
+
+        _seen = getattr(self, "_autoplay_seen", None)
+        if _seen is None:
+            _seen = self._autoplay_seen = set(history_identifiers)
+        if len(_seen) > 2000:
+            _seen.clear()
+            _seen.update(history_identifiers)
 
         added = 0
 
         random.shuffle(filtered_r)
         for track in filtered_r:
-            if track in history:
+            if track.identifier in _seen:
                 continue
 
+            _seen.add(track.identifier)
             track._recommended = True
             added += await self.auto_queue.put_wait(track)
 
@@ -1818,6 +2097,11 @@ class MusicCog(commands.Cog):
 
             await self._retire_controller(old_msg, old_view, msg)
 
+    def _apply_autoplay_default(self, player, user_id):
+        """Turn autoplay on when the user's default wants it and a fresh session starts."""
+        if get_user_pref(user_id, "music_autoplay"):
+            player.autoplay = wavelink.AutoPlayMode.enabled
+
     async def _begin_playback(self, interaction: discord.Interaction, player: wavelink.Player, track) -> bool:
         """Start a track. On failure the player is torn down so the next attempt reconnects fresh."""
         try:
@@ -1919,7 +2203,8 @@ class MusicCog(commands.Cog):
         app_commands.Choice(name="SoundCloud", value="soundcloud"),
         app_commands.Choice(name="Spotify", value="spotify"),
     ])
-    async def play_music(self, interaction: discord.Interaction, query: str, source: str = "auto", hidden: bool = False):
+    async def play_music(self, interaction: discord.Interaction, query: str, source: str = "auto", hidden: bool | None = None):
+        hidden = resolve_hidden(interaction.user.id, hidden)
         if await self._deny_if_blocked(interaction):
             return
 
@@ -1927,6 +2212,9 @@ class MusicCog(commands.Cog):
         if ensured is None:
             return
         player, node = ensured
+
+        if source == "auto":
+            source = get_user_pref(interaction.user.id, "music_source") or "auto"
 
         try:
             normalized = _normalize_query(query)
@@ -1948,6 +2236,7 @@ class MusicCog(commands.Cog):
                 await player.queue.put_wait(tracks.tracks)
                 if not player.playing and tracks.tracks:
                     self._reset_skip_votes(interaction.guild_id)
+                    self._apply_autoplay_default(player, interaction.user.id)
                     first = player.queue.get()
                     if not await self._begin_playback(interaction, player, first):
                         return
@@ -2003,6 +2292,7 @@ class MusicCog(commands.Cog):
                     await self._repost_player_message(interaction, player)
                 else:
                     self._reset_skip_votes(interaction.guild_id)
+                    self._apply_autoplay_default(player, interaction.user.id)
                     if not await self._begin_playback(interaction, player, track):
                         return
                     await self._send_player_message(interaction, track, player)
@@ -2016,11 +2306,84 @@ class MusicCog(commands.Cog):
                 pass
 
     # ------------------------------------------------------------------
+    # Random
+    # ------------------------------------------------------------------
+    @music.command(name="random", description="Queue a random track, optionally by genre")
+    @app_commands.describe(
+        genre="Genre to pick from, e.g. 'lo-fi', 'rock', 'phonk' (optional)",
+        source="Where to pick from (optional)",
+        hidden="Hide the command from others",
+    )
+    @app_commands.choices(source=[
+        app_commands.Choice(name="All", value="auto"),
+        app_commands.Choice(name="YouTube", value="youtube"),
+        app_commands.Choice(name="SoundCloud", value="soundcloud"),
+        app_commands.Choice(name="Spotify", value="spotify"),
+    ])
+    @app_commands.autocomplete(genre=_random_genre_autocomplete)
+    async def random_track(self, interaction: discord.Interaction, genre: str = None, source: str = "auto", hidden: bool | None = None):
+        hidden = resolve_hidden(interaction.user.id, hidden)
+        if await self._deny_if_blocked(interaction):
+            return
+
+        ensured = await self._ensure_player(interaction, hidden=hidden)
+        if ensured is None:
+            return
+        player, node = ensured
+
+        if source == "auto":
+            source = get_user_pref(interaction.user.id, "music_source") or "auto"
+
+        query = genre.strip() if genre and genre.strip() else random.choice(_RANDOM_GENRES)
+        try:
+            tracks = await self._search_tracks(query, node, source=source)
+            pool = tracks.tracks if isinstance(tracks, wavelink.Playlist) else list(tracks or [])
+            if not pool:
+                await interaction.followup.send(f"No results found for `{query}`.", ephemeral=hidden)
+                return
+
+            seen = {t.identifier for t in list(player.queue) + list(player.queue.history or [])}
+            candidates = [t for t in pool if t.identifier not in seen]
+            track = random.choice(candidates or pool)
+            _tag_requester(track, interaction.user.display_name)
+
+            if player.playing:
+                await player.queue.put_wait(track)
+                embed = discord.Embed(
+                    title="🎲 Random track added to queue",
+                    description=(
+                        f"{_source_icon(_track_source(track))} **{_source_label(_track_source(track))}** · "
+                        f"**[{track.title}]({track.uri})** · genre `{query}` · added by **{interaction.user.display_name}**"
+                    ),
+                    color=VOIDWAVE_COLOR,
+                )
+                embed.set_thumbnail(url=_track_artwork(track))
+                embed.add_field(name="Position in queue", value=f"`#{player.queue.count}`", inline=True)
+                embed.add_field(name="Length", value=f"`{fmt(track.length)}`", inline=True)
+                _footer(embed)
+                await interaction.followup.send(embed=embed, ephemeral=hidden)
+                await self._repost_player_message(interaction, player)
+            else:
+                self._reset_skip_votes(interaction.guild_id)
+                self._apply_autoplay_default(player, interaction.user.id)
+                if not await self._begin_playback(interaction, player, track):
+                    return
+                await self._send_player_message(interaction, track, player)
+        except Exception as e:
+            logger.error("Music random failed in guild %s: %s", interaction.guild_id, e)
+            await self._teardown_guild(interaction.guild_id, embed_desc="Music stopped. Run /music play to start again.")
+            try:
+                await interaction.followup.send("Something went wrong while picking a random track. Please try again.", ephemeral=hidden)
+            except discord.HTTPException:
+                pass
+
+    # ------------------------------------------------------------------
     # Pause / Resume
     # ------------------------------------------------------------------
     @music.command(name="pause", description="Pause the current track")
     @app_commands.describe(hidden="Hide the command from others")
-    async def pause(self, interaction: discord.Interaction, hidden: bool = False):
+    async def pause(self, interaction: discord.Interaction, hidden: bool | None = None):
+        hidden = resolve_hidden(interaction.user.id, hidden)
         if await self._deny_if_blocked(interaction):
             return
         player = self._player(interaction)
@@ -2036,7 +2399,8 @@ class MusicCog(commands.Cog):
 
     @music.command(name="resume", description="Resume the paused track")
     @app_commands.describe(hidden="Hide the command from others")
-    async def resume(self, interaction: discord.Interaction, hidden: bool = False):
+    async def resume(self, interaction: discord.Interaction, hidden: bool | None = None):
+        hidden = resolve_hidden(interaction.user.id, hidden)
         if await self._deny_if_blocked(interaction):
             return
         player = self._player(interaction)
@@ -2058,7 +2422,8 @@ class MusicCog(commands.Cog):
     # ------------------------------------------------------------------
     @music.command(name="skip", description="Skip the current track")
     @app_commands.describe(hidden="Hide the command from others")
-    async def skip(self, interaction: discord.Interaction, hidden: bool = False):
+    async def skip(self, interaction: discord.Interaction, hidden: bool | None = None):
+        hidden = resolve_hidden(interaction.user.id, hidden)
         if await self._deny_if_blocked(interaction):
             return
         player = self._player(interaction)
@@ -2101,7 +2466,8 @@ class MusicCog(commands.Cog):
 
     @music.command(name="stop", description="Stop playback and clear the queue")
     @app_commands.describe(hidden="Hide the command from others")
-    async def stop(self, interaction: discord.Interaction, hidden: bool = False):
+    async def stop(self, interaction: discord.Interaction, hidden: bool | None = None):
+        hidden = resolve_hidden(interaction.user.id, hidden)
         if await self._deny_if_blocked(interaction):
             return
         player = self._player(interaction)
@@ -2122,7 +2488,8 @@ class MusicCog(commands.Cog):
     # ------------------------------------------------------------------
     @music.command(name="queue", description="View the current queue")
     @app_commands.describe(hidden="Hide the command from others")
-    async def queue(self, interaction: discord.Interaction, hidden: bool = False):
+    async def queue(self, interaction: discord.Interaction, hidden: bool | None = None):
+        hidden = resolve_hidden(interaction.user.id, hidden)
         if await self._deny_if_blocked(interaction):
             return
         player = self._player(interaction)
@@ -2145,7 +2512,8 @@ class MusicCog(commands.Cog):
     # ------------------------------------------------------------------
     @music.command(name="nowplaying", description="Show what's currently playing")
     @app_commands.describe(hidden="Hide the command from others")
-    async def nowplaying(self, interaction: discord.Interaction, hidden: bool = False):
+    async def nowplaying(self, interaction: discord.Interaction, hidden: bool | None = None):
+        hidden = resolve_hidden(interaction.user.id, hidden)
         if await self._deny_if_blocked(interaction):
             return
         player = self._player(interaction)
@@ -2162,7 +2530,8 @@ class MusicCog(commands.Cog):
     # ------------------------------------------------------------------
     @music.command(name="controller", description="Bring the interactive player controller back into view")
     @app_commands.describe(hidden="Hide the command from others")
-    async def controller(self, interaction: discord.Interaction, hidden: bool = False):
+    async def controller(self, interaction: discord.Interaction, hidden: bool | None = None):
+        hidden = resolve_hidden(interaction.user.id, hidden)
         if await self._deny_if_blocked(interaction):
             return
         player = self._player(interaction)
@@ -2184,7 +2553,8 @@ class MusicCog(commands.Cog):
     # ------------------------------------------------------------------
     @music.command(name="shuffle", description="Shuffle the upcoming queue")
     @app_commands.describe(hidden="Hide the command from others")
-    async def shuffle(self, interaction: discord.Interaction, hidden: bool = False):
+    async def shuffle(self, interaction: discord.Interaction, hidden: bool | None = None):
+        hidden = resolve_hidden(interaction.user.id, hidden)
         if await self._deny_if_blocked(interaction):
             return
         player = self._player(interaction)
@@ -2207,7 +2577,8 @@ class MusicCog(commands.Cog):
         app_commands.Choice(name="Track", value="track"),
         app_commands.Choice(name="Queue", value="queue"),
     ])
-    async def loop(self, interaction: discord.Interaction, mode: str, hidden: bool = False):
+    async def loop(self, interaction: discord.Interaction, mode: str, hidden: bool | None = None):
+        hidden = resolve_hidden(interaction.user.id, hidden)
         if await self._deny_if_blocked(interaction):
             return
         player = self._player(interaction)
@@ -2232,7 +2603,8 @@ class MusicCog(commands.Cog):
 
     @music.command(name="volume", description="Set the playback volume (1-100)")
     @app_commands.describe(level="Volume level from 1 to 100", hidden="Hide the command from others")
-    async def volume(self, interaction: discord.Interaction, level: int, hidden: bool = False):
+    async def volume(self, interaction: discord.Interaction, level: int, hidden: bool | None = None):
+        hidden = resolve_hidden(interaction.user.id, hidden)
         if await self._deny_if_blocked(interaction):
             return
         player = self._player(interaction)
@@ -2252,7 +2624,8 @@ class MusicCog(commands.Cog):
     # ------------------------------------------------------------------
     @music.command(name="seek", description="Seek to a position in the current track")
     @app_commands.describe(position="Time to seek to (e.g. 1:30, 90, 2h5m)", hidden="Hide the command from others")
-    async def seek(self, interaction: discord.Interaction, position: str, hidden: bool = False):
+    async def seek(self, interaction: discord.Interaction, position: str, hidden: bool | None = None):
+        hidden = resolve_hidden(interaction.user.id, hidden)
         if await self._deny_if_blocked(interaction):
             return
         player = self._player(interaction)
@@ -2279,7 +2652,8 @@ class MusicCog(commands.Cog):
     # ------------------------------------------------------------------
     @music.command(name="lyrics", description="Show lyrics for the current track")
     @app_commands.describe(hidden="Hide the command from others")
-    async def lyrics(self, interaction: discord.Interaction, hidden: bool = False):
+    async def lyrics(self, interaction: discord.Interaction, hidden: bool | None = None):
+        hidden = resolve_hidden(interaction.user.id, hidden)
         if await self._deny_if_blocked(interaction):
             return
         player = self._player(interaction)
@@ -2309,7 +2683,8 @@ class MusicCog(commands.Cog):
         app_commands.Choice(name="On", value="on"),
         app_commands.Choice(name="Off", value="off"),
     ])
-    async def lyricslive(self, interaction: discord.Interaction, mode: str, hidden: bool = False):
+    async def lyricslive(self, interaction: discord.Interaction, mode: str, hidden: bool | None = None):
+        hidden = resolve_hidden(interaction.user.id, hidden)
         if await self._deny_if_blocked(interaction):
             return
         player = self._player(interaction)
@@ -2341,7 +2716,8 @@ class MusicCog(commands.Cog):
         app_commands.Choice(name="On", value="on"),
         app_commands.Choice(name="Off", value="off"),
     ])
-    async def autoplay(self, interaction: discord.Interaction, mode: str, hidden: bool = False):
+    async def autoplay(self, interaction: discord.Interaction, mode: str, hidden: bool | None = None):
+        hidden = resolve_hidden(interaction.user.id, hidden)
         if await self._deny_if_blocked(interaction):
             return
         player = self._player(interaction)
@@ -2364,7 +2740,8 @@ class MusicCog(commands.Cog):
     # ------------------------------------------------------------------
     @music.command(name="disconnect", description="Stop music and leave the voice channel")
     @app_commands.describe(hidden="Hide the command from others")
-    async def disconnect(self, interaction: discord.Interaction, hidden: bool = False):
+    async def disconnect(self, interaction: discord.Interaction, hidden: bool | None = None):
+        hidden = resolve_hidden(interaction.user.id, hidden)
         if await self._deny_if_blocked(interaction):
             return
         player = self._player(interaction)
@@ -2676,12 +3053,85 @@ class MusicCog(commands.Cog):
             conn.close()
         return [app_commands.Choice(name=r["name"], value=r["name"]) for r in rows]
 
+    async def _resolve_stored_track(self, row, node):
+        """Resolve a stored playlist row to a playable, preferring the saved URI."""
+        uri = (row["uri"] or "").strip()
+        if uri:
+            try:
+                tracks = await self._search_tracks(uri, node)
+            except Exception:
+                tracks = None
+            if tracks:
+                if isinstance(tracks, wavelink.Playlist):
+                    if tracks.tracks:
+                        return tracks.tracks[0]
+                elif list(tracks):
+                    return list(tracks)[0]
+        query = row["query"]
+        normalized = _normalize_query(query)
+        if normalized is None:
+            return None
+        try:
+            tracks = await self._search_tracks(normalized, node)
+        except Exception:
+            tracks = None
+        if not tracks:
+            return None
+        if isinstance(tracks, wavelink.Playlist):
+            return tracks.tracks[0] if tracks.tracks else None
+        results = list(tracks)
+        if not results:
+            return None
+        return _best_result(query, results) or results[0]
+
+    async def _play_playlist_track(self, interaction: discord.Interaction, playlist_id: int, position: int, hidden: bool):
+        """Play a single stored playlist track (queue it if something is already playing)."""
+        conn = get_db()
+        try:
+            row = conn.execute(
+                "SELECT id, position, title, author, length_ms, uri, query FROM playlist_tracks "
+                "WHERE playlist_id=? AND position=?",
+                (playlist_id, position),
+            ).fetchone()
+        finally:
+            conn.close()
+        if row is None:
+            return
+        ensured = await self._ensure_player(interaction, hidden=hidden)
+        if ensured is None:
+            return
+        player, node = ensured
+        track = await self._resolve_stored_track(row, node)
+        if track is None:
+            await interaction.followup.send("That track couldn't be resolved right now. It may have been removed from its source.", ephemeral=hidden)
+            return
+        _tag_requester(track, interaction.user.display_name)
+        if player.playing:
+            try:
+                await player.queue.put_wait(track)
+            except Exception as e:
+                logger.error("Failed to queue track in guild %s: %s", interaction.guild_id, e)
+                await self._teardown_guild(interaction.guild_id, embed_desc="Music stopped. Run /music play to start again.")
+                return
+            await self._repost_player_message(interaction, player)
+            try:
+                await interaction.followup.send(f"Queued **{track.title}**.", ephemeral=hidden)
+            except discord.HTTPException:
+                pass
+            return
+        self._reset_skip_votes(interaction.guild_id)
+        self._apply_autoplay_default(player, interaction.user.id)
+        if not await self._begin_playback(interaction, player, track):
+            return
+        await self._send_player_message(interaction, track, player)
+
     # ------------------------------------------------------------------
     # Playlists: create / delete / rename
     # ------------------------------------------------------------------
     @playlist.command(name="create", description="Create a new playlist")
     @app_commands.describe(name="Name for the new playlist", hidden="Hide the command from others")
-    async def playlist_create(self, interaction: discord.Interaction, name: str, hidden: bool = False):
+    async def playlist_create(self, interaction: discord.Interaction, name: str, hidden: bool | None = None):
+        hidden = resolve_hidden(interaction.user.id, hidden)
         if await self._deny_if_blocked(interaction):
             return
         name = (name or "").strip()
@@ -2717,7 +3167,8 @@ class MusicCog(commands.Cog):
 
     @playlist.command(name="delete", description="Delete one of your playlists")
     @app_commands.describe(name="Playlist to delete", hidden="Hide the command from others")
-    async def playlist_delete(self, interaction: discord.Interaction, name: str, hidden: bool = False):
+    async def playlist_delete(self, interaction: discord.Interaction, name: str, hidden: bool | None = None):
+        hidden = resolve_hidden(interaction.user.id, hidden)
         if await self._deny_if_blocked(interaction):
             return
         entry = self._find_playlist(interaction.user.id, name)
@@ -2737,7 +3188,8 @@ class MusicCog(commands.Cog):
 
     @playlist.command(name="rename", description="Rename one of your playlists")
     @app_commands.describe(name="Current playlist name", new_name="New name", hidden="Hide the command from others")
-    async def playlist_rename(self, interaction: discord.Interaction, name: str, new_name: str, hidden: bool = False):
+    async def playlist_rename(self, interaction: discord.Interaction, name: str, new_name: str, hidden: bool | None = None):
+        hidden = resolve_hidden(interaction.user.id, hidden)
         if await self._deny_if_blocked(interaction):
             return
         entry = self._find_playlist(interaction.user.id, name)
@@ -2781,7 +3233,8 @@ class MusicCog(commands.Cog):
     # ------------------------------------------------------------------
     @playlist.command(name="add", description="Add a track to one of your playlists")
     @app_commands.describe(name="Playlist to add to", query="A track URL or search term", hidden="Hide the command from others")
-    async def playlist_add(self, interaction: discord.Interaction, name: str, query: str, hidden: bool = False):
+    async def playlist_add(self, interaction: discord.Interaction, name: str, query: str, hidden: bool | None = None):
+        hidden = resolve_hidden(interaction.user.id, hidden)
         if await self._deny_if_blocked(interaction):
             return
         entry = self._find_playlist(interaction.user.id, name)
@@ -2815,7 +3268,12 @@ class MusicCog(commands.Cog):
             if not tracks.tracks:
                 await interaction.followup.send(f"No results found for `{query}`.", ephemeral=hidden)
                 return
-            track = tracks.tracks[0]
+            if len(tracks.tracks) == 1:
+                track = tracks.tracks[0]
+                await self._add_track_to_playlist(interaction, track, entry, track.title or query, hidden)
+                return
+            await self._import_tracks_to_playlist(interaction, entry, tracks.tracks, hidden)
+            return
         else:
             results = list(tracks)
             if len(results) > 1:
@@ -2839,31 +3297,59 @@ class MusicCog(commands.Cog):
                 return
             track = results[0]
 
-        await self._add_track_to_playlist(interaction, track, entry, query, hidden)
+        await self._add_track_to_playlist(interaction, track, entry, track.title or query, hidden)
+
+    async def _import_tracks_to_playlist(self, interaction: discord.Interaction, entry, tracks, hidden: bool):
+        """Bulk-add a list of tracks to a playlist, honoring the cap and skipping duplicates."""
+        conn = get_db()
+        added = 0
+        skipped = 0
+        full = False
+        try:
+            for track in tracks:
+                result, _ = _insert_track_row(conn, entry["id"], track, track.title or "", int(time.time()))
+                if result == "added":
+                    added += 1
+                elif result == "full":
+                    full = True
+                    break
+                else:
+                    skipped += 1
+            conn.commit()
+        finally:
+            conn.close()
+        if not added:
+            embed = discord.Embed(
+                title="🎵 Nothing added",
+                description=f"Every track in that list was already in **{entry['name']}**, or the playlist is full.",
+                color=VOIDWAVE_COLOR,
+            )
+            _footer(embed)
+            await interaction.followup.send(embed=embed, ephemeral=hidden)
+            return
+        desc = f"✅ **{added}** track{'s' if added != 1 else ''} added to **{entry['name']}**"
+        if skipped:
+            desc += f"\n`{skipped}` skipped (already there or playlist is full)"
+        if full:
+            desc += f"\n⚠️ The playlist hit the {_MAX_PLAYLIST_TRACKS}-track cap."
+        embed = discord.Embed(title="🎵 Added to playlist", description=desc, color=VOIDWAVE_COLOR)
+        embed.add_field(name="Play", value=f"`/music playlist play {entry['name']}`", inline=False)
+        _footer(embed)
+        await interaction.followup.send(embed=embed, ephemeral=hidden)
 
     async def _add_track_to_playlist(self, interaction: discord.Interaction, track, entry, query: str, hidden: bool):
         conn = get_db()
         try:
-            count = conn.execute("SELECT COUNT(*) AS c FROM playlist_tracks WHERE playlist_id=?", (entry["id"],)).fetchone()["c"]
-            if count >= _MAX_PLAYLIST_TRACKS:
-                await interaction.followup.send(f"This playlist is full ({_MAX_PLAYLIST_TRACKS} tracks max).", ephemeral=hidden)
-                return
-            dup = conn.execute(
-                "SELECT 1 FROM playlist_tracks WHERE playlist_id=? AND title=?",
-                (entry["id"], track.title),
-            ).fetchone()
-            if dup:
-                await interaction.followup.send(f"**{track.title}** is already in **{entry['name']}**.", ephemeral=hidden)
-                return
-            position = count + 1
-            conn.execute(
-                "INSERT INTO playlist_tracks (playlist_id, position, query, title, author, uri, artwork, length_ms, source, added_at) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                (entry["id"], position, query, track.title, track.author, track.uri, _track_artwork(track), track.length, track.source, int(time.time())),
-            )
+            result, position = _insert_track_row(conn, entry["id"], track, query, int(time.time()))
             conn.commit()
         finally:
             conn.close()
+        if result == "full":
+            await interaction.followup.send(f"This playlist is full ({_MAX_PLAYLIST_TRACKS} tracks max).", ephemeral=hidden)
+            return
+        if result == "dup":
+            await interaction.followup.send(f"**{track.title}** is already in **{entry['name']}**.", ephemeral=hidden)
+            return
         _tag_requester(track, interaction.user.display_name)
         embed = discord.Embed(
             title="🎵 Added to playlist",
@@ -2874,13 +3360,95 @@ class MusicCog(commands.Cog):
             color=VOIDWAVE_COLOR,
         )
         embed.set_thumbnail(url=_track_artwork(track))
-        embed.add_field(name="Playlist", value=f"**{entry['name']}** · `#{position}` of {count + 1}", inline=False)
+        embed.add_field(name="Playlist", value=f"**{entry['name']}** · `#{position}` of {position}", inline=False)
         _footer(embed)
         await interaction.followup.send(embed=embed, ephemeral=hidden)
 
-    @playlist.command(name="remove", description="Remove a track from one of your playlists")
-    @app_commands.describe(name="Playlist to edit", position="Track number to remove, see /music playlist list", hidden="Hide the command from others")
-    async def playlist_remove(self, interaction: discord.Interaction, name: str, position: int, hidden: bool = False):
+    @playlist.command(name="addcurrent", description="Save the currently playing track to a playlist")
+    @app_commands.describe(name="Playlist to add to", hidden="Hide the command from others")
+    async def playlist_addcurrent(self, interaction: discord.Interaction, name: str, hidden: bool | None = None):
+        hidden = resolve_hidden(interaction.user.id, hidden)
+        if await self._deny_if_blocked(interaction):
+            return
+        entry = self._find_playlist(interaction.user.id, name)
+        if entry is None:
+            await interaction.response.send_message("I couldn't find a playlist with that name.", ephemeral=hidden)
+            return
+        player = self._player(interaction)
+        if not isinstance(player, wavelink.Player) or player.current is None:
+            await interaction.response.send_message("Nothing is playing right now.", ephemeral=hidden)
+            return
+        await interaction.response.defer(ephemeral=hidden)
+        await self._add_track_to_playlist(interaction, player.current, entry, player.current.title or "", hidden)
+
+    @playlist.command(name="savequeue", description="Save the current queue as a brand new playlist")
+    @app_commands.describe(name="Name for the new playlist", hidden="Hide the command from others")
+    async def playlist_savequeue(self, interaction: discord.Interaction, name: str, hidden: bool | None = None):
+        hidden = resolve_hidden(interaction.user.id, hidden)
+        if await self._deny_if_blocked(interaction):
+            return
+        player = self._player(interaction)
+        if not isinstance(player, wavelink.Player):
+            await interaction.response.send_message("Nothing is playing or queued right now.", ephemeral=hidden)
+            return
+        tracks = []
+        if player.current is not None:
+            tracks.append(player.current)
+        tracks.extend(list(player.queue))
+        if not tracks:
+            await interaction.response.send_message("Nothing is playing or queued right now.", ephemeral=hidden)
+            return
+        name = (name or "").strip()
+        if not name:
+            await interaction.response.send_message("Playlist names can't be empty.", ephemeral=hidden)
+            return
+        if len(name) > _MAX_PLAYLIST_NAME_LEN:
+            await interaction.response.send_message(f"Playlist names are limited to {_MAX_PLAYLIST_NAME_LEN} characters.", ephemeral=hidden)
+            return
+        user_id = interaction.user.id
+        conn = get_db()
+        try:
+            count = conn.execute("SELECT COUNT(*) AS c FROM playlists WHERE user_id=?", (user_id,)).fetchone()["c"]
+            if count >= _MAX_PLAYLISTS_PER_USER:
+                await interaction.response.send_message(f"You can have at most {_MAX_PLAYLISTS_PER_USER} playlists.", ephemeral=hidden)
+                return
+            try:
+                conn.execute(
+                    "INSERT INTO playlists (user_id, name, name_lower, created_at) VALUES (?, ?, ?, ?)",
+                    (user_id, name, name.lower(), int(time.time())),
+                )
+            except sqlite3.IntegrityError:
+                await interaction.response.send_message(f"You already have a playlist named **{name}**.", ephemeral=hidden)
+                return
+            playlist_id = conn.execute("SELECT id FROM playlists WHERE user_id=? AND name_lower=?", (user_id, name.lower())).fetchone()["id"]
+            added = 0
+            skipped = 0
+            for track in tracks:
+                result, _ = _insert_track_row(conn, playlist_id, track, track.title or "", int(time.time()))
+                if result == "added":
+                    added += 1
+                elif result == "full":
+                    break
+                else:
+                    skipped += 1
+            conn.commit()
+        finally:
+            conn.close()
+        embed = discord.Embed(
+            title="💾 Queue saved",
+            description=f"**{name}** · **{added}** track{'s' if added != 1 else ''} from your queue",
+            color=VOIDWAVE_COLOR,
+        )
+        if skipped:
+            embed.add_field(name="Skipped", value=f"`{skipped}` (duplicate or playlist full)", inline=False)
+        embed.add_field(name="Play", value=f"`/music playlist play {name}`", inline=False)
+        _footer(embed)
+        await interaction.response.send_message(embed=embed, ephemeral=hidden)
+
+    @playlist.command(name="clear", description="Remove every track from one of your playlists")
+    @app_commands.describe(name="Playlist to clear", hidden="Hide the command from others")
+    async def playlist_clear(self, interaction: discord.Interaction, name: str, hidden: bool | None = None):
+        hidden = resolve_hidden(interaction.user.id, hidden)
         if await self._deny_if_blocked(interaction):
             return
         entry = self._find_playlist(interaction.user.id, name)
@@ -2889,26 +3457,94 @@ class MusicCog(commands.Cog):
             return
         conn = get_db()
         try:
-            rows = conn.execute(
-                "SELECT id, title, query FROM playlist_tracks WHERE playlist_id=? ORDER BY position ASC, id ASC",
-                (entry["id"],),
-            ).fetchall()
+            count = conn.execute("SELECT COUNT(*) AS c FROM playlist_tracks WHERE playlist_id=?", (entry["id"],)).fetchone()["c"]
+            conn.execute("DELETE FROM playlist_tracks WHERE playlist_id=?", (entry["id"],))
+            conn.commit()
+        finally:
+            conn.close()
+        embed = discord.Embed(
+            title="🧹 Playlist cleared",
+            description=f"**{entry['name']}** · removed **{count}** track{'s' if count != 1 else ''}",
+            color=VOIDWAVE_COLOR,
+        )
+        _footer(embed)
+        await interaction.response.send_message(embed=embed, ephemeral=hidden)
+
+    @playlist.command(name="shuffle", description="Randomly reorder the tracks in one of your playlists")
+    @app_commands.describe(name="Playlist to shuffle", hidden="Hide the command from others")
+    async def playlist_shuffle(self, interaction: discord.Interaction, name: str, hidden: bool | None = None):
+        hidden = resolve_hidden(interaction.user.id, hidden)
+        if await self._deny_if_blocked(interaction):
+            return
+        entry = self._find_playlist(interaction.user.id, name)
+        if entry is None:
+            await interaction.response.send_message("I couldn't find a playlist with that name.", ephemeral=hidden)
+            return
+        conn = get_db()
+        try:
+            count = _shuffle_playlist(conn, entry["id"])
+        finally:
+            conn.close()
+        if not count:
+            await interaction.response.send_message(f"**{entry['name']}** is empty, nothing to shuffle.", ephemeral=hidden)
+            return
+        embed = discord.Embed(
+            title="🔀 Playlist shuffled",
+            description=f"**{entry['name']}** · **{count}** track{'s' if count != 1 else ''} reordered",
+            color=VOIDWAVE_COLOR,
+        )
+        _footer(embed)
+        await interaction.response.send_message(embed=embed, ephemeral=hidden)
+
+    @playlist_clear.autocomplete("name")
+    async def playlist_clear_autocomplete(self, interaction: discord.Interaction, current: str):
+        return await self._playlist_autocomplete(interaction, current)
+
+    @playlist_shuffle.autocomplete("name")
+    async def playlist_shuffle_autocomplete(self, interaction: discord.Interaction, current: str):
+        return await self._playlist_autocomplete(interaction, current)
+
+    @playlist_addcurrent.autocomplete("name")
+    async def playlist_addcurrent_autocomplete(self, interaction: discord.Interaction, current: str):
+        return await self._playlist_autocomplete(interaction, current)
+
+    @playlist.command(name="remove", description="Remove a track from one of your playlists")
+    @app_commands.describe(name="Playlist to edit", track="Optional track title to remove, pick it from the list", position="Optional track number to remove, see /music playlist list", hidden="Hide the command from others")
+    async def playlist_remove(self, interaction: discord.Interaction, name: str, track: str | None = None, position: int | None = None, hidden: bool | None = None):
+        hidden = resolve_hidden(interaction.user.id, hidden)
+        if await self._deny_if_blocked(interaction):
+            return
+        entry = self._find_playlist(interaction.user.id, name)
+        if entry is None:
+            await interaction.response.send_message("I couldn't find a playlist with that name.", ephemeral=hidden)
+            return
+        if track is None and position is None:
+            await interaction.response.send_message("Give me a track title or a position number to remove.", ephemeral=hidden)
+            return
+        conn = get_db()
+        try:
+            rows = _playlist_track_rows(conn, entry["id"])
             if not rows:
                 await interaction.response.send_message(f"**{entry['name']}** is empty.", ephemeral=hidden)
                 return
-            if position < 1 or position > len(rows):
-                await interaction.response.send_message(f"`{position}` isn't in range. This playlist has **{len(rows)}** track(s).", ephemeral=hidden)
-                return
-            removed = rows[position - 1]
-            removed_title = removed["title"] or removed["query"]
-            conn.execute("DELETE FROM playlist_tracks WHERE id=?", (removed["id"],))
-            remaining = conn.execute(
-                "SELECT id FROM playlist_tracks WHERE playlist_id=? ORDER BY position ASC, id ASC",
-                (entry["id"],),
-            ).fetchall()
-            for i, row in enumerate(remaining, 1):
-                conn.execute("UPDATE playlist_tracks SET position=? WHERE id=?", (i, row["id"]))
-            conn.commit()
+            idx = None
+            if position is not None:
+                if position < 1 or position > len(rows):
+                    await interaction.response.send_message(f"`{position}` isn't in range. This playlist has **{len(rows)}** track(s).", ephemeral=hidden)
+                    return
+                idx = position - 1
+            else:
+                needle = (track or "").strip().lower()
+                for i, row in enumerate(rows):
+                    hay = ((row["title"] or "") + " " + (row["query"] or "")).strip().lower()
+                    if needle in hay:
+                        idx = i
+                        break
+                if idx is None:
+                    await interaction.response.send_message(f"I couldn't find a track matching `{track}` in **{entry['name']}**.", ephemeral=hidden)
+                    return
+            removed = _delete_playlist_track(conn, entry["id"], idx)
+            removed_title = removed["title"] or removed["query"] if removed else ""
         finally:
             conn.close()
         embed = discord.Embed(
@@ -2928,12 +3564,43 @@ class MusicCog(commands.Cog):
     async def playlist_remove_autocomplete(self, interaction: discord.Interaction, current: str):
         return await self._playlist_autocomplete(interaction, current)
 
+    @playlist_remove.autocomplete("track")
+    async def playlist_remove_track_autocomplete(self, interaction: discord.Interaction, current: str):
+        name = ""
+        try:
+            name = getattr(interaction.namespace, "name", "") or ""
+        except Exception:
+            pass
+        entry = self._find_playlist(interaction.user.id, name) if name else None
+        if entry is None:
+            return []
+        conn = get_db()
+        try:
+            rows = _playlist_track_rows(conn, entry["id"])
+        finally:
+            conn.close()
+        current = (current or "").strip().lower()
+        out = []
+        for i, row in enumerate(rows, 1):
+            title = row["title"] or row["query"] or ""
+            if current in title.lower() or not current:
+                out.append(app_commands.Choice(name=f"#{i} {title}"[:100], value=title))
+            if len(out) >= 20:
+                break
+        if not out and not current:
+            for i, row in enumerate(rows, 1):
+                out.append(app_commands.Choice(name=f"#{i} {row['title'] or row['query'] or ''}"[:100], value=row["title"] or row["query"] or ""))
+                if len(out) >= 20:
+                    break
+        return out
+
     # ------------------------------------------------------------------
     # Playlists: list
     # ------------------------------------------------------------------
     @playlist.command(name="list", description="List your playlists or view one playlist's tracks")
     @app_commands.describe(name="Optional playlist name to show its tracks", hidden="Hide the command from others")
-    async def playlist_list(self, interaction: discord.Interaction, name: str | None = None, hidden: bool = False):
+    async def playlist_list(self, interaction: discord.Interaction, name: str | None = None, hidden: bool | None = None):
+        hidden = resolve_hidden(interaction.user.id, hidden)
         if await self._deny_if_blocked(interaction):
             return
         user_id = interaction.user.id
@@ -2948,13 +3615,13 @@ class MusicCog(commands.Cog):
                     await interaction.response.send_message("I couldn't find a playlist with that name.", ephemeral=hidden)
                     return
                 tracks = conn.execute(
-                    "SELECT title, author, length_ms, query FROM playlist_tracks WHERE playlist_id=? ORDER BY position ASC, id ASC",
+                    "SELECT id, position, title, author, length_ms, uri, query FROM playlist_tracks WHERE playlist_id=? ORDER BY position ASC, id ASC",
                     (entry["id"],),
                 ).fetchall()
             else:
                 rows = conn.execute(
-                    "SELECT p.id, p.name, COUNT(t.id) AS cnt FROM playlists p "
-                    "LEFT JOIN playlist_tracks t ON t.playlist_id = p.id "
+                    "SELECT p.id, p.name, COUNT(t.id) AS cnt, COALESCE(SUM(t.length_ms), 0) AS total_ms, p.created_at "
+                    "FROM playlists p LEFT JOIN playlist_tracks t ON t.playlist_id = p.id "
                     "WHERE p.user_id=? GROUP BY p.id ORDER BY p.created_at ASC, p.id ASC",
                     (user_id,),
                 ).fetchall()
@@ -2973,6 +3640,8 @@ class MusicCog(commands.Cog):
                 return
             body = "\n".join(
                 f"`{i}.` **{r['name']}** · `{r['cnt']}` song{'s' if r['cnt'] != 1 else ''}"
+                + (f" · `{fmt(r['total_ms'])}`" if r["total_ms"] else "")
+                + (f" · <t:{r['created_at']}:R>" if r["created_at"] else "")
                 for i, r in enumerate(rows, 1)
             )
             embed = discord.Embed(title="📁 Your playlists", description=body, color=VOIDWAVE_COLOR)
@@ -2980,9 +3649,8 @@ class MusicCog(commands.Cog):
             await interaction.response.send_message(embed=embed, ephemeral=hidden)
             return
 
-        view = PlaylistView(user_id, entry["name"], list(tracks))
+        view = PlaylistView(self, user_id, entry["id"], entry["name"], list(tracks), hidden)
         embed = view.build_embed()
-        _footer(embed)
         await interaction.response.send_message(embed=embed, view=view, ephemeral=hidden)
 
     @playlist_list.autocomplete("name")
@@ -2994,7 +3662,8 @@ class MusicCog(commands.Cog):
     # ------------------------------------------------------------------
     @playlist.command(name="play", description="Play a saved playlist in your voice channel")
     @app_commands.describe(name="Playlist to play", hidden="Hide the command from others")
-    async def playlist_play(self, interaction: discord.Interaction, name: str, hidden: bool = False):
+    async def playlist_play(self, interaction: discord.Interaction, name: str, hidden: bool | None = None):
+        hidden = resolve_hidden(interaction.user.id, hidden)
         if await self._deny_if_blocked(interaction):
             return
         entry = self._find_playlist(interaction.user.id, name)
@@ -3003,10 +3672,7 @@ class MusicCog(commands.Cog):
             return
         conn = get_db()
         try:
-            stored = conn.execute(
-                "SELECT query FROM playlist_tracks WHERE playlist_id=? ORDER BY position ASC, id ASC",
-                (entry["id"],),
-            ).fetchall()
+            stored = _playlist_track_rows(conn, entry["id"])
         finally:
             conn.close()
         if not stored:
@@ -3018,39 +3684,51 @@ class MusicCog(commands.Cog):
             return
         player, node = ensured
 
-        resolved = []
-        failed = 0
-        for row in stored:
-            try:
-                normalized = _normalize_query(row["query"])
-                if normalized is None:
-                    failed += 1
-                    continue
-                tracks = await self._search_tracks(normalized, node)
-                if not tracks:
-                    failed += 1
-                    continue
-                if isinstance(tracks, wavelink.Playlist):
-                    if tracks.tracks:
-                        resolved.append(tracks.tracks[0])
-                    else:
-                        failed += 1
-                else:
-                    results = list(tracks)
-                    resolved.append(_best_result(row["query"], results) or results[0])
-            except Exception:
-                failed += 1
+        total = len(stored)
+        progress = await interaction.followup.send(f"🔎 Resolving **{entry['name']}** (0/{total})...", ephemeral=hidden, wait=True)
 
-        if not resolved:
+        sem = asyncio.Semaphore(_PLAYLIST_RESOLVE_CONCURRENCY)
+        resolved = {}
+        failed = 0
+        done = 0
+
+        async def _resolve_one(idx, row):
+            nonlocal done, failed
+            async with sem:
+                try:
+                    track = await self._resolve_stored_track(row, node)
+                except Exception:
+                    track = None
+            if track is None:
+                failed += 1
+            else:
+                resolved[idx] = track
+            done += 1
+            if done % 10 == 0 or done == total:
+                try:
+                    await progress.edit(content=f"🔎 Resolving **{entry['name']}** ({done}/{total})...")
+                except discord.HTTPException:
+                    pass
+
+        try:
+            await asyncio.gather(*(_resolve_one(i, row) for i, row in enumerate(stored)))
+        finally:
+            try:
+                await progress.delete()
+            except discord.HTTPException:
+                pass
+
+        ordered = [resolved[i] for i in range(total) if i in resolved]
+        if not ordered:
             await interaction.followup.send("None of the tracks in this playlist could be resolved. Please try again.", ephemeral=hidden)
             return
 
-        for track in resolved:
+        for track in ordered:
             _tag_requester(track, interaction.user.display_name)
 
         if player.playing:
             try:
-                for track in resolved:
+                for track in ordered:
                     await player.queue.put_wait(track)
             except Exception as e:
                 logger.error("Failed to queue playlist in guild %s: %s", interaction.guild_id, e)
@@ -3059,7 +3737,7 @@ class MusicCog(commands.Cog):
                 return
             embed = discord.Embed(
                 title="🎵 Playlist added to queue",
-                description=f"**{entry['name']}** · **{len(resolved)}** track{'s' if len(resolved) != 1 else ''}",
+                description=f"**{entry['name']}** · **{len(ordered)}** track{'s' if len(ordered) != 1 else ''}",
                 color=VOIDWAVE_COLOR,
             )
             if failed:
@@ -3070,8 +3748,9 @@ class MusicCog(commands.Cog):
             return
 
         self._reset_skip_votes(interaction.guild_id)
+        self._apply_autoplay_default(player, interaction.user.id)
         try:
-            await player.queue.put_wait(resolved)
+            await player.queue.put_wait(ordered)
         except Exception as e:
             logger.error("Failed to queue playlist in guild %s: %s", interaction.guild_id, e)
             await self._teardown_guild(interaction.guild_id, embed_desc="Music stopped. Run /music play to start again.")
