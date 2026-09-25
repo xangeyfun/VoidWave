@@ -110,7 +110,7 @@ subprocess, so the bot process must be able to reach it:
    requirements.txt` in the production `venv/` covers them.
 
 The tool needs the **same Python that the bot runs with**; the command spawns it
-via `sys.executable`, so it uses whichever venv the bot itself runs in — just
+via `sys.executable`, so it uses whichever venv the bot itself runs in; just
 make sure that venv has the extra deps installed.
 
 ## systemd units
@@ -222,6 +222,14 @@ The admin panel lives at `/admin`. It needs `ADMIN_PASSWORD` set (otherwise it
 returns 503) and sends a 2FA code to `ADMIN_WEBHOOK_URL` on every login.
 `ERROR_WEBHOOK_URL` receives every `ERROR+` log from bot and dashboard
 (falls back to `ADMIN_WEBHOOK_URL`).
+
+If the site is behind Cloudflare, the admin panel uses `CF-Connecting-IP`
+for the client's real IP (login rate limiting / audit log). Cloudflare
+rewrites that header on every hop, so it can't be spoofed *through* CF.
+Make sure the origin (this nginx box) is not directly reachable: restrict
+it to Cloudflare's published IP ranges (firewall rules or a tunnel), or
+someone can hit the origin directly and send a fake `CF-Connecting-IP`
+header to bypass the login lockout and fake the audit trail.
 
 ## Stats graphs
 
