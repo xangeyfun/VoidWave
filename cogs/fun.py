@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import math
 import random
@@ -48,7 +49,8 @@ class FunCog(commands.Cog):
         app_commands.Choice(name="🦎 Lizard", value="lizard"),
         app_commands.Choice(name="🐰 Bunny", value="bunny"),
     ])
-    async def animal(self, interaction: discord.Interaction, animal: str, hidden: bool = False):
+    async def animal(self, interaction: discord.Interaction, animal: str, hidden: bool | None = None):
+        hidden = utils.resolve_hidden(interaction.user.id, hidden)
         await interaction.response.defer(ephemeral=hidden)
 
         animal_handlers = {
@@ -103,7 +105,8 @@ class FunCog(commands.Cog):
     @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     @discord.app_commands.command(name="calc", description="Simple calculator")
     @app_commands.describe(expression="an expression like 5×2+3, 2^10 or sqrt(64)", hidden="Hide the command from others")
-    async def calc(self, interaction: Interaction, expression: str, hidden: bool = False):
+    async def calc(self, interaction: Interaction, expression: str, hidden: bool | None = None):
+        hidden = utils.resolve_hidden(interaction.user.id, hidden)
         normalized = (expression
                       .replace("×", "*").replace("✕", "*").replace("✖", "*")
                       .replace("·", "*").replace("•", "*")
@@ -114,6 +117,10 @@ class FunCog(commands.Cog):
         normalized = re.sub(r"√\(([^()]*)\)", r"sqrt(\1)", normalized)
         normalized = re.sub(r"√(\d+(?:\.\d+)?)", r"sqrt(\1)", normalized)
 
+        if len(normalized) > 100:
+            await interaction.response.send_message("> expression too long", ephemeral=hidden)
+            return
+
         functions = {
             "sqrt": math.sqrt, "isqrt": math.isqrt, "cbrt": math.cbrt,
             "sin": math.sin, "cos": math.cos, "tan": math.tan,
@@ -122,8 +129,8 @@ class FunCog(commands.Cog):
             "log": math.log, "log10": math.log10, "log2": math.log2,
             "exp": math.exp, "pow": math.pow, "hypot": math.hypot,
             "floor": math.floor, "ceil": math.ceil, "trunc": math.trunc,
-            "factorial": math.factorial, "degrees": math.degrees, "radians": math.radians,
-            "gcd": math.gcd, "lcm": math.lcm, "comb": math.comb, "perm": math.perm,
+            "degrees": math.degrees, "radians": math.radians,
+            "gcd": math.gcd, "lcm": math.lcm,
             "abs": abs, "round": round, "min": min, "max": max,
             "int": int, "float": float, "str": str,
         }
@@ -141,11 +148,19 @@ class FunCog(commands.Cog):
             await interaction.response.send_message("> invalid expression", ephemeral=hidden)
             return
         try:
-            result = simple_eval(normalized, functions=functions, names=names)
-            if isinstance(result, float):
-                await interaction.response.send_message(f"`{expression}` = {result:.10g}", ephemeral=hidden)
+            result = await asyncio.wait_for(
+                asyncio.to_thread(simple_eval, normalized, functions=functions, names=names),
+                timeout=0.5,
+            )
+            out = f"{result:.10g}" if isinstance(result, float) else str(result)
+            if len(out) > 40:
+                await interaction.response.send_message("> result too large to display", ephemeral=hidden)
             else:
-                await interaction.response.send_message(f"`{expression}` = {result}", ephemeral=hidden)
+                await interaction.response.send_message(f"`{expression}` = {out}", ephemeral=hidden)
+        except asyncio.TimeoutError:
+            await interaction.response.send_message("> calculation too complex, try something simpler", ephemeral=hidden)
+        except (OverflowError, MemoryError, ValueError):
+            await interaction.response.send_message("> that number is too big to compute", ephemeral=hidden)
         except Exception as e:
             await interaction.response.send_message(f"Error evaluating expression: {e}", ephemeral=hidden)
 
@@ -153,14 +168,16 @@ class FunCog(commands.Cog):
     @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     @discord.app_commands.command(name="flip", description="Flip a coin.")
     @app_commands.describe(hidden="Hide the command from others")
-    async def flip(self, interaction: Interaction, hidden: bool = False):
+    async def flip(self, interaction: Interaction, hidden: bool | None = None):
+        hidden = utils.resolve_hidden(interaction.user.id, hidden)
         await interaction.response.send_message(random.choice(["Heads!", "Tails!"]), ephemeral=hidden)
 
     @discord.app_commands.allowed_installs(guilds=True, users=True)
     @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     @discord.app_commands.command(name="random", description="Random number generator")
     @app_commands.describe(a="Lowest number", b="Highest number", hidden="Hide the command from others")
-    async def random_number(self, interaction: Interaction, a: int, b: int, hidden: bool = False):
+    async def random_number(self, interaction: Interaction, a: int, b: int, hidden: bool | None = None):
+        hidden = utils.resolve_hidden(interaction.user.id, hidden)
         if a >= b:
             await interaction.response.send_message("> First number must be less than the second", ephemeral=hidden)
             return
@@ -171,7 +188,8 @@ class FunCog(commands.Cog):
     @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     @discord.app_commands.command(name="userinfo", description="Get info about a user")
     @app_commands.describe(user="The user you want info about", hidden="Hide the command from others")
-    async def userinfo(self, interaction: discord.Interaction, user: discord.Member | discord.User, hidden: bool = False):
+    async def userinfo(self, interaction: discord.Interaction, user: discord.Member | discord.User, hidden: bool | None = None):
+        hidden = utils.resolve_hidden(interaction.user.id, hidden)
         roles = []
         joined_server = "Unknown"
 
@@ -208,7 +226,8 @@ class FunCog(commands.Cog):
         app_commands.Choice(name="Today", value="Today"),
         app_commands.Choice(name="Random", value="Random")
     ])
-    async def quote(self, interaction: discord.Interaction, choice: str, hidden: bool = False):
+    async def quote(self, interaction: discord.Interaction, choice: str, hidden: bool | None = None):
+        hidden = utils.resolve_hidden(interaction.user.id, hidden)
         await interaction.response.defer(ephemeral=hidden)
         if choice.lower() != "today" and choice.lower() != "random":
             await interaction.followup.send(f"Invalid input: {choice}", ephemeral=True)
@@ -237,7 +256,8 @@ class FunCog(commands.Cog):
         app_commands.Choice(name="Today", value="Today"),
         app_commands.Choice(name="Random", value="Random")
     ])
-    async def get_fact(self, interaction: discord.Interaction, choice: str, hidden: bool = False):
+    async def get_fact(self, interaction: discord.Interaction, choice: str, hidden: bool | None = None):
+        hidden = utils.resolve_hidden(interaction.user.id, hidden)
         await interaction.response.defer(ephemeral=hidden)
         if choice.lower() != "today" and choice.lower() != "random":
             await interaction.followup.send(f"Invalid input: {choice}", ephemeral=True)
