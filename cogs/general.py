@@ -40,11 +40,11 @@ EMOJIS = {
 
 DOCUMENTED_COMMANDS = {
     "leveling": {"level", "leaderboard", "profile"},
-    "utilities": {"help", "ping", "uptime", "github", "vote", "vote-remind", "ai", "aitoggle", "kirkify", "userinfo", "feedback", "rate"},
+    "utilities": {"help", "ping", "uptime", "github", "vote", "vote-remind", "ai", "aitoggle", "kirkify", "userinfo", "feedback", "rate", "prefs view", "prefs private", "prefs source", "prefs autoplay"},
     "fun": {"animal", "calc", "flip", "random", "quote", "fact"},
     "games": {"8ball", "rps", "tictactoe", "connectfour", "trivia-battle", "blackjack", "hangman", "wordle", "minesweeper", "battleship", "15puzzle"},
-    "music": {"music play", "music queue", "music nowplaying", "music pause", "music resume", "music skip", "music stop", "music shuffle", "music loop", "music volume", "music seek", "music lyrics", "music lyricslive", "music autoplay", "music controller", "music disconnect", "music playlist create", "music playlist add", "music playlist remove", "music playlist rename", "music playlist delete", "music playlist list", "music playlist play"},
-    "reminders": {"remind create", "remind list", "remind edit", "remind delete", "remind clear", "remind timezone"},
+    "music": {"music play", "music random", "music queue", "music nowplaying", "music pause", "music resume", "music skip", "music stop", "music shuffle", "music loop", "music volume", "music seek", "music lyrics", "music lyricslive", "music autoplay", "music controller", "music disconnect", "music playlist create", "music playlist add", "music playlist addcurrent", "music playlist savequeue", "music playlist remove", "music playlist rename", "music playlist delete", "music playlist list", "music playlist clear", "music playlist shuffle", "music playlist play"},
+    "reminders": {"remind create", "remind list", "remind edit", "remind delete", "remind clear", "remind timezone", "remind defaults"},
     "giveaways": {"giveaway start", "giveaway end", "giveaway reroll", "giveaway cancel", "giveaway list"},
     "moderation": {"moderation kick", "moderation ban", "moderation unban", "moderation timeout", "moderation slowmode", "moderation lock", "moderation unlock", "moderation role add", "moderation role remove"},
     "configuration": {"config auto", "config view", "config test", "config help", "config level set_channel", "config level toggle_channel", "config level toggle_vote_announce", "config level add_role", "config level remove_role", "config qotd set_channel", "config qotd set_time", "config qotd enable", "config qotd set_role", "config qotd delete_old", "config ai toggle"},
@@ -211,7 +211,8 @@ class GeneralCog(commands.Cog):
                     "`/kirkify <image> [hidden]` - Kirkify an image with AI (Kirk swap)\n"
                     "`/userinfo <user>` - Look up a user\n"
                     "`/feedback <feedback>` - Message the developers\n"
-                    "`/rate` - Rate VoidWave"
+                    "`/rate` - Rate VoidWave\n"
+                    "`/prefs` - Your defaults: private replies, music source, autoplay on play"
                 ),
                 inline=False,
             ),
@@ -282,6 +283,7 @@ class GeneralCog(commands.Cog):
                 name="Slash Commands",
                 value=(
                     "`/music play <query> [source]` - Play or queue a song (source: all/youtube/soundcloud/spotify)\n"
+                    "`/music random [genre] [source]` - Queue a random track, optionally by genre\n"
                     "`/music queue` - View the queue\n"
                     "`/music nowplaying` - Show the current track\n"
                     "`/music pause` / `resume` - Pause and resume\n"
@@ -303,10 +305,11 @@ class GeneralCog(commands.Cog):
             ).add_field(
                 name="Playlists",
                 value=(
-                    "Save and play your own track lists, available in any server:\n"
-                    "`/music playlist create <name>` · Add tracks with `/music playlist add`\n"
-                    "`/music playlist list [name]` · Play with `/music playlist play <name>`\n"
-                    "`/music playlist remove` / `rename` / `delete`"
+                    "Save and play your own track lists, available in any server.\n"
+                    "`/music playlist add` accepts a track, or a full playlist/album URL to bulk import.\n"
+                    "`/music playlist list [name]` opens a manager to play, reorder, or remove tracks.\n"
+                    "`/music playlist addcurrent` saves the current track · `savequeue` saves your queue.\n"
+                    "`/music playlist remove` (by title or number) / `clear` / `shuffle` / `rename` / `delete`"
                 ),
                 inline=False,
             ),
@@ -321,12 +324,13 @@ class GeneralCog(commands.Cog):
             ).add_field(
                 name="Commands",
                 value=(
-                    "`/remind create <time> <message> [recurring] [timezone]` - Set a reminder\n"
+                    "`/remind create <message> [time] [recurring] [timezone]` - Set a reminder (time can use your saved default)\n"
                     "`/remind list` - List your active reminders\n"
                     "`/remind edit <id> [message] [time] [timezone]` - Edit a reminder\n"
                     "`/remind delete <id>` - Delete a reminder by ID\n"
                     "`/remind clear` - Delete all your reminders\n"
-                    "`/remind timezone [timezone]` - Set your default timezone (defaults to UTC)"
+                    "`/remind timezone [timezone]` - Set your default timezone (defaults to UTC)\n"
+                    "`/remind defaults [timezone] [recurring] [time] [channel]` - View/set your defaults (zone, repeat, time of day, delivery channel)"
                 ),
                 inline=False,
             ),
