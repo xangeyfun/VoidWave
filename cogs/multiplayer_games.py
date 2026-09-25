@@ -6,6 +6,8 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
+import utils
+
 from . import games as gm
 
 VOIDWAVE_COLOR = gm.VOIDWAVE_COLOR
@@ -763,7 +765,8 @@ class MultiplayerGamesCog(commands.Cog):
     @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     @discord.app_commands.command(name="tictactoe", description="Play tic-tac-toe against VoidWave or a friend.")
     @app_commands.describe(opponent="Challenge another player (leave empty to play the bot)", hidden="Hide the command from others")
-    async def tictactoe(self, interaction, opponent: discord.User = None, hidden: bool = False):
+    async def tictactoe(self, interaction, opponent: discord.User = None, hidden: bool | None = None):
+        hidden = utils.resolve_hidden(interaction.user.id, hidden)
         if opponent is None:
             view = gm.TicTacToeView(interaction.user)
             await interaction.response.send_message(embed=view._state_embed(), ephemeral=hidden, view=view)
@@ -777,7 +780,8 @@ class MultiplayerGamesCog(commands.Cog):
     @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     @discord.app_commands.command(name="connectfour", description="Play connect four against VoidWave or a friend.")
     @app_commands.describe(opponent="Challenge another player (leave empty to play the bot)", hidden="Hide the command from others")
-    async def connectfour(self, interaction, opponent: discord.User = None, hidden: bool = False):
+    async def connectfour(self, interaction, opponent: discord.User = None, hidden: bool | None = None):
+        hidden = utils.resolve_hidden(interaction.user.id, hidden)
         if opponent is None:
             view = gm.ConnectFourView(interaction.user)
             for col in range(gm.CONNECT_FOUR_COLS):
@@ -794,7 +798,8 @@ class MultiplayerGamesCog(commands.Cog):
     @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     @discord.app_commands.command(name="rps", description="Play rock, paper, scissors against VoidWave or a friend.")
     @app_commands.describe(opponent="Challenge another player (leave empty to play the bot)", hidden="Hide the command from others")
-    async def rps(self, interaction, opponent: discord.User = None, hidden: bool = False):
+    async def rps(self, interaction, opponent: discord.User = None, hidden: bool | None = None):
+        hidden = utils.resolve_hidden(interaction.user.id, hidden)
         if opponent is None:
             embed = discord.Embed(
                 title="🪨📄✂️ Rock Paper Scissors",
@@ -813,7 +818,8 @@ class MultiplayerGamesCog(commands.Cog):
     @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     @discord.app_commands.command(name="blackjack", description="Play blackjack against VoidWave or with friends.")
     @app_commands.describe(max_players="How many players can join (default 4, max 4)", hidden="Hide the command from others")
-    async def blackjack(self, interaction, max_players: int = 4, hidden: bool = False):
+    async def blackjack(self, interaction, max_players: int = 4, hidden: bool | None = None):
+        hidden = utils.resolve_hidden(interaction.user.id, hidden)
         max_players = max(2, min(MAX_BLACKJACK_PLAYERS, max_players))
         view = BlackjackLobbyView(interaction, max_players=max_players)
         await interaction.response.send_message(embed=view._embed(), ephemeral=hidden, view=view)
