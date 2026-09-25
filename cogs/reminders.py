@@ -10,11 +10,13 @@ from discord import app_commands
 from discord.ext import commands, tasks
 
 from cogs.config import _timezone_autocomplete
-from utils import get_db, qotd_now, qotd_tz_label
+from utils import get_db, get_user_pref, log_admin_event, qotd_now, qotd_tz_label, set_user_pref
 
 logger = logging.getLogger("cogs.reminders")
 
 DEFAULT_TIMEZONE = "UTC"
+
+_DEFAULT_TIME_RE = re.compile(r"^\s*([01]?\d|2[0-3]):([0-5]\d)\s*$")
 
 DURATION_UNITS = {
     "m": datetime.timedelta(minutes=1),
@@ -241,6 +243,15 @@ def get_saved_timezone(user_id):
         conn.close()
 
 
+def get_saved_recurring(user_id):
+    conn = get_db()
+    try:
+        row = conn.execute("SELECT remind_recurring FROM user_prefs WHERE user_id = ?", (user_id,)).fetchone()
+        return row["remind_recurring"] if row and row["remind_recurring"] else None
+    finally:
+        conn.close()
+
+
 def _validate_timezone(tz_name):
     try:
         ZoneInfo(tz_name)
@@ -316,19 +327,30 @@ class ReminderCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    async def _can_post_to(self, channel):
+    async def _can_post_to(self, channel, user):
         guild = channel.guild
         if guild is None:
-            return f"I can't look up <#{channel.id}> to check my permissions there."
-        member = guild.get_member(self.bot.user.id)
+            return f"I can't look up <#{channel.id}> to check permissions there."
+        member = guild.get_member(user.id)
         if member is None:
             try:
-                member = await guild.fetch_member(self.bot.user.id)
+                member = await guild.fetch_member(user.id)
             except discord.NotFound:
                 member = None
         if member is None:
-            return f"I can't resolve my roles in that server, so I can't verify I can post to <#{channel.id}>."
+            return f"Channel reminders need you to be a member of **{guild.name}**, and I can't find you there. Leave `channel:` empty to use your DMs instead."
         missing = [n.replace("_", " ") for n in ("view_channel", "send_messages") if not getattr(channel.permissions_for(member), n)]
+        if missing:
+            return f"You can't post to <#{channel.id}> yourself (missing **{', '.join(missing)}**). Pick a channel you can use or leave `channel:` empty for DMs."
+        bot_member = guild.get_member(self.bot.user.id)
+        if bot_member is None:
+            try:
+                bot_member = await guild.fetch_member(self.bot.user.id)
+            except discord.NotFound:
+                bot_member = None
+        if bot_member is None:
+            return f"I can't resolve my roles in that server, so I can't verify I can post to <#{channel.id}>."
+        missing = [n.replace("_", " ") for n in ("view_channel", "send_messages") if not getattr(channel.permissions_for(bot_member), n)]
         if missing:
             return f"I can't deliver to <#{channel.id}>: I'm missing **{', '.join(missing)}** there. Pick another channel or leave `channel:` empty to use DMs."
         return None
@@ -337,18 +359,44 @@ class ReminderCog(commands.Cog):
     @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     @remind.command(name="create", description="Create a reminder that gets sent to your DMs")
     @app_commands.describe(
-        time="When to remind you, e.g. 10m, 2h, tomorrow 16:00, friday 18:30",
         message="What to remind you about",
+        time="When to remind you, e.g. 10m, 2h, tomorrow 16:00, friday 18:30 (omit to use your saved default time)",
         recurring="Repeat: daily, weekly, weekdays, monthly, or every 2h / every 3d (optional)",
         timezone="Override your saved timezone for this reminder (optional)",
         channel="Deliver in a server channel instead of your DMs (optional)",
     )
     @app_commands.autocomplete(recurring=_recurring_autocomplete, timezone=_timezone_autocomplete)
-    async def create_reminder(self, interaction: discord.Interaction, time: str, message: str, recurring: str = None, timezone: str = None, channel: discord.TextChannel = None):
+    async def create_reminder(self, interaction: discord.Interaction, message: str, time: str = None, recurring: str = None, timezone: str = None, channel: discord.TextChannel = None):
         message = message.strip()
         if not message:
             await interaction.response.send_message("Give me something to remind you about.", ephemeral=True)
             return
+
+        if not time or not time.strip():
+            saved_time = get_user_pref(interaction.user.id, "remind_time")
+            if not saved_time:
+                await interaction.response.send_message(
+                    "You didn't give a time. Save a default one with `/remind defaults time:09:30` so you can skip the `time:` option, or pass one here.",
+                    ephemeral=True,
+                )
+                return
+            time = saved_time
+
+        if channel is None:
+            saved_channel_id = get_user_pref(interaction.user.id, "remind_channel")
+            if saved_channel_id:
+                saved_channel = self.bot.get_channel(saved_channel_id)
+                if saved_channel is None:
+                    try:
+                        saved_channel = await self.bot.fetch_channel(saved_channel_id)
+                    except (discord.NotFound, discord.Forbidden, discord.HTTPException):
+                        saved_channel = None
+                if saved_channel is not None:
+                    reason = await self._can_post_to(saved_channel, interaction.user)
+                    if reason is None:
+                        channel = saved_channel
+                    else:
+                        log_admin_event("user_pref_drop", f"remind_channel {saved_channel_id} no longer usable: {reason}", guild_id=interaction.guild_id, user_id=interaction.user.id)
 
         tz_name = None
         if timezone:
@@ -365,6 +413,9 @@ class ReminderCog(commands.Cog):
             await interaction.response.send_message(str(e), ephemeral=True)
             return
 
+        if recurring is None:
+            recurring = get_saved_recurring(interaction.user.id)
+
         try:
             recurring = parse_recurrence(recurring)
         except ValueError as e:
@@ -372,7 +423,7 @@ class ReminderCog(commands.Cog):
             return
 
         if channel is not None:
-            reason = await self._can_post_to(channel)
+            reason = await self._can_post_to(channel, interaction.user)
             if reason:
                 await interaction.response.send_message(reason, ephemeral=True)
                 return
@@ -417,6 +468,12 @@ class ReminderCog(commands.Cog):
         )
         if recurring:
             msg += f"\nRepeats **{recurrence_label(recurring)}**."
+
+        if not timezone:
+            msg += "\n> 💡 *Tip: save your default timezone with `/remind timezone` so future reminders use it automatically.*"
+        if not recurring and not get_saved_recurring(interaction.user.id):
+            msg += "\n> 💡 *Tip: repeat automatically with `recurring:` (e.g. `daily`) or set a default with `/remind defaults`.*"
+
         msg += "\n\nManage reminders with `/remind list`."
         await interaction.response.send_message(msg, ephemeral=True)
         logger.info("%s created reminder #%s in %s for %s: %s", interaction.user, reminder_id, qotd_tz_label(tz_name), trigger_ts, message[:80])
@@ -440,7 +497,11 @@ class ReminderCog(commands.Cog):
             conn.close()
 
         if not rows:
-            await interaction.response.send_message("You have no reminders. Create one with `/remind create`!", ephemeral=True)
+            await interaction.response.send_message(
+                "You have no reminders. Create one with `/remind create`!\n"
+                "> 💡 *Tip: set your default timezone (`/remind timezone`) and repeat (`/remind defaults`) once, then only pass what changes.*",
+                ephemeral=True,
+            )
             return
 
         embed = discord.Embed(
@@ -631,6 +692,129 @@ class ReminderCog(commands.Cog):
         await interaction.response.send_message(f"Your reminder timezone is now `{timezone}` ({qotd_tz_label(timezone)}). Future reminders use it unless you pass a `timezone:` override.", ephemeral=True)
         logger.info("%s set reminder timezone to %s", interaction.user, timezone)
 
+    @discord.app_commands.allowed_installs(guilds=True, users=True)
+    @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
+    @remind.command(name="defaults", description="View or set your default reminder settings (timezone, repeat, time, channel)")
+    @app_commands.describe(
+        timezone="New default timezone, e.g. Europe/Amsterdam (optional)",
+        recurring="New default repeat, e.g. daily, weekly, every 2h, or `none` to clear (optional)",
+        time="New default time of day, e.g. 09:30, used when you skip the time in a reminder (optional)",
+        channel="Default delivery channel instead of your DMs (optional)",
+        clear="Clear the saved channel and/or time, e.g. after leaving a server (optional)",
+    )
+    @app_commands.autocomplete(timezone=_timezone_autocomplete, recurring=_recurring_autocomplete)
+    @app_commands.choices(clear=[
+        app_commands.Choice(name="Nothing", value="none"),
+        app_commands.Choice(name="Default channel", value="channel"),
+        app_commands.Choice(name="Default time", value="time"),
+        app_commands.Choice(name="Both", value="all"),
+    ])
+    async def reminder_defaults(self, interaction: discord.Interaction, timezone: str = None, recurring: str = None, time: str = None, channel: discord.TextChannel = None, clear: str = "none"):
+        if timezone is not None and not _validate_timezone(timezone):
+            await interaction.response.send_message(f"Unknown timezone `{timezone}`. Type part of a nearby city and pick from the suggestions, e.g. `Europe/Amsterdam`.", ephemeral=True)
+            return
+
+        new_recurring = None
+        recurring_cleared = False
+        if recurring is not None:
+            if recurring.strip().lower() in ("none", "off", "no"):
+                recurring_cleared = True
+            else:
+                try:
+                    new_recurring = parse_recurrence(recurring)
+                except ValueError as e:
+                    await interaction.response.send_message(str(e), ephemeral=True)
+                    return
+
+        normalized_time = None
+        time_invalid = False
+        if time is not None and time.strip():
+            m = _DEFAULT_TIME_RE.match(time.strip())
+            if m:
+                normalized_time = f"{int(m.group(1))}:{m.group(2)}"
+            else:
+                time_invalid = True
+        if time_invalid:
+            await interaction.response.send_message("The default time must be a clock time like `09:30` or `17:00`.", ephemeral=True)
+            return
+
+        clear_channel = clear in ("channel", "all")
+        clear_time = clear in ("time", "all")
+
+        if channel is not None and not clear_channel:
+            reason = await self._can_post_to(channel, interaction.user)
+            if reason:
+                await interaction.response.send_message(reason, ephemeral=True)
+                return
+
+        if timezone is None and recurring is None and time is None and channel is None and not clear_channel and not clear_time:
+            tz = get_saved_timezone(interaction.user.id) or DEFAULT_TIMEZONE
+            rec = get_saved_recurring(interaction.user.id)
+            rec_label = recurrence_label(rec) if rec else "no repeat"
+            chan = get_user_pref(interaction.user.id, "remind_channel")
+            saved_time = get_user_pref(interaction.user.id, "remind_time")
+            await interaction.response.send_message(
+                "Your reminder defaults:\n"
+                f"**Timezone:** `{tz}` ({qotd_tz_label(tz)})\n"
+                f"**Repeat:** `{rec_label}`\n"
+                f"**Deliver to:** `{f'<#{chan}>' if chan else 'your DMs'}`\n"
+                f"**Default time:** `{saved_time or 'none'}`\n\n"
+                "Set them with `/remind defaults`, e.g. `timezone:Europe/Amsterdam recurring:daily time:09:30 channel:#reminders`, and clear with `clear:`.",
+                ephemeral=True,
+            )
+            return
+
+        conn = get_db()
+        try:
+            cur = conn.cursor()
+            if timezone is not None:
+                cur.execute(
+                    "INSERT INTO user_prefs (user_id, remind_tz) VALUES (?, ?) "
+                    "ON CONFLICT(user_id) DO UPDATE SET remind_tz = excluded.remind_tz",
+                    (interaction.user.id, timezone),
+                )
+            if recurring is not None:
+                cur.execute(
+                    "INSERT INTO user_prefs (user_id, remind_recurring) VALUES (?, ?) "
+                    "ON CONFLICT(user_id) DO UPDATE SET remind_recurring = excluded.remind_recurring",
+                    (interaction.user.id, new_recurring),
+                )
+            if time is not None:
+                set_user_pref(interaction.user.id, remind_time=normalized_time)
+            if channel is not None and not clear_channel:
+                set_user_pref(interaction.user.id, remind_channel=channel.id)
+            if clear_time:
+                set_user_pref(interaction.user.id, remind_time=None)
+            if clear_channel:
+                set_user_pref(interaction.user.id, remind_channel=None)
+            conn.commit()
+        except Exception as e:
+            logger.error("Failed to save reminder defaults for %s: %s", interaction.user.id, e)
+            await interaction.response.send_message("Failed to save your defaults. Please try again later.", ephemeral=True)
+            return
+        finally:
+            conn.close()
+
+        parts = []
+        if timezone is not None:
+            parts.append(f"**Timezone:** `{timezone}` ({qotd_tz_label(timezone)})")
+        if recurring_cleared:
+            parts.append("**Repeat:** cleared (`daily`, `weekly`, etc. will ask each time)")
+        elif new_recurring is not None:
+            parts.append(f"**Repeat:** default `{recurrence_label(new_recurring)}`")
+        if time is not None and normalized_time:
+            parts.append(f"**Default time:** `{normalized_time}`")
+        if clear_time:
+            parts.append("**Default time:** cleared")
+        if channel is not None and not clear_channel:
+            parts.append(f"**Deliver to:** <#{channel.id}>")
+        if clear_channel:
+            parts.append("**Default channel:** cleared (deliver to your DMs)")
+        msg = "Default reminder settings updated:\n" + "\n".join(parts)
+        msg += "\n\nFuture `/remind create` calls use these unless you set `time:`, `timezone:`, `recurring:` or `channel:` directly."
+        await interaction.response.send_message(msg, ephemeral=True)
+        logger.info("%s updated reminder defaults (tz=%s, recurring=%s, time=%s, channel=%s)", interaction.user, timezone, new_recurring, normalized_time, channel.id if channel else None)
+
     @tasks.loop(seconds=5)
     async def reminder_loop(self):
         conn = get_db()
@@ -689,13 +873,22 @@ class ReminderCog(commands.Cog):
                 except (discord.NotFound, discord.Forbidden, discord.HTTPException):
                     channel = None
             if channel is not None:
-                try:
-                    content = user.mention if user else None
-                    await channel.send(content=content, embed=embed)
-                    logger.info("Sent reminder #%s to %s in <#%s>", row["id"], row["user_id"], row["channel_id"])
-                    return "delivered"
-                except (discord.Forbidden, discord.NotFound, discord.HTTPException) as e:
-                    logger.warning("Couldn't post reminder #%s to <#%s>, falling back to DM: %s", row["id"], row["channel_id"], e)
+                if user is not None:
+                    reason = await self._can_post_to(channel, user)
+                    if reason is not None:
+                        logger.info(
+                            "Reminder #%s owner no longer allowed in <#%s>, falling back to DM: %s",
+                            row["id"], row["channel_id"], reason,
+                        )
+                        channel = None
+                if channel is not None:
+                    try:
+                        content = user.mention if user else None
+                        await channel.send(content=content, embed=embed)
+                        logger.info("Sent reminder #%s to %s in <#%s>", row["id"], row["user_id"], row["channel_id"])
+                        return "delivered"
+                    except (discord.Forbidden, discord.NotFound, discord.HTTPException) as e:
+                        logger.warning("Couldn't post reminder #%s to <#%s>, falling back to DM: %s", row["id"], row["channel_id"], e)
 
         if user is None:
             logger.warning("Reminder #%s dropped: no DM target and channel <#%s> unreachable", row["id"], row["channel_id"])
