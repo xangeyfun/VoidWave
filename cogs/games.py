@@ -2104,7 +2104,8 @@ class GamesCog(commands.Cog):
     @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     @discord.app_commands.command(name="8ball", description="Ask the magic 8-ball a question.")
     @app_commands.describe(question="The question you want answered", hidden="Hide the command from others")
-    async def eight_ball(self, interaction: discord.Interaction, question: str, hidden: bool = False):
+    async def eight_ball(self, interaction: discord.Interaction, question: str, hidden: bool | None = None):
+        hidden = utils.resolve_hidden(interaction.user.id, hidden)
         embed = discord.Embed(
             title="🎱 Magic 8-Ball",
             description=(
@@ -2143,8 +2144,9 @@ class GamesCog(commands.Cog):
         rounds: int = 5,
         max_players: int = 4,
         answer_time: int = 20,
-        hidden: bool = False,
+        hidden: bool | None = None,
     ):
+        hidden = utils.resolve_hidden(interaction.user.id, hidden)
         rounds = max(1, min(10, rounds))
         max_players = max(2, min(8, max_players))
         answer_time = max(10, min(60, answer_time))
@@ -2163,7 +2165,8 @@ class GamesCog(commands.Cog):
     @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     @discord.app_commands.command(name="hangman", description="Play hangman against VoidWave.")
     @app_commands.describe(hidden="Hide the command from others")
-    async def hangman(self, interaction: discord.Interaction, hidden: bool = False):
+    async def hangman(self, interaction: discord.Interaction, hidden: bool | None = None):
+        hidden = utils.resolve_hidden(interaction.user.id, hidden)
         view = HangmanView(interaction.user)
         await interaction.response.send_message(embed=view._state_embed(), ephemeral=hidden, view=view)
 
@@ -2171,7 +2174,8 @@ class GamesCog(commands.Cog):
     @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     @discord.app_commands.command(name="wordle", description="Play a game of wordle against VoidWave.")
     @app_commands.describe(hidden="Hide the command from others")
-    async def wordle(self, interaction: discord.Interaction, hidden: bool = False):
+    async def wordle(self, interaction: discord.Interaction, hidden: bool | None = None):
+        hidden = utils.resolve_hidden(interaction.user.id, hidden)
         await interaction.response.defer(ephemeral=hidden)
         view = WordleView(interaction.user)
         view.message = await interaction.followup.send(embed=view._state_embed(), view=view)
@@ -2180,7 +2184,8 @@ class GamesCog(commands.Cog):
     @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     @discord.app_commands.command(name="minesweeper", description="Play a game of minesweeper against VoidWave.")
     @app_commands.describe(mines="Mine density as a percentage (default 25)", hidden="Hide the command from others")
-    async def minesweeper(self, interaction: discord.Interaction, mines: int = None, hidden: bool = False):
+    async def minesweeper(self, interaction: discord.Interaction, mines: int = None, hidden: bool | None = None):
+        hidden = utils.resolve_hidden(interaction.user.id, hidden)
         total = MS_CELLS
         if mines is None:
             mine_count = MS_MINES
@@ -2194,7 +2199,8 @@ class GamesCog(commands.Cog):
     @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     @discord.app_commands.command(name="battleship", description="Play a game of battleship against VoidWave.")
     @app_commands.describe(hidden="Hide the command from others")
-    async def battleship(self, interaction: discord.Interaction, hidden: bool = False):
+    async def battleship(self, interaction: discord.Interaction, hidden: bool | None = None):
+        hidden = utils.resolve_hidden(interaction.user.id, hidden)
         view = BattleshipView(interaction.user)
         await interaction.response.send_message(embed=view._state_embed(), ephemeral=hidden, view=view)
 
@@ -2202,7 +2208,8 @@ class GamesCog(commands.Cog):
     @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     @discord.app_commands.command(name="15puzzle", description="Slide the tiles to solve the 15-puzzle.")
     @app_commands.describe(hidden="Hide the command from others")
-    async def puzzle15(self, interaction: discord.Interaction, hidden: bool = False):
+    async def puzzle15(self, interaction: discord.Interaction, hidden: bool | None = None):
+        hidden = utils.resolve_hidden(interaction.user.id, hidden)
         view = PuzzleView(interaction.user)
         await interaction.response.send_message(embed=view._state_embed(), ephemeral=hidden, view=view)
 
