@@ -61,6 +61,7 @@ async def setup_hook():
     await bot.load_extension("cogs.reminders")
     await bot.load_extension("cogs.giveaways")
     await bot.load_extension("cogs.music")
+    await bot.load_extension("cogs.prefs")
 
 bot.setup_hook = setup_hook
 
