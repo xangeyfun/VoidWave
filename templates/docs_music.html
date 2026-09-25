@@ -73,6 +73,35 @@
             </div>
         </div>
     </div>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/music random</code>
+            <span class="doc-tag">server only</span>
+        </div>
+        <p class="doc-cmd-desc">Queue a random track. Without a genre it picks one from a built-in list (lo-fi, techno, hip hop, rock, kpop, etc.). With a genre it searches that genre and picks one result at random. Tracks already in the queue or played recently are skipped when possible. If nothing is playing, the random track starts playback.</p>
+        <div class="doc-cmd-widgets">
+            <div class="doc-widget">
+                <div class="doc-widget-label">Parameters</div>
+                <table class="doc-params">
+                    <tbody>
+                        <tr>
+                            <td><code>genre</code></td>
+                            <td>Search a specific genre, autocompletes as you type. Optional.</td>
+                        </tr>
+                        <tr>
+                            <td><code>source</code></td>
+                            <td>Where to pick from: <code>All</code> (default), <code>YouTube</code>, <code>SoundCloud</code>, or <code>Spotify</code>. Optional.</td>
+                        </tr>
+                        <tr>
+                            <td><code>hidden</code></td>
+                            <td>Keep the command response only to yourself. Optional.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
 </div>
 
 <!-- ------------------------------------------------------------------ -->
@@ -371,7 +400,7 @@
         <p><strong>Note:</strong> playlists belong to your Discord account, not a server. They work in any server you play music in.</p>
     </div>
 
-    <p class="docs-lead">You can keep up to 25 playlists, each with up to 200 tracks and a name up to 32 characters. Track names are checked so the same song is not added twice to one playlist.</p>
+    <p class="docs-lead">You can keep up to 25 playlists, each with up to 200 tracks and a name up to 32 characters. A track is recognized by its source link (or its title and artist when no link exists), so the same song is never added twice to one playlist.</p>
 
     <div class="doc-cmd">
         <div class="doc-cmd-head">
@@ -399,7 +428,7 @@
             <code>/music playlist add</code>
             <span class="doc-tag">server only</span>
         </div>
-        <p class="doc-cmd-desc">Add a track to a playlist. Accepts a URL or search term, exactly like <code>/music play</code>. If the search returns several candidates, the same picker lets you choose the right one, and auto adds the best match when nothing is picked within 30 seconds.</p>
+        <p class="doc-cmd-desc">Add tracks to a playlist. Accepts a single track URL or search term, exactly like <code>/music play</code>. If the search returns several candidates, the same picker lets you choose the right one, and auto adds the best match when nothing is picked within 30 seconds. Paste a full playlist or album URL (YouTube, Spotify, SoundCloud) to bulk import every track at once, up to the 200-track cap; duplicates and the track cap are reported.</p>
         <div class="doc-cmd-widgets">
             <div class="doc-widget">
                 <div class="doc-widget-label">Parameters</div>
@@ -411,7 +440,49 @@
                         </tr>
                         <tr>
                             <td><code>query</code></td>
-                            <td>A track URL or search term. Required.</td>
+                            <td>A track URL, search term, or a full playlist/album URL to import. Required.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/music playlist addcurrent</code>
+            <span class="doc-tag">server only</span>
+        </div>
+        <p class="doc-cmd-desc">Save the song that is currently playing to a playlist.</p>
+        <div class="doc-cmd-widgets">
+            <div class="doc-widget">
+                <div class="doc-widget-label">Parameters</div>
+                <table class="doc-params">
+                    <tbody>
+                        <tr>
+                            <td><code>name</code></td>
+                            <td>The playlist to add to. Autocompletes. Required.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/music playlist savequeue</code>
+            <span class="doc-tag">server only</span>
+        </div>
+        <p class="doc-cmd-desc">Save the current track plus everything queued as a brand new playlist. Duplicates and the track cap are skipped and reported.</p>
+        <div class="doc-cmd-widgets">
+            <div class="doc-widget">
+                <div class="doc-widget-label">Parameters</div>
+                <table class="doc-params">
+                    <tbody>
+                        <tr>
+                            <td><code>name</code></td>
+                            <td>Name for the new playlist. Required.</td>
                         </tr>
                     </tbody>
                 </table>
@@ -424,7 +495,7 @@
             <code>/music playlist remove</code>
             <span class="doc-tag">server only</span>
         </div>
-        <p class="doc-cmd-desc">Remove a track from a playlist by its numbered position. Positions are shown by <code>/music playlist list</code>.</p>
+        <p class="doc-cmd-desc">Remove a track from a playlist by its title (picked from autocomplete) or by its numbered position. Positions are shown by <code>/music playlist list</code>. Give one or the other.</p>
         <div class="doc-cmd-widgets">
             <div class="doc-widget">
                 <div class="doc-widget-label">Parameters</div>
@@ -432,11 +503,44 @@
                     <tbody>
                         <tr>
                             <td><code>name</code></td>
-                            <td>The playlist to edit. Required.</td>
+                            <td>The playlist to edit. Autocompletes. Required.</td>
+                        </tr>
+                        <tr>
+                            <td><code>track</code></td>
+                            <td>The track title to remove. Autocompletes from the playlist.</td>
                         </tr>
                         <tr>
                             <td><code>position</code></td>
-                            <td>Track number to remove. Required.</td>
+                            <td>Track number to remove.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/music playlist clear</code>
+            <span class="doc-tag">server only</span>
+        </div>
+        <p class="doc-cmd-desc">Remove every track from a playlist, keeping the playlist itself. No confirmation, so use with care.</p>
+    </div>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/music playlist shuffle</code>
+            <span class="doc-tag">server only</span>
+        </div>
+        <p class="doc-cmd-desc">Randomly reorder the tracks in a playlist.</p>
+        <div class="doc-cmd-widgets">
+            <div class="doc-widget">
+                <div class="doc-widget-label">Parameters</div>
+                <table class="doc-params">
+                    <tbody>
+                        <tr>
+                            <td><code>name</code></td>
+                            <td>The playlist to shuffle. Autocompletes. Required.</td>
                         </tr>
                     </tbody>
                 </table>
@@ -449,7 +553,7 @@
             <code>/music playlist list</code>
             <span class="doc-tag">server only</span>
         </div>
-        <p class="doc-cmd-desc">List your playlists with track counts. Pass a name to open that playlist and page through its tracks.</p>
+        <p class="doc-cmd-desc">List your playlists with track counts, total length, and creation date. Pass a name to open that playlist as an interactive manager: pick a track with the dropdown, then play it, move it up or down, or remove it with the buttons.</p>
         <div class="doc-cmd-widgets">
             <div class="doc-widget">
                 <div class="doc-widget-label">Parameters</div>
@@ -457,7 +561,7 @@
                     <tbody>
                         <tr>
                             <td><code>name</code></td>
-                            <td>Optional. When given, shows that playlist's tracks.</td>
+                            <td>Optional. When given, opens that playlist's track manager.</td>
                         </tr>
                     </tbody>
                 </table>
@@ -470,7 +574,7 @@
             <code>/music playlist play</code>
             <span class="doc-tag">server only</span>
         </div>
-        <p class="doc-cmd-desc">Play a saved playlist in your voice channel. Tracks are resolved at play time, and any that can no longer be found are reported and skipped.</p>
+        <p class="doc-cmd-desc">Play a saved playlist in your voice channel. Tracks resolve fast and in parallel, using their saved source link first and falling back to a search when needed. Any that can no longer be found are reported and skipped. If nothing is playing yet, the first available track starts right away and the rest queue up behind it.</p>
         <div class="doc-cmd-widgets">
             <div class="doc-widget">
                 <div class="doc-widget-label">Parameters</div>
@@ -478,7 +582,7 @@
                     <tbody>
                         <tr>
                             <td><code>name</code></td>
-                            <td>The playlist to play. Required.</td>
+                            <td>The playlist to play. Autocompletes. Required.</td>
                         </tr>
                     </tbody>
                 </table>
