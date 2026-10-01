@@ -138,3 +138,48 @@ def test_bio_text_falls_back_to_base_bio_when_no_outage(outage_files):
     outage_files.write_bio("VoidWave is free.\n")
 
     assert outage.bio_text() == "VoidWave is free."
+
+
+def test_set_writes_a_window_from_now(outage_files, monkeypatch):
+    monkeypatch.setattr(outage.time, "time", lambda: START + 60)
+
+    outage.main(["set", "--label", "Maintenance", "--hours", "2"])
+
+    saved = json.loads(outage_files.path.read_text())
+    assert saved == {"label": "Maintenance", "start": START + 60, "end": START + 60 + 7200}
+    assert outage.status_text(now=START + 61) == "/help • maintenance • back by 1h 59m"
+
+
+def test_set_keeps_fields_it_was_not_given(outage_files):
+    outage_files.write(_announcement())
+
+    outage.main(["set", "--minutes", "30"])
+
+    saved = json.loads(outage_files.path.read_text())
+    assert saved["label"] == "Planned power outage"
+    assert saved["tz"] == "Europe/Amsterdam"
+    assert saved["end"] - saved["start"] == 1800
+
+
+def test_set_without_a_window_falls_back_to_two_hours(outage_files):
+    outage.main(["set", "--label", "Blip"])
+
+    saved = json.loads(outage_files.path.read_text())
+    assert saved["end"] - saved["start"] == 7200
+
+
+def test_clear_removes_the_file_and_falls_back_to_the_base_bio(outage_files, capsys):
+    outage_files.write(_announcement())
+    outage_files.write_bio("VoidWave is free.\n")
+
+    outage.main(["clear"])
+
+    assert not outage_files.path.exists()
+    assert outage.announcement() is None
+    assert "VoidWave is free." in capsys.readouterr().out
+
+
+def test_clear_is_a_no_op_without_a_file(outage_files, capsys):
+    outage.main(["clear"])
+
+    assert "No outage.json" in capsys.readouterr().out

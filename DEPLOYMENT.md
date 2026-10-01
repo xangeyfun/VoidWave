@@ -276,6 +276,22 @@ into Developer Portal → Application → Description (the outage line plus the
 stored `bot_bio.txt`). Clear it afterwards with `"end": 0` or by deleting
 `outage.json`, and put `bot_bio.txt` back as the bio on its own.
 
+The helper does the same thing from the shell, so you never have to compute
+epoch seconds by hand:
+
+```bash
+./venv/bin/python outage.py show                     # what is active right now
+./venv/bin/python outage.py set --hours 2            # "Scheduled downtime" for 2h from now
+./venv/bin/python outage.py set --label "Planned power outage" --hours 7 \
+  --message "I may be offline briefly at some point today between {start} and {end}."
+./venv/bin/python outage.py clear                    # end it early (deletes outage.json)
+```
+
+`set` merges into the existing file, so fields you leave out (label, message,
+tz) keep their current value. Every subcommand prints the ready to paste bio.
+Nothing expires by hand: once `end` passes, the banner and the presence line
+stop on their own (the next read), and only the Discord bio needs restoring.
+
 ## Logs
 
 - `journalctl -u voidwave.service --no-pager -n 100`

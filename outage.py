@@ -20,9 +20,12 @@ bio helper fills `{start}` and `{end}` with `<t:...:t>` timestamps so each reade
 sees the window in their own timezone.
 
 Stdlib only, so bot.py and app.py can both import it without pulling in
-discord.py or flask. Run `python outage.py` to print the ready to paste bio.
+discord.py or flask. Run `python outage.py` to print the ready to paste bio,
+`python outage.py set --label "..." --hours 2` to announce one, and
+`python outage.py clear` to end it early.
 """
 
+import argparse
 import datetime
 import json
 import os
@@ -142,5 +145,85 @@ def bio_text(item=None, now=None):
     return f"{line}\n{base}".strip() if base else line
 
 
-if __name__ == '__main__':
+def write(data):
+    """Persist outage.json. A trailing newline keeps the file diff friendly."""
+    with open(OUTAGE_FILE, 'w', encoding='utf-8') as f:
+        json.dump(data, f, indent=2)
+        f.write('\n')
+    _cache['key'] = None
+    _cache['data'] = None
+
+
+def cmd_show():
+    """Print the active announcement and how long is left."""
+    item = announcement()
+    if item is None:
+        print('No active outage announcement.')
+        return
+    print(f'{item["label"]}: {item["message"]}')
+    print(f'  {OUTAGE_FILE}: start {item["start"]}, end {item["end"]} ({countdown()} left)')
+
+
+def cmd_set(args):
+    """Create or update the announcement, keeping any field not passed in."""
+    data = load() or {}
+    now = int(time.time())
+    window = (args.hours or 0) * 3600 + (args.minutes or 0) * 60
+    if window <= 0:
+        end = int(data.get('end') or 0)
+        window = end - now if end > now else 2 * 3600
+    for key in ('label', 'message', 'tz'):
+        value = getattr(args, key)
+        if value is not None:
+            data[key] = value
+    data['start'] = now
+    data['end'] = now + int(window)
+    write(data)
+    item = announcement() or {}
+    print(f'Announcement set, {countdown()} from now:')
+    print(f'  {item.get("label")}: {item.get("message")}')
+    print('\nPaste the bio:')
     print(bio_text())
+
+
+def cmd_clear():
+    """End the announcement now by deleting outage.json."""
+    try:
+        os.remove(OUTAGE_FILE)
+    except FileNotFoundError:
+        print('No outage.json to clear.')
+        return
+    _cache['key'] = None
+    _cache['data'] = None
+    print('Cleared. The banner and presence are gone on the next read.')
+    print('\nRestore the bio to bot_bio.txt on its own:')
+    print(bio_text())
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(prog='outage.py', description='Outage announcement helper.')
+    sub = parser.add_subparsers(dest='cmd')
+    sub.add_parser('bio', help='print the ready to paste Discord bio (default)')
+    sub.add_parser('show', help='print the active announcement and time left')
+    setter = sub.add_parser('set', help='create or update the announcement')
+    setter.add_argument('--label', default=None, help=f'default: {DEFAULT_LABEL}')
+    setter.add_argument('--hours', type=float, default=None, help='window length from now')
+    setter.add_argument('--minutes', type=float, default=None, help='extra minutes on the window')
+    setter.add_argument('--message', default=None, help='supports {start} and {end}')
+    setter.add_argument('--tz', default=None, help=f'default: {DEFAULT_TZ}')
+    sub.add_parser('clear', help='end the announcement now')
+    args = parser.parse_args(argv)
+
+    cmd = args.cmd or 'bio'
+    if cmd == 'show':
+        cmd_show()
+    elif cmd == 'set':
+        cmd_set(args)
+    elif cmd == 'clear':
+        cmd_clear()
+    else:
+        print(bio_text())
+
+
+if __name__ == '__main__':
+    main()
