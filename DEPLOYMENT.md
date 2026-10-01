@@ -251,6 +251,31 @@ to `~/Backups/VoidWave` (`Path.home()`, the unit's service user) and keeps the 4
 newest; it can also restore. The health page flags a backup as stale when the
 newest is older than 7 days.
 
+## Announcing an outage or maintenance
+
+Edit `outage.json` in the repo root; both services re-read it on the next read,
+so no restart is needed. The file is gitignored (like `qotd.json`), so `git pull`
+never clobbers a live announcement and a fresh host has none until you create
+it:
+
+```json
+{
+  "label": "Planned power outage",
+  "message": "I may be offline briefly at some point today between {start} and {end}.",
+  "start": 1790848800,
+  "end": 1790874000,
+  "tz": "Europe/Amsterdam"
+}
+```
+
+`label` and `message` are optional and `message` may use `{start}` / `{end}`.
+While `end` is in the future the website shows a banner on `/` and `/status`
+and the bot prepends an outage line to its rotating presence. The Discord bio
+cannot be set by code, so run `./venv/bin/python outage.py` and paste the output
+into Developer Portal → Application → Description (the outage line plus the
+stored `bot_bio.txt`). Clear it afterwards with `"end": 0` or by deleting
+`outage.json`, and put `bot_bio.txt` back as the bio on its own.
+
 ## Logs
 
 - `journalctl -u voidwave.service --no-pager -n 100`

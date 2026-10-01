@@ -14,6 +14,7 @@
     --border-light: #1f1f2a;
     --success: #22c55e;
     --error: #ef4444;
+    --warning: #f59e0b;
     --glow: rgba(132, 56, 252, 0.4);
     --glow-strong: rgba(132, 56, 252, 0.6);
 }
@@ -313,6 +314,49 @@ a:hover {
 
 .mouse-glow.active {
     opacity: 1;
+}
+
+/* Outage banner (templates/partials/_outage_banner.html) */
+.outage-banner {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 0.9rem 1.1rem;
+    margin-bottom: 1.5rem;
+    background: rgba(245, 158, 11, 0.08);
+    border: 1px solid rgba(245, 158, 11, 0.35);
+    border-left: 3px solid var(--warning);
+    border-radius: 10px;
+}
+
+.outage-banner-icon {
+    display: flex;
+    flex-shrink: 0;
+    margin-top: 2px;
+    color: var(--warning);
+}
+
+.outage-banner-icon svg {
+    width: 18px;
+    height: 18px;
+}
+
+.outage-banner-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    font-size: 0.92rem;
+    line-height: 1.5;
+    text-align: left;
+}
+
+.outage-banner-body strong {
+    color: var(--warning);
+    font-weight: 600;
+}
+
+.outage-banner-body span {
+    color: var(--text-secondary);
 }
 
 /* Home - Hero */

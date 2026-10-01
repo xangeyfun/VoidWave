@@ -5,6 +5,7 @@ database.db
 database.db-wal
 database.db-shm
 banned_ids.json
+outage.json
 .venv
 __pycache__/
 *.pyc

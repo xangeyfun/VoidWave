@@ -14,6 +14,7 @@ from discord.ext import commands, tasks
 
 import utils
 from cogs.rating import send_rating_prompt
+from outage import status_text as outage_status_text
 from utils import (
     DBL_TOKEN,
     LLM_COOLDOWN,
@@ -573,6 +574,10 @@ class EventsCog(commands.Cog):
             "/help • voidwave.xangey.dev",
             "/help • VoidWave",
         ]
+
+        outage = outage_status_text()
+        if outage:
+            statuses = [outage, *statuses]
 
         activity = discord.CustomActivity(
             name=statuses[self.rotate_status.current_loop % len(statuses)]

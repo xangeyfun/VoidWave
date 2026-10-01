@@ -23,6 +23,8 @@
         <p class="bs-meta">Last stats snapshot: <strong id="statusUpdated">{{ last_stats_ts or 'n/a' }}</strong></p>
     </header>
 
+    {% include "partials/_outage_banner.html" %}
+
     <section class="bs-kpis status-kpis">
         <div class="bs-kpi" style="--kpi:#8438fc">
             <div class="bs-kpi-top">

@@ -16,6 +16,7 @@ from flask import Flask, jsonify, redirect, render_template, request
 
 from admin import admin_bp
 from logconf import setup_logging
+from outage import announcement as outage_announcement
 
 setup_logging()
 
@@ -213,6 +214,11 @@ def _db_health():
 def remove_trailing_slash():
     if request.path != '/' and request.path.endswith('/') and not request.path.startswith('/admin'):
         return redirect(request.path[:-1])
+
+@app.context_processor
+def inject_outage():
+    """Expose the active outage announcement to every template (None once past)."""
+    return {'outage': outage_announcement()}
 
 def get_db():
     conn = sqlite3.connect('database.db')
