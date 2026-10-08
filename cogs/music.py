@@ -1468,6 +1468,8 @@ class MusicCog(commands.Cog):
         self._track_errors: dict[int, wavelink.Playable] = {}
         self._sc_fallback_cache: dict[str, wavelink.Playable | None] = {}
         self._controller_locks: dict[int, asyncio.Lock] = {}
+        self._tearing_down: set[int] = set()
+        self._shutting_down: bool = False
 
     # ------------------------------------------------------------------
     # Helpers
@@ -1718,44 +1720,50 @@ class MusicCog(commands.Cog):
         return player, node
 
     async def _teardown_guild(self, guild_id: int, *, embed_title: str = "Disconnected", embed_desc: str = "Music stopped. Run /music play to start again.", keep_controller: bool = False):
-        self._cancel_update_task(guild_id)
-        self._cancel_idle(guild_id)
-        self._empty_paused.pop(guild_id, None)
-        player = self.players.pop(guild_id, None)
-        view = self.player_views.pop(guild_id, None)
-        msg = self.player_messages.pop(guild_id, None)
-        self._reset_skip_votes(guild_id)
-        self.players_owner.pop(guild_id, None)
-        self.live_lyrics.pop(guild_id, None)
-        self._track_errors.pop(guild_id, None)
-        if view:
-            for child in view.children:
-                child.disabled = True
-        if isinstance(player, wavelink.Player):
-            if player.connected:
+        if guild_id in self._tearing_down:
+            return
+        self._tearing_down.add(guild_id)
+        try:
+            self._cancel_update_task(guild_id)
+            self._cancel_idle(guild_id)
+            self._empty_paused.pop(guild_id, None)
+            player = self.players.pop(guild_id, None)
+            view = self.player_views.pop(guild_id, None)
+            msg = self.player_messages.pop(guild_id, None)
+            self._reset_skip_votes(guild_id)
+            self.players_owner.pop(guild_id, None)
+            self.live_lyrics.pop(guild_id, None)
+            self._track_errors.pop(guild_id, None)
+            if view:
+                for child in view.children:
+                    child.disabled = True
+            if isinstance(player, wavelink.Player):
+                if player.connected:
+                    try:
+                        await player.disconnect()
+                    except Exception as e:
+                        logger.error("Failed to disconnect music player: %s", e)
+                else:
+                    try:
+                        player.queue.clear()
+                    except Exception:
+                        pass
+            if msg and view:
                 try:
-                    await player.disconnect()
-                except Exception as e:
-                    logger.error("Failed to disconnect music player: %s", e)
-            else:
-                try:
-                    player.queue.clear()
-                except Exception:
+                    await msg.edit(embed=discord.Embed(title=embed_title, description=embed_desc, color=VOIDWAVE_COLOR), view=view)
+                except discord.HTTPException:
                     pass
-        if msg and view:
-            try:
-                await msg.edit(embed=discord.Embed(title=embed_title, description=embed_desc, color=VOIDWAVE_COLOR), view=view)
-            except discord.HTTPException:
-                pass
-            if keep_controller:
-                try:
-                    self._save_controller(guild_id, msg.channel.id, msg.id)
-                except Exception as e:
-                    logger.error("Failed to persist music controller for guild %s during shutdown: %s", guild_id, e)
+                if keep_controller:
+                    try:
+                        self._save_controller(guild_id, msg.channel.id, msg.id)
+                    except Exception as e:
+                        logger.error("Failed to persist music controller for guild %s during shutdown: %s", guild_id, e)
+                else:
+                    self._drop_controller(guild_id)
             else:
-                self._drop_controller(guild_id)
-        else:
-            await self._edit_stale_controller(guild_id, embed_title=embed_title, embed_desc=embed_desc, drop=not keep_controller)
+                await self._edit_stale_controller(guild_id, embed_title=embed_title, embed_desc=embed_desc, drop=not keep_controller)
+        finally:
+            self._tearing_down.discard(guild_id)
 
     async def _disconnect(self, player: wavelink.Player, *, embed_title: str = "Disconnected", embed_desc: str = "Left the voice channel and cleared the queue."):
         guild_id = player.guild.id if player.guild else 0
@@ -1767,6 +1775,7 @@ class MusicCog(commands.Cog):
         Controller rows are kept so that after the restart, recovery can edit each
         embed again to tell users the bot is back online.
         """
+        self._shutting_down = True
         guild_ids = set(self.players) | set(self.player_views) | set(self.player_messages)
         for guild_id in guild_ids:
             try:
@@ -2904,8 +2913,13 @@ class MusicCog(commands.Cog):
             return
         if member.id == self.bot.user.id:
             if before.channel is not None and after.channel is None:
-                logger.info("Bot left the voice channel in guild %s, cleaning up music state", guild_id)
-                await self._teardown_guild(guild_id, embed_desc="I was disconnected from the voice channel. Run /music play to start again.")
+                if self._shutting_down:
+                    logger.info("Bot left the voice channel in guild %s during shutdown", guild_id)
+                elif guild_id in self._tearing_down:
+                    logger.info("Bot left the voice channel in guild %s; cleanup already in progress", guild_id)
+                else:
+                    logger.info("Bot left the voice channel in guild %s, cleaning up music state", guild_id)
+                    await self._teardown_guild(guild_id, embed_desc="I was disconnected from the voice channel. Run /music play to start again.")
             return
         player = self.players.get(guild_id)
         if not isinstance(player, wavelink.Player) or not player.connected or not player.channel:
