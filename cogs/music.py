@@ -1544,6 +1544,27 @@ class MusicCog(commands.Cog):
             return False
         return getattr(player.guild.me, "voice", None) is not None
 
+    @staticmethod
+    def _missing_voice_perms(channel, member) -> list:
+        perms = channel.permissions_for(member)
+        required = (
+            ("view_channel", "View Channel"),
+            ("connect", "Connect"),
+            ("speak", "Speak"),
+        )
+        return [label for attr, label in required if not getattr(perms, attr)]
+
+    async def _drop_stale_voice_client(self, guild: discord.Guild | None) -> None:
+        if guild is None:
+            return
+        voice_client = guild.voice_client
+        if voice_client is None:
+            return
+        try:
+            await voice_client.disconnect(force=True)
+        except Exception as e:
+            logger.warning("Failed to drop stale voice client in guild %s: %s", guild.id, e)
+
     async def _ensure_player(self, interaction: discord.Interaction, *, hidden: bool) -> tuple | None:
         """Defer the interaction and guarantee a usable player for the user's voice channel.
 
@@ -1553,6 +1574,18 @@ class MusicCog(commands.Cog):
         if not vc or not vc.channel:
             await interaction.response.send_message("You're not in a voice channel. Join one and run `/music play` again and I'll join you automatically.", ephemeral=hidden)
             return None
+        me = interaction.guild.me if interaction.guild else None
+        if me is not None:
+            missing = self._missing_voice_perms(vc.channel, me)
+            if missing:
+                noun = "permission" if len(missing) == 1 else "permissions"
+                logger.warning("Missing voice permissions in %s (guild %s): %s", vc.channel, interaction.guild_id, ", ".join(missing))
+                await interaction.response.send_message(
+                    f"I can't join {vc.channel.mention} because I'm missing the {', '.join(missing)} {noun} there. "
+                    "Ask a server admin to fix that and try again.",
+                    ephemeral=hidden,
+                )
+                return None
         if not wavelink.Pool.nodes:
             await interaction.response.send_message("Music hasn't connected to the audio server yet, please try again in a moment.", ephemeral=hidden)
             return None
@@ -1587,13 +1620,25 @@ class MusicCog(commands.Cog):
                     except Exception as e:
                         logger.error("Failed to move music player: %s", e)
                         await self._teardown_guild(interaction.guild_id, embed_desc="Music stopped. Run /music play to start again.")
+                        await self._drop_stale_voice_client(interaction.guild)
                         await interaction.followup.send("I couldn't move to your voice channel. Please try again.", ephemeral=hidden)
                         return None
             else:
+                await self._drop_stale_voice_client(interaction.guild)
                 try:
                     player = await vc.channel.connect(cls=VoidWavePlayer, self_deaf=True)  # type: ignore
                     self.players[interaction.guild_id] = player  # type: ignore
                     self.players_owner[interaction.guild_id] = interaction.user.id
+                except wavelink.ChannelTimeoutException as e:
+                    logger.error("Failed to connect music player to voice: %s", e)
+                    await self._drop_stale_voice_client(interaction.guild)
+                    await interaction.followup.send(
+                        f"I couldn't join {vc.channel.mention} because Discord never let me in. "
+                        "That usually means I'm missing Connect or Speak there. "
+                        "Ask a server admin to check and try again.",
+                        ephemeral=hidden,
+                    )
+                    return None
                 except Exception as e:
                     logger.error("Failed to connect music player to voice: %s", e)
                     await interaction.followup.send("I couldn't join your voice channel. Please try again.", ephemeral=hidden)
