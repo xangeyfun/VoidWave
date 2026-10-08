@@ -4,7 +4,7 @@ python-dotenv>=1.2.3
 aiohttp>=3.14.3
 requests>=2.32
 simpleeval>=1.0.8
-matplotlib>=3.8
+matplotlib>=3.11.2
 wavelink>=3.5.2,<4
 tqdm
 opencv-python
