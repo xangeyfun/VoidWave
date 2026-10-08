@@ -49,8 +49,9 @@ class FunCog(commands.Cog):
         app_commands.Choice(name="🦎 Lizard", value="lizard"),
         app_commands.Choice(name="🐰 Bunny", value="bunny"),
     ])
+    @app_commands.checks.cooldown(1, 5.0)
     async def animal(self, interaction: discord.Interaction, animal: str, hidden: bool | None = None):
-        hidden = utils.resolve_hidden(interaction.user.id, hidden)
+        hidden = await utils.resolve_hidden(interaction.user.id, hidden)
         await interaction.response.defer(ephemeral=hidden)
 
         animal_handlers = {
@@ -85,15 +86,16 @@ class FunCog(commands.Cog):
         try:
             async with utils.http_session.get(url) as r:
                 if r.status != 200:
-                    await interaction.followup.send(f"> Could not fetch {animal} picture. Please try again later.", ephemeral=hidden)
+                    await interaction.followup.send(f"> Could not fetch the {animal} picture. Please try again later.", ephemeral=True)
                     return
                 data = await r.json()
             image_url = data[key]["gif"] if key == "media" else data[key]
         except (KeyError, IndexError, TypeError):
-            await interaction.followup.send(f"> Could not fetch {animal} picture. Please try again later.", ephemeral=hidden)
+            await interaction.followup.send(f"> Could not fetch the {animal} picture. Please try again later.", ephemeral=True)
             return
         except Exception as e:
-            await interaction.followup.send(f"> Could not fetch {animal} picture. Please try again later.\n> {e}", ephemeral=hidden)
+            logger.error("Failed to fetch %s picture: %s", animal, e)
+            await interaction.followup.send(f"> Could not fetch the {animal} picture. Please try again later.", ephemeral=True)
             return
 
         embed = discord.Embed(title=title, color=discord.Color(0x7128fc), timestamp=discord.utils.utcnow())
@@ -106,7 +108,7 @@ class FunCog(commands.Cog):
     @discord.app_commands.command(name="calc", description="Simple calculator")
     @app_commands.describe(expression="an expression like 5×2+3, 2^10 or sqrt(64)", hidden="Hide the command from others")
     async def calc(self, interaction: Interaction, expression: str, hidden: bool | None = None):
-        hidden = utils.resolve_hidden(interaction.user.id, hidden)
+        hidden = await utils.resolve_hidden(interaction.user.id, hidden)
         normalized = (expression
                       .replace("×", "*").replace("✕", "*").replace("✖", "*")
                       .replace("·", "*").replace("•", "*")
@@ -154,22 +156,23 @@ class FunCog(commands.Cog):
             )
             out = f"{result:.10g}" if isinstance(result, float) else str(result)
             if len(out) > 40:
-                await interaction.response.send_message("> result too large to display", ephemeral=hidden)
+                await interaction.response.send_message("> result too large to display", ephemeral=True)
             else:
                 await interaction.response.send_message(f"`{expression}` = {out}", ephemeral=hidden)
         except asyncio.TimeoutError:
-            await interaction.response.send_message("> calculation too complex, try something simpler", ephemeral=hidden)
+            await interaction.response.send_message("> calculation too complex, try something simpler", ephemeral=True)
         except (OverflowError, MemoryError, ValueError):
-            await interaction.response.send_message("> that number is too big to compute", ephemeral=hidden)
+            await interaction.response.send_message("> that number is too big to compute", ephemeral=True)
         except Exception as e:
-            await interaction.response.send_message(f"Error evaluating expression: {e}", ephemeral=hidden)
+            logger.error("Failed to evaluate %r: %s", expression, e)
+            await interaction.response.send_message("> I couldn't work that one out. Try a simpler expression.", ephemeral=True)
 
     @discord.app_commands.allowed_installs(guilds=True, users=True)
     @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     @discord.app_commands.command(name="flip", description="Flip a coin.")
     @app_commands.describe(hidden="Hide the command from others")
     async def flip(self, interaction: Interaction, hidden: bool | None = None):
-        hidden = utils.resolve_hidden(interaction.user.id, hidden)
+        hidden = await utils.resolve_hidden(interaction.user.id, hidden)
         await interaction.response.send_message(random.choice(["Heads!", "Tails!"]), ephemeral=hidden)
 
     @discord.app_commands.allowed_installs(guilds=True, users=True)
@@ -177,9 +180,9 @@ class FunCog(commands.Cog):
     @discord.app_commands.command(name="random", description="Random number generator")
     @app_commands.describe(a="Lowest number", b="Highest number", hidden="Hide the command from others")
     async def random_number(self, interaction: Interaction, a: int, b: int, hidden: bool | None = None):
-        hidden = utils.resolve_hidden(interaction.user.id, hidden)
+        hidden = await utils.resolve_hidden(interaction.user.id, hidden)
         if a >= b:
-            await interaction.response.send_message("> First number must be less than the second", ephemeral=hidden)
+            await interaction.response.send_message("> First number must be less than the second", ephemeral=True)
             return
         result = random.randint(a, b)
         await interaction.response.send_message(f"Result: {result}", ephemeral=hidden)
@@ -189,7 +192,7 @@ class FunCog(commands.Cog):
     @discord.app_commands.command(name="userinfo", description="Get info about a user")
     @app_commands.describe(user="The user you want info about", hidden="Hide the command from others")
     async def userinfo(self, interaction: discord.Interaction, user: discord.Member | discord.User, hidden: bool | None = None):
-        hidden = utils.resolve_hidden(interaction.user.id, hidden)
+        hidden = await utils.resolve_hidden(interaction.user.id, hidden)
         roles = []
         joined_server = "Unknown"
 
@@ -226,8 +229,9 @@ class FunCog(commands.Cog):
         app_commands.Choice(name="Today", value="Today"),
         app_commands.Choice(name="Random", value="Random")
     ])
+    @app_commands.checks.cooldown(1, 5.0)
     async def quote(self, interaction: discord.Interaction, choice: str, hidden: bool | None = None):
-        hidden = utils.resolve_hidden(interaction.user.id, hidden)
+        hidden = await utils.resolve_hidden(interaction.user.id, hidden)
         await interaction.response.defer(ephemeral=hidden)
         if choice.lower() != "today" and choice.lower() != "random":
             await interaction.followup.send(f"Invalid input: {choice}", ephemeral=True)
@@ -244,7 +248,7 @@ class FunCog(commands.Cog):
             return
         except Exception as e:
             logger.error("Failed to fetch quote: %s", e)
-            await interaction.followup.send(f"Could not fetch quote. Please try again later.\nDetails: {e}", ephemeral=True)
+            await interaction.followup.send("Could not fetch quote. Please try again later.", ephemeral=True)
             return
         await interaction.followup.send(f"\"{quote_text}\" - {author}", ephemeral=hidden)
 
@@ -256,8 +260,9 @@ class FunCog(commands.Cog):
         app_commands.Choice(name="Today", value="Today"),
         app_commands.Choice(name="Random", value="Random")
     ])
+    @app_commands.checks.cooldown(1, 5.0)
     async def get_fact(self, interaction: discord.Interaction, choice: str, hidden: bool | None = None):
-        hidden = utils.resolve_hidden(interaction.user.id, hidden)
+        hidden = await utils.resolve_hidden(interaction.user.id, hidden)
         await interaction.response.defer(ephemeral=hidden)
         if choice.lower() != "today" and choice.lower() != "random":
             await interaction.followup.send(f"Invalid input: {choice}", ephemeral=True)

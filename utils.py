@@ -98,11 +98,11 @@ def set_user_pref(user_id, **values):
         conn.close()
 
 
-def resolve_hidden(user_id, hidden):
+async def resolve_hidden(user_id, hidden):
     """Resolve a command's hidden flag: explicit override wins, else the user pref."""
     if hidden is not None:
         return bool(hidden)
-    return bool(get_user_pref(user_id, "default_hidden"))
+    return bool(await asyncio.to_thread(get_user_pref, user_id, "default_hidden"))
 
 
 BLOCK_FEATURES = ("ai", "feedback", "leveling", "commands", "music")

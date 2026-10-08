@@ -80,6 +80,10 @@ _SEARCH_CACHE_TTL = 60
 _MAX_SEARCH_RESULTS = 10
 
 
+class MusicSearchError(RuntimeError):
+    """Raised when a search failed, so callers can tell it apart from an empty result set."""
+
+
 def _fuzzy_score(query_word: str, target: str) -> float:
     """Return a 0-1 fuzzy match score of query_word against target."""
     if not target or not query_word:
@@ -633,6 +637,7 @@ class MusicPlayerView(discord.ui.View):
             return await interaction.response.send_message("Nothing is playing right now.", ephemeral=True)
         current = player.current
         guild_id = self.guild_id
+        hidden = await resolve_hidden(interaction.user.id, None)
         if self.cog.players_owner.get(guild_id) == interaction.user.id:
             self.cog._reset_skip_votes(guild_id)
             await player.skip(force=True)
@@ -644,12 +649,12 @@ class MusicPlayerView(discord.ui.View):
         if len(votes) >= required:
             self.cog._reset_skip_votes(guild_id)
             await player.skip(force=True)
-            return await interaction.response.send_message(f"⏭️ Vote-to-skip passed, skipping **{current.title}**.", ephemeral=False, allowed_mentions=discord.AllowedMentions.none())
+            return await interaction.response.send_message(f"⏭️ Vote-to-skip passed, skipping **{current.title}**.", ephemeral=hidden, allowed_mentions=discord.AllowedMentions.none())
         await interaction.response.send_message(
             f"🗳️ **{interaction.user.display_name}** wants to skip **{current.title}**. "
             f"Votes `{len(votes)}/{required}` needed to skip.\n"
             f"Press ⏭️ on the music controller or use `/music skip` to vote.",
-            ephemeral=False,
+            ephemeral=hidden,
             allowed_mentions=discord.AllowedMentions.none(),
         )
 
@@ -671,6 +676,8 @@ class MusicPlayerView(discord.ui.View):
         if not await self._check(interaction):
             return
         player = self.cog._player(interaction)
+        if not await self.cog._control_gate(interaction, player, "disconnect me from the voice channel"):
+            return
         await self.cog._disconnect(player, embed_desc="Left the voice channel and cleared the queue.")
         await interaction.response.send_message("👋 Left the voice channel and cleared the queue.", ephemeral=True)
 
@@ -682,6 +689,7 @@ class MusicPlayerView(discord.ui.View):
         view = QueueView(self.cog, self.guild_id, interaction.user.id)
         embed = view.build_embed()
         await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+        view.message = await interaction.original_response()
 
     @discord.ui.button(emoji="🎤", style=discord.ButtonStyle.secondary, custom_id="music_live_lyrics", row=1)
     async def on_live_lyrics(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -720,7 +728,7 @@ class MusicPlayerView(discord.ui.View):
         embed = discord.Embed(title=f"📝 Lyrics for **{track.title}**", description=f"```\n{text}\n```", color=VOIDWAVE_COLOR)
         embed.set_footer(text=f"{track.author}" + (f" • {lyrics['album']}" if lyrics.get("album") else ""))
         view = LyricsView(interaction.user.id)
-        await interaction.followup.send(embed=embed, view=view, ephemeral=True)
+        view.message = await interaction.followup.send(embed=embed, view=view, ephemeral=True)
 
     @discord.ui.button(emoji="✨", style=discord.ButtonStyle.secondary, custom_id="music_autoplay", row=1)
     async def on_autoplay(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -777,6 +785,7 @@ class QueueView(discord.ui.View):
         self.guild_id = guild_id
         self.user_id = user_id
         self.page = 0
+        self.message = None
 
         self._track_select = discord.ui.Select(
             placeholder="Remove a track...",
@@ -905,6 +914,11 @@ class QueueView(discord.ui.View):
     async def on_timeout(self):
         for child in self.children:
             child.disabled = True
+        if self.message:
+            try:
+                await self.message.edit(view=self)
+            except discord.HTTPException:
+                pass
 
 
 # ======================================================================
@@ -1018,6 +1032,7 @@ class LyricsView(discord.ui.View):
     def __init__(self, user_id):
         super().__init__(timeout=120)
         self.user_id = user_id
+        self.message = None
 
     @discord.ui.button(label="Close", style=discord.ButtonStyle.danger, row=0)
     async def on_close(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -1029,6 +1044,11 @@ class LyricsView(discord.ui.View):
     async def on_timeout(self):
         for child in self.children:
             child.disabled = True
+        if self.message:
+            try:
+                await self.message.edit(view=self)
+            except discord.HTTPException:
+                pass
 
 
 # ======================================================================
@@ -1049,6 +1069,7 @@ class PlaylistView(discord.ui.View):
         self.hidden = hidden
         self.tracks = list(tracks)
         self.page = page
+        self.message = None
         self.selected_pos = None
         self._build_select()
         self._refresh_buttons()
@@ -1260,6 +1281,11 @@ class PlaylistView(discord.ui.View):
     async def on_timeout(self):
         for child in self.children:
             child.disabled = True
+        if self.message:
+            try:
+                await self.message.edit(view=self)
+            except discord.HTTPException:
+                pass
 
 # ======================================================================
 # Music Cog
@@ -1427,6 +1453,7 @@ class MusicCog(commands.Cog):
         self.bot = bot
         self.players: dict[int, wavelink.Player] = {}
         self.skip_votes: dict[int, set[int]] = {}
+        self.stop_votes: dict[int, set[int]] = {}
         self.players_owner: dict[int, int] = {}
         self.player_views: dict[int, MusicPlayerView] = {}
         self.player_messages: dict[int, discord.Message] = {}
@@ -1446,7 +1473,7 @@ class MusicCog(commands.Cog):
     # Helpers
     # ------------------------------------------------------------------
     async def _deny_if_blocked(self, interaction: discord.Interaction) -> bool:
-        if is_blocked(interaction.user.id, "music"):
+        if await asyncio.to_thread(is_blocked, interaction.user.id, "music"):
             await interaction.response.send_message(
                 block_reply(interaction.user.id, "music", "using music commands"),
                 ephemeral=True,
@@ -1463,6 +1490,35 @@ class MusicCog(commands.Cog):
 
     def _reset_skip_votes(self, guild_id: int):
         self.skip_votes.pop(guild_id, None)
+        self.stop_votes.pop(guild_id, None)
+
+    def _control_allowed(self, interaction: discord.Interaction) -> bool:
+        if self.players_owner.get(interaction.guild_id) == interaction.user.id:
+            return True
+        member = interaction.user
+        if not isinstance(member, discord.Member):
+            return False
+        perms = member.guild_permissions
+        return any(getattr(perms, name, False) for name in ("manage_guild", "manage_channels", "move_members", "moderate_members"))
+
+    async def _control_gate(self, interaction: discord.Interaction, player: wavelink.Player, verb: str) -> bool:
+        if self._control_allowed(interaction):
+            self._reset_skip_votes(interaction.guild_id)
+            return True
+        listeners = [m for m in player.channel.members if not m.bot] if player.channel else []
+        required = len(listeners) // 2 + 1
+        votes = self.stop_votes.setdefault(interaction.guild_id, set())
+        votes.add(interaction.user.id)
+        if len(votes) >= required:
+            self._reset_skip_votes(interaction.guild_id)
+            return True
+        await interaction.response.send_message(
+            f"🗳️ **{interaction.user.display_name}** wants to {verb}. "
+            f"Votes `{len(votes)}/{required}` needed.\n"
+            "The person who started the queue, or a moderator, can do it right away.",
+            ephemeral=await resolve_hidden(interaction.user.id, None),
+        )
+        return False
 
     def _get_cached_search(self, normalized_query: str) -> list | None:
         entry = self._search_cache.get(normalized_query)
@@ -1512,7 +1568,7 @@ class MusicCog(commands.Cog):
             return await wavelink.Playable.search(query, source=src, node=node)
         except Exception as e:
             logger.error("Music search failed (%s): %s", platform or "link", e)
-            return []
+            raise MusicSearchError(query) from e
 
     async def _search_text(self, query: str, source: str, node: wavelink.Node) -> list:
         # Default (auto) order is Spotify, then SoundCloud, then YouTube, so the
@@ -1520,11 +1576,22 @@ class MusicCog(commands.Cog):
         platforms = {"youtube": ["youtube"], "soundcloud": ["soundcloud"], "spotify": ["spotify"]}.get(
             source, ["spotify", "soundcloud", "youtube"]
         )
-        batches = await asyncio.gather(*(self._search_platform(query, p, node) for p in platforms))
-        batches = [b.tracks if isinstance(b, wavelink.Playlist) else list(b or []) for b in batches]
+        batches = await asyncio.gather(
+            *(self._search_platform(query, p, node) for p in platforms), return_exceptions=True
+        )
         results = []
+        ok = 0
         for batch, platform in zip(batches, platforms):
-            results.extend(self._filter_platform(batch, platform))
+            if isinstance(batch, asyncio.CancelledError):
+                raise batch
+            if isinstance(batch, BaseException):
+                logger.warning("Partial music search failure on %s for %r: %s", platform, query, batch)
+                continue
+            ok += 1
+            tracks = batch.tracks if isinstance(batch, wavelink.Playlist) else list(batch or [])
+            results.extend(self._filter_platform(tracks, platform))
+        if not ok:
+            raise MusicSearchError(query)
         return results
 
     @staticmethod
@@ -1572,7 +1639,7 @@ class MusicCog(commands.Cog):
         """
         vc = interaction.user.voice
         if not vc or not vc.channel:
-            await interaction.response.send_message("You're not in a voice channel. Join one and run `/music play` again and I'll join you automatically.", ephemeral=hidden)
+            await interaction.response.send_message("You're not in a voice channel. Join one and run `/music play` again and I'll join you automatically.", ephemeral=True)
             return None
         me = interaction.guild.me if interaction.guild else None
         if me is not None:
@@ -1583,17 +1650,17 @@ class MusicCog(commands.Cog):
                 await interaction.response.send_message(
                     f"I can't join {vc.channel.mention} because I'm missing the {', '.join(missing)} {noun} there. "
                     "Ask a server admin to fix that and try again.",
-                    ephemeral=hidden,
+                    ephemeral=True,
                 )
                 return None
         if not wavelink.Pool.nodes:
-            await interaction.response.send_message("Music hasn't connected to the audio server yet, please try again in a moment.", ephemeral=hidden)
+            await interaction.response.send_message("Music hasn't connected to the audio server yet, please try again in a moment.", ephemeral=True)
             return None
         try:
             node = wavelink.Pool.get_node()
         except Exception as e:
             logger.error("No available Lavalink node: %s", e)
-            await interaction.response.send_message("Music server unavailable right now, please try again in a moment.", ephemeral=hidden)
+            await interaction.response.send_message("Music server unavailable right now, please try again in a moment.", ephemeral=True)
             return None
         await interaction.response.defer(ephemeral=hidden)
 
@@ -1612,7 +1679,7 @@ class MusicCog(commands.Cog):
                     if player.current is not None:
                         await interaction.followup.send(
                             f"Music is already playing in {player.channel.mention}. Join that channel to control it.",
-                            ephemeral=hidden,
+                            ephemeral=True,
                         )
                         return None
                     try:
@@ -1621,7 +1688,7 @@ class MusicCog(commands.Cog):
                         logger.error("Failed to move music player: %s", e)
                         await self._teardown_guild(interaction.guild_id, embed_desc="Music stopped. Run /music play to start again.")
                         await self._drop_stale_voice_client(interaction.guild)
-                        await interaction.followup.send("I couldn't move to your voice channel. Please try again.", ephemeral=hidden)
+                        await interaction.followup.send("I couldn't move to your voice channel. Please try again.", ephemeral=True)
                         return None
             else:
                 await self._drop_stale_voice_client(interaction.guild)
@@ -1636,16 +1703,16 @@ class MusicCog(commands.Cog):
                         f"I couldn't join {vc.channel.mention} because Discord never let me in. "
                         "That usually means I'm missing Connect or Speak there. "
                         "Ask a server admin to check and try again.",
-                        ephemeral=hidden,
+                        ephemeral=True,
                     )
                     return None
                 except Exception as e:
                     logger.error("Failed to connect music player to voice: %s", e)
-                    await interaction.followup.send("I couldn't join your voice channel. Please try again.", ephemeral=hidden)
+                    await interaction.followup.send("I couldn't join your voice channel. Please try again.", ephemeral=True)
                     return None
         except Exception as e:
             logger.error("Music player setup failed in guild %s: %s", interaction.guild_id, e)
-            await interaction.followup.send("Something went wrong while setting up playback. Please try again.", ephemeral=hidden)
+            await interaction.followup.send("Something went wrong while setting up playback. Please try again.", ephemeral=True)
             return None
 
         return player, node
@@ -2041,8 +2108,13 @@ class MusicCog(commands.Cog):
                         embed = now_playing_embed(player.current, player)
                     embed = self._add_idle_note(embed, guild_id)
                     await msg.edit(embed=embed, view=view)
-                except discord.HTTPException:
+                except discord.NotFound:
+                    logger.info("Player controller message deleted in guild %s; stopping updates", guild_id)
                     break
+                except discord.HTTPException as e:
+                    logger.warning("Failed to edit player message in guild %s: %s", guild_id, e)
+                    await asyncio.sleep(5)
+                    continue
         except asyncio.CancelledError:
             pass
         except Exception as e:
@@ -2248,8 +2320,9 @@ class MusicCog(commands.Cog):
         app_commands.Choice(name="SoundCloud", value="soundcloud"),
         app_commands.Choice(name="Spotify", value="spotify"),
     ])
+    @app_commands.checks.cooldown(1, 5.0)
     async def play_music(self, interaction: discord.Interaction, query: str, source: str = "auto", hidden: bool | None = None):
-        hidden = resolve_hidden(interaction.user.id, hidden)
+        hidden = await resolve_hidden(interaction.user.id, hidden)
         if await self._deny_if_blocked(interaction):
             return
 
@@ -2264,15 +2337,23 @@ class MusicCog(commands.Cog):
         try:
             normalized = _normalize_query(query)
             if normalized is None:
-                await interaction.followup.send("I couldn't find anything for that query. Please try again.", ephemeral=hidden)
+                await interaction.followup.send("That query doesn't look right. Please try again.", ephemeral=True)
                 return
-            tracks = await self._search_tracks(normalized, node, source=source)
+            try:
+                tracks = await self._search_tracks(normalized, node, source=source)
+            except MusicSearchError:
+                await interaction.followup.send("Something went wrong while searching that. Please try again.", ephemeral=True)
+                return
+            except Exception as e:
+                logger.error("Music search failed for %r in guild %s: %s", query, interaction.guild_id, e)
+                await interaction.followup.send("Something went wrong while searching that. Please try again.", ephemeral=True)
+                return
             if tracks is None:
-                await interaction.followup.send("I couldn't find anything for that query. Please try again.", ephemeral=hidden)
+                await interaction.followup.send("I couldn't find anything for that query. Please try again.", ephemeral=True)
                 return
 
             if not tracks:
-                await interaction.followup.send(f"No results found for `{query}`.", ephemeral=hidden)
+                await interaction.followup.send(f"No results found for `{query}`.", ephemeral=True)
                 return
 
             if isinstance(tracks, wavelink.Playlist):
@@ -2346,7 +2427,7 @@ class MusicCog(commands.Cog):
             logger.error("Music playback error in guild %s: %s", interaction.guild_id, e)
             await self._teardown_guild(interaction.guild_id, embed_desc="Music stopped. Run /music play to start again.")
             try:
-                await interaction.followup.send("Something went wrong while playing that. Please try again.", ephemeral=hidden)
+                await interaction.followup.send("Something went wrong while playing that. Please try again.", ephemeral=True)
             except discord.HTTPException:
                 pass
 
@@ -2366,8 +2447,9 @@ class MusicCog(commands.Cog):
         app_commands.Choice(name="Spotify", value="spotify"),
     ])
     @app_commands.autocomplete(genre=_random_genre_autocomplete)
+    @app_commands.checks.cooldown(1, 5.0)
     async def random_track(self, interaction: discord.Interaction, genre: str = None, source: str = "auto", hidden: bool | None = None):
-        hidden = resolve_hidden(interaction.user.id, hidden)
+        hidden = await resolve_hidden(interaction.user.id, hidden)
         if await self._deny_if_blocked(interaction):
             return
 
@@ -2381,10 +2463,18 @@ class MusicCog(commands.Cog):
 
         query = genre.strip() if genre and genre.strip() else random.choice(_RANDOM_GENRES)
         try:
-            tracks = await self._search_tracks(query, node, source=source)
+            try:
+                tracks = await self._search_tracks(query, node, source=source)
+            except MusicSearchError:
+                await interaction.followup.send("Something went wrong while searching that. Please try again.", ephemeral=True)
+                return
+            except Exception as e:
+                logger.error("Random track search failed for %r in guild %s: %s", query, interaction.guild_id, e)
+                await interaction.followup.send("Something went wrong while searching that. Please try again.", ephemeral=True)
+                return
             pool = tracks.tracks if isinstance(tracks, wavelink.Playlist) else list(tracks or [])
             if not pool:
-                await interaction.followup.send(f"No results found for `{query}`.", ephemeral=hidden)
+                await interaction.followup.send(f"No results found for `{query}`.", ephemeral=True)
                 return
 
             seen = {t.identifier for t in list(player.queue) + list(player.queue.history or [])}
@@ -2418,7 +2508,7 @@ class MusicCog(commands.Cog):
             logger.error("Music random failed in guild %s: %s", interaction.guild_id, e)
             await self._teardown_guild(interaction.guild_id, embed_desc="Music stopped. Run /music play to start again.")
             try:
-                await interaction.followup.send("Something went wrong while picking a random track. Please try again.", ephemeral=hidden)
+                await interaction.followup.send("Something went wrong while picking a random track. Please try again.", ephemeral=True)
             except discord.HTTPException:
                 pass
 
@@ -2428,15 +2518,15 @@ class MusicCog(commands.Cog):
     @music.command(name="pause", description="Pause the current track")
     @app_commands.describe(hidden="Hide the command from others")
     async def pause(self, interaction: discord.Interaction, hidden: bool | None = None):
-        hidden = resolve_hidden(interaction.user.id, hidden)
+        hidden = await resolve_hidden(interaction.user.id, hidden)
         if await self._deny_if_blocked(interaction):
             return
         player = self._player(interaction)
         if not isinstance(player, wavelink.Player) or not player.playing:
-            await interaction.response.send_message("Nothing is playing right now.", ephemeral=hidden)
+            await interaction.response.send_message("Nothing is playing right now.", ephemeral=True)
             return
         if not self._same_vc(interaction, player):
-            await interaction.response.send_message("You need to be in the same voice channel as me to control music.", ephemeral=hidden)
+            await interaction.response.send_message("You need to be in the same voice channel as me to control music.", ephemeral=True)
             return
         await player.pause(True)
         await interaction.response.send_message("⏸️ Paused.", ephemeral=hidden)
@@ -2445,18 +2535,18 @@ class MusicCog(commands.Cog):
     @music.command(name="resume", description="Resume the paused track")
     @app_commands.describe(hidden="Hide the command from others")
     async def resume(self, interaction: discord.Interaction, hidden: bool | None = None):
-        hidden = resolve_hidden(interaction.user.id, hidden)
+        hidden = await resolve_hidden(interaction.user.id, hidden)
         if await self._deny_if_blocked(interaction):
             return
         player = self._player(interaction)
         if not isinstance(player, wavelink.Player) or not player.connected:
-            await interaction.response.send_message(_NOT_CONNECTED_MSG, ephemeral=hidden)
+            await interaction.response.send_message(_NOT_CONNECTED_MSG, ephemeral=True)
             return
         if not self._same_vc(interaction, player):
-            await interaction.response.send_message("You need to be in the same voice channel as me to control music.", ephemeral=hidden)
+            await interaction.response.send_message("You need to be in the same voice channel as me to control music.", ephemeral=True)
             return
         if not player.paused:
-            await interaction.response.send_message("Nothing is paused right now.", ephemeral=hidden)
+            await interaction.response.send_message("Nothing is paused right now.", ephemeral=True)
             return
         await player.pause(False)
         await interaction.response.send_message("▶️ Resumed.", ephemeral=hidden)
@@ -2468,19 +2558,19 @@ class MusicCog(commands.Cog):
     @music.command(name="skip", description="Skip the current track")
     @app_commands.describe(hidden="Hide the command from others")
     async def skip(self, interaction: discord.Interaction, hidden: bool | None = None):
-        hidden = resolve_hidden(interaction.user.id, hidden)
+        hidden = await resolve_hidden(interaction.user.id, hidden)
         if await self._deny_if_blocked(interaction):
             return
         player = self._player(interaction)
         if not isinstance(player, wavelink.Player) or not player.playing:
-            await interaction.response.send_message("Nothing is playing right now.", ephemeral=hidden)
+            await interaction.response.send_message("Nothing is playing right now.", ephemeral=True)
             return
         if not self._same_vc(interaction, player):
-            await interaction.response.send_message("You need to be in the same voice channel as me to control music.", ephemeral=hidden)
+            await interaction.response.send_message("You need to be in the same voice channel as me to control music.", ephemeral=True)
             return
         current = player.current
         if not current:
-            await interaction.response.send_message("Nothing is playing right now.", ephemeral=hidden)
+            await interaction.response.send_message("Nothing is playing right now.", ephemeral=True)
             return
 
         guild_id = interaction.guild_id
@@ -2512,15 +2602,17 @@ class MusicCog(commands.Cog):
     @music.command(name="stop", description="Stop playback and clear the queue")
     @app_commands.describe(hidden="Hide the command from others")
     async def stop(self, interaction: discord.Interaction, hidden: bool | None = None):
-        hidden = resolve_hidden(interaction.user.id, hidden)
+        hidden = await resolve_hidden(interaction.user.id, hidden)
         if await self._deny_if_blocked(interaction):
             return
         player = self._player(interaction)
         if not isinstance(player, wavelink.Player) or not player.connected:
-            await interaction.response.send_message("I'm not playing anything.", ephemeral=hidden)
+            await interaction.response.send_message("I'm not playing anything.", ephemeral=True)
             return
         if not self._same_vc(interaction, player):
-            await interaction.response.send_message("You need to be in the same voice channel as me to control music.", ephemeral=hidden)
+            await interaction.response.send_message("You need to be in the same voice channel as me to control music.", ephemeral=True)
+            return
+        if not await self._control_gate(interaction, player, "stop playback and clear the queue"):
             return
         player.queue.clear()
         self._reset_skip_votes(interaction.guild_id)
@@ -2534,23 +2626,24 @@ class MusicCog(commands.Cog):
     @music.command(name="queue", description="View the current queue")
     @app_commands.describe(hidden="Hide the command from others")
     async def queue(self, interaction: discord.Interaction, hidden: bool | None = None):
-        hidden = resolve_hidden(interaction.user.id, hidden)
+        hidden = await resolve_hidden(interaction.user.id, hidden)
         if await self._deny_if_blocked(interaction):
             return
         player = self._player(interaction)
         if not isinstance(player, wavelink.Player) or not player.connected:
-            await interaction.response.send_message(_NOT_CONNECTED_MSG, ephemeral=hidden)
+            await interaction.response.send_message(_NOT_CONNECTED_MSG, ephemeral=True)
             return
 
         current = player.current
         upcoming = list(player.queue)
         if current is None and not upcoming:
-            await interaction.response.send_message("The queue is empty.", ephemeral=hidden)
+            await interaction.response.send_message("The queue is empty.", ephemeral=True)
             return
 
         view = QueueView(self, interaction.guild_id, interaction.user.id)
         embed = view.build_embed()
         await interaction.response.send_message(embed=embed, view=view, ephemeral=hidden)
+        view.message = await interaction.original_response()
 
     # ------------------------------------------------------------------
     # Now playing
@@ -2558,12 +2651,12 @@ class MusicCog(commands.Cog):
     @music.command(name="nowplaying", description="Show what's currently playing")
     @app_commands.describe(hidden="Hide the command from others")
     async def nowplaying(self, interaction: discord.Interaction, hidden: bool | None = None):
-        hidden = resolve_hidden(interaction.user.id, hidden)
+        hidden = await resolve_hidden(interaction.user.id, hidden)
         if await self._deny_if_blocked(interaction):
             return
         player = self._player(interaction)
         if not isinstance(player, wavelink.Player) or not player.playing or player.current is None:
-            await interaction.response.send_message("Nothing is playing right now.", ephemeral=hidden)
+            await interaction.response.send_message("Nothing is playing right now.", ephemeral=True)
             return
 
         track = player.current
@@ -2576,15 +2669,15 @@ class MusicCog(commands.Cog):
     @music.command(name="controller", description="Bring the interactive player controller back into view")
     @app_commands.describe(hidden="Hide the command from others")
     async def controller(self, interaction: discord.Interaction, hidden: bool | None = None):
-        hidden = resolve_hidden(interaction.user.id, hidden)
+        hidden = await resolve_hidden(interaction.user.id, hidden)
         if await self._deny_if_blocked(interaction):
             return
         player = self._player(interaction)
         if not isinstance(player, wavelink.Player) or not player.connected or player.current is None:
-            await interaction.response.send_message("Nothing is playing right now.", ephemeral=hidden)
+            await interaction.response.send_message("Nothing is playing right now.", ephemeral=True)
             return
         if not self._same_vc(interaction, player):
-            await interaction.response.send_message("You need to be in the same voice channel as me to control music.", ephemeral=hidden)
+            await interaction.response.send_message("You need to be in the same voice channel as me to control music.", ephemeral=True)
             return
         await interaction.response.defer(ephemeral=hidden)
         await self._repost_player_message(interaction, player)
@@ -2599,18 +2692,18 @@ class MusicCog(commands.Cog):
     @music.command(name="shuffle", description="Shuffle the upcoming queue")
     @app_commands.describe(hidden="Hide the command from others")
     async def shuffle(self, interaction: discord.Interaction, hidden: bool | None = None):
-        hidden = resolve_hidden(interaction.user.id, hidden)
+        hidden = await resolve_hidden(interaction.user.id, hidden)
         if await self._deny_if_blocked(interaction):
             return
         player = self._player(interaction)
         if not isinstance(player, wavelink.Player) or not player.connected:
-            await interaction.response.send_message(_NOT_CONNECTED_MSG, ephemeral=hidden)
+            await interaction.response.send_message(_NOT_CONNECTED_MSG, ephemeral=True)
             return
         if not self._same_vc(interaction, player):
-            await interaction.response.send_message("You need to be in the same voice channel as me to control music.", ephemeral=hidden)
+            await interaction.response.send_message("You need to be in the same voice channel as me to control music.", ephemeral=True)
             return
         if player.queue.is_empty:
-            await interaction.response.send_message("There's nothing in the queue to shuffle.", ephemeral=hidden)
+            await interaction.response.send_message("There's nothing in the queue to shuffle.", ephemeral=True)
             return
         player.queue.shuffle()
         await interaction.response.send_message(f"🔀 Shuffled the queue! (`{player.queue.count}` track{'s' if player.queue.count != 1 else ''})", ephemeral=hidden)
@@ -2623,15 +2716,15 @@ class MusicCog(commands.Cog):
         app_commands.Choice(name="Queue", value="queue"),
     ])
     async def loop(self, interaction: discord.Interaction, mode: str, hidden: bool | None = None):
-        hidden = resolve_hidden(interaction.user.id, hidden)
+        hidden = await resolve_hidden(interaction.user.id, hidden)
         if await self._deny_if_blocked(interaction):
             return
         player = self._player(interaction)
         if not isinstance(player, wavelink.Player) or not player.connected:
-            await interaction.response.send_message(_NOT_CONNECTED_MSG, ephemeral=hidden)
+            await interaction.response.send_message(_NOT_CONNECTED_MSG, ephemeral=True)
             return
         if not self._same_vc(interaction, player):
-            await interaction.response.send_message("You need to be in the same voice channel as me to control music.", ephemeral=hidden)
+            await interaction.response.send_message("You need to be in the same voice channel as me to control music.", ephemeral=True)
             return
 
         if mode == "track":
@@ -2649,15 +2742,15 @@ class MusicCog(commands.Cog):
     @music.command(name="volume", description="Set the playback volume (1-100)")
     @app_commands.describe(level="Volume level from 1 to 100", hidden="Hide the command from others")
     async def volume(self, interaction: discord.Interaction, level: int, hidden: bool | None = None):
-        hidden = resolve_hidden(interaction.user.id, hidden)
+        hidden = await resolve_hidden(interaction.user.id, hidden)
         if await self._deny_if_blocked(interaction):
             return
         player = self._player(interaction)
         if not isinstance(player, wavelink.Player) or not player.connected:
-            await interaction.response.send_message(_NOT_CONNECTED_MSG, ephemeral=hidden)
+            await interaction.response.send_message(_NOT_CONNECTED_MSG, ephemeral=True)
             return
         if not self._same_vc(interaction, player):
-            await interaction.response.send_message("You need to be in the same voice channel as me to control music.", ephemeral=hidden)
+            await interaction.response.send_message("You need to be in the same voice channel as me to control music.", ephemeral=True)
             return
         level = max(1, min(level, 100))
         await player.set_volume(level)
@@ -2670,26 +2763,26 @@ class MusicCog(commands.Cog):
     @music.command(name="seek", description="Seek to a position in the current track")
     @app_commands.describe(position="Time to seek to (e.g. 1:30, 90, 2h5m)", hidden="Hide the command from others")
     async def seek(self, interaction: discord.Interaction, position: str, hidden: bool | None = None):
-        hidden = resolve_hidden(interaction.user.id, hidden)
+        hidden = await resolve_hidden(interaction.user.id, hidden)
         if await self._deny_if_blocked(interaction):
             return
         player = self._player(interaction)
         if not isinstance(player, wavelink.Player) or not player.playing:
-            await interaction.response.send_message("Nothing is playing right now.", ephemeral=hidden)
+            await interaction.response.send_message("Nothing is playing right now.", ephemeral=True)
             return
         if not self._same_vc(interaction, player):
-            await interaction.response.send_message("You need to be in the same voice channel as me to control music.", ephemeral=hidden)
+            await interaction.response.send_message("You need to be in the same voice channel as me to control music.", ephemeral=True)
             return
         ms = _parse_seek(position)
         if ms is None:
-            await interaction.response.send_message("Invalid time format. Use `1:30`, `90`, or `2h5m`.", ephemeral=hidden)
+            await interaction.response.send_message("Invalid time format. Use `1:30`, `90`, or `2h5m`.", ephemeral=True)
             return
         track = player.current
         if ms > track.length:
-            await interaction.response.send_message(f"Can't seek past the end of the track ({fmt(track.length)}).", ephemeral=hidden)
+            await interaction.response.send_message(f"Can't seek past the end of the track ({fmt(track.length)}).", ephemeral=True)
             return
         await player.seek(ms)
-        await interaction.response.send_message(f"⏩ Seeked to `{fmt(ms)}` in **{track.title}**.", ephemeral=hidden)
+        await interaction.response.send_message(f"⏩ Seeked to `{fmt(ms)}` in **{track.title}**.", ephemeral=hidden, allowed_mentions=discord.AllowedMentions.none())
         await self._sync_player_view(interaction.guild_id)
 
     # ------------------------------------------------------------------
@@ -2698,18 +2791,18 @@ class MusicCog(commands.Cog):
     @music.command(name="lyrics", description="Show lyrics for the current track")
     @app_commands.describe(hidden="Hide the command from others")
     async def lyrics(self, interaction: discord.Interaction, hidden: bool | None = None):
-        hidden = resolve_hidden(interaction.user.id, hidden)
+        hidden = await resolve_hidden(interaction.user.id, hidden)
         if await self._deny_if_blocked(interaction):
             return
         player = self._player(interaction)
         if not isinstance(player, wavelink.Player) or not player.playing or not player.current:
-            await interaction.response.send_message("Nothing is playing right now.", ephemeral=hidden)
+            await interaction.response.send_message("Nothing is playing right now.", ephemeral=True)
             return
         await interaction.response.defer(ephemeral=hidden)
         track = player.current
         lyrics = await _fetch_lyrics(track.title, track.author, track.length // 1000)
         if not lyrics:
-            await interaction.followup.send("No lyrics found for this track.", ephemeral=hidden)
+            await interaction.followup.send("No lyrics found for this track.", ephemeral=True)
             return
         text = lyrics.get("synced") or lyrics.get("plain") or ""
         if len(text) > 3800:
@@ -2717,7 +2810,7 @@ class MusicCog(commands.Cog):
         embed = discord.Embed(title=f"📝 Lyrics for **{track.title}**", description=f"```\n{text}\n```", color=VOIDWAVE_COLOR)
         embed.set_footer(text=f"{track.author}" + (f" • {lyrics['album']}" if lyrics.get("album") else ""))
         view = LyricsView(interaction.user.id)
-        await interaction.followup.send(embed=embed, view=view, ephemeral=hidden)
+        view.message = await interaction.followup.send(embed=embed, view=view, ephemeral=hidden)
 
     # ------------------------------------------------------------------
     # Lyrics live toggle
@@ -2729,20 +2822,20 @@ class MusicCog(commands.Cog):
         app_commands.Choice(name="Off", value="off"),
     ])
     async def lyricslive(self, interaction: discord.Interaction, mode: str, hidden: bool | None = None):
-        hidden = resolve_hidden(interaction.user.id, hidden)
+        hidden = await resolve_hidden(interaction.user.id, hidden)
         if await self._deny_if_blocked(interaction):
             return
         player = self._player(interaction)
         if not isinstance(player, wavelink.Player) or not player.connected:
-            await interaction.response.send_message(_NOT_CONNECTED_MSG, ephemeral=hidden)
+            await interaction.response.send_message(_NOT_CONNECTED_MSG, ephemeral=True)
             return
         if not self._same_vc(interaction, player):
-            await interaction.response.send_message("You need to be in the same voice channel as me to control music.", ephemeral=hidden)
+            await interaction.response.send_message("You need to be in the same voice channel as me to control music.", ephemeral=True)
             return
         guild_id = interaction.guild_id
         if mode == "on":
             if not player.current:
-                await interaction.response.send_message("Nothing is playing right now.", ephemeral=hidden)
+                await interaction.response.send_message("Nothing is playing right now.", ephemeral=True)
                 return
             self.live_lyrics[guild_id] = True
             self._ensure_lyrics_loaded(player.current)
@@ -2762,15 +2855,15 @@ class MusicCog(commands.Cog):
         app_commands.Choice(name="Off", value="off"),
     ])
     async def autoplay(self, interaction: discord.Interaction, mode: str, hidden: bool | None = None):
-        hidden = resolve_hidden(interaction.user.id, hidden)
+        hidden = await resolve_hidden(interaction.user.id, hidden)
         if await self._deny_if_blocked(interaction):
             return
         player = self._player(interaction)
         if not isinstance(player, wavelink.Player) or not player.connected:
-            await interaction.response.send_message(_NOT_CONNECTED_MSG, ephemeral=hidden)
+            await interaction.response.send_message(_NOT_CONNECTED_MSG, ephemeral=True)
             return
         if not self._same_vc(interaction, player):
-            await interaction.response.send_message("You need to be in the same voice channel as me to control music.", ephemeral=hidden)
+            await interaction.response.send_message("You need to be in the same voice channel as me to control music.", ephemeral=True)
             return
         if mode == "on":
             player.autoplay = wavelink.AutoPlayMode.enabled
@@ -2786,15 +2879,17 @@ class MusicCog(commands.Cog):
     @music.command(name="disconnect", description="Stop music and leave the voice channel")
     @app_commands.describe(hidden="Hide the command from others")
     async def disconnect(self, interaction: discord.Interaction, hidden: bool | None = None):
-        hidden = resolve_hidden(interaction.user.id, hidden)
+        hidden = await resolve_hidden(interaction.user.id, hidden)
         if await self._deny_if_blocked(interaction):
             return
         player = self._player(interaction)
         if not isinstance(player, wavelink.Player) or not player.connected:
-            await interaction.response.send_message(_NOT_CONNECTED_MSG, ephemeral=hidden)
+            await interaction.response.send_message(_NOT_CONNECTED_MSG, ephemeral=True)
             return
         if not self._same_vc(interaction, player):
-            await interaction.response.send_message("You need to be in the same voice channel as me to control music.", ephemeral=hidden)
+            await interaction.response.send_message("You need to be in the same voice channel as me to control music.", ephemeral=True)
+            return
+        if not await self._control_gate(interaction, player, "disconnect me from the voice channel"):
             return
         await self._disconnect(player, embed_desc="Disconnected and cleared the queue.")
         await interaction.response.send_message("👋 Disconnected and cleared the queue.", ephemeral=hidden)
@@ -3148,7 +3243,7 @@ class MusicCog(commands.Cog):
         player, node = ensured
         track = await self._resolve_stored_track(row, node)
         if track is None:
-            await interaction.followup.send("That track couldn't be resolved right now. It may have been removed from its source.", ephemeral=hidden)
+            await interaction.followup.send("That track couldn't be resolved right now. It may have been removed from its source.", ephemeral=True)
             return
         _tag_requester(track, interaction.user.display_name)
         if player.playing:
@@ -3160,7 +3255,7 @@ class MusicCog(commands.Cog):
                 return
             await self._repost_player_message(interaction, player)
             try:
-                await interaction.followup.send(f"Queued **{track.title}**.", ephemeral=hidden)
+                await interaction.followup.send(f"Queued **{track.title}**.", ephemeral=hidden, allowed_mentions=discord.AllowedMentions.none())
             except discord.HTTPException:
                 pass
             return
@@ -3176,22 +3271,22 @@ class MusicCog(commands.Cog):
     @playlist.command(name="create", description="Create a new playlist")
     @app_commands.describe(name="Name for the new playlist", hidden="Hide the command from others")
     async def playlist_create(self, interaction: discord.Interaction, name: str, hidden: bool | None = None):
-        hidden = resolve_hidden(interaction.user.id, hidden)
+        hidden = await resolve_hidden(interaction.user.id, hidden)
         if await self._deny_if_blocked(interaction):
             return
         name = (name or "").strip()
         if not name:
-            await interaction.response.send_message("Playlist names can't be empty.", ephemeral=hidden)
+            await interaction.response.send_message("Playlist names can't be empty.", ephemeral=True)
             return
         if len(name) > _MAX_PLAYLIST_NAME_LEN:
-            await interaction.response.send_message(f"Playlist names are limited to {_MAX_PLAYLIST_NAME_LEN} characters.", ephemeral=hidden)
+            await interaction.response.send_message(f"Playlist names are limited to {_MAX_PLAYLIST_NAME_LEN} characters.", ephemeral=True)
             return
         user_id = interaction.user.id
         conn = get_db()
         try:
             count = conn.execute("SELECT COUNT(*) AS c FROM playlists WHERE user_id=?", (user_id,)).fetchone()["c"]
             if count >= _MAX_PLAYLISTS_PER_USER:
-                await interaction.response.send_message(f"You can have at most {_MAX_PLAYLISTS_PER_USER} playlists.", ephemeral=hidden)
+                await interaction.response.send_message(f"You can have at most {_MAX_PLAYLISTS_PER_USER} playlists.", ephemeral=True)
                 return
             try:
                 conn.execute(
@@ -3199,7 +3294,7 @@ class MusicCog(commands.Cog):
                     (user_id, name, name.lower(), int(time.time())),
                 )
             except sqlite3.IntegrityError:
-                await interaction.response.send_message(f"You already have a playlist named **{name}**.", ephemeral=hidden)
+                await interaction.response.send_message(f"You already have a playlist named **{name}**.", ephemeral=True)
                 return
             conn.commit()
         finally:
@@ -3213,12 +3308,12 @@ class MusicCog(commands.Cog):
     @playlist.command(name="delete", description="Delete one of your playlists")
     @app_commands.describe(name="Playlist to delete", hidden="Hide the command from others")
     async def playlist_delete(self, interaction: discord.Interaction, name: str, hidden: bool | None = None):
-        hidden = resolve_hidden(interaction.user.id, hidden)
+        hidden = await resolve_hidden(interaction.user.id, hidden)
         if await self._deny_if_blocked(interaction):
             return
         entry = self._find_playlist(interaction.user.id, name)
         if entry is None:
-            await interaction.response.send_message("I couldn't find a playlist with that name.", ephemeral=hidden)
+            await interaction.response.send_message("I couldn't find a playlist with that name.", ephemeral=True)
             return
         conn = get_db()
         try:
@@ -3234,19 +3329,19 @@ class MusicCog(commands.Cog):
     @playlist.command(name="rename", description="Rename one of your playlists")
     @app_commands.describe(name="Current playlist name", new_name="New name", hidden="Hide the command from others")
     async def playlist_rename(self, interaction: discord.Interaction, name: str, new_name: str, hidden: bool | None = None):
-        hidden = resolve_hidden(interaction.user.id, hidden)
+        hidden = await resolve_hidden(interaction.user.id, hidden)
         if await self._deny_if_blocked(interaction):
             return
         entry = self._find_playlist(interaction.user.id, name)
         if entry is None:
-            await interaction.response.send_message("I couldn't find a playlist with that name.", ephemeral=hidden)
+            await interaction.response.send_message("I couldn't find a playlist with that name.", ephemeral=True)
             return
         new_name = (new_name or "").strip()
         if not new_name:
-            await interaction.response.send_message("The new name can't be empty.", ephemeral=hidden)
+            await interaction.response.send_message("The new name can't be empty.", ephemeral=True)
             return
         if len(new_name) > _MAX_PLAYLIST_NAME_LEN:
-            await interaction.response.send_message(f"Playlist names are limited to {_MAX_PLAYLIST_NAME_LEN} characters.", ephemeral=hidden)
+            await interaction.response.send_message(f"Playlist names are limited to {_MAX_PLAYLIST_NAME_LEN} characters.", ephemeral=True)
             return
         conn = get_db()
         try:
@@ -3256,7 +3351,7 @@ class MusicCog(commands.Cog):
                     (new_name, new_name.lower(), entry["id"]),
                 )
             except sqlite3.IntegrityError:
-                await interaction.response.send_message(f"You already have a playlist named **{new_name}**.", ephemeral=hidden)
+                await interaction.response.send_message(f"You already have a playlist named **{new_name}**.", ephemeral=True)
                 return
             conn.commit()
         finally:
@@ -3279,39 +3374,39 @@ class MusicCog(commands.Cog):
     @playlist.command(name="add", description="Add a track to one of your playlists")
     @app_commands.describe(name="Playlist to add to", query="A track URL or search term", hidden="Hide the command from others")
     async def playlist_add(self, interaction: discord.Interaction, name: str, query: str, hidden: bool | None = None):
-        hidden = resolve_hidden(interaction.user.id, hidden)
+        hidden = await resolve_hidden(interaction.user.id, hidden)
         if await self._deny_if_blocked(interaction):
             return
         entry = self._find_playlist(interaction.user.id, name)
         if entry is None:
-            await interaction.response.send_message("I couldn't find a playlist with that name.", ephemeral=hidden)
+            await interaction.response.send_message("I couldn't find a playlist with that name.", ephemeral=True)
             return
         normalized = _normalize_query(query)
         if normalized is None:
-            await interaction.response.send_message("That query doesn't look right. Please try again.", ephemeral=hidden)
+            await interaction.response.send_message("That query doesn't look right. Please try again.", ephemeral=True)
             return
         if not wavelink.Pool.nodes:
-            await interaction.response.send_message("Music hasn't connected to the audio server yet, please try again in a moment.", ephemeral=hidden)
+            await interaction.response.send_message("Music hasn't connected to the audio server yet, please try again in a moment.", ephemeral=True)
             return
         try:
             node = wavelink.Pool.get_node()
         except Exception as e:
             logger.error("No available Lavalink node: %s", e)
-            await interaction.response.send_message("Music server unavailable right now, please try again in a moment.", ephemeral=hidden)
+            await interaction.response.send_message("Music server unavailable right now, please try again in a moment.", ephemeral=True)
             return
         await interaction.response.defer(ephemeral=hidden)
         try:
             tracks = await self._search_tracks(normalized, node)
         except Exception as e:
             logger.error("Playlist search failed: %s", e)
-            await interaction.followup.send("Something went wrong while searching that. Please try again.", ephemeral=hidden)
+            await interaction.followup.send("Something went wrong while searching that. Please try again.", ephemeral=True)
             return
         if not tracks:
-            await interaction.followup.send(f"No results found for `{query}`.", ephemeral=hidden)
+            await interaction.followup.send(f"No results found for `{query}`.", ephemeral=True)
             return
         if isinstance(tracks, wavelink.Playlist):
             if not tracks.tracks:
-                await interaction.followup.send(f"No results found for `{query}`.", ephemeral=hidden)
+                await interaction.followup.send(f"No results found for `{query}`.", ephemeral=True)
                 return
             if len(tracks.tracks) == 1:
                 track = tracks.tracks[0]
@@ -3390,10 +3485,10 @@ class MusicCog(commands.Cog):
         finally:
             conn.close()
         if result == "full":
-            await interaction.followup.send(f"This playlist is full ({_MAX_PLAYLIST_TRACKS} tracks max).", ephemeral=hidden)
+            await interaction.followup.send(f"This playlist is full ({_MAX_PLAYLIST_TRACKS} tracks max).", ephemeral=True)
             return
         if result == "dup":
-            await interaction.followup.send(f"**{track.title}** is already in **{entry['name']}**.", ephemeral=hidden)
+            await interaction.followup.send(f"**{track.title}** is already in **{entry['name']}**.", ephemeral=True, allowed_mentions=discord.AllowedMentions.none())
             return
         _tag_requester(track, interaction.user.display_name)
         embed = discord.Embed(
@@ -3412,16 +3507,16 @@ class MusicCog(commands.Cog):
     @playlist.command(name="addcurrent", description="Save the currently playing track to a playlist")
     @app_commands.describe(name="Playlist to add to", hidden="Hide the command from others")
     async def playlist_addcurrent(self, interaction: discord.Interaction, name: str, hidden: bool | None = None):
-        hidden = resolve_hidden(interaction.user.id, hidden)
+        hidden = await resolve_hidden(interaction.user.id, hidden)
         if await self._deny_if_blocked(interaction):
             return
         entry = self._find_playlist(interaction.user.id, name)
         if entry is None:
-            await interaction.response.send_message("I couldn't find a playlist with that name.", ephemeral=hidden)
+            await interaction.response.send_message("I couldn't find a playlist with that name.", ephemeral=True)
             return
         player = self._player(interaction)
         if not isinstance(player, wavelink.Player) or player.current is None:
-            await interaction.response.send_message("Nothing is playing right now.", ephemeral=hidden)
+            await interaction.response.send_message("Nothing is playing right now.", ephemeral=True)
             return
         await interaction.response.defer(ephemeral=hidden)
         await self._add_track_to_playlist(interaction, player.current, entry, player.current.title or "", hidden)
@@ -3429,33 +3524,33 @@ class MusicCog(commands.Cog):
     @playlist.command(name="savequeue", description="Save the current queue as a brand new playlist")
     @app_commands.describe(name="Name for the new playlist", hidden="Hide the command from others")
     async def playlist_savequeue(self, interaction: discord.Interaction, name: str, hidden: bool | None = None):
-        hidden = resolve_hidden(interaction.user.id, hidden)
+        hidden = await resolve_hidden(interaction.user.id, hidden)
         if await self._deny_if_blocked(interaction):
             return
         player = self._player(interaction)
         if not isinstance(player, wavelink.Player):
-            await interaction.response.send_message("Nothing is playing or queued right now.", ephemeral=hidden)
+            await interaction.response.send_message("Nothing is playing or queued right now.", ephemeral=True)
             return
         tracks = []
         if player.current is not None:
             tracks.append(player.current)
         tracks.extend(list(player.queue))
         if not tracks:
-            await interaction.response.send_message("Nothing is playing or queued right now.", ephemeral=hidden)
+            await interaction.response.send_message("Nothing is playing or queued right now.", ephemeral=True)
             return
         name = (name or "").strip()
         if not name:
-            await interaction.response.send_message("Playlist names can't be empty.", ephemeral=hidden)
+            await interaction.response.send_message("Playlist names can't be empty.", ephemeral=True)
             return
         if len(name) > _MAX_PLAYLIST_NAME_LEN:
-            await interaction.response.send_message(f"Playlist names are limited to {_MAX_PLAYLIST_NAME_LEN} characters.", ephemeral=hidden)
+            await interaction.response.send_message(f"Playlist names are limited to {_MAX_PLAYLIST_NAME_LEN} characters.", ephemeral=True)
             return
         user_id = interaction.user.id
         conn = get_db()
         try:
             count = conn.execute("SELECT COUNT(*) AS c FROM playlists WHERE user_id=?", (user_id,)).fetchone()["c"]
             if count >= _MAX_PLAYLISTS_PER_USER:
-                await interaction.response.send_message(f"You can have at most {_MAX_PLAYLISTS_PER_USER} playlists.", ephemeral=hidden)
+                await interaction.response.send_message(f"You can have at most {_MAX_PLAYLISTS_PER_USER} playlists.", ephemeral=True)
                 return
             try:
                 conn.execute(
@@ -3463,7 +3558,7 @@ class MusicCog(commands.Cog):
                     (user_id, name, name.lower(), int(time.time())),
                 )
             except sqlite3.IntegrityError:
-                await interaction.response.send_message(f"You already have a playlist named **{name}**.", ephemeral=hidden)
+                await interaction.response.send_message(f"You already have a playlist named **{name}**.", ephemeral=True)
                 return
             playlist_id = conn.execute("SELECT id FROM playlists WHERE user_id=? AND name_lower=?", (user_id, name.lower())).fetchone()["id"]
             added = 0
@@ -3493,12 +3588,12 @@ class MusicCog(commands.Cog):
     @playlist.command(name="clear", description="Remove every track from one of your playlists")
     @app_commands.describe(name="Playlist to clear", hidden="Hide the command from others")
     async def playlist_clear(self, interaction: discord.Interaction, name: str, hidden: bool | None = None):
-        hidden = resolve_hidden(interaction.user.id, hidden)
+        hidden = await resolve_hidden(interaction.user.id, hidden)
         if await self._deny_if_blocked(interaction):
             return
         entry = self._find_playlist(interaction.user.id, name)
         if entry is None:
-            await interaction.response.send_message("I couldn't find a playlist with that name.", ephemeral=hidden)
+            await interaction.response.send_message("I couldn't find a playlist with that name.", ephemeral=True)
             return
         conn = get_db()
         try:
@@ -3518,12 +3613,12 @@ class MusicCog(commands.Cog):
     @playlist.command(name="shuffle", description="Randomly reorder the tracks in one of your playlists")
     @app_commands.describe(name="Playlist to shuffle", hidden="Hide the command from others")
     async def playlist_shuffle(self, interaction: discord.Interaction, name: str, hidden: bool | None = None):
-        hidden = resolve_hidden(interaction.user.id, hidden)
+        hidden = await resolve_hidden(interaction.user.id, hidden)
         if await self._deny_if_blocked(interaction):
             return
         entry = self._find_playlist(interaction.user.id, name)
         if entry is None:
-            await interaction.response.send_message("I couldn't find a playlist with that name.", ephemeral=hidden)
+            await interaction.response.send_message("I couldn't find a playlist with that name.", ephemeral=True)
             return
         conn = get_db()
         try:
@@ -3531,7 +3626,7 @@ class MusicCog(commands.Cog):
         finally:
             conn.close()
         if not count:
-            await interaction.response.send_message(f"**{entry['name']}** is empty, nothing to shuffle.", ephemeral=hidden)
+            await interaction.response.send_message(f"**{entry['name']}** is empty, nothing to shuffle.", ephemeral=True)
             return
         embed = discord.Embed(
             title="🔀 Playlist shuffled",
@@ -3556,26 +3651,26 @@ class MusicCog(commands.Cog):
     @playlist.command(name="remove", description="Remove a track from one of your playlists")
     @app_commands.describe(name="Playlist to edit", track="Optional track title to remove, pick it from the list", position="Optional track number to remove, see /music playlist list", hidden="Hide the command from others")
     async def playlist_remove(self, interaction: discord.Interaction, name: str, track: str | None = None, position: int | None = None, hidden: bool | None = None):
-        hidden = resolve_hidden(interaction.user.id, hidden)
+        hidden = await resolve_hidden(interaction.user.id, hidden)
         if await self._deny_if_blocked(interaction):
             return
         entry = self._find_playlist(interaction.user.id, name)
         if entry is None:
-            await interaction.response.send_message("I couldn't find a playlist with that name.", ephemeral=hidden)
+            await interaction.response.send_message("I couldn't find a playlist with that name.", ephemeral=True)
             return
         if track is None and position is None:
-            await interaction.response.send_message("Give me a track title or a position number to remove.", ephemeral=hidden)
+            await interaction.response.send_message("Give me a track title or a position number to remove.", ephemeral=True)
             return
         conn = get_db()
         try:
             rows = _playlist_track_rows(conn, entry["id"])
             if not rows:
-                await interaction.response.send_message(f"**{entry['name']}** is empty.", ephemeral=hidden)
+                await interaction.response.send_message(f"**{entry['name']}** is empty.", ephemeral=True)
                 return
             idx = None
             if position is not None:
                 if position < 1 or position > len(rows):
-                    await interaction.response.send_message(f"`{position}` isn't in range. This playlist has **{len(rows)}** track(s).", ephemeral=hidden)
+                    await interaction.response.send_message(f"`{position}` isn't in range. This playlist has **{len(rows)}** track(s).", ephemeral=True)
                     return
                 idx = position - 1
             else:
@@ -3586,7 +3681,7 @@ class MusicCog(commands.Cog):
                         idx = i
                         break
                 if idx is None:
-                    await interaction.response.send_message(f"I couldn't find a track matching `{track}` in **{entry['name']}**.", ephemeral=hidden)
+                    await interaction.response.send_message(f"I couldn't find a track matching `{track}` in **{entry['name']}**.", ephemeral=True)
                     return
             removed = _delete_playlist_track(conn, entry["id"], idx)
             removed_title = removed["title"] or removed["query"] if removed else ""
@@ -3645,7 +3740,7 @@ class MusicCog(commands.Cog):
     @playlist.command(name="list", description="List your playlists or view one playlist's tracks")
     @app_commands.describe(name="Optional playlist name to show its tracks", hidden="Hide the command from others")
     async def playlist_list(self, interaction: discord.Interaction, name: str | None = None, hidden: bool | None = None):
-        hidden = resolve_hidden(interaction.user.id, hidden)
+        hidden = await resolve_hidden(interaction.user.id, hidden)
         if await self._deny_if_blocked(interaction):
             return
         user_id = interaction.user.id
@@ -3657,7 +3752,7 @@ class MusicCog(commands.Cog):
             if name and name.strip():
                 entry = self._find_playlist(user_id, name)
                 if entry is None:
-                    await interaction.response.send_message("I couldn't find a playlist with that name.", ephemeral=hidden)
+                    await interaction.response.send_message("I couldn't find a playlist with that name.", ephemeral=True)
                     return
                 tracks = conn.execute(
                     "SELECT id, position, title, author, length_ms, uri, query FROM playlist_tracks WHERE playlist_id=? ORDER BY position ASC, id ASC",
@@ -3697,6 +3792,7 @@ class MusicCog(commands.Cog):
         view = PlaylistView(self, user_id, entry["id"], entry["name"], list(tracks), hidden)
         embed = view.build_embed()
         await interaction.response.send_message(embed=embed, view=view, ephemeral=hidden)
+        view.message = await interaction.original_response()
 
     @playlist_list.autocomplete("name")
     async def playlist_list_autocomplete(self, interaction: discord.Interaction, current: str):
@@ -3707,13 +3803,14 @@ class MusicCog(commands.Cog):
     # ------------------------------------------------------------------
     @playlist.command(name="play", description="Play a saved playlist in your voice channel")
     @app_commands.describe(name="Playlist to play", hidden="Hide the command from others")
+    @app_commands.checks.cooldown(1, 10.0)
     async def playlist_play(self, interaction: discord.Interaction, name: str, hidden: bool | None = None):
-        hidden = resolve_hidden(interaction.user.id, hidden)
+        hidden = await resolve_hidden(interaction.user.id, hidden)
         if await self._deny_if_blocked(interaction):
             return
         entry = self._find_playlist(interaction.user.id, name)
         if entry is None:
-            await interaction.response.send_message("I couldn't find a playlist with that name.", ephemeral=hidden)
+            await interaction.response.send_message("I couldn't find a playlist with that name.", ephemeral=True)
             return
         conn = get_db()
         try:
@@ -3721,7 +3818,7 @@ class MusicCog(commands.Cog):
         finally:
             conn.close()
         if not stored:
-            await interaction.response.send_message(f"**{entry['name']}** is empty. Add tracks with `/music playlist add`.", ephemeral=hidden)
+            await interaction.response.send_message(f"**{entry['name']}** is empty. Add tracks with `/music playlist add`.", ephemeral=True)
             return
 
         ensured = await self._ensure_player(interaction, hidden=hidden)
@@ -3730,7 +3827,7 @@ class MusicCog(commands.Cog):
         player, node = ensured
 
         total = len(stored)
-        progress = await interaction.followup.send(f"🔎 Resolving **{entry['name']}** (0/{total})...", ephemeral=hidden, wait=True)
+        progress = await interaction.followup.send(f"🔎 Resolving **{entry['name']}** (0/{total})...", ephemeral=hidden, wait=True, allowed_mentions=discord.AllowedMentions.none())
 
         sem = asyncio.Semaphore(_PLAYLIST_RESOLVE_CONCURRENCY)
         resolved = {}
@@ -3765,7 +3862,7 @@ class MusicCog(commands.Cog):
 
         ordered = [resolved[i] for i in range(total) if i in resolved]
         if not ordered:
-            await interaction.followup.send("None of the tracks in this playlist could be resolved. Please try again.", ephemeral=hidden)
+            await interaction.followup.send("None of the tracks in this playlist could be resolved. Please try again.", ephemeral=True)
             return
 
         for track in ordered:
@@ -3778,7 +3875,7 @@ class MusicCog(commands.Cog):
             except Exception as e:
                 logger.error("Failed to queue playlist in guild %s: %s", interaction.guild_id, e)
                 await self._teardown_guild(interaction.guild_id, embed_desc="Music stopped. Run /music play to start again.")
-                await interaction.followup.send("Something went wrong while queuing the playlist. Please try again.", ephemeral=hidden)
+                await interaction.followup.send("Something went wrong while queuing the playlist. Please try again.", ephemeral=True)
                 return
             embed = discord.Embed(
                 title="🎵 Playlist added to queue",
@@ -3799,7 +3896,7 @@ class MusicCog(commands.Cog):
         except Exception as e:
             logger.error("Failed to queue playlist in guild %s: %s", interaction.guild_id, e)
             await self._teardown_guild(interaction.guild_id, embed_desc="Music stopped. Run /music play to start again.")
-            await interaction.followup.send("Something went wrong while queuing the playlist. Please try again.", ephemeral=hidden)
+            await interaction.followup.send("Something went wrong while queuing the playlist. Please try again.", ephemeral=True)
             return
         first = player.queue.get()
         if not await self._begin_playback(interaction, player, first):
@@ -3807,7 +3904,7 @@ class MusicCog(commands.Cog):
         await self._send_player_message(interaction, first, player)
         if failed:
             try:
-                await interaction.followup.send(f"Note: `{failed}` track(s) in **{entry['name']}** couldn't be resolved and were skipped.", ephemeral=hidden)
+                await interaction.followup.send(f"Note: `{failed}` track(s) in **{entry['name']}** couldn't be resolved and were skipped.", ephemeral=True)
             except discord.HTTPException:
                 pass
 

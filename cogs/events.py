@@ -103,6 +103,7 @@ class EventsCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.feedback_webhook = None
+        self._ready_done = False
 
     async def _graceful_exit(self, code: int = 1) -> None:
         """Ask bot.py's runner to shut down cleanly (closes the gateway, avoids
@@ -118,24 +119,30 @@ class EventsCog(commands.Cog):
 
     @commands.Cog.listener()
     async def on_ready(self):
-        utils.http_session = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=10))
+        if getattr(self, "_ready_done", False):
+            logger.info("Reconnected as %s; commands already synced", self.bot.user)
+            return
+        if utils.http_session is None or utils.http_session.closed:
+            utils.http_session = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=10))
         logger.info("Logged in as %s", self.bot.user)
+        synced = []
+        start_sync = time.time()
         try:
             logger.debug("Syncing commands...")
-            start_sync = time.time()
             synced = await self.bot.tree.sync()
-            done = time.time()
         except Exception as e:
             logger.critical("Error while syncing commands: %s", e)
             await self._graceful_exit(1)
+            return
+        done = time.time()
+        if not self.bot.user:
+            await self._graceful_exit(1)
+            return
         total_guilds = len(self.bot.guilds)
         total_members = sum(guild.member_count or 0 for guild in self.bot.guilds)
         sync_time = f"{done - start_sync:.2f}s"
         logger.info("--- Bot is ready! ---")
-        if self.bot.user:
-            logger.info("Invite link: https://discord.com/api/oauth2/authorize?client_id=%s", self.bot.user.id)
-        else:
-            await self._graceful_exit(1)
+        logger.info("Invite link: https://discord.com/api/oauth2/authorize?client_id=%s", self.bot.user.id)
         logger.debug("Connected to %s guilds (%s members)", total_guilds, total_members)
         logger.debug("Synced %s slash commands in %s", len(synced), sync_time)
         logger.debug("Startup time: %.4f seconds", done - startup)
@@ -159,6 +166,7 @@ class EventsCog(commands.Cog):
         self.rotate_status.start()
         self.update_topgg.start()
         self.vote_dm_loop.start()
+        self._ready_done = True
 
     @commands.Cog.listener()
     async def on_interaction(self, interaction: discord.Interaction):
@@ -304,7 +312,6 @@ class EventsCog(commands.Cog):
             e = str(e)
             trace = traceback.format_exc()
             logger.error("Failed to process message for leveling: %s\n```\n%s```", e, trace)
-            await message.reply("Something went wrong while processing that message. The developers have been notified.", allowed_mentions=discord.AllowedMentions(users=False))
             return
 
     async def relay_dm_feedback(self, message):

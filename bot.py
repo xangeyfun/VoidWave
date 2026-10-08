@@ -71,24 +71,69 @@ bot.setup_hook = setup_hook
 bot._exit_code = 0
 bot._stop_event = asyncio.Event()
 
-@bot.tree.error
-async def on_app_command_error(interaction: discord.Interaction, error: discord.app_commands.AppCommandError):
-    logger.error("Command error in '/%s' used by %s: %r", getattr(interaction.command, 'qualified_name', '?'), interaction.user, error)
-    if interaction.response.is_done():
-        return
 
-    if isinstance(error, discord.app_commands.CheckFailure):
-        try:
-            await interaction.response.send_message(block_reply(interaction.user.id, "commands", "using VoidWave commands"), ephemeral=True)
-        except discord.HTTPException:
-            pass
-        return
-
-    logger.critical("Unhandled command error in '/%s'", getattr(interaction.command, 'qualified_name', '?'), exc_info=error)
+async def _reply_error(interaction: discord.Interaction, content: str) -> None:
+    """Answer a failed interaction whether or not a response was already started."""
     try:
-        await interaction.response.send_message("Something went wrong while running that command. Please try again later.", ephemeral=True)
+        if interaction.response.is_done():
+            await interaction.followup.send(content, ephemeral=True)
+        else:
+            await interaction.response.send_message(content, ephemeral=True)
     except discord.HTTPException:
         pass
+
+
+@bot.tree.error
+async def on_app_command_error(interaction: discord.Interaction, error: discord.app_commands.AppCommandError):
+    name = getattr(interaction.command, "qualified_name", "?")
+    app_commands = discord.app_commands
+
+    if isinstance(error, app_commands.CommandOnCooldown):
+        logger.warning("Cooldown on '/%s' used by %s: %s", name, interaction.user, error)
+        await _reply_error(interaction, f"⏳ You're on cooldown for **/{name}**. Try again in {max(1, int(error.retry_after))} seconds.")
+        return
+
+    if isinstance(error, (app_commands.MissingPermissions, app_commands.BotMissingPermissions, app_commands.MissingRole, app_commands.MissingAnyRole)):
+        logger.warning("Permission check failed on '/%s' used by %s: %s", name, interaction.user, error)
+        await _reply_error(interaction, str(error))
+        return
+
+    if isinstance(error, app_commands.TransformerError):
+        logger.warning("Bad argument for '/%s' used by %s: %s", name, interaction.user, error)
+        await _reply_error(interaction, f"That value isn't valid for **/{name}**. Check the value and try again.")
+        return
+
+    if isinstance(error, app_commands.CommandSignatureMismatch):
+        logger.error("Signature mismatch for '/%s' used by %s", name, interaction.user)
+        await _reply_error(interaction, "My commands are being updated right now. Please try again in a minute.")
+        return
+
+    if isinstance(error, app_commands.CheckFailure):
+        logger.warning("Check failed for '/%s' used by %s: %r", name, interaction.user, error)
+        await _reply_error(interaction, "You can't run that command here right now.")
+        return
+
+    if isinstance(error, app_commands.CommandInvokeError):
+        original = error.original
+        if isinstance(original, discord.Forbidden):
+            logger.error("Permission denied running '/%s' for %s: %s", name, interaction.user, original)
+            await _reply_error(interaction, "I don't have permission to do that here. Ask a server admin to check my role permissions.")
+            return
+        if isinstance(original, discord.NotFound):
+            logger.error("Target missing for '/%s' used by %s: %s", name, interaction.user, original)
+            await _reply_error(interaction, "That target no longer exists. It may have already left or been changed.")
+            return
+        if isinstance(original, discord.HTTPException):
+            logger.error("Discord rejected '/%s' for %s: %s", name, interaction.user, original)
+            await _reply_error(interaction, "Discord rejected that request. Please try again in a moment.")
+            return
+        logger.critical("Unhandled error in '/%s' used by %s", name, interaction.user, exc_info=original)
+        await _reply_error(interaction, "Something went wrong while running that command. The developers have been notified.")
+        return
+
+    logger.critical("Unhandled command error in '/%s' used by %s", name, interaction.user, exc_info=error)
+    await _reply_error(interaction, "Something went wrong while running that command. Please try again later.")
+
 
 _STARTUP_TIMEOUT = 60
 

@@ -766,10 +766,11 @@ class MultiplayerGamesCog(commands.Cog):
     @discord.app_commands.command(name="tictactoe", description="Play tic-tac-toe against VoidWave or a friend.")
     @app_commands.describe(opponent="Challenge another player (leave empty to play the bot)", hidden="Hide the command from others")
     async def tictactoe(self, interaction, opponent: discord.User = None, hidden: bool | None = None):
-        hidden = utils.resolve_hidden(interaction.user.id, hidden)
+        hidden = await utils.resolve_hidden(interaction.user.id, hidden)
         if opponent is None:
             view = gm.TicTacToeView(interaction.user)
             await interaction.response.send_message(embed=view._state_embed(), ephemeral=hidden, view=view)
+            view.message = await interaction.original_response()
             return
         if opponent.id == interaction.user.id:
             await interaction.response.send_message("You cannot challenge yourself!", ephemeral=True)
@@ -781,13 +782,14 @@ class MultiplayerGamesCog(commands.Cog):
     @discord.app_commands.command(name="connectfour", description="Play connect four against VoidWave or a friend.")
     @app_commands.describe(opponent="Challenge another player (leave empty to play the bot)", hidden="Hide the command from others")
     async def connectfour(self, interaction, opponent: discord.User = None, hidden: bool | None = None):
-        hidden = utils.resolve_hidden(interaction.user.id, hidden)
+        hidden = await utils.resolve_hidden(interaction.user.id, hidden)
         if opponent is None:
             view = gm.ConnectFourView(interaction.user)
             for col in range(gm.CONNECT_FOUR_COLS):
                 row = 0 if col < 4 else 1
                 view.add_item(gm.ConnectFourButton(col, view, row))
             await interaction.response.send_message(embed=view._board_embed(), ephemeral=hidden, view=view)
+            view.message = await interaction.original_response()
             return
         if opponent.id == interaction.user.id:
             await interaction.response.send_message("You cannot challenge yourself!", ephemeral=True)
@@ -799,7 +801,7 @@ class MultiplayerGamesCog(commands.Cog):
     @discord.app_commands.command(name="rps", description="Play rock, paper, scissors against VoidWave or a friend.")
     @app_commands.describe(opponent="Challenge another player (leave empty to play the bot)", hidden="Hide the command from others")
     async def rps(self, interaction, opponent: discord.User = None, hidden: bool | None = None):
-        hidden = utils.resolve_hidden(interaction.user.id, hidden)
+        hidden = await utils.resolve_hidden(interaction.user.id, hidden)
         if opponent is None:
             embed = discord.Embed(
                 title="🪨📄✂️ Rock Paper Scissors",
@@ -807,7 +809,9 @@ class MultiplayerGamesCog(commands.Cog):
                 color=VOIDWAVE_COLOR,
             )
             _default_footer(embed)
-            await interaction.response.send_message(embed=embed, ephemeral=hidden, view=gm.RPSView(interaction.user))
+            view = gm.RPSView(interaction.user)
+            await interaction.response.send_message(embed=embed, ephemeral=hidden, view=view)
+            view.message = await interaction.original_response()
             return
         if opponent.id == interaction.user.id:
             await interaction.response.send_message("You cannot challenge yourself!", ephemeral=True)
@@ -819,7 +823,7 @@ class MultiplayerGamesCog(commands.Cog):
     @discord.app_commands.command(name="blackjack", description="Play blackjack against VoidWave or with friends.")
     @app_commands.describe(max_players="How many players can join (default 4, max 4)", hidden="Hide the command from others")
     async def blackjack(self, interaction, max_players: int = 4, hidden: bool | None = None):
-        hidden = utils.resolve_hidden(interaction.user.id, hidden)
+        hidden = await utils.resolve_hidden(interaction.user.id, hidden)
         max_players = max(2, min(MAX_BLACKJACK_PLAYERS, max_players))
         view = BlackjackLobbyView(interaction, max_players=max_players)
         await interaction.response.send_message(embed=view._embed(), ephemeral=hidden, view=view)

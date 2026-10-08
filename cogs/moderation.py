@@ -64,7 +64,7 @@ class ModerationCog(commands.Cog):
     @moderation.command(name="kick", description="Kick a member from the server")
     @app_commands.describe(member="The member to kick", reason="Reason for the kick", hidden="Hide the command from others")
     async def kick(self, interaction: discord.Interaction, member: discord.Member, reason: str | None = None, hidden: bool | None = None):
-        hidden = utils.resolve_hidden(interaction.user.id, hidden)
+        hidden = await utils.resolve_hidden(interaction.user.id, hidden)
         err = self._hierarchy_error(interaction, member, "kick")
         if err:
             await interaction.response.send_message(err, ephemeral=True)
@@ -74,13 +74,13 @@ class ModerationCog(commands.Cog):
         try:
             await member.kick(reason=reason)
         except discord.Forbidden:
-            await interaction.followup.send("I don't have permission to kick members.", ephemeral=hidden)
+            await interaction.followup.send("I don't have permission to kick members.", ephemeral=True)
             return
         except discord.NotFound:
-            await interaction.followup.send(f"**{member}** is no longer in the server.", ephemeral=hidden)
+            await interaction.followup.send(f"**{member}** is no longer in the server.", ephemeral=True)
             return
         except discord.HTTPException:
-            await interaction.followup.send("Something went wrong while kicking that member. Please try again later.", ephemeral=hidden)
+            await interaction.followup.send("Something went wrong while kicking that member. Please try again later.", ephemeral=True)
             return
         await interaction.followup.send(f"Kicked **{member}**.{f' Reason: {reason}' if reason else ''}", ephemeral=hidden)
         logger.info("%s kicked %s (ID: %s) in guild %s | reason: %s", interaction.user, member, member.id, interaction.guild.id, reason)
@@ -90,7 +90,7 @@ class ModerationCog(commands.Cog):
     @moderation.command(name="ban", description="Ban a member from the server")
     @app_commands.describe(member="The member to ban", delete_days="Delete recent messages (0-7)", reason="Reason for the ban", hidden="Hide the command from others")
     async def ban(self, interaction: discord.Interaction, member: discord.Member, delete_days: int = 0, reason: str | None = None, hidden: bool | None = None):
-        hidden = utils.resolve_hidden(interaction.user.id, hidden)
+        hidden = await utils.resolve_hidden(interaction.user.id, hidden)
         err = self._hierarchy_error(interaction, member, "ban")
         if err:
             await interaction.response.send_message(err, ephemeral=True)
@@ -101,13 +101,13 @@ class ModerationCog(commands.Cog):
         try:
             await member.ban(reason=reason, delete_message_seconds=delete_days * 86400)
         except discord.Forbidden:
-            await interaction.followup.send("I don't have permission to ban members.", ephemeral=hidden)
+            await interaction.followup.send("I don't have permission to ban members.", ephemeral=True)
             return
         except discord.NotFound:
-            await interaction.followup.send(f"**{member}** is no longer in the server.", ephemeral=hidden)
+            await interaction.followup.send(f"**{member}** is no longer in the server.", ephemeral=True)
             return
         except discord.HTTPException:
-            await interaction.followup.send("Something went wrong while banning that member. Please try again later.", ephemeral=hidden)
+            await interaction.followup.send("Something went wrong while banning that member. Please try again later.", ephemeral=True)
             return
         await interaction.followup.send(f"Banned **{member}**.{f' Reason: {reason}' if reason else ''}", ephemeral=hidden)
         logger.info("%s banned %s (ID: %s) in guild %s | delete_days: %s | reason: %s", interaction.user, member, member.id, interaction.guild.id, delete_days, reason)
@@ -117,16 +117,16 @@ class ModerationCog(commands.Cog):
     @moderation.command(name="unban", description="Unban a user by ID")
     @app_commands.describe(user="The user to unban", reason="Reason for the unban", hidden="Hide the command from others")
     async def unban(self, interaction: discord.Interaction, user: discord.User, reason: str | None = None, hidden: bool | None = None):
-        hidden = utils.resolve_hidden(interaction.user.id, hidden)
+        hidden = await utils.resolve_hidden(interaction.user.id, hidden)
         await interaction.response.defer(ephemeral=hidden)
         try:
             await interaction.guild.unban(user, reason=reason)  # type: ignore
             await interaction.followup.send(f"Unbanned **{user}**.{f' Reason: {reason}' if reason else ''}", ephemeral=hidden)
             logger.info("%s unbanned %s (ID: %s) in guild %s | reason: %s", interaction.user, user, user.id, interaction.guild.id, reason)
         except discord.NotFound:
-            await interaction.followup.send(f"**{user}** is not banned.", ephemeral=hidden)
+            await interaction.followup.send(f"**{user}** is not banned.", ephemeral=True)
         except discord.Forbidden:
-            await interaction.followup.send("I don't have permission to unban members.", ephemeral=hidden)
+            await interaction.followup.send("I don't have permission to unban members.", ephemeral=True)
 
     @discord.app_commands.checks.bot_has_permissions(moderate_members=True)
     @discord.app_commands.checks.has_permissions(moderate_members=True)
@@ -138,7 +138,7 @@ class ModerationCog(commands.Cog):
         app_commands.Choice(name="days", value="days"),
     ])
     async def timeout(self, interaction: discord.Interaction, member: discord.Member, amount: int, unit: str = "minutes", reason: str | None = None, hidden: bool | None = None):
-        hidden = utils.resolve_hidden(interaction.user.id, hidden)
+        hidden = await utils.resolve_hidden(interaction.user.id, hidden)
         err = self._hierarchy_error(interaction, member, "timeout")
         if err:
             await interaction.response.send_message(err, ephemeral=True)
@@ -150,13 +150,13 @@ class ModerationCog(commands.Cog):
         try:
             await member.timeout(datetime.timedelta(minutes=minutes), reason=reason)
         except discord.Forbidden:
-            await interaction.followup.send("I don't have permission to timeout members.", ephemeral=hidden)
+            await interaction.followup.send("I don't have permission to timeout members.", ephemeral=True)
             return
         except discord.NotFound:
-            await interaction.followup.send(f"**{member}** is no longer in the server.", ephemeral=hidden)
+            await interaction.followup.send(f"**{member}** is no longer in the server.", ephemeral=True)
             return
         except discord.HTTPException:
-            await interaction.followup.send("Something went wrong while timing out that member. Please try again later.", ephemeral=hidden)
+            await interaction.followup.send("Something went wrong while timing out that member. Please try again later.", ephemeral=True)
             return
         await interaction.followup.send(f"Timed out **{member}** for **{amount} {unit}**.{f' Reason: {reason}' if reason else ''}", ephemeral=hidden)
         logger.info("%s timed out %s (ID: %s) for %s minutes in guild %s | reason: %s", interaction.user, member, member.id, minutes, interaction.guild.id, reason)
@@ -166,7 +166,7 @@ class ModerationCog(commands.Cog):
     @moderation.command(name="slowmode", description="Set or clear slowmode on a channel")
     @app_commands.describe(seconds="Slowmode in seconds (0 to clear, max 21600)", channel="The channel to change (defaults to this one)", hidden="Hide the command from others")
     async def slowmode(self, interaction: discord.Interaction, seconds: int, channel: discord.TextChannel | None = None, hidden: bool | None = None):
-        hidden = utils.resolve_hidden(interaction.user.id, hidden)
+        hidden = await utils.resolve_hidden(interaction.user.id, hidden)
         channel = channel or interaction.channel  # type: ignore
         if isinstance(channel, discord.Thread):
             channel = channel.parent
@@ -175,13 +175,13 @@ class ModerationCog(commands.Cog):
         try:
             await channel.edit(slowmode_delay=seconds)
         except discord.Forbidden:
-            await interaction.followup.send("I don't have permission to change slowmode in that channel.", ephemeral=hidden)
+            await interaction.followup.send("I don't have permission to change slowmode in that channel.", ephemeral=True)
             return
         except discord.NotFound:
-            await interaction.followup.send("That channel no longer exists.", ephemeral=hidden)
+            await interaction.followup.send("That channel no longer exists.", ephemeral=True)
             return
         except discord.HTTPException:
-            await interaction.followup.send("Something went wrong while changing slowmode. Please try again later.", ephemeral=hidden)
+            await interaction.followup.send("Something went wrong while changing slowmode. Please try again later.", ephemeral=True)
             return
         if seconds:
             await interaction.followup.send(f"Set slowmode to **{seconds} seconds** in {channel.mention}.", ephemeral=hidden)
@@ -194,7 +194,7 @@ class ModerationCog(commands.Cog):
     @moderation.command(name="lock", description="Lock a channel so members can't send messages")
     @app_commands.describe(channel="The channel to lock (defaults to this one)", reason="Reason for locking", hidden="Hide the command from others")
     async def lock(self, interaction: discord.Interaction, channel: discord.TextChannel | None = None, reason: str | None = None, hidden: bool | None = None):
-        hidden = utils.resolve_hidden(interaction.user.id, hidden)
+        hidden = await utils.resolve_hidden(interaction.user.id, hidden)
         channel = channel or interaction.channel  # type: ignore
         if isinstance(channel, discord.Thread):
             channel = channel.parent
@@ -207,13 +207,13 @@ class ModerationCog(commands.Cog):
         try:
             await channel.edit(overwrites=overwrites)
         except discord.Forbidden:
-            await interaction.followup.send("I don't have permission to lock that channel.", ephemeral=hidden)
+            await interaction.followup.send("I don't have permission to lock that channel.", ephemeral=True)
             return
         except discord.NotFound:
-            await interaction.followup.send("That channel no longer exists.", ephemeral=hidden)
+            await interaction.followup.send("That channel no longer exists.", ephemeral=True)
             return
         except discord.HTTPException:
-            await interaction.followup.send("Something went wrong while locking the channel. Please try again later.", ephemeral=hidden)
+            await interaction.followup.send("Something went wrong while locking the channel. Please try again later.", ephemeral=True)
             return
         await interaction.followup.send(f"Locked {channel.mention}.{f' Reason: {reason}' if reason else ''}", ephemeral=hidden)
         logger.info("%s locked %s (ID: %s) in guild %s | reason: %s", interaction.user, channel, channel.id, interaction.guild.id, reason)
@@ -223,7 +223,7 @@ class ModerationCog(commands.Cog):
     @moderation.command(name="unlock", description="Unlock a previously locked channel")
     @app_commands.describe(channel="The channel to unlock (defaults to this one)", hidden="Hide the command from others")
     async def unlock(self, interaction: discord.Interaction, channel: discord.TextChannel | None = None, hidden: bool | None = None):
-        hidden = utils.resolve_hidden(interaction.user.id, hidden)
+        hidden = await utils.resolve_hidden(interaction.user.id, hidden)
         channel = channel or interaction.channel  # type: ignore
         if isinstance(channel, discord.Thread):
             channel = channel.parent
@@ -232,7 +232,7 @@ class ModerationCog(commands.Cog):
         everyone = interaction.guild.default_role
         overwrite = overwrites.get(everyone)
         if not overwrite or overwrite.send_messages is not False:
-            await interaction.followup.send(f"{channel.mention} wasn't locked, so there's nothing to unlock.", ephemeral=hidden)
+            await interaction.followup.send(f"{channel.mention} wasn't locked, so there's nothing to unlock.", ephemeral=True)
             return
         overwrite.update(send_messages=None)
         if overwrite.is_empty():
@@ -240,13 +240,13 @@ class ModerationCog(commands.Cog):
         try:
             await channel.edit(overwrites=overwrites)
         except discord.Forbidden:
-            await interaction.followup.send("I don't have permission to unlock that channel.", ephemeral=hidden)
+            await interaction.followup.send("I don't have permission to unlock that channel.", ephemeral=True)
             return
         except discord.NotFound:
-            await interaction.followup.send("That channel no longer exists.", ephemeral=hidden)
+            await interaction.followup.send("That channel no longer exists.", ephemeral=True)
             return
         except discord.HTTPException:
-            await interaction.followup.send("Something went wrong while unlocking the channel. Please try again later.", ephemeral=hidden)
+            await interaction.followup.send("Something went wrong while unlocking the channel. Please try again later.", ephemeral=True)
             return
         await interaction.followup.send(f"Unlocked {channel.mention}.", ephemeral=hidden)
         logger.info("%s unlocked %s (ID: %s) in guild %s", interaction.user, channel, channel.id, interaction.guild.id)
@@ -256,7 +256,7 @@ class ModerationCog(commands.Cog):
     @role.command(name="add", description="Add a role to a member")
     @app_commands.describe(member="The member to give the role to", role="The role to add", hidden="Hide the command from others")
     async def role_add(self, interaction: discord.Interaction, member: discord.Member, role: discord.Role, hidden: bool | None = None):
-        hidden = utils.resolve_hidden(interaction.user.id, hidden)
+        hidden = await utils.resolve_hidden(interaction.user.id, hidden)
         err = self._role_error(interaction, role, "give")
         if err:
             await interaction.response.send_message(err, ephemeral=True)
@@ -264,18 +264,18 @@ class ModerationCog(commands.Cog):
 
         await interaction.response.defer(ephemeral=hidden)
         if role in member.roles:
-            await interaction.followup.send(f"{member.mention} already has {role.mention}.", ephemeral=hidden)
+            await interaction.followup.send(f"{member.mention} already has {role.mention}.", ephemeral=True)
             return
         try:
             await member.add_roles(role, reason=f"Added by {interaction.user}")
         except discord.Forbidden:
-            await interaction.followup.send("I don't have permission to give that role.", ephemeral=hidden)
+            await interaction.followup.send("I don't have permission to give that role.", ephemeral=True)
             return
         except discord.NotFound:
-            await interaction.followup.send(f"**{member}** is no longer in the server or the role no longer exists.", ephemeral=hidden)
+            await interaction.followup.send(f"**{member}** is no longer in the server or the role no longer exists.", ephemeral=True)
             return
         except discord.HTTPException:
-            await interaction.followup.send("Something went wrong while adding the role. Please try again later.", ephemeral=hidden)
+            await interaction.followup.send("Something went wrong while adding the role. Please try again later.", ephemeral=True)
             return
         await interaction.followup.send(f"Gave {role.mention} to **{member}**.", ephemeral=hidden)
         logger.info("%s gave role %s (ID: %s) to %s (ID: %s) in guild %s", interaction.user, role, role.id, member, member.id, interaction.guild.id)
@@ -285,7 +285,7 @@ class ModerationCog(commands.Cog):
     @role.command(name="remove", description="Remove a role from a member")
     @app_commands.describe(member="The member to remove the role from", role="The role to remove", hidden="Hide the command from others")
     async def role_remove(self, interaction: discord.Interaction, member: discord.Member, role: discord.Role, hidden: bool | None = None):
-        hidden = utils.resolve_hidden(interaction.user.id, hidden)
+        hidden = await utils.resolve_hidden(interaction.user.id, hidden)
         err = self._role_error(interaction, role, "remove")
         if err:
             await interaction.response.send_message(err, ephemeral=True)
@@ -293,18 +293,18 @@ class ModerationCog(commands.Cog):
 
         await interaction.response.defer(ephemeral=hidden)
         if role not in member.roles:
-            await interaction.followup.send(f"{member.mention} doesn't have {role.mention}.", ephemeral=hidden)
+            await interaction.followup.send(f"{member.mention} doesn't have {role.mention}.", ephemeral=True)
             return
         try:
             await member.remove_roles(role, reason=f"Removed by {interaction.user}")
         except discord.Forbidden:
-            await interaction.followup.send("I don't have permission to remove that role.", ephemeral=hidden)
+            await interaction.followup.send("I don't have permission to remove that role.", ephemeral=True)
             return
         except discord.NotFound:
-            await interaction.followup.send(f"**{member}** is no longer in the server or the role no longer exists.", ephemeral=hidden)
+            await interaction.followup.send(f"**{member}** is no longer in the server or the role no longer exists.", ephemeral=True)
             return
         except discord.HTTPException:
-            await interaction.followup.send("Something went wrong while removing the role. Please try again later.", ephemeral=hidden)
+            await interaction.followup.send("Something went wrong while removing the role. Please try again later.", ephemeral=True)
             return
         await interaction.followup.send(f"Removed {role.mention} from **{member}**.", ephemeral=hidden)
         logger.info("%s removed role %s (ID: %s) from %s (ID: %s) in guild %s", interaction.user, role, role.id, member, member.id, interaction.guild.id)

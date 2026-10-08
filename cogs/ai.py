@@ -129,7 +129,7 @@ class AICog(commands.Cog):
     @discord.app_commands.command(name="ai", description="Chat with the bot's self hosted AI")
     @app_commands.describe(message="The message to send to the AI", stats="Show additional information about the AI response", hidden="Hide the command from others")
     async def ai(self, interaction: discord.Interaction, message: str, stats: bool = False, hidden: bool | None = None):
-        hidden = resolve_hidden(interaction.user.id, hidden)
+        hidden = await resolve_hidden(interaction.user.id, hidden)
         global ai_processing
 
         if is_blocked(interaction.user.id, "ai"):
@@ -198,7 +198,7 @@ class AICog(commands.Cog):
     @discord.app_commands.command(name="kirkify", description="Kirkify someone using AI.")
     @discord.app_commands.describe(image="The image to kirkify", hidden="Hide the command from others")
     async def kirkify(self, interaction: discord.Interaction, image: discord.Attachment, hidden: bool | None = None):
-        hidden = resolve_hidden(interaction.user.id, hidden)
+        hidden = await resolve_hidden(interaction.user.id, hidden)
         if image.size > 10 * 1024 * 1024:  # 10 MB limit
             await interaction.response.send_message("The image is too large. Please upload an image smaller than 10 MB.", ephemeral=True)
             return

@@ -497,7 +497,7 @@ class LevelingCog(commands.Cog):
     @discord.app_commands.command(name="level", description="Check your server level")
     @app_commands.describe(hidden="Hide the command from others", user='Select a user to view their level')
     async def level(self, interaction: discord.Interaction, hidden: bool | None = None, user: discord.Member | None = None):
-        hidden = resolve_hidden(interaction.user.id, hidden)
+        hidden = await resolve_hidden(interaction.user.id, hidden)
         await interaction.response.defer(ephemeral=hidden)
         if not interaction.guild:
             await interaction.followup.send("This command only works in servers.", ephemeral=True)
@@ -620,7 +620,7 @@ class LevelingCog(commands.Cog):
         ]
     )
     async def leaderboard(self, interaction: discord.Interaction, sort: str = "Level", global_lb: bool = False, combined: bool = False, hidden: bool | None = None):
-        hidden = resolve_hidden(interaction.user.id, hidden)
+        hidden = await resolve_hidden(interaction.user.id, hidden)
         await interaction.response.defer(ephemeral=hidden)
         if not interaction.guild:
             await interaction.followup.send("This command only works in servers.", ephemeral=True)
@@ -667,7 +667,7 @@ class LevelingCog(commands.Cog):
     @discord.app_commands.command(name="profile", description="Check your profile")
     @app_commands.describe(hidden="Hide the command from others", user='Select a user to view their profile')
     async def profile(self, interaction: discord.Interaction, hidden: bool | None = None, user: discord.User | discord.Member | None = None):
-        hidden = resolve_hidden(interaction.user.id, hidden)
+        hidden = await resolve_hidden(interaction.user.id, hidden)
         await interaction.response.defer(ephemeral=hidden)
         user = user if user else interaction.user
 

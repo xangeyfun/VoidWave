@@ -59,6 +59,7 @@ class RPSView(discord.ui.View):
 
     def __init__(self, player: discord.User):
         super().__init__(timeout=120)
+        self.message = None
         self.player = player
         self.bot_choice = random.choice(list(RPS_WINS.keys()))
 
@@ -110,6 +111,11 @@ class RPSView(discord.ui.View):
     async def on_timeout(self):
         for child in self.children:
             child.disabled = True
+        if self.message:
+            try:
+                await self.message.edit(view=self)
+            except discord.HTTPException:
+                pass
 
 
 TICTACTOE_WIN_LINES = (
@@ -129,6 +135,7 @@ class TicTacToeView(discord.ui.View):
 
     def __init__(self, player: discord.User):
         super().__init__(timeout=120)
+        self.message = None
         self.player = player
         self.board = [TICTACTOE_EMPTY] * 9
         self.winner = None
@@ -259,6 +266,11 @@ class TicTacToeView(discord.ui.View):
     async def on_timeout(self):
         for child in self.children:
             child.disabled = True
+        if self.message:
+            try:
+                await self.message.edit(view=self)
+            except discord.HTTPException:
+                pass
 
 
 class TriviaBattleView(discord.ui.View):
@@ -281,6 +293,7 @@ class TriviaBattleView(discord.ui.View):
 
     def __init__(self, interaction, rounds=5, max_players=4, category=9, difficulty="easy", answer_time=20):
         super().__init__(timeout=30 + rounds * 40)
+        self.message = None
         self.interaction = interaction
         self.host = interaction.user
         self.players = [interaction.user]
@@ -506,6 +519,12 @@ class TriviaBattleView(discord.ui.View):
         if self.auto_task:
             self.auto_task.cancel()
             self.auto_task = None
+
+        if self.message:
+            try:
+                await self.message.edit(view=self)
+            except discord.HTTPException:
+                pass
 
     async def _begin(self):
         if self.started:
@@ -752,6 +771,7 @@ class ConnectFourView(discord.ui.View):
 
     def __init__(self, player: discord.User):
         super().__init__(timeout=120)
+        self.message = None
         self.player = player
         self.board = [[CONNECT_FOUR_EMPTY] * CONNECT_FOUR_COLS for _ in range(CONNECT_FOUR_ROWS)]
         self.winner = None
@@ -867,6 +887,11 @@ class ConnectFourView(discord.ui.View):
     async def on_timeout(self):
         for child in self.children:
             child.disabled = True
+        if self.message:
+            try:
+                await self.message.edit(view=self)
+            except discord.HTTPException:
+                pass
 
 
 class ConnectFourButton(discord.ui.Button):
@@ -1011,6 +1036,7 @@ class HangmanView(discord.ui.View):
 
     def __init__(self, player: discord.User):
         super().__init__(timeout=120)
+        self.message = None
         self.player = player
         self.word = random.choice(HANGMAN_WORDS).upper()
         self.guessed = set()
@@ -1086,6 +1112,11 @@ class HangmanView(discord.ui.View):
         for child in self.children:
             if isinstance(child, _HangmanSelect):
                 child.disabled = True
+        if self.message:
+            try:
+                await self.message.edit(view=self)
+            except discord.HTTPException:
+                pass
 
 
 class _HangmanSelect(discord.ui.Select):
@@ -1155,6 +1186,7 @@ class BlackjackView(discord.ui.View):
 
     def __init__(self, player: discord.User):
         super().__init__(timeout=120)
+        self.message = None
         self.player = player
         self.deck = _build_deck()
         random.shuffle(self.deck)
@@ -1221,6 +1253,11 @@ class BlackjackView(discord.ui.View):
     async def on_timeout(self):
         for child in self.children:
             child.disabled = True
+        if self.message:
+            try:
+                await self.message.edit(view=self)
+            except discord.HTTPException:
+                pass
 
     @discord.ui.button(label="Hit", style=discord.ButtonStyle.success)
     async def hit(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -1435,6 +1472,7 @@ class MinesweeperView(discord.ui.View):
 
     def __init__(self, player: discord.User, mine_count: int = MS_MINES):
         super().__init__(timeout=300)
+        self.message = None
         self.player = player
         self.mine_count = mine_count
         self.mines = set()
@@ -1605,6 +1643,11 @@ class MinesweeperView(discord.ui.View):
     async def on_timeout(self):
         for child in self.children:
             child.disabled = True
+        if self.message:
+            try:
+                await self.message.edit(view=self)
+            except discord.HTTPException:
+                pass
 
 
 class MinesweeperButton(discord.ui.Button):
@@ -1645,6 +1688,7 @@ class PuzzleView(discord.ui.View):
 
     def __init__(self, player: discord.User):
         super().__init__(timeout=300)
+        self.message = None
         self.player = player
         self.board = list(PUZZLE_SOLVED)
         self.moves = 0
@@ -1749,6 +1793,11 @@ class PuzzleView(discord.ui.View):
     async def on_timeout(self):
         for child in self.children:
             child.disabled = True
+        if self.message:
+            try:
+                await self.message.edit(view=self)
+            except discord.HTTPException:
+                pass
 
 
 class PuzzleTileButton(discord.ui.Button):
@@ -1809,6 +1858,7 @@ class BattleshipView(discord.ui.View):
 
     def __init__(self, player: discord.User):
         super().__init__(timeout=300)
+        self.message = None
         self.player = player
         self.player_ships = _bs_place_ships()
         self.ship_colors = random.sample(BS_COLORS, len(BS_SHIPS))
@@ -2031,6 +2081,11 @@ class BattleshipView(discord.ui.View):
     async def on_timeout(self):
         for child in self.children:
             child.disabled = True
+        if self.message:
+            try:
+                await self.message.edit(view=self)
+            except discord.HTTPException:
+                pass
 
 
 class _BSLeftButton(discord.ui.Button):
@@ -2105,7 +2160,7 @@ class GamesCog(commands.Cog):
     @discord.app_commands.command(name="8ball", description="Ask the magic 8-ball a question.")
     @app_commands.describe(question="The question you want answered", hidden="Hide the command from others")
     async def eight_ball(self, interaction: discord.Interaction, question: str, hidden: bool | None = None):
-        hidden = utils.resolve_hidden(interaction.user.id, hidden)
+        hidden = await utils.resolve_hidden(interaction.user.id, hidden)
         embed = discord.Embed(
             title="🎱 Magic 8-Ball",
             description=(
@@ -2146,7 +2201,7 @@ class GamesCog(commands.Cog):
         answer_time: int = 20,
         hidden: bool | None = None,
     ):
-        hidden = utils.resolve_hidden(interaction.user.id, hidden)
+        hidden = await utils.resolve_hidden(interaction.user.id, hidden)
         rounds = max(1, min(10, rounds))
         max_players = max(2, min(8, max_players))
         answer_time = max(10, min(60, answer_time))
@@ -2160,22 +2215,24 @@ class GamesCog(commands.Cog):
             answer_time=answer_time,
         )
         await interaction.response.send_message(embed=view._lobby_embed(), ephemeral=hidden, view=view)
+        view.message = await interaction.original_response()
 
     @discord.app_commands.allowed_installs(guilds=True, users=True)
     @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     @discord.app_commands.command(name="hangman", description="Play hangman against VoidWave.")
     @app_commands.describe(hidden="Hide the command from others")
     async def hangman(self, interaction: discord.Interaction, hidden: bool | None = None):
-        hidden = utils.resolve_hidden(interaction.user.id, hidden)
+        hidden = await utils.resolve_hidden(interaction.user.id, hidden)
         view = HangmanView(interaction.user)
         await interaction.response.send_message(embed=view._state_embed(), ephemeral=hidden, view=view)
+        view.message = await interaction.original_response()
 
     @discord.app_commands.allowed_installs(guilds=True, users=True)
     @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     @discord.app_commands.command(name="wordle", description="Play a game of wordle against VoidWave.")
     @app_commands.describe(hidden="Hide the command from others")
     async def wordle(self, interaction: discord.Interaction, hidden: bool | None = None):
-        hidden = utils.resolve_hidden(interaction.user.id, hidden)
+        hidden = await utils.resolve_hidden(interaction.user.id, hidden)
         await interaction.response.defer(ephemeral=hidden)
         view = WordleView(interaction.user)
         view.message = await interaction.followup.send(embed=view._state_embed(), view=view)
@@ -2185,7 +2242,7 @@ class GamesCog(commands.Cog):
     @discord.app_commands.command(name="minesweeper", description="Play a game of minesweeper against VoidWave.")
     @app_commands.describe(mines="Mine density as a percentage (default 25)", hidden="Hide the command from others")
     async def minesweeper(self, interaction: discord.Interaction, mines: int = None, hidden: bool | None = None):
-        hidden = utils.resolve_hidden(interaction.user.id, hidden)
+        hidden = await utils.resolve_hidden(interaction.user.id, hidden)
         total = MS_CELLS
         if mines is None:
             mine_count = MS_MINES
@@ -2194,24 +2251,27 @@ class GamesCog(commands.Cog):
             mine_count = min(max(mine_count, 1), total - 1)
         view = MinesweeperView(interaction.user, mine_count)
         await interaction.response.send_message(embed=view._state_embed(), ephemeral=hidden, view=view)
+        view.message = await interaction.original_response()
 
     @discord.app_commands.allowed_installs(guilds=True, users=True)
     @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     @discord.app_commands.command(name="battleship", description="Play a game of battleship against VoidWave.")
     @app_commands.describe(hidden="Hide the command from others")
     async def battleship(self, interaction: discord.Interaction, hidden: bool | None = None):
-        hidden = utils.resolve_hidden(interaction.user.id, hidden)
+        hidden = await utils.resolve_hidden(interaction.user.id, hidden)
         view = BattleshipView(interaction.user)
         await interaction.response.send_message(embed=view._state_embed(), ephemeral=hidden, view=view)
+        view.message = await interaction.original_response()
 
     @discord.app_commands.allowed_installs(guilds=True, users=True)
     @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     @discord.app_commands.command(name="15puzzle", description="Slide the tiles to solve the 15-puzzle.")
     @app_commands.describe(hidden="Hide the command from others")
     async def puzzle15(self, interaction: discord.Interaction, hidden: bool | None = None):
-        hidden = utils.resolve_hidden(interaction.user.id, hidden)
+        hidden = await utils.resolve_hidden(interaction.user.id, hidden)
         view = PuzzleView(interaction.user)
         await interaction.response.send_message(embed=view._state_embed(), ephemeral=hidden, view=view)
+        view.message = await interaction.original_response()
 
 
 async def setup(bot):
