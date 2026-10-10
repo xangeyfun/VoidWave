@@ -115,3 +115,109 @@ def test_blocked_leveling_gets_no_xp(monkeypatch):
     finally:
         conn.close()
     assert row is None
+
+
+def _seed_daily(guild_id, user_id, day, xp=0, messages=0, vc_minutes=0):
+    conn = utils.get_db()
+    try:
+        conn.execute(
+            "INSERT INTO user_stats_daily (guild_id, user_id, day, xp, messages, vc_minutes) "
+            "VALUES (?, ?, ?, ?, ?, ?) "
+            "ON CONFLICT(guild_id, user_id, day) DO UPDATE SET "
+            "xp = xp + excluded.xp, messages = messages + excluded.messages, "
+            "vc_minutes = vc_minutes + excluded.vc_minutes",
+            (guild_id, user_id, day, xp, messages, vc_minutes),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def test_message_xp_writes_daily_bucket(monkeypatch):
+    monkeypatch.setattr("random.randint", lambda a, b: 5)
+    _call_xp()
+    conn = utils.get_db()
+    try:
+        row = conn.execute(
+            "SELECT * FROM user_stats_daily WHERE guild_id=? AND user_id=?", (G, U)
+        ).fetchone()
+    finally:
+        conn.close()
+    assert row["messages"] == 1
+    assert row["xp"] == 5
+    assert row["day"] == int(time.time() // utils.SECONDS_PER_DAY)
+
+
+def test_short_message_daily_bucket_counts_message_only(monkeypatch):
+    monkeypatch.setattr("random.randint", lambda a, b: 5)
+    _call_xp(content_len=3)
+    conn = utils.get_db()
+    try:
+        row = conn.execute(
+            "SELECT * FROM user_stats_daily WHERE guild_id=? AND user_id=?", (G, U)
+        ).fetchone()
+    finally:
+        conn.close()
+    assert row["messages"] == 1
+    assert row["xp"] == 0
+
+
+def test_period_leaderboard_uses_daily_buckets():
+    from cogs import leveling
+
+    today = int(time.time() // utils.SECONDS_PER_DAY)
+    _seed_user()
+    _seed_daily(G, U, today, xp=5, messages=1)
+    _seed_daily(G, U, today - 1, xp=100, messages=50)
+
+    rows, total = leveling._fetch_leaderboard(G, "Total Messages", False, 1, 10, False, "Daily")
+    assert total == 1
+    assert rows[0]["user_id"] == U
+    assert rows[0]["value"] == 1
+
+    rows, total = leveling._fetch_leaderboard(G, "Total Messages", False, 1, 10, False, "Weekly")
+    assert rows[0]["value"] == 51
+
+    rank, rank_total = leveling._fetch_rank(G, U, "Total Messages", False, False, "Daily")
+    assert rank == 1
+    assert rank_total == 1
+
+    all_rows, _ = leveling._fetch_leaderboard(G, "Total Messages", False, 1, 10, False, "All Time")
+    assert all_rows[0]["value"] == 0
+
+
+def test_period_multirow_sums_without_duplicating_users():
+    from cogs import leveling
+
+    g2 = G + 1
+    other = U + 1
+    today = int(time.time() // utils.SECONDS_PER_DAY)
+    _seed_user()
+    _seed_user(guild_id=g2, user_id=U, display_name="Alice2", username="alice")
+    _seed_user(guild_id=g2, user_id=other, display_name="Carol", username="carol")
+
+    for d in range(30):
+        _seed_daily(G, U, today - d, xp=10, messages=10)
+    for d in range(5):
+        _seed_daily(g2, U, today - d, xp=100, messages=5)
+    _seed_daily(g2, other, today, xp=50, messages=50)
+
+    rows, total = leveling._fetch_leaderboard(G, "Total XP", False, 1, 10, False, "Monthly")
+    assert total == 1
+    assert rows[0]["value"] == 300
+
+    rows, total = leveling._fetch_leaderboard(0, "Total XP", True, 1, 10, True, "Daily")
+    got = {r["user_id"]: r["value"] for r in rows}
+    assert got[U] == 110
+    assert got[other] == 50
+
+    conn = utils.get_db()
+    try:
+        lifetime_rows = conn.execute("SELECT COUNT(*) FROM users WHERE user_id=?", (U,)).fetchone()[0]
+        daily_rows = conn.execute(
+            "SELECT COUNT(*) FROM user_stats_daily WHERE guild_id=? AND user_id=?", (G, U)
+        ).fetchone()[0]
+    finally:
+        conn.close()
+    assert lifetime_rows == 2
+    assert daily_rows == 30
