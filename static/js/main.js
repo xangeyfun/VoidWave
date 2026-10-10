@@ -333,7 +333,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 sort: p.get('sort') || 'level',
                 dir: p.get('dir') || 'desc',
                 page: p.get('page') || '1',
-                mode: p.get('mode') || ''
+                mode: p.get('mode') || '',
+                period: p.get('period') || ''
             };
         }
 
@@ -498,7 +499,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!raw) { hideAc(); return; }
                 const params = getParams();
                 const modeParam = params.mode ? '&mode=' + encodeURIComponent(params.mode) : '';
-                const url = '/api/leaderboard/search?q=' + encodeURIComponent(raw) + '&guild=' + params.guild + modeParam;
+                const periodParam = params.period ? '&period=' + encodeURIComponent(params.period) : '';
+                const url = '/api/leaderboard/search?q=' + encodeURIComponent(raw) + '&guild=' + params.guild + modeParam + periodParam;
                 try {
                     const resp = await fetch(url, { headers: { 'X-Requested-With': 'fetch' } });
                     const data = await resp.json();
