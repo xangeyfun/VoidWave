@@ -2167,6 +2167,22 @@ class MusicCog(commands.Cog):
         except discord.HTTPException:
             pass
 
+    async def _send_controller(self, interaction: discord.Interaction, player, embed, view):
+        """Send the controller, falling back to a still-existing channel if the
+        interaction's origin channel was deleted (Discord returns 10003)."""
+        try:
+            return await interaction.followup.send(embed=embed, view=view)
+        except discord.HTTPException:
+            pass
+        for channel in (interaction.channel, getattr(player, "channel", None)):
+            if channel is None or not hasattr(channel, "send"):
+                continue
+            try:
+                return await channel.send(embed=embed, view=view)
+            except discord.HTTPException:
+                continue
+        return None
+
     async def _send_player_message(self, interaction: discord.Interaction, track, player, requester=None):
         guild_id = interaction.guild_id
         async with self._controller_lock(guild_id):
@@ -2178,7 +2194,11 @@ class MusicCog(commands.Cog):
             view._update_button_states(player)
             self.player_views[guild_id] = view
             embed = now_playing_embed(track, player, requester or interaction.user)
-            msg = await interaction.followup.send(embed=embed, view=view)
+            msg = await self._send_controller(interaction, player, embed, view)
+            if msg is None:
+                self.player_views.pop(guild_id, None)
+                logger.warning("Could not post the music controller for guild %s: the channel is no longer available.", guild_id)
+                return
             view._message_id = msg.id
             self.player_messages[guild_id] = msg
             self._start_update_task(guild_id, msg)
