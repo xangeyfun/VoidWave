@@ -188,7 +188,7 @@ class GeneralCog(commands.Cog):
                 name="Commands",
                 value=(
                     "`/level [user] [hidden]` - Your (or a member's) server level\n"
-                    "`/leaderboard <sort> [global_lb] [combined]` - Server level leaderboard (toggle Separate/Combined with the buttons)\n"
+                    "`/leaderboard <sort> [period] [global_lb] [combined]` - Server level leaderboard (period: All Time/Daily/Weekly/Monthly; toggle Separate/Combined with the buttons)\n"
                     "`/profile [user]` - Detailed profile & stats"
                 ),
                 inline=False,
