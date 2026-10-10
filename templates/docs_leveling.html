@@ -123,7 +123,7 @@
             <code>/leaderboard</code>
             <span class="doc-tag">server only</span>
         </div>
-        <p class="doc-cmd-desc">Opens the interactive leaderboard for the server. Page through entries with the arrow buttons, jump to your own rank, and toggle between server, global, and combined views right from the embed. The same leaderboard is available on the website at <a href="/leaderboard">/leaderboard</a>.</p>
+        <p class="doc-cmd-desc">Opens the interactive leaderboard for the server. Page through entries with the arrow buttons, jump to your own rank, and toggle between server, global, combined, and time window views right from the embed. The same leaderboard is available on the website at <a href="/leaderboard">/leaderboard</a>.</p>
         <div class="doc-cmd-widgets">
             <div class="doc-widget">
                 <div class="doc-widget-label">Sort options</div>
@@ -159,6 +159,10 @@
                         <tr>
                             <td><code>sort</code></td>
                             <td>Which statistic to rank by, from the list above. Optional.</td>
+                        </tr>
+                        <tr>
+                            <td><code>period</code></td>
+                            <td>Time window to rank by: <code>All Time</code> (default), <code>Daily</code> (today), <code>Weekly</code> (last 7 days), or <code>Monthly</code> (last 30 days). Periods use UTC days and only count activity since VoidWave started tracking daily stats, so they begin empty. Not available for the voters list. Optional.</td>
                         </tr>
                         <tr>
                             <td><code>global_lb</code></td>
