@@ -232,6 +232,16 @@ def _level_from_xp(total_xp):
         return 0
     return int((-90 + math.isqrt(8100 + 40 * int(total_xp))) // 20)
 
+PERIOD_DAYS = {'daily': 1, 'weekly': 7, 'monthly': 30}
+PERIOD_SORT_COLUMNS = {'level': 'xp', 'total_xp': 'xp', 'total_messages': 'messages', 'vc_minutes': 'vc_minutes'}
+
+def _period_start_day(period):
+    """Earliest UTC day (inclusive) for a period label, or None for all time."""
+    days = PERIOD_DAYS.get(period)
+    if not days:
+        return None
+    return int(time.time() // 86400) - (days - 1)
+
 def _xp_for_level(level):
     return 10 * level * level + 90 * level
 
@@ -359,11 +369,71 @@ def get_user_stats(user_id: int, guild_id: int):
     finally:
         conn.close()
 
-def get_leaderboard(guild_id: int = 0, sort_by: str = 'level', direction: str = 'desc', page: int = 1, per_page: int = 25, combined: bool = False):
+def _period_leaderboard(guild_id, sort_by, direction, page, per_page, combined, start_day):
+    """One page of leaderboard rows summed from per-day buckets for a rolling period."""
+    dir_sql = 'DESC' if direction == 'desc' else 'ASC'
+    value_col = PERIOD_SORT_COLUMNS[sort_by]
+    offset = (page - 1) * per_page
+
+    if combined:
+        total_rows = cached_query(
+            f"lbp_total:combined:{start_day}",
+            "SELECT COUNT(DISTINCT user_id) FROM user_stats_daily WHERE day >= ?",
+            (start_day,)
+        )
+        total = total_rows[0][0] if total_rows else 0
+        entries = cached_query(
+            f"lbp:combined:{sort_by}:{dir_sql}:{page}:{per_page}:{start_day}",
+            f"SELECT d.user_id, u.guild_id, u.username, u.display_name, u.avatar_hash, "
+            f"SUM(d.xp) AS xp, SUM(d.messages) AS messages, SUM(d.vc_minutes) AS vc_minutes "
+            f"FROM user_stats_daily d "
+            f"JOIN (SELECT user_id, guild_id, username, display_name, avatar_hash, "
+            f"ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY last_message DESC, rowid DESC) AS rn "
+            f"FROM users) u ON u.user_id = d.user_id AND u.rn = 1 "
+            f"WHERE d.day >= ? GROUP BY d.user_id "
+            f"ORDER BY {value_col} {dir_sql}, xp DESC, d.user_id ASC LIMIT ? OFFSET ?",
+            (start_day, per_page, offset)
+        )
+    else:
+        where_sql = 'WHERE d.guild_id=? AND d.day>=?' if guild_id else 'WHERE d.day>=?'
+        params = (guild_id, start_day) if guild_id else (start_day,)
+        total_rows = cached_query(
+            f"lbp_total:{guild_id}:{start_day}",
+            f"SELECT COUNT(*) FROM (SELECT 1 FROM user_stats_daily d {where_sql} GROUP BY d.guild_id, d.user_id)",
+            params
+        )
+        total = total_rows[0][0] if total_rows else 0
+        entries = cached_query(
+            f"lbp:{guild_id}:{sort_by}:{dir_sql}:{page}:{per_page}:{start_day}",
+            f"SELECT d.user_id, d.guild_id, u.username, u.display_name, u.avatar_hash, "
+            f"SUM(d.xp) AS xp, SUM(d.messages) AS messages, SUM(d.vc_minutes) AS vc_minutes "
+            f"FROM user_stats_daily d "
+            f"JOIN users u ON u.guild_id = d.guild_id AND u.user_id = d.user_id "
+            f"{where_sql} GROUP BY d.guild_id, d.user_id "
+            f"ORDER BY {value_col} {dir_sql}, xp DESC, d.user_id ASC LIMIT ? OFFSET ?",
+            params + (per_page, offset)
+        )
+
+    rows = []
+    for entry in entries:
+        row = dict(entry)
+        row['level'] = _level_from_xp(row['xp'])
+        row['total_xp'] = row['xp']
+        row['total_messages'] = row['messages']
+        row['guild_id'] = 0 if combined else row['guild_id']
+        rows.append(row)
+    return rows, total
+
+
+def get_leaderboard(guild_id: int = 0, sort_by: str = 'level', direction: str = 'desc', page: int = 1, per_page: int = 25, combined: bool = False, period: str = 'all'):
     valid_sorts = {'level', 'total_xp', 'total_messages', 'vc_minutes'}
     if sort_by not in valid_sorts:
         sort_by = 'level'
-    
+
+    start_day = _period_start_day(period)
+    if start_day is not None:
+        return _period_leaderboard(guild_id, sort_by, direction, page, per_page, combined, start_day)
+
     dir_sql = 'DESC' if direction == 'desc' else 'ASC'
 
     if combined:
@@ -559,7 +629,7 @@ def stats(guild_id: int, user_id: int):
         avatar_url=avatar_url
     ), 200
 
-def _lb_find_rank(username_query, guild_id, sort_by, direction, combined=False):
+def _lb_find_rank(username_query, guild_id, sort_by, direction, combined=False, period='all'):
     valid_sorts = {'level', 'total_xp', 'total_messages', 'vc_minutes'}
     if sort_by not in valid_sorts:
         sort_by = 'level'
@@ -571,7 +641,48 @@ def _lb_find_rank(username_query, guild_id, sort_by, direction, combined=False):
     if not term:
         return []
 
-    if combined:
+    start_day = _period_start_day(period)
+
+    if start_day is not None:
+        value_col = PERIOD_SORT_COLUMNS[sort_by]
+        if combined:
+            base = f"""
+                SELECT user_id, guild_id, username, display_name, avatar_hash, rk FROM (
+                    SELECT r.user_id, r.guild_id, r.username, r.display_name, r.avatar_hash,
+                           ROW_NUMBER() OVER (ORDER BY a.value {dir_sql}, r.user_id ASC) AS rk
+                    FROM (
+                        SELECT user_id, guild_id, username, display_name, avatar_hash,
+                               ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY last_message DESC, rowid DESC) AS rn
+                        FROM users
+                    ) AS r
+                    JOIN (
+                        SELECT user_id, SUM({value_col}) AS value FROM user_stats_daily
+                        WHERE day >= ? GROUP BY user_id
+                    ) AS a ON a.user_id = r.user_id
+                    WHERE r.rn = 1
+                ) AS ranked
+            """
+            params = (start_day,)
+            key = f"lb_find:combined:{sort_by}:{direction}:{only_username}:{term}:{start_day}"
+        else:
+            where_sql = 'WHERE d.guild_id=? AND d.day>=?' if guild_id else 'WHERE d.day>=?'
+            params = (guild_id, start_day) if guild_id else (start_day,)
+            base = f"""
+            SELECT user_id, guild_id, username, display_name, avatar_hash, rk FROM (
+                SELECT user_id, guild_id, username, display_name, avatar_hash,
+                       ROW_NUMBER() OVER (ORDER BY {value_col} {dir_sql}, xp DESC, user_id ASC) AS rk
+                FROM (
+                    SELECT d.user_id AS user_id, d.guild_id AS guild_id, u.username AS username,
+                           u.display_name AS display_name, u.avatar_hash AS avatar_hash,
+                           SUM(d.xp) AS xp, SUM(d.messages) AS messages, SUM(d.vc_minutes) AS vc_minutes
+                    FROM user_stats_daily d
+                    JOIN users u ON u.guild_id = d.guild_id AND u.user_id = d.user_id
+                    {where_sql} GROUP BY d.guild_id, d.user_id
+                )
+            ) AS ranked
+            """
+            key = f"lb_find:{guild_id}:{sort_by}:{direction}:{only_username}:{term}:{start_day}"
+    elif combined:
         sort_column = 'total_xp' if sort_by == 'level' else sort_by
         base = f"""
             SELECT user_id, guild_id, username, display_name, avatar_hash, rk FROM (
@@ -644,6 +755,9 @@ def leaderboard():
     direction = request.args.get('dir', 'desc')
     page = request.args.get('page', 1, type=int)
     combined = request.args.get('mode') == 'combined'
+    period = (request.args.get('period') or 'all').lower()
+    if period not in PERIOD_DAYS:
+        period = 'all'
 
     find_query = (request.args.get('find') or '').strip()
     find_user_id = None
@@ -656,7 +770,7 @@ def leaderboard():
     find_idx = 0
 
     if find_query:
-        matches = _lb_find_rank(find_query, guild_id, sort_by, direction, combined)
+        matches = _lb_find_rank(find_query, guild_id, sort_by, direction, combined, period)
         if matches:
             find_matches = matches
             find_idx = request.args.get('fi', 0, type=int) % len(matches)
@@ -669,7 +783,7 @@ def leaderboard():
             find_rank = found['rank']
             page = max(1, (find_rank + 49) // 50)
     
-    entries, total = get_leaderboard(guild_id=guild_id, sort_by=sort_by, direction=direction, page=page, per_page=50, combined=combined)
+    entries, total = get_leaderboard(guild_id=guild_id, sort_by=sort_by, direction=direction, page=page, per_page=50, combined=combined, period=period)
     
     leaderboard_list = []
     for i, entry in enumerate(entries):
@@ -689,7 +803,23 @@ def leaderboard():
     
     total_pages = max(1, (total + 49) // 50)
 
-    if combined:
+    start_day = _period_start_day(period)
+    if start_day is not None:
+        if combined:
+            agg = cached_query(
+                f"lbp_agg:combined:{start_day}",
+                "SELECT COALESCE(SUM(xp),0), COALESCE(SUM(messages),0), COALESCE(SUM(vc_minutes),0) FROM user_stats_daily WHERE day >= ?",
+                (start_day,)
+            )
+        else:
+            where = "WHERE guild_id = ? AND day >= ?" if guild_id else "WHERE day >= ?"
+            params = (guild_id, start_day) if guild_id else (start_day,)
+            agg = cached_query(
+                f"lbp_agg:{guild_id}:{start_day}",
+                f"SELECT COALESCE(SUM(xp),0), COALESCE(SUM(messages),0), COALESCE(SUM(vc_minutes),0) FROM user_stats_daily {where}",
+                params
+            )
+    elif combined:
         agg = cached_query("lb_agg:combined", "SELECT COALESCE(SUM(total_xp),0), COALESCE(SUM(total_messages),0), COALESCE(SUM(vc_minutes),0) FROM users")
     else:
         where = "WHERE guild_id = ?" if guild_id else ""
@@ -713,6 +843,7 @@ def leaderboard():
         combined=combined,
         sort_by=sort_by,
         direction=direction,
+        period=period,
         page=page,
         total_pages=total_pages,
         agg_xp=f"{agg_xp:,}",
@@ -836,6 +967,10 @@ def api_leaderboard_search():
         return jsonify({'results': []})
 
     combined = request.args.get('mode') == 'combined'
+    period = (request.args.get('period') or 'all').lower()
+    if period not in PERIOD_DAYS:
+        period = 'all'
+    start_day = _period_start_day(period)
 
     like = f"%{term}%"
     if only_username:
@@ -850,7 +985,28 @@ def api_leaderboard_search():
             ELSE 2 END, rk"""
         search_params = [like, like, like, term, term]
 
-    if combined:
+    source_params = []
+    if start_day is not None and combined:
+        source_sql = ("SELECT r.user_id, r.guild_id, r.username, r.display_name, r.avatar_hash, a.value AS total_xp "
+                      "FROM (SELECT user_id, guild_id, username, display_name, avatar_hash, "
+                      "ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY last_message DESC, rowid DESC) AS rn "
+                      "FROM users) AS r "
+                      "JOIN (SELECT user_id, SUM(xp) AS value FROM user_stats_daily WHERE day >= ? GROUP BY user_id) AS a "
+                      "ON a.user_id = r.user_id WHERE r.rn = 1")
+        source_params = [start_day]
+        rank_order = "total_xp DESC"
+        cache_key = f"lb_search:combined:{only_username}:{term}:{limit}:{start_day}"
+    elif start_day is not None:
+        where = "WHERE d.guild_id=? AND d.day>=?" if guild_id else "WHERE d.day>=?"
+        source_params = [guild_id, start_day] if guild_id else [start_day]
+        source_sql = ("SELECT d.user_id, d.guild_id, u.username, u.display_name, u.avatar_hash, "
+                      "SUM(d.xp) AS total_xp "
+                      "FROM user_stats_daily d "
+                      "JOIN users u ON u.guild_id = d.guild_id AND u.user_id = d.user_id "
+                      f"{where} GROUP BY d.guild_id, d.user_id")
+        rank_order = "total_xp DESC"
+        cache_key = f"lb_search:{guild_id}:{only_username}:{term}:{limit}:{start_day}"
+    elif combined:
         source_sql = ("SELECT r.user_id, r.guild_id, r.username, r.display_name, r.avatar_hash, a.total_xp "
                       "FROM (SELECT user_id, guild_id, username, display_name, avatar_hash, "
                       "ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY last_message DESC, rowid DESC) AS rn "
@@ -863,7 +1019,7 @@ def api_leaderboard_search():
         if guild_id:
             source_sql = ("SELECT user_id, guild_id, username, display_name, avatar_hash, level, total_xp "
                           "FROM users WHERE guild_id=?")
-            search_params = [guild_id] + search_params
+            source_params = [guild_id]
         else:
             source_sql = "SELECT user_id, guild_id, username, display_name, avatar_hash, level, total_xp FROM users"
         rank_order = "level DESC"
@@ -879,7 +1035,7 @@ def api_leaderboard_search():
         ORDER BY {order_sql}
         LIMIT ?
     """
-    search_params = search_params + [limit]
+    search_params = source_params + search_params + [limit]
 
     rows = cached_query(
         cache_key,
@@ -918,10 +1074,13 @@ def api_leaderboard():
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 25, type=int)
     combined = request.args.get('mode') == 'combined'
+    period = (request.args.get('period') or 'all').lower()
+    if period not in PERIOD_DAYS:
+        period = 'all'
     
     per_page = max(1, min(per_page, 100))
     
-    entries, total = get_leaderboard(guild_id=guild_id, sort_by=sort_by, direction=direction, page=page, per_page=per_page, combined=combined)
+    entries, total = get_leaderboard(guild_id=guild_id, sort_by=sort_by, direction=direction, page=page, per_page=per_page, combined=combined, period=period)
     
     data = []
     for i, entry in enumerate(entries):
@@ -943,6 +1102,7 @@ def api_leaderboard():
         'total': total,
         'page': page,
         'per_page': per_page,
+        'period': period,
         'total_pages': max(1, (total + per_page - 1) // per_page)
     })
 
