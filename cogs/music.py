@@ -2278,6 +2278,7 @@ class MusicCog(commands.Cog):
             await self._repost_player_message(interaction, player)
             return
         self._reset_skip_votes(interaction.guild_id)
+        self._apply_autoplay_default(player, interaction.user.id)
         if not await self._begin_playback(interaction, player, track):
             return
         await self._send_player_message(interaction, track, player)
