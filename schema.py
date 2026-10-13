@@ -317,6 +317,25 @@ def create_schema(conn):
     conn.commit()
 
     cur.execute("""
+    CREATE TABLE IF NOT EXISTS user_stats_daily (
+        guild_id INTEGER NOT NULL,
+        user_id INTEGER NOT NULL,
+        day INTEGER NOT NULL,
+        xp INTEGER DEFAULT 0,
+        messages INTEGER DEFAULT 0,
+        vc_minutes INTEGER DEFAULT 0,
+        PRIMARY KEY (guild_id, user_id, day)
+    )
+    """)
+    conn.commit()
+
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_user_stats_daily_day ON user_stats_daily(day)")
+    conn.commit()
+
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_user_stats_daily_guild_day ON user_stats_daily(guild_id, day)")
+    conn.commit()
+
+    cur.execute("""
     CREATE TABLE IF NOT EXISTS user_blocks (
         user_id INTEGER,
         feature TEXT,

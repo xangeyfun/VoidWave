@@ -2,14 +2,14 @@
 
 {% block title %}Terms of Service{% endblock %}
 
-{% block meta_description %}VoidWave terms of service. Usage rules, fair use policy, and liability terms.{% endblock %}
+{% block meta_description %}VoidWave terms of service. Usage rules, feature terms, fair use policy, and liability terms.{% endblock %}
 
 {% block og_tags %}
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="VoidWave">
 <meta property="og:url" content="https://voidwave.xangey.dev/terms">
-<meta property="og:title" content="VoidWave - Terms of Service">
-<meta property="og:description" content="Usage rules, fair use policy, and liability terms.">
+<meta property="og:title" content="VoidWave: Terms of Service">
+<meta property="og:description" content="Usage rules, feature terms, fair use policy, and liability terms.">
 <meta property="og:image" content="https://voidwave.xangey.dev/static/images/og.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
@@ -19,60 +19,128 @@
 <section class="legal-page">
     <h1>Terms of Service</h1>
 
-    <p>Last updated: September 2026</p>
+    <p>Last updated: October 2026</p>
+
+    <p>These Terms of Service ("Terms") govern your use of VoidWave, a Discord bot and web dashboard ("the Service", "we", "us"). By inviting, interacting with, or using VoidWave in any way, you agree to these Terms. If you do not agree, do not use the Service.</p>
+
+    <h2>The Service and Discord</h2>
+    <p>VoidWave is an independent, third-party application. It is not affiliated with, endorsed by, or sponsored by Discord Inc. Your use of Discord itself is governed by the <a href="https://discord.com/terms" target="_blank" rel="noopener">Discord Terms of Service</a>, the Discord Community Guidelines, and any other rules Discord sets. These Terms apply in addition to those and are not meant to conflict with Discord's Developer Terms or policies. If there is a conflict, Discord's terms govern your use of the Discord platform, and applicable law governs your relationship with us.</p>
+
+    <h2>Eligibility</h2>
+    <p>You must comply with the <a href="https://discord.com/terms" target="_blank" rel="noopener">Discord Terms of Service</a> and be old enough to use Discord in your country (at least 13, or older where local law requires). If you are below the age required to consent to data processing in your jurisdiction, do not use the Service.</p>
 
     <h2>Use at Your Own Risk</h2>
-    <p>VoidWave is provided as-is. We don't make any guarantees about:</p>
+    <p>VoidWave is provided as is and as available. To the extent permitted by applicable law, we do not guarantee:</p>
     <ul>
-        <li>Uptime or availability</li>
-        <li>Data preservation or recovery</li>
-        <li>Feature completeness or accuracy</li>
+        <li>That the Service will be available, uninterrupted, or free of bugs</li>
+        <li>That data stored through the Service will be preserved or recoverable</li>
+        <li>That any feature will be complete, accurate, or error-free</li>
     </ul>
-    <p>We do not guarantee the preservation or recovery of any data stored through VoidWave.</p>
-
-    <h2>Question of the Day</h2>
-    <p>VoidWave can post a daily question to a channel you pick. By using this feature:</p>
-    <ul>
-        <li>Questions come from a static list, we don't post user-made content</li>
-        <li>Server admins are responsible for keeping discussion threads in check</li>
-        <li>We aren't responsible for what users say in QOTD threads</li>
-        <li>Admins can turn it on or off anytime with /config qotd</li>
-    </ul>
-
-    <h2>LLM Chat Feature</h2>
-    <p>VoidWave includes an AI chat feature powered by a self hosted language model. By using this feature:</p>
-    <ul>
-        <li>You acknowledge the AI may produce inaccurate, inappropriate, or unexpected responses</li>
-        <li>We do not guarantee the accuracy, safety, or appropriateness of generated content</li>
-        <li>You are responsible for your interactions with the LLM feature</li>
-        <li>Prompts and responses are logged to stdout only when the bot runs in debug mode, and are not stored persistently (see our <a href="/privacy">Privacy Policy</a>)</li>
-    </ul>
+    <p>Please do not rely on the Service as your only copy of anything important. Nothing in these Terms is intended to exclude or limit any responsibility that cannot be excluded or limited under applicable law.</p>
 
     <h2>No Uptime Guarantees</h2>
-    <p>This is a personal project. The bot may be down, have bugs, or experience issues. We're not a paid service.</p>
+    <p>This is a personal project, not a paid or commercial service. The bot may be offline, have bugs, or change without notice. We may add, alter, or remove features at any time, and we may reset data if needed to keep the Service running.</p>
 
     <h2>Fair Usage</h2>
-    <p>We expect users to use the bot reasonably. If you:</p>
+    <p>We expect users to use the bot reasonably. You agree not to:</p>
     <ul>
-        <li>Spam commands excessively</li>
-        <li>Try to exploit bugs or vulnerabilities</li>
-        <li>Use the bot for anything illegal</li>
-        <li>Attempt to manipulate or jailbreak the LLM</li>
+        <li>Spam or excessively hammer commands, or abuse cooldowns</li>
+        <li>Exploit bugs, vulnerabilities, or unintended behavior</li>
+        <li>Attempt to bypass blocks, restrictions, or rate limits</li>
+        <li>Use the bot for anything illegal or harmful</li>
+        <li>Attempt to manipulate, jailbreak, or extract the underlying prompts of the AI features</li>
+        <li>Use the bot to harass, defame, or target other people</li>
+        <li>Attempt to disrupt, overload, or reverse-engineer the Service or its infrastructure</li>
     </ul>
-    <p>We reserve the right to restrict or ban your access.</p>
+    <p>We reserve the right to restrict, block, or ban access for an individual user or for an entire server, at any time, if we reasonably believe these Terms are being broken or the Service needs protecting.</p>
 
-    <h2>Abuse & Restrictions</h2>
-    <p>Server admins can:</p>
+    <h2>Your Content &amp; Conduct</h2>
+    <p>You are responsible for everything you submit through the Service, including commands, command arguments, feedback, images, questions, playlist names, and any content you cause the bot to post. You must have the right to submit that content. Do not submit content that is illegal, infringing, hateful, sexually explicit, or that violates Discord's rules.</p>
+
+    <h2>Feature-Specific Terms</h2>
+
+    <h3>Leveling &amp; Leaderboards</h3>
+    <p>VoidWave tracks message and voice activity to award XP, levels, and optional roles. XP is awarded at our discretion, is not a currency, and carries no monetary value. We may adjust, decay, or reset XP and leaderboards to keep the system fair or to fix bugs. The public dashboard shows leaderboards and per-user stats.</p>
+
+    <h3>AI Chat</h3>
+    <p>VoidWave includes an AI chat feature powered by a self-hosted language model. By using it:</p>
+    <ul>
+        <li>You acknowledge the AI may produce inaccurate, inappropriate, biased, or unexpected responses</li>
+        <li>We do not guarantee the accuracy, safety, or appropriateness of generated content</li>
+        <li>You are responsible for your interactions with the AI and for how you use its output</li>
+        <li>Do not use the AI for legal, medical, financial, or safety-critical advice</li>
+        <li>Prompts and responses are processed locally and are only written to logs when debug mode is enabled (see our <a href="/privacy">Privacy Policy</a>)</li>
+    </ul>
+
+    <h3>Kirkify (Image Swapping)</h3>
+    <p>The <code>/kirkify</code> command applies a face-swap to an image you upload, processed locally on the operator's machine. By using it you confirm that:</p>
+    <ul>
+        <li>You own the image or have the permission of everyone identifiable in it</li>
+        <li>You will not use it to impersonate, deceive, defame, or harass anyone, or to create non-consensual or illegal imagery</li>
+        <li>You understand the output may be inaccurate, of low quality, or unusable</li>
+    </ul>
+    <p>We may refuse or remove any use of this feature at our discretion and may report illegal content.</p>
+
+    <h3>Music</h3>
+    <p>The music feature streams audio into voice channels you join, resolved through a self-hosted Lavalink node that contacts external sources (such as YouTube, Spotify, and SoundCloud). You are responsible for complying with the terms of those services and with copyright law. Do not use the feature to distribute or reproduce content you have no right to. The operator may limit or disable music at any time.</p>
+
+    <h3>Question of the Day</h3>
+    <p>VoidWave can post a daily question to a channel you pick. Questions come from a static list; we don't post user-made content. By enabling or using it:</p>
+    <ul>
+        <li>Server admins are responsible for keeping discussion threads in check and moderating them</li>
+        <li>We are not responsible for what users say in QOTD threads</li>
+        <li>Admins can turn it on, off, and reschedule it with <code>/config qotd</code></li>
+    </ul>
+
+    <h3>Games &amp; Fun</h3>
+    <p>The bot offers games and utility commands (trivia, board games, 8ball, calculators, quotes, facts, and animal pictures). Results are for entertainment only. Some commands fetch content from third-party APIs; we do not control and are not responsible for that external content.</p>
+
+    <h3>Reminders</h3>
+    <p>Reminders are delivered by the bot as direct messages or in a channel, subject to Discord's delivery and your privacy settings. Reminders are not guaranteed to fire exactly on time and may be lost if the Service is offline. Do not use reminders for anything time-critical or safety-critical.</p>
+
+    <h3>Giveaways</h3>
+    <p>Server admins and hosts are solely responsible for their giveaways, including prize delivery and eligibility. VoidWave only selects winners at random among eligible entries and does not guarantee, sponsor, or fulfill any prize. You must be permitted to participate under the rules of the server hosting the giveaway.</p>
+
+    <h3>Moderation</h3>
+    <p>Moderation commands let server staff kick, ban, time out, or otherwise act on members. These actions are taken by server staff, not by VoidWave. We are not responsible for any moderation decision made using the bot. Use moderation commands only if you are authorized to do so in that server.</p>
+
+    <h3>Feedback &amp; Ratings</h3>
+    <p>If you send feedback or a rating, it is forwarded to the operator and may be stored. Do not include sensitive personal information. Responding is optional, and you can ask us to delete your feedback (see the <a href="/privacy">Privacy Policy</a>).</p>
+
+    <h2>Third-Party Services</h2>
+    <p>The Service relies on third-party services, including Discord, a Cloudflare edge network for the website, a Lavalink music node and its audio sources (such as YouTube, Spotify, and SoundCloud), lyric, trivia, quote, fact, and image APIs, and bot-list sites (Top.gg and Discord Bot List) for voting. Your use of those services is governed by their own terms and privacy policies. We are not responsible for third-party content, availability, or practices.</p>
+
+    <h2>Abuse &amp; Restrictions</h2>
+    <p>To protect the Service, we may apply temporary or permanent blocks to individual users or features (for example, AI, feedback, leveling, music, or all commands), and we may restrict an entire server. Server admins can also:</p>
     <ul>
         <li>Kick or ban the bot from their server</li>
-        <li>Configure level roles, QOTD channel, and other settings via /config</li>
-        <li>Request user data removal</li>
+        <li>Configure level roles, the QOTD channel, and other settings via <code>/config</code></li>
+        <li>Request that server or user data be removed</li>
     </ul>
 
-    <h2>Changes to Terms</h2>
-    <p>We may update these terms anytime. Continued use means you accept the current terms.</p>
+    <h2>Server Admins &amp; Data</h2>
+    <p>By adding VoidWave to a server, you confirm you are authorized to do so and that you consent to the bot storing server settings and member activity data for that server as described in the <a href="/privacy">Privacy Policy</a>. If you remove the bot, you may request deletion of the server's data, and we will handle the request as described in the Privacy Policy.</p>
+
+    <h2>Website &amp; Dashboard</h2>
+    <p>The public website and admin dashboard are part of the Service. The dashboard shows aggregate statistics and user leaderboards/stats. Administrative access is restricted and protected by authentication and rate limiting. Do not attempt to access the admin panel or APIs without authorization, scrape the site aggressively, or disrupt the website.</p>
+
+    <h2>Intellectual Property</h2>
+    <p>VoidWave's name, branding, and original code and content are owned by the operator. These Terms do not grant you any ownership of the Service. You retain ownership of the content you submit, but you grant us a limited license to process and store it as needed to operate the features you use.</p>
+
+    <h2>Disclaimer of Warranties</h2>
+    <p>The Service is provided as is and as available, without warranties of any kind, whether express or implied, to the maximum extent permitted by applicable law. This includes, to that extent, any implied warranties of merchantability, fitness for a particular purpose, and non-infringement. You use the Service at your own risk. Some jurisdictions do not allow the exclusion of certain warranties, so parts of the above may not apply to you, and nothing here limits your statutory rights.</p>
+
+    <h2>Limitation of Liability</h2>
+    <p>To the maximum extent permitted by applicable law, the operator is not liable for any indirect, incidental, special, consequential, or punitive damages, or for any loss of data, XP, progress, prizes, or profits, arising from or related to your use of the Service. Nothing in these Terms excludes or limits any liability that cannot be excluded or limited under applicable law, including (where applicable) liability for death or personal injury caused by negligence, or for fraud.</p>
+
+    <h2>Changes to These Terms</h2>
+    <p>We may update these Terms from time to time. When we do, we will update the "Last updated" date at the top of this page. For material changes, we will make reasonable efforts to notify users, for example by posting a notice on the website or in the support server. The revised Terms take effect when they are posted (or on any later date we state). Your continued use of the Service after that means you accept the revised Terms, so if you do not agree, stop using the Service.</p>
+
+    <h2>Termination</h2>
+    <p>You may stop using the Service at any time by removing the bot from your server, asking the operator to remove your data, or simply ceasing to interact with it. We may suspend or terminate access for an individual user (for example, blocking a feature or all commands) or for an entire server, at any time, if we reasonably believe it is necessary to protect the Service or other users, or to enforce these Terms.</p>
+    <p>If we permanently discontinue the Service, we will make reasonable efforts to announce it in advance (for example, on the website or in the support server) and we may delete stored data as part of shutting down. Sections that by their nature should survive termination (such as disclaimers and limitation of liability) will continue to apply.</p>
 
     <h2>Contact</h2>
-    <p>Questions? DM VoidWave directly, join our <a href="https://discord.gg/tyQksBReAS" target="_blank">support server</a>, or DM <a href="https://xangey.dev">xangey</a>.</p>
+    <p>Questions? DM VoidWave directly (the bot relays DMs to the operator), join our <a href="https://discord.gg/tyQksBReAS" target="_blank" rel="noopener">support server</a>, or DM <a href="https://xangey.dev">xangey</a>.</p>
 </section>
 {% endblock %}

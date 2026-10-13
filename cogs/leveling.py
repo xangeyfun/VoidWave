@@ -14,11 +14,14 @@ from utils import (
     VC_COOLDOWN,
     XP_COOLDOWN,
     build_level_up_embed,
+    bump_daily_stats,
     format_minutes,
     get_db,
     last_vc,
     last_xp,
     log_admin_event,
+    period_start_day,
+    prune_daily_stats,
     resolve_hidden,
 )
 
@@ -41,6 +44,15 @@ COMBINED_SORT_COLUMNS = {
     "Total Voice": "vc_minutes",
 }
 
+PERIODS = ["All Time", "Daily", "Weekly", "Monthly"]
+
+PERIOD_SORT_COLUMNS = {
+    "Level": "xp",
+    "Total XP": "xp",
+    "Total Messages": "messages",
+    "Total Voice": "vc_minutes",
+}
+
 
 def _level_from_xp(total_xp):
     if total_xp <= 0:
@@ -49,12 +61,116 @@ def _level_from_xp(total_xp):
 
 
 
-def _fetch_leaderboard(guild_id, sort, global_lb, page, per_page=PER_PAGE, combined=False):
+def _fetch_period_leaderboard(cur, guild_id, sort, global_lb, combined, start_day, page, per_page):
+    """Fetch one page of leaderboard rows from per-day buckets for a rolling period."""
+    column = PERIOD_SORT_COLUMNS[sort]
+    offset = (page - 1) * per_page
+    guild_scope = bool(guild_id) and not global_lb and not combined
+
+    if combined:
+        total = cur.execute(
+            "SELECT COUNT(DISTINCT user_id) FROM user_stats_daily WHERE day >= ?",
+            (start_day,)
+        ).fetchone()[0]
+        rows = cur.execute(
+            f"SELECT d.user_id, u.username, u.display_name, SUM(d.{column}) AS value, "
+            f"SUM(d.xp) AS total_xp FROM user_stats_daily d "
+            f"JOIN (SELECT user_id, username, display_name, "
+            f"ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY last_message DESC, rowid DESC) AS rn "
+            f"FROM users) u ON u.user_id = d.user_id AND u.rn = 1 "
+            f"WHERE d.day >= ? GROUP BY d.user_id "
+            f"ORDER BY value DESC, total_xp DESC, d.user_id ASC LIMIT ? OFFSET ?",
+            (start_day, per_page, offset)
+        ).fetchall()
+        return rows, total
+
+    if guild_scope:
+        total = cur.execute(
+            "SELECT COUNT(DISTINCT user_id) FROM user_stats_daily WHERE guild_id = ? AND day >= ?",
+            (guild_id, start_day)
+        ).fetchone()[0]
+        rows = cur.execute(
+            f"SELECT d.user_id, u.username, SUM(d.{column}) AS value "
+            f"FROM user_stats_daily d "
+            f"JOIN users u ON u.guild_id = d.guild_id AND u.user_id = d.user_id "
+            f"WHERE d.guild_id = ? AND d.day >= ? GROUP BY d.user_id "
+            f"ORDER BY value DESC, SUM(d.xp) DESC, d.user_id ASC LIMIT ? OFFSET ?",
+            (guild_id, start_day, per_page, offset)
+        ).fetchall()
+        return rows, total
+
+    total = cur.execute(
+        "SELECT COUNT(*) FROM (SELECT 1 FROM user_stats_daily WHERE day >= ? GROUP BY guild_id, user_id)",
+        (start_day,)
+    ).fetchone()[0]
+    rows = cur.execute(
+        f"SELECT d.guild_id, d.user_id, u.username, SUM(d.{column}) AS value "
+        f"FROM user_stats_daily d "
+        f"JOIN users u ON u.guild_id = d.guild_id AND u.user_id = d.user_id "
+        f"WHERE d.day >= ? GROUP BY d.guild_id, d.user_id "
+        f"ORDER BY value DESC, SUM(d.xp) DESC, d.user_id ASC LIMIT ? OFFSET ?",
+        (start_day, per_page, offset)
+    ).fetchall()
+    return rows, total
+
+
+def _fetch_period_rank(cur, guild_id, user_id, sort, global_lb, combined, start_day):
+    """Return (rank, total) from per-day buckets matching the period list position."""
+    column = PERIOD_SORT_COLUMNS[sort]
+    guild_scope = bool(guild_id) and not global_lb and not combined
+
+    if combined:
+        row = cur.execute(
+            f"SELECT MIN(rk) AS rk FROM ("
+            f"SELECT user_id, ROW_NUMBER() OVER (ORDER BY v DESC, tx DESC, user_id ASC) AS rk "
+            f"FROM (SELECT user_id, SUM({column}) AS v, SUM(xp) AS tx FROM user_stats_daily "
+            f"WHERE day >= ? GROUP BY user_id)) WHERE user_id=?",
+            (start_day, user_id)
+        ).fetchone()
+        total = cur.execute(
+            "SELECT COUNT(DISTINCT user_id) FROM user_stats_daily WHERE day >= ?",
+            (start_day,)
+        ).fetchone()[0]
+    elif guild_scope:
+        row = cur.execute(
+            f"SELECT MIN(rk) AS rk FROM ("
+            f"SELECT user_id, ROW_NUMBER() OVER (ORDER BY v DESC, tx DESC, user_id ASC) AS rk "
+            f"FROM (SELECT user_id, SUM({column}) AS v, SUM(xp) AS tx FROM user_stats_daily "
+            f"WHERE guild_id=? AND day >= ? GROUP BY user_id)) WHERE user_id=?",
+            (guild_id, start_day, user_id)
+        ).fetchone()
+        total = cur.execute(
+            "SELECT COUNT(DISTINCT user_id) FROM user_stats_daily WHERE guild_id=? AND day >= ?",
+            (guild_id, start_day)
+        ).fetchone()[0]
+    else:
+        row = cur.execute(
+            f"SELECT MIN(rk) AS rk FROM ("
+            f"SELECT guild_id, user_id, ROW_NUMBER() OVER (ORDER BY v DESC, tx DESC, user_id ASC) AS rk "
+            f"FROM (SELECT guild_id, user_id, SUM({column}) AS v, SUM(xp) AS tx FROM user_stats_daily "
+            f"WHERE day >= ? GROUP BY guild_id, user_id)) WHERE user_id=?",
+            (start_day, user_id)
+        ).fetchone()
+        total = cur.execute(
+            "SELECT COUNT(*) FROM (SELECT 1 FROM user_stats_daily WHERE day >= ? GROUP BY guild_id, user_id)",
+            (start_day,)
+        ).fetchone()[0]
+
+    if not row or row["rk"] is None:
+        return None, None
+    return row["rk"], total
+
+
+def _fetch_leaderboard(guild_id, sort, global_lb, page, per_page=PER_PAGE, combined=False, period="All Time"):
     """Fetch one page of leaderboard rows. Runs inside a thread."""
     conn = get_db()
     try:
         cur = conn.cursor()
         guild_scope = bool(guild_id) and not global_lb and not combined
+
+        start_day = period_start_day(period)
+        if start_day is not None and sort != "Voters":
+            return _fetch_period_leaderboard(cur, guild_id, sort, global_lb, combined, start_day, page, per_page)
 
         if combined and sort != "Voters":
             column = COMBINED_SORT_COLUMNS[sort]
@@ -115,13 +231,17 @@ def _fetch_leaderboard(guild_id, sort, global_lb, page, per_page=PER_PAGE, combi
         conn.close()
 
 
-def _fetch_rank(guild_id, user_id, sort, global_lb, combined=False):
+def _fetch_rank(guild_id, user_id, sort, global_lb, combined=False, period="All Time"):
     """Return (rank, total_users) matching the exact leaderboard list position."""
     if sort == "Voters":
         return None, None
     conn = get_db()
     try:
         cur = conn.cursor()
+        start_day = period_start_day(period)
+        if start_day is not None:
+            return _fetch_period_rank(cur, guild_id, user_id, sort, global_lb, combined, start_day)
+
         column = COMBINED_SORT_COLUMNS[sort] if combined else SORT_COLUMNS[sort]
         guild_scope = bool(guild_id) and not global_lb and not combined
 
@@ -152,12 +272,13 @@ def _fetch_rank(guild_id, user_id, sort, global_lb, combined=False):
         conn.close()
 
 
-def _build_leaderboard_embed(bot, guild, sort, global_lb, rows, page, total_pages, highlight_user_id=None, rank_info=None, combined=False):
+def _build_leaderboard_embed(bot, guild, sort, global_lb, rows, page, total_pages, highlight_user_id=None, rank_info=None, combined=False, period="All Time"):
     guild_scope = bool(guild) and not global_lb and not combined
     mode = "Combined" if combined else ("Server" if guild_scope else "Global")
+    period_label = "" if period == "All Time" else f"{period} "
 
     embed = discord.Embed(
-        title=f"🏆 {mode} {sort} Leaderboard",
+        title=f"🏆 {mode} {period_label}{sort} Leaderboard",
         color=discord.Color(0x7128fc),
         timestamp=discord.utils.utcnow()
     )
@@ -189,7 +310,7 @@ def _build_leaderboard_embed(bot, guild, sort, global_lb, rows, page, total_page
         marker = "➤ " if highlight_user_id and user_id == highlight_user_id else ""
         if sort == "Voters":
             lines.append(f"{marker}{rank} **{name}** | <t:{int(value)}:R>")
-        elif combined and sort == "Level":
+        elif sort == "Level" and (combined or period != "All Time"):
             lines.append(f"{marker}{rank} **{name}** | Level `{_level_from_xp(value)}`")
         else:
             label = format_minutes(value) if sort == "Total Voice" else f"{value:,}"
@@ -205,6 +326,8 @@ def _build_leaderboard_embed(bot, guild, sort, global_lb, rows, page, total_page
             link = f"https://voidwave.xangey.dev/leaderboard?guild={guild.id}"
         else:
             link = "https://voidwave.xangey.dev/leaderboard"
+        if period != "All Time":
+            link += ("&" if "?" in link else "?") + f"period={period.lower()}"
         chunks.append(f"**View online:** [Leaderboard]({link})")
         embed.description = "\n\n".join(chunks)
     else:
@@ -218,8 +341,9 @@ def _build_leaderboard_embed(bot, guild, sort, global_lb, rows, page, total_page
         embed.set_thumbnail(url=guild.icon.url)
 
     footer_scope = "Combined" if combined else (guild.name if guild and guild_scope else "Global")
+    period_footer = "" if period == "All Time" else f"{period} • "
     embed.set_footer(
-        text=f"{footer_scope} Leaderboard • Page {page}/{total_pages} • Vote for 2x XP! /vote",
+        text=f"{footer_scope} Leaderboard • {period_footer}Page {page}/{total_pages} • Vote for 2x XP! /vote",
         icon_url=guild.icon.url if guild and guild_scope and guild.icon else None
     )
 
@@ -227,13 +351,14 @@ def _build_leaderboard_embed(bot, guild, sort, global_lb, rows, page, total_page
 
 
 class LeaderboardView(discord.ui.View):
-    def __init__(self, bot, guild, sort, global_lb, page, total_pages, rank_info, invoker_id, combined=False):
+    def __init__(self, bot, guild, sort, global_lb, page, total_pages, rank_info, invoker_id, combined=False, period="All Time"):
         super().__init__(timeout=180)
         self.bot = bot
         self.guild = guild
         self.sort = sort
         self.global_lb = global_lb
         self.combined = combined
+        self.period = period
         self.page = page
         self.total_pages = total_pages
         self.rank_info = rank_info
@@ -248,6 +373,8 @@ class LeaderboardView(discord.ui.View):
         self.scope_toggle.disabled = self.combined or self.guild is None
         self.view_toggle.label = "👥 Separate" if self.combined else "🧮 Combine"
         self.view_toggle.disabled = self.sort == "Voters" or self.guild is None
+        self.period_toggle.label = f"🗓 {self.period}"
+        self.period_toggle.disabled = self.sort == "Voters"
 
     def _refresh_page_counter(self):
         self.page_counter.label = f"Page {self.page} / {self.total_pages}"
@@ -270,14 +397,14 @@ class LeaderboardView(discord.ui.View):
             self.page = 1
         guild_id = self.guild.id if self.guild else 0
         rows, total = await asyncio.to_thread(
-            _fetch_leaderboard, guild_id, self.sort, self.global_lb, self.page, PER_PAGE, self.combined
+            _fetch_leaderboard, guild_id, self.sort, self.global_lb, self.page, PER_PAGE, self.combined, self.period
         )
         self.total_pages = max(1, (total + PER_PAGE - 1) // PER_PAGE)
         self.page = max(1, min(self.page, self.total_pages))
         rank_info = None
         if self.sort != "Voters":
             rank, total_users = await asyncio.to_thread(
-                _fetch_rank, guild_id, self.invoker_id, self.sort, self.global_lb, self.combined
+                _fetch_rank, guild_id, self.invoker_id, self.sort, self.global_lb, self.combined, self.period
             )
             if rank:
                 rank_info = {"rank": rank, "total": total_users}
@@ -286,7 +413,7 @@ class LeaderboardView(discord.ui.View):
             self.bot, self.guild, self.sort, self.global_lb,
             rows, self.page, self.total_pages,
             highlight_user_id=self.invoker_id if self.highlight else None, rank_info=rank_info,
-            combined=self.combined,
+            combined=self.combined, period=self.period,
         )
         self._refresh_mode_buttons()
         self._refresh_page_counter()
@@ -311,6 +438,12 @@ class LeaderboardView(discord.ui.View):
         self.combined = not self.combined
         if self.combined:
             self.global_lb = True
+        await self._reload(interaction, reset_page=True)
+
+    @discord.ui.button(label="🗓 All Time", style=discord.ButtonStyle.secondary, row=1)
+    async def period_toggle(self, interaction: discord.Interaction, button: discord.ui.Button):
+        idx = PERIODS.index(self.period)
+        self.period = PERIODS[(idx + 1) % len(PERIODS)]
         await self._reload(interaction, reset_page=True)
 
     @discord.ui.button(label="⏮", style=discord.ButtonStyle.secondary)
@@ -339,12 +472,14 @@ class LeaderboardView(discord.ui.View):
             await interaction.response.send_message("My Rank is not available for the voters list.", ephemeral=True)
             return
         rank, total = await asyncio.to_thread(
-            _fetch_rank, self.guild.id if self.guild else 0, self.invoker_id, self.sort, self.global_lb, self.combined
+            _fetch_rank, self.guild.id if self.guild else 0, self.invoker_id, self.sort, self.global_lb, self.combined, self.period
         )
         if not rank:
-            await interaction.response.send_message(
-                "Your data file was not found! Try sending a message to create one.", ephemeral=True
-            )
+            if self.period != "All Time":
+                msg = f"You have no activity in this {self.period.lower()} window yet."
+            else:
+                msg = "Your data file was not found! Try sending a message to create one."
+            await interaction.response.send_message(msg, ephemeral=True)
             return
         self.rank_info = {"rank": rank, "total": total}
         self.page = min((rank - 1) // PER_PAGE + 1, self.total_pages)
@@ -360,6 +495,7 @@ class LeaderboardView(discord.ui.View):
         self.my_rank.disabled = True
         self.scope_toggle.disabled = True
         self.view_toggle.disabled = True
+        self.period_toggle.disabled = True
         if self.message:
             try:
                 await self.message.edit(view=self)
@@ -409,6 +545,7 @@ def _process_vc_ticks(records):
                     "UPDATE users SET vc_minutes = vc_minutes + 1, display_name=?, username=?, avatar_hash=? WHERE guild_id=? AND user_id=?",
                     (display_name, username, avatar_key, guild_id, member_id)
                 )
+                bump_daily_stats(cur, guild_id, member_id, now, vc_minutes=1)
                 continue
 
             xp = random.randint(1, 8)
@@ -432,6 +569,8 @@ def _process_vc_ticks(records):
                     display_name = ?
                 WHERE guild_id=? AND user_id=?
             """, (1, xp, xp, avatar_key, username, display_name, guild_id, member_id))
+
+            bump_daily_stats(cur, guild_id, member_id, now, vc_minutes=1, xp=xp)
 
             user = cur.execute("SELECT * FROM users WHERE guild_id=? AND user_id=?", (guild_id, member_id)).fetchone()
             progress = user["progress"]
@@ -491,6 +630,7 @@ def _process_vc_ticks(records):
 class LevelingCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        self._last_stats_prune = 0.0
 
     @discord.app_commands.allowed_installs(guilds=True, users=False)
     @discord.app_commands.allowed_contexts(guilds=True, dms=False, private_channels=False)
@@ -609,7 +749,7 @@ class LevelingCog(commands.Cog):
     @discord.app_commands.allowed_installs(guilds=True, users=False)
     @discord.app_commands.allowed_contexts(guilds=True, dms=False, private_channels=False)
     @discord.app_commands.command(name="leaderboard", description="Check the server level leaderboard")
-    @app_commands.describe(hidden="Hide the command from others", sort='What to sort by', global_lb='Show global leaderboard', combined='Combine stats for users across servers into one row')
+    @app_commands.describe(hidden="Hide the command from others", sort='What to sort by', period='Time window to rank by', global_lb='Show global leaderboard', combined='Combine stats for users across servers into one row')
     @app_commands.choices(
         sort=[
             app_commands.Choice(name="Level", value="Level"),
@@ -617,9 +757,15 @@ class LevelingCog(commands.Cog):
             app_commands.Choice(name="Total Messages", value="Total Messages"),
             app_commands.Choice(name="Total Voice", value="Total Voice"),
             app_commands.Choice(name="Voters", value="Voters")
+        ],
+        period=[
+            app_commands.Choice(name="All Time", value="All Time"),
+            app_commands.Choice(name="Daily", value="Daily"),
+            app_commands.Choice(name="Weekly", value="Weekly"),
+            app_commands.Choice(name="Monthly", value="Monthly")
         ]
     )
-    async def leaderboard(self, interaction: discord.Interaction, sort: str = "Level", global_lb: bool = False, combined: bool = False, hidden: bool | None = None):
+    async def leaderboard(self, interaction: discord.Interaction, sort: str = "Level", period: str = "All Time", global_lb: bool = False, combined: bool = False, hidden: bool | None = None):
         hidden = await resolve_hidden(interaction.user.id, hidden)
         await interaction.response.defer(ephemeral=hidden)
         if not interaction.guild:
@@ -631,13 +777,14 @@ class LevelingCog(commands.Cog):
 
         if sort == "Voters":
             combined = False
+            period = "All Time"
 
         guild = interaction.guild
         try:
-            rows, total = await asyncio.to_thread(_fetch_leaderboard, guild.id, sort, global_lb, 1, PER_PAGE, combined)
+            rows, total = await asyncio.to_thread(_fetch_leaderboard, guild.id, sort, global_lb, 1, PER_PAGE, combined, period)
             rank_info = None
             if sort != "Voters":
-                rank, total_users = await asyncio.to_thread(_fetch_rank, guild.id, interaction.user.id, sort, global_lb, combined)
+                rank, total_users = await asyncio.to_thread(_fetch_rank, guild.id, interaction.user.id, sort, global_lb, combined, period)
                 if rank:
                     rank_info = {"rank": rank, "total": total_users}
         except Exception as e:
@@ -649,10 +796,10 @@ class LevelingCog(commands.Cog):
 
         embed = _build_leaderboard_embed(
             self.bot, guild, sort, global_lb, rows, 1, total_pages,
-            highlight_user_id=None, rank_info=rank_info, combined=combined
+            highlight_user_id=None, rank_info=rank_info, combined=combined, period=period
         )
 
-        view = LeaderboardView(self.bot, guild, sort, global_lb, 1, total_pages, rank_info, interaction.user.id, combined=combined)
+        view = LeaderboardView(self.bot, guild, sort, global_lb, 1, total_pages, rank_info, interaction.user.id, combined=combined, period=period)
         view._refresh_page_counter()
         message = await interaction.followup.send(
             embed=embed,
@@ -752,6 +899,10 @@ class LevelingCog(commands.Cog):
             del last_vc[k]
         for k in [k for k in last_xp if now - last_xp[k] > XP_COOLDOWN]:
             del last_xp[k]
+
+        if now - self._last_stats_prune > 3600:
+            self._last_stats_prune = now
+            await asyncio.to_thread(prune_daily_stats)
 
         try:
             conn = get_db()

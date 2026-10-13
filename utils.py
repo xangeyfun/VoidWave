@@ -483,6 +483,47 @@ def extract_options(options):
     return out
 
 
+SECONDS_PER_DAY = 86400
+
+
+def period_start_day(period):
+    """Return the earliest UTC day (inclusive) for a period label, or None for all time."""
+    windows = {"Daily": 1, "Weekly": 7, "Monthly": 30}
+    days = windows.get(period)
+    if not days:
+        return None
+    return int(time.time() // SECONDS_PER_DAY) - (days - 1)
+
+
+def bump_daily_stats(cur, guild_id, user_id, now, messages=0, xp=0, vc_minutes=0):
+    """Upsert today's per-user stats bucket (UTC day) backing the period leaderboards."""
+    day = int(now // SECONDS_PER_DAY)
+    cur.execute(
+        """
+        INSERT INTO user_stats_daily (guild_id, user_id, day, xp, messages, vc_minutes)
+        VALUES (?, ?, ?, ?, ?, ?)
+        ON CONFLICT(guild_id, user_id, day) DO UPDATE SET
+            xp = xp + excluded.xp,
+            messages = messages + excluded.messages,
+            vc_minutes = vc_minutes + excluded.vc_minutes
+        """,
+        (guild_id, user_id, day, xp, messages, vc_minutes),
+    )
+
+
+def prune_daily_stats(days=31):
+    """Drop per-day stat buckets older than `days` days; they only back rolling periods."""
+    cutoff = int(time.time() // SECONDS_PER_DAY) - days
+    conn = get_db()
+    try:
+        conn.execute("DELETE FROM user_stats_daily WHERE day < ?", (cutoff,))
+        conn.commit()
+    except sqlite3.Error as e:
+        logger.error("Failed to prune daily stats: %s", e)
+    finally:
+        conn.close()
+
+
 def _do_message_xp(guild_id, user_id, display_name, username, avatar_key, content_len):
     conn = get_db()
     try:
@@ -519,6 +560,7 @@ def _do_message_xp(guild_id, user_id, display_name, username, avatar_key, conten
                     username = excluded.username,
                     avatar_hash = excluded.avatar_hash
             """, (guild_id, user_id, display_name, username, str(datetime.datetime.now()), avatar))
+            bump_daily_stats(cur, guild_id, user_id, now, messages=1)
             conn.commit()
             if is_new:
                 logger.info("New user row created: %s (ID: %s) in guild %s", display_name, user_id, guild_id)
@@ -602,6 +644,7 @@ def _do_message_xp(guild_id, user_id, display_name, username, avatar_key, conten
                     "level_channel_enabled": bool(level_channel and level_channel["level_channel_enabled"]),
                 }
 
+        bump_daily_stats(cur, guild_id, user_id, now, messages=1, xp=xp)
         conn.commit()
         if is_new:
             logger.info("New user row created: %s (ID: %s) in guild %s", display_name, user_id, guild_id)
