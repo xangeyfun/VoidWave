@@ -68,7 +68,7 @@ class PrefsCog(commands.Cog):
 
     @discord.app_commands.allowed_installs(guilds=True, users=True)
     @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
-    @prefs.command(name="source", description="Default music source for /music play and /music random")
+    @prefs.command(name="source", description="Default music source for /music play, /music random and /music radio")
     @app_commands.describe(source="Which source to search first when playing music")
     @app_commands.choices(source=[
         app_commands.Choice(name="All", value="auto"),
@@ -79,7 +79,7 @@ class PrefsCog(commands.Cog):
     async def prefs_source(self, interaction: discord.Interaction, source: str):
         set_user_pref(interaction.user.id, music_source=source)
         await interaction.response.send_message(
-            f"Default music source is now **{MUSIC_SOURCES[source]}**. `/music play` and `/music random` use it unless you pass a `source:` override.",
+            f"Default music source is now **{MUSIC_SOURCES[source]}**. `/music play`, `/music random` and `/music radio` use it unless you pass a `source:` override.",
             ephemeral=True,
         )
         logger.info("%s set music source default to %s", interaction.user, source)
