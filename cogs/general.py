@@ -43,7 +43,7 @@ DOCUMENTED_COMMANDS = {
     "utilities": {"help", "ping", "uptime", "github", "vote", "vote-remind", "ai", "aitoggle", "kirkify", "userinfo", "feedback", "rate", "prefs view", "prefs private", "prefs source", "prefs autoplay"},
     "fun": {"animal", "calc", "flip", "random", "quote", "fact"},
     "games": {"8ball", "rps", "tictactoe", "connectfour", "trivia-battle", "blackjack", "hangman", "wordle", "minesweeper", "battleship", "15puzzle"},
-    "music": {"music play", "music random", "music queue", "music nowplaying", "music pause", "music resume", "music skip", "music stop", "music shuffle", "music loop", "music volume", "music seek", "music lyrics", "music lyricslive", "music autoplay", "music controller", "music disconnect", "music playlist create", "music playlist add", "music playlist addcurrent", "music playlist savequeue", "music playlist remove", "music playlist rename", "music playlist delete", "music playlist list", "music playlist clear", "music playlist shuffle", "music playlist play"},
+    "music": {"music play", "music random", "music radio", "music queue", "music nowplaying", "music pause", "music resume", "music skip", "music stop", "music shuffle", "music loop", "music volume", "music seek", "music lyrics", "music lyricslive", "music autoplay", "music controller", "music disconnect", "music playlist create", "music playlist add", "music playlist addcurrent", "music playlist savequeue", "music playlist remove", "music playlist rename", "music playlist delete", "music playlist list", "music playlist clear", "music playlist shuffle", "music playlist play"},
     "reminders": {"remind create", "remind list", "remind edit", "remind delete", "remind clear", "remind timezone", "remind defaults"},
     "giveaways": {"giveaway start", "giveaway end", "giveaway reroll", "giveaway cancel", "giveaway list"},
     "moderation": {"moderation kick", "moderation ban", "moderation unban", "moderation timeout", "moderation slowmode", "moderation lock", "moderation unlock", "moderation role add", "moderation role remove"},
@@ -284,6 +284,7 @@ class GeneralCog(commands.Cog):
                 value=(
                     "`/music play <query> [source]` - Play or queue a song (source: all/youtube/soundcloud/spotify)\n"
                     "`/music random [genre] [source]` - Queue a random track, optionally by genre\n"
+                    "`/music radio <query> [source]` - Start an endless radio station from a seed\n"
                     "`/music queue` - View the queue\n"
                     "`/music nowplaying` - Show the current track\n"
                     "`/music pause` / `resume` - Pause and resume\n"
