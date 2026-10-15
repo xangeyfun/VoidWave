@@ -209,7 +209,7 @@ class GeneralCog(commands.Cog):
                     "`/ai <message>` - Chat with the AI\n"
                     "`/aitoggle [enabled]` - Turn AI replies on or off for yourself\n"
                     "`/kirkify <image> [hidden]` - Kirkify an image with AI (Kirk swap)\n"
-                    "`/userinfo <user>` - Look up a user\n"
+                    "`/userinfo <user>` - Look up a user (account, roles, server, permissions, profile)\n"
                     "`/feedback <feedback>` - Message the developers\n"
                     "`/rate` - Rate VoidWave\n"
                     "`/prefs` - Your defaults: private replies, music source, autoplay on play"
