@@ -47,7 +47,7 @@ DOCUMENTED_COMMANDS = {
     "reminders": {"remind create", "remind list", "remind edit", "remind delete", "remind clear", "remind timezone", "remind defaults"},
     "giveaways": {"giveaway start", "giveaway end", "giveaway reroll", "giveaway cancel", "giveaway list"},
     "moderation": {"moderation kick", "moderation ban", "moderation unban", "moderation timeout", "moderation slowmode", "moderation lock", "moderation unlock", "moderation role add", "moderation role remove"},
-    "configuration": {"config auto", "config view", "config test", "config help", "config level set_channel", "config level toggle_channel", "config level toggle_vote_announce", "config level add_role", "config level remove_role", "config qotd set_channel", "config qotd set_time", "config qotd enable", "config qotd set_role", "config qotd delete_old", "config ai toggle"},
+    "configuration": {"config auto", "config view", "config test", "config help", "config level set_channel", "config level toggle_channel", "config level toggle_ping", "config level toggle_vote_announce", "config level add_role", "config level remove_role", "config qotd set_channel", "config qotd set_time", "config qotd enable", "config qotd set_role", "config qotd delete_old", "config ai toggle"},
 }
 
 DOCUMENTED_ALIASES = {
