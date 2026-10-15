@@ -178,6 +178,7 @@ def config_help_embed(category):
             value=(
                 "`/config level set_channel [channel]` - Set the level up message channel\n"
                 "`/config level toggle_channel [enabled]` - Enable or disable level up messages\n"
+                "`/config level toggle_ping [enabled]` - Enable or disable user ping on level up\n"
                 "`/config level toggle_vote_announce [enabled]` - Vote announcements in the level up channel"
             ),
             inline=False,
@@ -285,7 +286,7 @@ class ConfigCog(commands.Cog):
         try:
             conn = get_db()
             cur = conn.cursor()
-            level_channel = cur.execute("SELECT level_channel_id, level_channel_enabled, vote_announce_enabled, ai_enabled FROM guild_settings WHERE guild_id = ?", (interaction.guild.id,)).fetchone() # type: ignore
+            level_channel = cur.execute("SELECT level_channel_id, level_channel_enabled, vote_announce_enabled, ai_enabled, levelup_ping_enabled FROM guild_settings WHERE guild_id = ?", (interaction.guild.id,)).fetchone() # type: ignore
             level_roles = cur.execute("SELECT level, role_id FROM level_roles WHERE guild_id = ?", (interaction.guild.id,)).fetchall() # type: ignore
             qotd_channel = cur.execute("SELECT qotd_channel, qotd_enabled, delete_old_qotd, qotd_time, qotd_tz FROM guild_settings WHERE guild_id = ?", (interaction.guild.id,)).fetchone() # type: ignore
         except Exception as e:
@@ -305,6 +306,10 @@ class ConfigCog(commands.Cog):
                 embed.add_field(name="Vote Announcements", value=f"{'Enabled' if level_channel[2] else 'Disabled'}", inline=False)
             if level_channel[3] is not None:
                 embed.add_field(name="AI Replies", value="Enabled" if level_channel[3] else "Disabled", inline=False)
+            ping_enabled = True
+            if len(level_channel) > 4 and level_channel[4] is not None:
+                ping_enabled = bool(level_channel[4])
+            embed.add_field(name="Level-up Pings", value="Enabled" if ping_enabled else "Disabled", inline=False)
         else:
             embed.add_field(name="Level Up Channel", value="Not set", inline=False)
 
@@ -754,6 +759,31 @@ class ConfigCog(commands.Cog):
             msg = "Vote announcements have been **disabled**. They will no longer post in your level up channel."
         await interaction.response.send_message(msg, ephemeral=True)
         logger.info("%s set vote announcements to %s in guild %s", interaction.user, "enabled" if enabled else "disabled", interaction.guild.id)
+
+    @discord.app_commands.allowed_installs(guilds=True, users=False)
+    @discord.app_commands.allowed_contexts(guilds=True, dms=False, private_channels=False)
+    @discord.app_commands.checks.has_permissions(administrator=True)
+    @level.command(name="toggle_ping", description="Enable or disable user ping on level-up messages")
+    @app_commands.describe(enabled="Whether to ping the user when they level up")
+    async def toggle_ping(self, interaction: discord.Interaction, enabled: bool):
+        if not interaction.guild:
+            await interaction.response.send_message("This command can only be used in a server.", ephemeral=True)
+            return
+
+        conn = get_db()
+        try:
+            cur = conn.cursor()
+            cur.execute("INSERT INTO guild_settings (guild_id, levelup_ping_enabled) VALUES (?, ?) ON CONFLICT(guild_id) DO UPDATE SET levelup_ping_enabled = excluded.levelup_ping_enabled", (interaction.guild.id, int(enabled)))
+            conn.commit()
+        except Exception as e:
+            logger.error("Failed to toggle level-up pings: %s", e)
+            await interaction.response.send_message("Failed to update level-up ping setting. Please try again later.", ephemeral=True)
+            return
+        finally:
+            conn.close()
+
+        await interaction.response.send_message(f"Level-up pings are now **{'enabled' if enabled else 'disabled'}** in this server.", ephemeral=True)
+        logger.info("%s set level-up pings to %s in guild %s", interaction.user, "enabled" if enabled else "disabled", interaction.guild.id)
 
     @discord.app_commands.allowed_installs(guilds=True, users=False)
     @discord.app_commands.allowed_contexts(guilds=True, dms=False, private_channels=False)
