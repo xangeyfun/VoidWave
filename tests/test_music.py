@@ -1,17 +1,29 @@
 import sqlite3
 from types import SimpleNamespace
 
+import wavelink
+
 from cogs.music import (
     MusicCog,
+    VoidWavePlayer,
+    _current_line,
     _delete_playlist_track,
     _insert_track_row,
+    _is_link,
     _move_playlist_track,
     _normalize_query,
+    _parse_lrc,
+    _parse_seek,
     _playlist_dup_check,
     _playlist_track_rows,
+    _progress_bar,
+    _short,
     _shuffle_playlist,
+    _source_icon,
     _source_label,
+    _spotify_link,
     _track_source,
+    fmt,
 )
 
 
@@ -186,3 +198,113 @@ def test_filter_platform_spotify_keeps_only_matching():
 
 def test_filter_platform_youtube_keeps_yt_and_music():
     assert _filter("youtube", "youtube", "youtubemusic", "spotify") == ["youtube", "youtubemusic"]
+
+def test_fmt_handles_none_and_zero():
+    assert fmt(None) == "0:00"
+    assert fmt(0) == "0:00"
+    assert fmt(5000) == "0:05"
+    assert fmt(65000) == "1:05"
+    assert fmt(3_600_000) == "1h 0m 0s"
+    assert fmt(3_723_000) == "1h 2m 3s"
+
+
+def test_parse_seek_variants():
+    assert _parse_seek("1:30") == 90_000
+    assert _parse_seek("90") == 90_000
+    assert _parse_seek("0") == 0
+    assert _parse_seek("1h") == 3_600_000
+    assert _parse_seek("1m30s") == 90_000
+    assert _parse_seek("1h30m") == 5_400_000
+    assert _parse_seek("1:2:3") == 3_723_000
+
+
+def test_parse_seek_invalid():
+    assert _parse_seek("") is None
+    assert _parse_seek("   ") is None
+    assert _parse_seek("1:2:3:4") is None
+    assert _parse_seek("-5") is None
+    assert _parse_seek("abc") is None
+
+
+def test_progress_bar_zero_length_has_no_marker():
+    bar = _progress_bar(50, 0)
+    assert len(bar) == 18
+    assert "●" not in bar
+    assert set(bar) == {"░"}
+
+
+def test_progress_bar_midpoint_places_marker():
+    bar = _progress_bar(90_000, 180_000)
+    assert len(bar) == 18
+    assert bar.count("●") == 1
+    assert bar.count("▓") == 8
+    assert bar.index("●") == 8
+
+
+def test_parse_lrc_fractional_ms():
+    assert _parse_lrc("[00:20.50]World") == [(20_500, "World")]
+    assert _parse_lrc("[00:10.500]X") == [(10_500, "X")]
+
+
+def test_parse_lrc_multiple_timestamps_per_line():
+    assert _parse_lrc("[00:10][00:30]Chorus") == [(10_000, "Chorus"), (30_000, "Chorus")]
+
+
+def test_parse_lrc_dedupes_identical_timestamps():
+    assert _parse_lrc("[00:10]A\n[00:10]B") == [(10_000, "A")]
+
+
+def test_parse_lrc_sorts_entries():
+    assert _parse_lrc("[01:00]b\n[00:10]a") == [(10_000, "a"), (60_000, "b")]
+
+
+def test_parse_lrc_without_timestamps_is_empty():
+    assert _parse_lrc("just plain text") == []
+    assert _parse_lrc("") == []
+
+
+def test_current_line_boundaries():
+    entries = [(1000, "a"), (2000, "b"), (3000, "c")]
+    assert _current_line(entries, 1000) == 0
+    assert _current_line(entries, 2000) == 1
+    assert _current_line(entries, 9999) == 2
+    assert _current_line(entries, 500) == 0
+    assert _current_line([], 500) is None
+
+
+def test_short_truncates_with_ellipsis():
+    assert _short("abc", 5) == "abc"
+    assert _short("abcdefghij", 5) == "abcd…"
+    assert len(_short("abcdefghij", 5)) == 5
+
+
+def test_is_link():
+    assert _is_link("https://example.com") is True
+    assert _is_link("http://example.com") is True
+    assert _is_link("plain text") is False
+    assert _is_link("") is False
+    assert _is_link(None) is False
+
+
+def test_spotify_link_normalizes_uri_and_passthrough():
+    assert _spotify_link("spotify:track:4cOdK2wGLETKBW3PvgPWqT") == "https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT"
+    url = "https://open.spotify.com/intl-de/track/4cOdK2wGLETKBW3PvgPWqT"
+    assert _spotify_link(url) == url
+    assert _spotify_link("not a link") is None
+    assert _spotify_link("") is None
+
+
+def test_source_icon_falls_back_to_note():
+    assert _source_icon("zzz") == "🎵"
+    assert _source_icon(None) == "🎵"
+    assert _source_icon("youtube") != "🎵"
+
+
+def test_autoplay_required_attrs_still_exist_on_wavelink_player():
+    import inspect
+
+    source = inspect.getsource(wavelink.Player)
+    assert VoidWavePlayer._AUTOPLAY_REQUIRED_ATTRS
+    for attr in VoidWavePlayer._AUTOPLAY_REQUIRED_ATTRS:
+        source_name = attr.removeprefix("_Player")
+        assert source_name in source, f"wavelink.Player no longer references {attr}"
