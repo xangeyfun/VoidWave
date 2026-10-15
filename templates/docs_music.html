@@ -102,6 +102,35 @@
             </div>
         </div>
     </div>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/music radio</code>
+            <span class="doc-tag">server only</span>
+        </div>
+        <p class="doc-cmd-desc">Start an endless radio station from a song, artist, or genre. The best match becomes the seed, then related tracks keep playing automatically (autoplay is switched on). The current queue is cleared so the station starts fresh. Use <code>/music autoplay off</code> to stop.</p>
+        <div class="doc-cmd-widgets">
+            <div class="doc-widget">
+                <div class="doc-widget-label">Parameters</div>
+                <table class="doc-params">
+                    <tbody>
+                        <tr>
+                            <td><code>query</code></td>
+                            <td>The song, artist, or genre to seed the station. Required.</td>
+                        </tr>
+                        <tr>
+                            <td><code>source</code></td>
+                            <td>Where to find the seed: <code>All</code> (default), <code>YouTube</code>, <code>SoundCloud</code>, or <code>Spotify</code>. Optional.</td>
+                        </tr>
+                        <tr>
+                            <td><code>hidden</code></td>
+                            <td>Keep the command response only to yourself. Optional.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
 </div>
 
 <!-- ------------------------------------------------------------------ -->
