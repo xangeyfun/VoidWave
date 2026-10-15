@@ -1567,10 +1567,14 @@ class MusicCog(commands.Cog):
             "spotify": "spsearch:",
         }.get(platform)
         try:
-            return await wavelink.Playable.search(query, source=src, node=node)
+            tracks = await wavelink.Playable.search(query, source=src, node=node)
+        except wavelink.LavalinkLoadException as e:
+            logger.warning("Music search failed (%s): %s", platform or "link", e)
+            raise MusicSearchError(query) from e
         except Exception as e:
             logger.error("Music search failed (%s): %s", platform or "link", e)
             raise MusicSearchError(query) from e
+        return tracks
 
     async def _search_text(self, query: str, source: str, node: wavelink.Node) -> list:
         # Default (auto) order is Spotify, then SoundCloud, then YouTube, so the
@@ -3432,6 +3436,10 @@ class MusicCog(commands.Cog):
         await interaction.response.defer(ephemeral=hidden)
         try:
             tracks = await self._search_tracks(normalized, node)
+        except MusicSearchError as e:
+            logger.warning("Playlist search failed: %s", e)
+            await interaction.followup.send("Something went wrong while searching that. Please try again.", ephemeral=True)
+            return
         except Exception as e:
             logger.error("Playlist search failed: %s", e)
             await interaction.followup.send("Something went wrong while searching that. Please try again.", ephemeral=True)
