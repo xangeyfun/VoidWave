@@ -190,15 +190,28 @@ class FunCog(commands.Cog):
     @discord.app_commands.allowed_installs(guilds=True, users=True)
     @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     @discord.app_commands.command(name="userinfo", description="Get info about a user")
-    @app_commands.describe(user="The user you want info about", hidden="Hide the command from others")
-    async def userinfo(self, interaction: discord.Interaction, user: discord.Member | discord.User, hidden: bool | None = None):
+    @app_commands.describe(
+        user="The user you want info about",
+        account="Show account details (ID, name, creation date, type, badges)",
+        roles="Show the user's roles and top role (server members only)",
+        server="Show server details (join date, nickname, avatar, boosting, flags)",
+        permissions="Show the user's server permissions (server members only)",
+        profile="Show profile details (accent color, banner, guild tag, nameplate)",
+        hidden="Hide the command from others",
+    )
+    async def userinfo(
+        self,
+        interaction: discord.Interaction,
+        user: discord.Member | discord.User,
+        account: bool = True,
+        roles: bool = True,
+        server: bool = True,
+        permissions: bool = True,
+        profile: bool = True,
+        hidden: bool | None = None,
+    ):
         hidden = await utils.resolve_hidden(interaction.user.id, hidden)
-        roles = []
-        joined_server = "Unknown"
-
-        if isinstance(user, discord.Member):
-            roles = [role.name for role in user.roles if role.name != "@everyone"]
-            joined_server = user.joined_at.strftime("%Y-%m-%d") if user.joined_at else "Unknown"
+        is_member = isinstance(user, discord.Member)
 
         embed = discord.Embed(
             title=user.name,
@@ -206,17 +219,103 @@ class FunCog(commands.Cog):
             timestamp=discord.utils.utcnow()
         )
 
-        embed.add_field(name="ID", value=user.id)
-        embed.add_field(
-            name="Account created",
-            value=user.created_at.strftime("%Y-%m-%d") if user.created_at else "Unknown"
-        )
+        if account:
+            embed.add_field(name="ID", value=user.id)
+            embed.add_field(name="Username", value=user.name)
+            if user.global_name and user.global_name != user.name:
+                embed.add_field(name="Display name", value=user.global_name)
+            if user.discriminator != "0":
+                embed.add_field(name="Discriminator", value=f"#{user.discriminator}")
+            if user.created_at:
+                created = f"{user.created_at.strftime('%Y-%m-%d')} ({discord.utils.format_dt(user.created_at, 'R')})"
+            else:
+                created = "Unknown"
+            embed.add_field(name="Account created", value=created)
+            kind = "Bot" if user.bot else "User"
+            if user.system:
+                kind += " (system)"
+            embed.add_field(name="Type", value=kind)
+            badges = [flag.name.replace("_", " ").title() for flag in user.public_flags.all()]
+            if badges:
+                embed.add_field(name="Badges", value=", ".join(badges))
 
-        if isinstance(user, discord.Member):
-            embed.add_field(name="Joined server", value=joined_server)
-            embed.add_field(name="Roles", value=", ".join(roles) or "None")
+        if is_member and roles:
+            role_names = [role.name for role in user.roles if role.name != "@everyone"]
+            value = ", ".join(role_names) or "None"
+            if len(value) > 1024:
+                value = value[:1021] + "..."
+            embed.add_field(name=f"Roles ({len(role_names)})", value=value)
+            if user.top_role.name != "@everyone":
+                embed.add_field(name="Top role", value=user.top_role.mention)
 
-        embed.set_thumbnail(url=user.display_avatar.url)
+        if is_member and server:
+            if user.joined_at:
+                joined = f"{user.joined_at.strftime('%Y-%m-%d')} ({discord.utils.format_dt(user.joined_at, 'R')})"
+            else:
+                joined = "Unknown"
+            embed.add_field(name="Joined server", value=joined)
+            if user.nick:
+                embed.add_field(name="Nickname", value=user.nick)
+            if user.premium_since:
+                embed.add_field(name="Boosting since", value=user.premium_since.strftime("%Y-%m-%d"))
+            else:
+                embed.add_field(name="Boosting", value="No")
+            if user.is_timed_out():
+                embed.add_field(name="Timed out until", value=discord.utils.format_dt(user.timed_out_until, 'f'))
+            if user.pending:
+                embed.add_field(name="Membership", value="Pending screening")
+            ignored_flags = {"dm_settings_upsell_acknowledged"}
+            member_flags = [
+                name.replace("_", " ").title()
+                for name, enabled in user.flags
+                if enabled and name not in ignored_flags
+            ]
+            if member_flags:
+                embed.add_field(name="Member flags", value=", ".join(member_flags))
+
+        if is_member and permissions:
+            if user.guild_permissions.administrator:
+                value = "Administrator (all permissions)"
+            else:
+                names = [name.replace("_", " ").title() for name, enabled in user.guild_permissions if enabled]
+                value = ", ".join(names) or "None"
+                if len(value) > 1024:
+                    value = value[:1021] + "..."
+            embed.add_field(name="Permissions", value=value)
+
+        if profile:
+            try:
+                fetched = await interaction.client.fetch_user(user.id)
+            except discord.HTTPException:
+                fetched = None
+            source = fetched or user
+            accent = source.accent_color or user.accent_color
+            banner = getattr(user, "guild_banner", None) or source.banner or user.banner
+            tag = source.primary_guild or user.primary_guild
+            decoration = source.avatar_decoration or user.avatar_decoration
+            collectibles = source.collectibles or user.collectibles
+            if accent:
+                embed.add_field(name="Accent color", value=f"#{accent.value:06X}")
+            if tag:
+                embed.add_field(name="Guild tag", value=tag.tag)
+            if decoration:
+                embed.add_field(name="Avatar decoration", value=f"[View]({decoration.url})")
+            for collectible in collectibles:
+                if collectible.type is discord.CollectibleType.nameplate:
+                    label = collectible.label or ""
+                    if label.startswith("COLLECTIBLES_"):
+                        label = label.removeprefix("COLLECTIBLES_").removesuffix("_A11Y")
+                        tokens = [t for t in label.split("_") if t not in {"NAMEPLATES", "NAMEPLATE", "V1", "V2"}]
+                        label = " ".join(tokens).title()
+                    embed.add_field(name="Nameplate", value=label or "Yes")
+                    break
+            if banner:
+                embed.set_image(url=banner.url)
+
+        if is_member and user.guild_avatar:
+            embed.set_thumbnail(url=user.guild_avatar.url)
+        else:
+            embed.set_thumbnail(url=user.display_avatar.url)
         embed.set_footer(text=f"Requested by {interaction.user.name} • Vote for 2x XP! /vote")
 
         await interaction.response.send_message(embed=embed, ephemeral=hidden)
