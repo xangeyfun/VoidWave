@@ -249,7 +249,7 @@ LEVEL_TIERS = [
 LEVEL_RANK_UP_LEVELS = {tier[0] for tier in LEVEL_TIERS} - {1}
 
 
-def build_level_up_embed(member, level, progress, out_of, boost=None, new_roles=None):
+def build_level_up_embed(member, level, progress, out_of, boost=None, new_roles=None, ping=True):
     idx = 0
     for i, tier in enumerate(LEVEL_TIERS):
         if level >= tier[0]:
@@ -260,9 +260,10 @@ def build_level_up_embed(member, level, progress, out_of, boost=None, new_roles=
     filled_blocks = round(percent / 100 * 10)
     bar = f"{'▰' * filled_blocks}{'▱' * (10 - filled_blocks)}"
 
+    user_text = member.mention if ping else str(member)
     embed = discord.Embed(
         title=f"{icon} {'Rank Up!' if is_rank_up else 'Level Up!'}",
-        description=f"{member.mention} reached **Level {level}** and {'ascended to' if is_rank_up else 'is now a'} **{rank}**!",
+        description=f"{user_text} reached **Level {level}** and {'ascended to' if is_rank_up else 'is now a'} **{rank}**!",
         color=color,
     )
 
@@ -612,7 +613,7 @@ def _do_message_xp(guild_id, user_id, display_name, username, avatar_key, conten
                 level += 1
                 out_of = int(100 + level * 20)
                 level_channel = cur.execute(
-                    "SELECT level_channel_id, level_channel_enabled FROM guild_settings WHERE guild_id = ?",
+                    "SELECT level_channel_id, level_channel_enabled, levelup_ping_enabled FROM guild_settings WHERE guild_id = ?",
                     (guild_id,)
                 ).fetchone()
                 level_channel = dict(level_channel) if level_channel else None
@@ -642,6 +643,7 @@ def _do_message_xp(guild_id, user_id, display_name, username, avatar_key, conten
                     "new_role_ids": new_role_ids,
                     "level_channel_id": level_channel["level_channel_id"] if level_channel else None,
                     "level_channel_enabled": bool(level_channel and level_channel["level_channel_enabled"]),
+                    "levelup_ping_enabled": bool(level_channel["levelup_ping_enabled"]) if level_channel and "levelup_ping_enabled" in level_channel and level_channel["levelup_ping_enabled"] is not None else True,
                 }
 
         bump_daily_stats(cur, guild_id, user_id, now, messages=1, xp=xp)
@@ -715,6 +717,7 @@ async def add_message_xp(bot, message):
 
     if has_channel:
         channel = bot.get_channel(payload["level_channel_id"])
+        ping = payload.get("levelup_ping_enabled", True)
         embed = build_level_up_embed(
             member=message.author,
             level=level,
@@ -722,9 +725,11 @@ async def add_message_xp(bot, message):
             out_of=out_of,
             boost=boost,
             new_roles=new_roles or None,
+            ping=ping,
         )
         try:
-            await channel.send(content=f"{message.author.mention} reached Level {level}!", embed=embed)
+            content = f"{message.author.mention} reached Level {level}!" if ping else f"Reached Level {level}!"
+            await channel.send(content=content, embed=embed)
         except discord.Forbidden:
             logger.warning("Missing permissions to send level-up message in %s for guild %s", channel.id, guild_id)
         except Exception as e:
