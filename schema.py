@@ -161,7 +161,7 @@ def create_schema(conn):
     """)
     conn.commit()
 
-    for column in ("vote_announce_enabled BOOLEAN DEFAULT 1", "ai_enabled BOOLEAN DEFAULT 1"):
+    for column in ("vote_announce_enabled BOOLEAN DEFAULT 1", "ai_enabled BOOLEAN DEFAULT 1", "levelup_ping_enabled BOOLEAN DEFAULT 1"):
         try:
             cur.execute(f"ALTER TABLE guild_settings ADD COLUMN {column}")
         except sqlite3.OperationalError:
