@@ -13,6 +13,7 @@ import wavelink
 from discord import app_commands
 from discord.ext import commands
 
+import utils
 from utils import block_reply, get_db, get_user_pref, is_blocked, resolve_hidden
 
 logger = logging.getLogger("cogs.music")
@@ -54,7 +55,7 @@ async def _random_genre_autocomplete(interaction: discord.Interaction, current: 
 
 
 def fmt(len_ms):
-    total = max(0, int(len_ms)) // 1000
+    total = max(0, int(len_ms or 0)) // 1000
     minutes, seconds = divmod(total, 60)
     hours, minutes = divmod(minutes, 60)
     if hours:
@@ -77,6 +78,8 @@ def _clean_text(text):
 
 
 _SEARCH_CACHE_TTL = 60
+_SOURCE_FAILURE_COOLDOWN = 60
+_LYRICS_CACHE_MAX = 128
 _MAX_SEARCH_RESULTS = 10
 
 
@@ -265,7 +268,6 @@ def _parse_seek(time_str: str) -> int | None:
             else:
                 return None
         elif "h" in time_str or "m" in time_str or "s" in time_str:
-            import re
             hours = re.search(r"(\d+)h", time_str)
             minutes = re.search(r"(\d+)m", time_str)
             seconds = re.search(r"(\d+)s", time_str)
@@ -289,19 +291,20 @@ async def _fetch_lyrics(track_title: str, artist: str = "", duration_s: int = 0)
     if duration_s:
         params["duration"] = duration_s
     try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(
-                "https://lrclib.net/api/get",
-                params=params,
-                headers={"User-Agent": "VoidWave-Bot/2.0"},
-                timeout=aiohttp.ClientTimeout(total=5),
-            ) as resp:
-                if resp.status == 200:
-                    data = await resp.json()
-                    plain = data.get("plainLyrics")
-                    synced = data.get("syncedLyrics")
-                    if plain or synced:
-                        return {"plain": plain, "synced": synced, "album": data.get("albumName", "")}
+        if utils.http_session is None or utils.http_session.closed:
+            utils.http_session = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=10))
+        async with utils.http_session.get(
+            "https://lrclib.net/api/get",
+            params=params,
+            headers={"User-Agent": "VoidWave-Bot/2.0"},
+            timeout=aiohttp.ClientTimeout(total=5),
+        ) as resp:
+            if resp.status == 200:
+                data = await resp.json()
+                plain = data.get("plainLyrics")
+                synced = data.get("syncedLyrics")
+                if plain or synced:
+                    return {"plain": plain, "synced": synced, "album": data.get("albumName", "")}
     except Exception as e:
         logger.debug("Lyrics fetch failed for '%s': %s", track_title, e)
     return None
@@ -455,7 +458,6 @@ def _parse_lrc(synced: str) -> list[tuple[int, str]]:
     """Parse synced LRC lyrics into a sorted list of (timestamp_ms, line)."""
     global _LRC_TIME_RE
     if _LRC_TIME_RE is None:
-        import re
         _LRC_TIME_RE = re.compile(r"\[(\d+):(\d+)(?:[.:](\d+))?\]")
     entries: list[tuple[int, str]] = []
     for raw_line in synced.splitlines():
@@ -466,7 +468,7 @@ def _parse_lrc(synced: str) -> list[tuple[int, str]]:
         for minutes, seconds, frac in parts:
             ms = int(minutes) * 60000 + int(seconds) * 1000
             if frac:
-                ms += int(frac) * (10 if len(frac) >= 3 else 100)
+                ms += int(frac) * (10 ** max(0, 3 - len(frac)))
             entries.append((ms, text))
     if not entries:
         return []
@@ -496,11 +498,11 @@ def _short(text: str, limit: int = 30) -> str:
     return text if len(text) <= limit else text[: limit - 1] + "…"
 
 
-def now_playing_embed(track, player, requester=None, preview_lyrics: str | None = None, live_line: str | None = None, live_next: str | None = None):
+def now_playing_embed(track, player, requester=None, preview_lyrics: str | None = None, live_line: str | None = None, live_next: str | None = None, vote_note: str | None = None):
     paused = player.paused
-    pos = player.position
-    length = track.length
-    remaining = max(0, length - pos)
+    pos = player.position or 0
+    length = track.length or 0
+    remaining = max(0, length - pos) if length else 0
     bar = _progress_bar(pos, length)
 
     queue_count = player.queue.count
@@ -519,13 +521,20 @@ def now_playing_embed(track, player, requester=None, preview_lyrics: str | None 
         f"`🔊 {player.volume}%`"
         + (" • `✨ Autoplay`" if player.autoplay == wavelink.AutoPlayMode.enabled else "")
     )
+    if length:
+        time_line = f"`{fmt(pos)}` / `{fmt(length)}` (`{fmt(remaining)}` left)"
+    else:
+        time_line = f"🔴 **LIVE** · `{fmt(pos)}` elapsed"
+    title_line = f"**[{track.title}]({track.uri})**" if track.uri else f"**{track.title}**"
     desc = (
-        f"**[{track.title}]({track.uri})**\n"
+        f"{title_line}\n"
         f"{track.author}\n\n"
         f"`{bar}`\n"
-        f"`{fmt(pos)}` / `{fmt(length)}` (`{fmt(remaining)}` left)\n\n"
+        f"{time_line}\n\n"
         f"{stats}"
     )
+    if vote_note:
+        desc += f"\n{vote_note}"
 
     if live_line:
         desc += "\n\n🎤 " + live_line
@@ -613,7 +622,8 @@ class MusicPlayerView(discord.ui.View):
         if not history or history.is_empty:
             return await interaction.response.send_message("No previous track available.", ephemeral=True)
         prev_track = history.get()
-        await player.play(prev_track)
+        if not await self.cog._player_op(interaction, lambda: player.play(prev_track)):
+            return
         self.cog._reset_skip_votes(self.guild_id)
         await interaction.response.send_message(f"⏮️ Now playing **{prev_track.title}**.", ephemeral=True, allowed_mentions=discord.AllowedMentions.none())
 
@@ -624,9 +634,11 @@ class MusicPlayerView(discord.ui.View):
         player = self.cog._player(interaction)
         if not isinstance(player, wavelink.Player) or not player.playing:
             return await interaction.response.send_message("Nothing is playing right now.", ephemeral=True)
-        await player.pause(not player.paused)
-        label = "Paused" if player.paused else "Resumed"
-        await interaction.response.send_message(f"{'⏸️' if player.paused else '▶️'} {label}.", ephemeral=True)
+        was_paused = player.paused
+        if not await self.cog._player_op(interaction, lambda: player.pause(not was_paused)):
+            return
+        label = "Resumed" if was_paused else "Paused"
+        await interaction.response.send_message(f"{'▶️' if was_paused else '⏸️'} {label}.", ephemeral=True)
 
     @discord.ui.button(emoji="⏭️", style=discord.ButtonStyle.secondary, custom_id="music_next", row=0)
     async def on_next(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -640,7 +652,8 @@ class MusicPlayerView(discord.ui.View):
         hidden = await resolve_hidden(interaction.user.id, None)
         if self.cog.players_owner.get(guild_id) == interaction.user.id:
             self.cog._reset_skip_votes(guild_id)
-            await player.skip(force=True)
+            if not await self.cog._player_op(interaction, lambda: player.skip(force=True)):
+                return
             return await interaction.response.send_message(f"⏭️ Skipped **{current.title}**.", ephemeral=True, allowed_mentions=discord.AllowedMentions.none())
         listeners = [m for m in player.channel.members if not m.bot] if player.channel else []
         required = len(listeners) // 2 + 1
@@ -648,7 +661,8 @@ class MusicPlayerView(discord.ui.View):
         votes.add(interaction.user.id)
         if len(votes) >= required:
             self.cog._reset_skip_votes(guild_id)
-            await player.skip(force=True)
+            if not await self.cog._player_op(interaction, lambda: player.skip(force=True)):
+                return
             return await interaction.response.send_message(f"⏭️ Vote-to-skip passed, skipping **{current.title}**.", ephemeral=hidden, allowed_mentions=discord.AllowedMentions.none())
         await interaction.response.send_message(
             f"🗳️ **{interaction.user.display_name}** wants to skip **{current.title}**. "
@@ -719,7 +733,7 @@ class MusicPlayerView(discord.ui.View):
             return await interaction.response.send_message("Nothing is playing.", ephemeral=True)
         await interaction.response.defer(ephemeral=True)
         track = player.current
-        lyrics = await _fetch_lyrics(track.title, track.author, track.length // 1000)
+        lyrics = await _fetch_lyrics(track.title, track.author, (track.length or 0) // 1000)
         if not lyrics:
             return await interaction.followup.send("No lyrics found for this track.", ephemeral=True)
         text = lyrics.get("synced") or lyrics.get("plain") or ""
@@ -760,8 +774,8 @@ class MusicPlayerView(discord.ui.View):
             return
         player = self.cog._player(interaction)
         level = max(1, min(int(select.values[0]), 100))
-        await player.set_volume(level)
-        await interaction.response.send_message(f"🔊 Volume set to **{level}%**.", ephemeral=True)
+        if not await self.cog._player_op(interaction, lambda: player.set_volume(level), f"🔊 Volume set to **{level}%**.", hidden=True):
+            return
 
     # -- helpers ---------------------------------------------------------
     async def _check(self, interaction: discord.Interaction) -> bool:
@@ -855,9 +869,9 @@ class QueueView(discord.ui.View):
         else:
             embed.add_field(name="Up next", value="Nothing in the queue.", inline=False)
 
-        remaining = sum(t.length for t in upcoming)
+        remaining = sum((t.length or 0) for t in upcoming)
         if current is not None:
-            remaining += max(0, current.length - player.position)
+            remaining += max(0, (current.length or 0) - player.position)
         embed.set_footer(text=f"Page {self.page + 1}/{total_pages}  •  {fmt(remaining)} total")
         self._refresh_select()
         return embed
@@ -1054,9 +1068,6 @@ class LyricsView(discord.ui.View):
 # ======================================================================
 # Paginated Playlist View
 # ======================================================================
-# ======================================================================
-# Paginated Playlist View
-# ======================================================================
 class PlaylistView(discord.ui.View):
     """Per-playlist track manager: page through tracks, pick one, then play / reorder / remove."""
 
@@ -1221,7 +1232,7 @@ class PlaylistView(discord.ui.View):
             _move_playlist_track(conn, self.playlist_id, idx, idx - 1)
         finally:
             conn.close()
-        self.selected_pos = self._move_selected(idx, idx - 1)
+        self.selected_pos = self._move_selected(idx - 1)
         await self._reload_and_rebuild(interaction)
 
     @discord.ui.button(label="⏬ Move down", style=discord.ButtonStyle.secondary, row=2)
@@ -1236,10 +1247,10 @@ class PlaylistView(discord.ui.View):
             _move_playlist_track(conn, self.playlist_id, idx, idx + 1)
         finally:
             conn.close()
-        self.selected_pos = self._move_selected(idx, idx + 1)
+        self.selected_pos = self._move_selected(idx + 1)
         await self._reload_and_rebuild(interaction)
 
-    def _move_selected(self, from_idx, to_idx):
+    def _move_selected(self, to_idx):
         return to_idx + 1
 
     async def _reload_and_rebuild(self, interaction: discord.Interaction):
@@ -1293,7 +1304,29 @@ class PlaylistView(discord.ui.View):
 class VoidWavePlayer(wavelink.Player):
     """wavelink player whose autoplay speaks LavaSrc's `sprec:` format."""
 
+    _AUTOPLAY_REQUIRED_ATTRS = (
+        "_auto_cutoff",
+        "_auto_weight",
+        "_current",
+        "_previous",
+        "_Player__previous_seeds",
+        "_history_count",
+        "_add_to_previous_seeds",
+        "_inactivity_start",
+    )
+
     async def _do_recommendation(self, *, populate_track=None, max_population=None) -> None:
+        # `>=3.5,<4` pins wavelink, but this override reaches into wavelink's
+        # private autoplay internals. If a future release renames any of them we
+        # fall back to wavelink's own recommendation instead of breaking autoplay.
+        missing = [a for a in self._AUTOPLAY_REQUIRED_ATTRS if not hasattr(self, a)]
+        if missing:
+            logger.warning(
+                "wavelink autoplay internals changed (missing %s); using default recommendation",
+                ", ".join(missing),
+            )
+            return await super()._do_recommendation(populate_track=populate_track, max_population=max_population)
+
         assert self.guild is not None
         assert self.queue.history is not None and self.auto_queue.history is not None
 
@@ -1465,6 +1498,7 @@ class MusicCog(commands.Cog):
         self._lyrics_cache: dict[str, list[tuple[int, str]]] = {}
         self._lyrics_loading: dict[str, asyncio.Task] = {}
         self._search_cache: dict[str, tuple[float, list]] = {}
+        self._source_failures: dict[str, float] = {}
         self._track_errors: dict[int, wavelink.Playable] = {}
         self._sc_fallback_cache: dict[str, wavelink.Playable | None] = {}
         self._controller_locks: dict[int, asyncio.Lock] = {}
@@ -1522,6 +1556,49 @@ class MusicCog(commands.Cog):
         )
         return False
 
+    async def _player_op(self, interaction: discord.Interaction, coro_factory, ok_msg: str | None = None, hidden: bool = False) -> bool:
+        try:
+            await coro_factory()
+        except (wavelink.LavalinkException, discord.HTTPException) as e:
+            logger.warning("Music player operation failed in guild %s: %s", interaction.guild_id, e)
+            msg = "The voice server hiccuped, please try again in a moment."
+            if interaction.response.is_done():
+                try:
+                    await interaction.followup.send(msg, ephemeral=True)
+                except discord.HTTPException:
+                    pass
+            else:
+                try:
+                    await interaction.response.send_message(msg, ephemeral=True)
+                except discord.HTTPException:
+                    pass
+            return False
+        if ok_msg:
+            if interaction.response.is_done():
+                try:
+                    await interaction.followup.send(ok_msg, ephemeral=hidden, allowed_mentions=discord.AllowedMentions.none())
+                except discord.HTTPException:
+                    pass
+            else:
+                try:
+                    await interaction.response.send_message(ok_msg, ephemeral=hidden, allowed_mentions=discord.AllowedMentions.none())
+                except discord.HTTPException:
+                    pass
+        return True
+
+    def _skip_vote_note(self, guild_id: int, player: wavelink.Player) -> str | None:
+        votes = self.skip_votes.get(guild_id)
+        if not votes:
+            return None
+        listeners = [m for m in player.channel.members if not m.bot] if player.channel else []
+        required = len(listeners) // 2 + 1
+        if required <= 0:
+            return None
+        count = len(votes)
+        if count >= required:
+            return None
+        return f"🗳️ Skip votes `{count}/{required}`. press ⏭️ or use `/music skip`"
+
     def _get_cached_search(self, normalized_query: str) -> list | None:
         entry = self._search_cache.get(normalized_query)
         if entry and (time.time() - entry[0]) < _SEARCH_CACHE_TTL:
@@ -1568,7 +1645,7 @@ class MusicCog(commands.Cog):
         }.get(platform)
         try:
             tracks = await wavelink.Playable.search(query, source=src, node=node)
-        except wavelink.LavalinkLoadException as e:
+        except wavelink.WavelinkException as e:
             logger.warning("Music search failed (%s): %s", platform or "link", e)
             raise MusicSearchError(query) from e
         except Exception as e:
@@ -1582,6 +1659,11 @@ class MusicCog(commands.Cog):
         platforms = {"youtube": ["youtube"], "soundcloud": ["soundcloud"], "spotify": ["spotify"]}.get(
             source, ["spotify", "soundcloud", "youtube"]
         )
+        if source == "auto":
+            now = time.time()
+            available = [p for p in platforms if self._source_failures.get(p, 0) <= now]
+            if available:
+                platforms = available
         batches = await asyncio.gather(
             *(self._search_platform(query, p, node) for p in platforms), return_exceptions=True
         )
@@ -1592,7 +1674,10 @@ class MusicCog(commands.Cog):
                 raise batch
             if isinstance(batch, BaseException):
                 logger.warning("Partial music search failure on %s for %r: %s", platform, query, batch)
+                if isinstance(batch, MusicSearchError):
+                    self._source_failures[platform] = time.time() + _SOURCE_FAILURE_COOLDOWN
                 continue
+            self._source_failures.pop(platform, None)
             ok += 1
             tracks = batch.tracks if isinstance(batch, wavelink.Playlist) else list(batch or [])
             results.extend(self._filter_platform(tracks, platform))
@@ -1759,11 +1844,11 @@ class MusicCog(commands.Cog):
                     pass
                 if keep_controller:
                     try:
-                        self._save_controller(guild_id, msg.channel.id, msg.id)
+                        await asyncio.to_thread(self._save_controller, guild_id, msg.channel.id, msg.id)
                     except Exception as e:
                         logger.error("Failed to persist music controller for guild %s during shutdown: %s", guild_id, e)
                 else:
-                    self._drop_controller(guild_id)
+                    await asyncio.to_thread(self._drop_controller, guild_id)
             else:
                 await self._edit_stale_controller(guild_id, embed_title=embed_title, embed_desc=embed_desc, drop=not keep_controller)
         finally:
@@ -1850,13 +1935,13 @@ class MusicCog(commands.Cog):
             channel = guild.get_channel(row["channel_id"])
         if channel is None or not hasattr(channel, "fetch_message"):
             if drop:
-                self._drop_controller(guild_id)
+                await asyncio.to_thread(self._drop_controller, guild_id)
             return
         try:
             msg = await channel.fetch_message(row["message_id"])
         except discord.HTTPException:
             if drop:
-                self._drop_controller(guild_id)
+                await asyncio.to_thread(self._drop_controller, guild_id)
             return
         view = MusicPlayerView(self, guild_id)
         for child in view.children:
@@ -1866,7 +1951,7 @@ class MusicCog(commands.Cog):
         except discord.HTTPException:
             pass
         if drop:
-            self._drop_controller(guild_id)
+            await asyncio.to_thread(self._drop_controller, guild_id)
         logger.info("Edited stale music controller in guild %s", guild_id)
 
     async def _recover_after_restart(self):
@@ -1932,11 +2017,11 @@ class MusicCog(commands.Cog):
             task.cancel()
 
     def _start_idle_countdown(self, guild_id: int, *, paused_for_empty: bool = False):
+        if paused_for_empty:
+            self._empty_paused[guild_id] = True
         existing = self._idle_tasks.get(guild_id)
         if existing and not existing.done():
             return
-        if paused_for_empty:
-            self._empty_paused[guild_id] = True
         self._idle_until[guild_id] = time.time() + _EMPTY_LEAVE_DELAY
         self._idle_tasks[guild_id] = self.bot.loop.create_task(self._idle_countdown_loop(guild_id))
         reason = "voice channel is empty" if paused_for_empty else "queue finished"
@@ -2039,6 +2124,13 @@ class MusicCog(commands.Cog):
     def _get_lyrics_lines(self, track) -> list[tuple[int, str]] | None:
         return self._lyrics_cache.get(self._cache_key(track))
 
+    def _cache_lyrics(self, key: str, entries: list[tuple[int, str]]):
+        """Store parsed lyrics, evicting the oldest entries past the size cap."""
+        if len(self._lyrics_cache) >= _LYRICS_CACHE_MAX and key not in self._lyrics_cache:
+            for old_key in list(self._lyrics_cache)[: _LYRICS_CACHE_MAX // 4]:
+                self._lyrics_cache.pop(old_key, None)
+        self._lyrics_cache[key] = entries
+
     def _ensure_lyrics_loaded(self, track) -> bool:
         """Kick off a background fetch if lyrics for this track aren't cached yet."""
         key = self._cache_key(track)
@@ -2050,16 +2142,16 @@ class MusicCog(commands.Cog):
 
     async def _load_lyrics(self, key: str, track):
         try:
-            data = await _fetch_lyrics(track.title, track.author, track.length // 1000)
+            data = await _fetch_lyrics(track.title, track.author, (track.length or 0) // 1000)
             if data and data.get("synced"):
                 entries = _parse_lrc(data["synced"])
                 if entries:
-                    self._lyrics_cache[key] = entries
+                    self._cache_lyrics(key, entries)
                     return
-            self._lyrics_cache[key] = []
+            self._cache_lyrics(key, [])
         except Exception as e:
             logger.debug("Background lyric load failed for %s: %s", key, e)
-            self._lyrics_cache[key] = []
+            self._cache_lyrics(key, [])
         finally:
             self._lyrics_loading.pop(key, None)
 
@@ -2113,12 +2205,12 @@ class MusicCog(commands.Cog):
                     break
                 view._update_button_states(player)
                 try:
+                    vote_note = self._skip_vote_note(guild_id, player)
                     if self.live_lyrics.get(guild_id):
                         cur, nxt, _ = await self._live_lyric(guild_id, player, player.current)
-                        _last_line, _last_line_next = cur, nxt
-                        embed = now_playing_embed(player.current, player, live_line=cur, live_next=nxt)
+                        embed = now_playing_embed(player.current, player, live_line=cur, live_next=nxt, vote_note=vote_note)
                     else:
-                        embed = now_playing_embed(player.current, player)
+                        embed = now_playing_embed(player.current, player, vote_note=vote_note)
                     embed = self._add_idle_note(embed, guild_id)
                     await msg.edit(embed=embed, view=view)
                 except discord.NotFound:
@@ -2197,7 +2289,7 @@ class MusicCog(commands.Cog):
             view = MusicPlayerView(self, guild_id)
             view._update_button_states(player)
             self.player_views[guild_id] = view
-            embed = now_playing_embed(track, player, requester or interaction.user)
+            embed = now_playing_embed(track, player, requester or interaction.user, vote_note=self._skip_vote_note(guild_id, player))
             msg = await self._send_controller(interaction, player, embed, view)
             if msg is None:
                 self.player_views.pop(guild_id, None)
@@ -2206,7 +2298,7 @@ class MusicCog(commands.Cog):
             view._message_id = msg.id
             self.player_messages[guild_id] = msg
             self._start_update_task(guild_id, msg)
-            self._save_controller(guild_id, msg.channel.id, msg.id)
+            await asyncio.to_thread(self._save_controller, guild_id, msg.channel.id, msg.id)
             if self.live_lyrics.get(guild_id):
                 self._ensure_lyrics_loaded(track)
 
@@ -2235,7 +2327,7 @@ class MusicCog(commands.Cog):
             view = MusicPlayerView(self, guild_id)
             view._update_button_states(player)
             self.player_views[guild_id] = view
-            embed = now_playing_embed(current, player)
+            embed = now_playing_embed(current, player, vote_note=self._skip_vote_note(guild_id, player))
             try:
                 msg = await channel.send(embed=embed, view=view)
             except discord.HTTPException:
@@ -2243,7 +2335,7 @@ class MusicCog(commands.Cog):
             view._message_id = msg.id
             self.player_messages[guild_id] = msg
             self._start_update_task(guild_id, msg)
-            self._save_controller(guild_id, msg.channel.id, msg.id)
+            await asyncio.to_thread(self._save_controller, guild_id, msg.channel.id, msg.id)
 
             await self._retire_controller(old_msg, old_view, msg)
 
@@ -2547,6 +2639,90 @@ class MusicCog(commands.Cog):
                 pass
 
     # ------------------------------------------------------------------
+    # Radio
+    # ------------------------------------------------------------------
+    @music.command(name="radio", description="Start an endless radio station from a song, artist, or genre")
+    @app_commands.describe(
+        query="A song, artist, or genre to seed the station",
+        source="Where to find the seed track (optional)",
+        hidden="Hide the command from others",
+    )
+    @app_commands.choices(source=[
+        app_commands.Choice(name="All", value="auto"),
+        app_commands.Choice(name="YouTube", value="youtube"),
+        app_commands.Choice(name="SoundCloud", value="soundcloud"),
+        app_commands.Choice(name="Spotify", value="spotify"),
+    ])
+    @app_commands.checks.cooldown(1, 5.0)
+    async def radio(self, interaction: discord.Interaction, query: str, source: str = "auto", hidden: bool | None = None):
+        hidden = await resolve_hidden(interaction.user.id, hidden)
+        if await self._deny_if_blocked(interaction):
+            return
+
+        ensured = await self._ensure_player(interaction, hidden=hidden)
+        if ensured is None:
+            return
+        player, node = ensured
+
+        if source == "auto":
+            source = get_user_pref(interaction.user.id, "music_source") or "auto"
+
+        try:
+            normalized = _normalize_query(query)
+            if normalized is None:
+                await interaction.followup.send("That query doesn't look right. Please try again.", ephemeral=True)
+                return
+            try:
+                tracks = await self._search_tracks(normalized, node, source=source)
+            except MusicSearchError:
+                await interaction.followup.send("Something went wrong while searching that. Please try again.", ephemeral=True)
+                return
+            except Exception as e:
+                logger.error("Radio seed search failed for %r in guild %s: %s", query, interaction.guild_id, e)
+                await interaction.followup.send("Something went wrong while searching that. Please try again.", ephemeral=True)
+                return
+
+            pool = tracks.tracks if isinstance(tracks, wavelink.Playlist) else list(tracks or [])
+            if not pool:
+                await interaction.followup.send(f"No results found for `{query}`.", ephemeral=True)
+                return
+
+            seed = _best_result(query, pool) or pool[0]
+            _tag_requester(seed, interaction.user.display_name)
+
+            player.autoplay = wavelink.AutoPlayMode.enabled
+            try:
+                player.queue.clear()
+                player.auto_queue.clear()
+            except Exception:
+                pass
+            self._reset_skip_votes(interaction.guild_id)
+
+            if not await self._begin_playback(interaction, player, seed):
+                return
+
+            seed_line = f"**[{seed.title}]({seed.uri})**" if seed.uri else f"**{seed.title}**"
+            embed = discord.Embed(
+                title="📻 Radio started",
+                description=(
+                    f"Station seeded from {_source_icon(_track_source(seed))} {seed_line} - *{seed.author}*\n"
+                    "Related tracks will keep playing automatically. Use `/music autoplay off` to stop."
+                ),
+                color=VOIDWAVE_COLOR,
+            )
+            embed.set_thumbnail(url=_track_artwork(seed))
+            _footer(embed)
+            await interaction.followup.send(embed=embed, ephemeral=hidden)
+            await self._send_player_message(interaction, seed, player)
+        except Exception as e:
+            logger.error("Music radio failed in guild %s: %s", interaction.guild_id, e)
+            await self._teardown_guild(interaction.guild_id, embed_desc="Music stopped. Run /music play to start again.")
+            try:
+                await interaction.followup.send("Something went wrong while starting the radio. Please try again.", ephemeral=True)
+            except discord.HTTPException:
+                pass
+
+    # ------------------------------------------------------------------
     # Pause / Resume
     # ------------------------------------------------------------------
     @music.command(name="pause", description="Pause the current track")
@@ -2562,8 +2738,8 @@ class MusicCog(commands.Cog):
         if not self._same_vc(interaction, player):
             await interaction.response.send_message("You need to be in the same voice channel as me to control music.", ephemeral=True)
             return
-        await player.pause(True)
-        await interaction.response.send_message("⏸️ Paused.", ephemeral=hidden)
+        if not await self._player_op(interaction, lambda: player.pause(True), "⏸️ Paused.", hidden=hidden):
+            return
         await self._repost_player_message(interaction, player)
 
     @music.command(name="resume", description="Resume the paused track")
@@ -2582,8 +2758,8 @@ class MusicCog(commands.Cog):
         if not player.paused:
             await interaction.response.send_message("Nothing is paused right now.", ephemeral=True)
             return
-        await player.pause(False)
-        await interaction.response.send_message("▶️ Resumed.", ephemeral=hidden)
+        if not await self._player_op(interaction, lambda: player.pause(False), "▶️ Resumed.", hidden=hidden):
+            return
         await self._repost_player_message(interaction, player)
 
     # ------------------------------------------------------------------
@@ -2610,7 +2786,8 @@ class MusicCog(commands.Cog):
         guild_id = interaction.guild_id
         if self.players_owner.get(guild_id) == interaction.user.id:
             self._reset_skip_votes(guild_id)
-            await player.skip(force=True)
+            if not await self._player_op(interaction, lambda: player.skip(force=True)):
+                return
             await interaction.response.send_message(f"⏭️ Skipped **{current.title}**.", ephemeral=hidden, allowed_mentions=discord.AllowedMentions.none())
             return
 
@@ -2622,7 +2799,8 @@ class MusicCog(commands.Cog):
 
         if len(votes) >= required:
             self._reset_skip_votes(guild_id)
-            await player.skip(force=True)
+            if not await self._player_op(interaction, lambda: player.skip(force=True)):
+                return
             await interaction.response.send_message(f"⏭️ Vote-to-skip passed, skipping **{current.title}**.", ephemeral=hidden, allowed_mentions=discord.AllowedMentions.none())
             return
 
@@ -2650,8 +2828,8 @@ class MusicCog(commands.Cog):
             return
         player.queue.clear()
         self._reset_skip_votes(interaction.guild_id)
-        await player.stop()
-        await interaction.response.send_message("⏹️ Stopped and cleared the queue.", ephemeral=hidden)
+        if not await self._player_op(interaction, player.stop, "⏹️ Stopped and cleared the queue.", hidden=hidden):
+            return
         await self._sync_player_view(interaction.guild_id)
 
     # ------------------------------------------------------------------
@@ -2787,8 +2965,8 @@ class MusicCog(commands.Cog):
             await interaction.response.send_message("You need to be in the same voice channel as me to control music.", ephemeral=True)
             return
         level = max(1, min(level, 100))
-        await player.set_volume(level)
-        await interaction.response.send_message(f"🔊 Volume set to **{level}%**.", ephemeral=hidden)
+        if not await self._player_op(interaction, lambda: player.set_volume(level), f"🔊 Volume set to **{level}%**.", hidden=hidden):
+            return
         await self._sync_player_view(interaction.guild_id)
 
     # ------------------------------------------------------------------
@@ -2812,11 +2990,11 @@ class MusicCog(commands.Cog):
             await interaction.response.send_message("Invalid time format. Use `1:30`, `90`, or `2h5m`.", ephemeral=True)
             return
         track = player.current
-        if ms > track.length:
+        if (track.length or 0) and ms > track.length:
             await interaction.response.send_message(f"Can't seek past the end of the track ({fmt(track.length)}).", ephemeral=True)
             return
-        await player.seek(ms)
-        await interaction.response.send_message(f"⏩ Seeked to `{fmt(ms)}` in **{track.title}**.", ephemeral=hidden, allowed_mentions=discord.AllowedMentions.none())
+        if not await self._player_op(interaction, lambda: player.seek(ms), f"⏩ Seeked to `{fmt(ms)}` in **{track.title}**.", hidden=hidden):
+            return
         await self._sync_player_view(interaction.guild_id)
 
     # ------------------------------------------------------------------
@@ -2834,7 +3012,7 @@ class MusicCog(commands.Cog):
             return
         await interaction.response.defer(ephemeral=hidden)
         track = player.current
-        lyrics = await _fetch_lyrics(track.title, track.author, track.length // 1000)
+        lyrics = await _fetch_lyrics(track.title, track.author, (track.length or 0) // 1000)
         if not lyrics:
             await interaction.followup.send("No lyrics found for this track.", ephemeral=True)
             return
@@ -3219,17 +3397,22 @@ class MusicCog(commands.Cog):
 
     async def _playlist_autocomplete(self, interaction: discord.Interaction, current: str):
         current = (current or "").strip().lower()
-        conn = get_db()
-        try:
-            rows = conn.execute(
-                "SELECT name FROM playlists WHERE user_id=? AND name_lower LIKE ? "
-                "ORDER BY created_at ASC LIMIT 20",
-                (interaction.user.id, f"%{current}%"),
-            ).fetchall()
-        except sqlite3.Error:
-            return []
-        finally:
-            conn.close()
+        user_id = interaction.user.id
+
+        def _work():
+            conn = get_db()
+            try:
+                return conn.execute(
+                    "SELECT name FROM playlists WHERE user_id=? AND name_lower LIKE ? "
+                    "ORDER BY created_at ASC LIMIT 20",
+                    (user_id, f"%{current}%"),
+                ).fetchall()
+            except sqlite3.Error:
+                return []
+            finally:
+                conn.close()
+
+        rows = await asyncio.to_thread(_work)
         return [app_commands.Choice(name=r["name"], value=r["name"]) for r in rows]
 
     async def _resolve_stored_track(self, row, node):
@@ -3484,23 +3667,27 @@ class MusicCog(commands.Cog):
 
     async def _import_tracks_to_playlist(self, interaction: discord.Interaction, entry, tracks, hidden: bool):
         """Bulk-add a list of tracks to a playlist, honoring the cap and skipping duplicates."""
-        conn = get_db()
-        added = 0
-        skipped = 0
-        full = False
-        try:
-            for track in tracks:
-                result, _ = _insert_track_row(conn, entry["id"], track, track.title or "", int(time.time()))
-                if result == "added":
-                    added += 1
-                elif result == "full":
-                    full = True
-                    break
-                else:
-                    skipped += 1
-            conn.commit()
-        finally:
-            conn.close()
+        def _work():
+            conn = get_db()
+            added = 0
+            skipped = 0
+            full = False
+            try:
+                for track in tracks:
+                    result, _ = _insert_track_row(conn, entry["id"], track, track.title or "", int(time.time()))
+                    if result == "added":
+                        added += 1
+                    elif result == "full":
+                        full = True
+                        break
+                    else:
+                        skipped += 1
+                conn.commit()
+            finally:
+                conn.close()
+            return added, skipped, full
+
+        added, skipped, full = await asyncio.to_thread(_work)
         if not added:
             embed = discord.Embed(
                 title="🎵 Nothing added",
@@ -3521,12 +3708,16 @@ class MusicCog(commands.Cog):
         await interaction.followup.send(embed=embed, ephemeral=hidden)
 
     async def _add_track_to_playlist(self, interaction: discord.Interaction, track, entry, query: str, hidden: bool):
-        conn = get_db()
-        try:
-            result, position = _insert_track_row(conn, entry["id"], track, query, int(time.time()))
-            conn.commit()
-        finally:
-            conn.close()
+        def _work():
+            conn = get_db()
+            try:
+                result, position = _insert_track_row(conn, entry["id"], track, query, int(time.time()))
+                conn.commit()
+            finally:
+                conn.close()
+            return result, position
+
+        result, position = await asyncio.to_thread(_work)
         if result == "full":
             await interaction.followup.send(f"This playlist is full ({_MAX_PLAYLIST_TRACKS} tracks max).", ephemeral=True)
             return
@@ -3589,34 +3780,42 @@ class MusicCog(commands.Cog):
             await interaction.response.send_message(f"Playlist names are limited to {_MAX_PLAYLIST_NAME_LEN} characters.", ephemeral=True)
             return
         user_id = interaction.user.id
-        conn = get_db()
-        try:
-            count = conn.execute("SELECT COUNT(*) AS c FROM playlists WHERE user_id=?", (user_id,)).fetchone()["c"]
-            if count >= _MAX_PLAYLISTS_PER_USER:
-                await interaction.response.send_message(f"You can have at most {_MAX_PLAYLISTS_PER_USER} playlists.", ephemeral=True)
-                return
+        def _work():
+            conn = get_db()
             try:
-                conn.execute(
-                    "INSERT INTO playlists (user_id, name, name_lower, created_at) VALUES (?, ?, ?, ?)",
-                    (user_id, name, name.lower(), int(time.time())),
-                )
-            except sqlite3.IntegrityError:
-                await interaction.response.send_message(f"You already have a playlist named **{name}**.", ephemeral=True)
-                return
-            playlist_id = conn.execute("SELECT id FROM playlists WHERE user_id=? AND name_lower=?", (user_id, name.lower())).fetchone()["id"]
-            added = 0
-            skipped = 0
-            for track in tracks:
-                result, _ = _insert_track_row(conn, playlist_id, track, track.title or "", int(time.time()))
-                if result == "added":
-                    added += 1
-                elif result == "full":
-                    break
-                else:
-                    skipped += 1
-            conn.commit()
-        finally:
-            conn.close()
+                count = conn.execute("SELECT COUNT(*) AS c FROM playlists WHERE user_id=?", (user_id,)).fetchone()["c"]
+                if count >= _MAX_PLAYLISTS_PER_USER:
+                    return ("max", 0, 0)
+                try:
+                    conn.execute(
+                        "INSERT INTO playlists (user_id, name, name_lower, created_at) VALUES (?, ?, ?, ?)",
+                        (user_id, name, name.lower(), int(time.time())),
+                    )
+                except sqlite3.IntegrityError:
+                    return ("dup", 0, 0)
+                playlist_id = conn.execute("SELECT id FROM playlists WHERE user_id=? AND name_lower=?", (user_id, name.lower())).fetchone()["id"]
+                added = 0
+                skipped = 0
+                for track in tracks:
+                    result, _ = _insert_track_row(conn, playlist_id, track, track.title or "", int(time.time()))
+                    if result == "added":
+                        added += 1
+                    elif result == "full":
+                        break
+                    else:
+                        skipped += 1
+                conn.commit()
+                return ("ok", added, skipped)
+            finally:
+                conn.close()
+
+        status, added, skipped = await asyncio.to_thread(_work)
+        if status == "max":
+            await interaction.response.send_message(f"You can have at most {_MAX_PLAYLISTS_PER_USER} playlists.", ephemeral=True)
+            return
+        if status == "dup":
+            await interaction.response.send_message(f"You already have a playlist named **{name}**.", ephemeral=True)
+            return
         embed = discord.Embed(
             title="💾 Queue saved",
             description=f"**{name}** · **{added}** track{'s' if added != 1 else ''} from your queue",
