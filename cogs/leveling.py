@@ -582,7 +582,7 @@ def _process_vc_ticks(records):
                 out_of = int(100 + level * 20)
 
                 level_channel = cur.execute(
-                    "SELECT level_channel_id, level_channel_enabled FROM guild_settings WHERE guild_id = ?",
+                    "SELECT level_channel_id, level_channel_enabled, levelup_ping_enabled FROM guild_settings WHERE guild_id = ?",
                     (guild_id,)
                 ).fetchone()
                 level_channel = dict(level_channel) if level_channel else None
@@ -617,6 +617,7 @@ def _process_vc_ticks(records):
                     "new_role_ids": new_role_ids,
                     "level_channel_id": level_channel["level_channel_id"] if level_channel else None,
                     "level_channel_enabled": bool(level_channel and level_channel["level_channel_enabled"]),
+                    "levelup_ping_enabled": bool(level_channel["levelup_ping_enabled"]) if level_channel and level_channel.get("levelup_ping_enabled") is not None else True,
                 })
         conn.commit()
         committed = True
@@ -958,6 +959,7 @@ class LevelingCog(commands.Cog):
 
             channel = self.bot.get_channel(ev["level_channel_id"]) if ev["level_channel_id"] and ev["level_channel_enabled"] else None
             if channel and isinstance(channel, discord.TextChannel):
+                ping = ev.get("levelup_ping_enabled", True)
                 embed = build_level_up_embed(
                     member=member,
                     level=ev["level"],
@@ -965,9 +967,11 @@ class LevelingCog(commands.Cog):
                     out_of=ev["out_of"],
                     boost=ev["boost"],
                     new_roles=new_roles or None,
+                    ping=ping,
                 )
                 try:
-                    await channel.send(content=f"{member.mention} reached Level {ev['level']}!", embed=embed)
+                    content = f"{member.mention} reached Level {ev['level']}!" if ping else f"Reached Level {ev['level']}!"
+                    await channel.send(content=content, embed=embed)
                 except discord.Forbidden:
                     logger.warning("Missing permissions to send level-up message in %s for guild %s", channel.id, ev["guild_id"])
                 except Exception as e:
