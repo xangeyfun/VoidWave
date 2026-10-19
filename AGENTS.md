@@ -1,19 +1,20 @@
 # AGENTS.md
 
-VoidWave: Discord bot (discord.py 2.x, `cogs/`) + Flask web dashboard (`app.py`, `templates/`, `static/`) that share a single SQLite DB as separate processes. Ruff config lives in `pyproject.toml` (rules `E4`,`E7`,`E9`,`F`,`I`); Python 3.11+ is targeted (local `.venv/` is 3.14, production `venv/` is 3.13; docs reference `venv/` on prod hosts). Tests are a small network-free pytest suite in `tests/`, run in CI (`.github/workflows/tests.yml`); verify other changes by running the scripts.
+VoidWave: Discord bot (discord.py 2.x, `cogs/`) + Flask web dashboard (`app.py`, `templates/`, `static/`) that share a single SQLite DB as separate processes. Ruff config lives in `pyproject.toml` (rules `E4`,`E7`,`E9`,`F`,`I`); Python 3.11+ is targeted (CI runs 3.11, this checkout's venv is 3.13). Tests are a small network-free pytest suite in `tests/`, run in CI (`.github/workflows/tests.yml` = pytest + ruff); verify other changes by running the scripts.
 
 ## Run commands
 
 ```bash
-.venv/bin/python bot.py             # bot (applies/create_schema patch DB schema, then bot.run)
-.venv/bin/python app.py             # web dashboard, 127.0.0.1:8002 (admin blueprint included)
-.venv/bin/python generate_graphs.py # rebuild Graphs/*.png + README banner from stats_history.json
-.venv/bin/python outage.py         # outage helper: no args prints the ready to paste Discord bio, also `show` / `set` / `clear` (outage.json + bot_bio.txt)
-.venv/bin/python -m pytest -q       # run tests (needs ./.venv/bin/pip install -r requirements-dev.txt; no Ollama/Lavalink/token needed)
-.venv/bin/python -m ruff check .    # lint, also enforced in CI
+venv/bin/python bot.py             # bot (applies/create_schema to patch DB schema, then bot.run)
+venv/bin/python app.py             # web dashboard, 127.0.0.1:8002 (admin blueprint included)
+venv/bin/python generate_graphs.py # rebuild Graphs/*.png + README banner from stats_history.json
+venv/bin/python outage.py          # outage helper: no args prints the ready to paste Discord bio, also `show` / `set` / `clear` (outage.json + bot_bio.txt)
+venv/bin/python -m pytest -q       # run tests (needs pip install -r requirements-dev.txt; no Ollama/Lavalink/token needed)
+venv/bin/python -m pytest tests/test_music.py -q  # single test file
+venv/bin/python -m ruff check .    # lint, also enforced in CI
 ```
 
-- The local venv is `.venv/`; this repo's copy of it is gitignored. Production hosts use `venv/` (see `DEPLOYMENT.md`).
+- The local venv directory is `venv/` (Python 3.13); it self-ignores via its own `venv/.gitignore`, and `.venv` is also listed in the repo `.gitignore`. `DEPLOYMENT.md` and the admin panel's systemd commands assume `venv/` too.
 - Copy `.env.example` → `.env`. `ADMIN_PASSWORD` is required or /admin returns 503.
 - AI chat needs Ollama at `localhost:11434`; `PROMPT_NAME` selects `prompts/<name>.txt`. The model is `MODEL` (default `llama3.2:3b`), so don't hardcode a model name in user-facing text.
 - `/kirkify` (face swap) shells out via `sys.executable` to the **gitignored** clone at `third_party/kirkify.py/kirkify.py` (see `cogs/ai.py`; serialized through a FIFO `kirkify_queue` of maxsize 5, drained by `AICog._kirkify_worker`). Its extra pip deps (`insightface`, `onnxruntime`, `opencv-python`) must live in the same venv the bot runs in, and its `inswapper_128.onnx` model must be downloaded + `kirkify.py init` run once (setup in `DEPLOYMENT.md`). Don't import it directly; it only works as a subprocess against a local file tree. Uploads are re-encoded to PNG via cv2 before the subprocess so unsupported formats (e.g. AVIF/HEIC) fail with a clean message instead of a cryptic subprocess error.
@@ -37,9 +38,9 @@ VoidWave: Discord bot (discord.py 2.x, `cogs/`) + Flask web dashboard (`app.py`,
 - QOTD runs on a 1-minute loop (`cogs/events.py`); per-guild time is `HH:MM` + IANA tz stored in `guild_settings` (`qotd_time`, `qotd_tz`).
 - The admin panel controls the bot through systemd unit `voidwave.service` (`admin/helpers.py` `_service_*`); start/stop/restart workflow assumes a production host with systemctl. See `DEPLOYMENT.md` for full production setup (units `voidwave.service` + `voidwave_website.service`, reverse proxy, graphs cron).
 - The `/help` menu is data-driven: `DOCUMENTED_COMMANDS`/`DOCUMENTED_ALIASES` in `cogs/general.py` drive the help topics and autocomplete, and `_check_help_docs` runs on startup warning about any registered command missing from it (or any documented one that no longer exists). The website `/docs` pages (`templates/docs_*.html`, mapped in `app.py::_DOCS_PAGES`) are a hand-maintained mirror of that same user-facing content; keep all three in sync.
-- Embed footers: the `_footer()` helper (cogs/music.py:65) sets the "Vote for 2x XP" footer, but `now_playing_embed()`, `QueueView.build_embed()`, and `PlaylistView.build_embed()` set their own footers; calling `_footer()` on top of those silently overwrites them. Don't stack `set_footer` calls.
+- Embed footers: the `_footer()` helper (cogs/music.py) sets the "Vote for 2x XP" footer, but `now_playing_embed()`, `QueueView.build_embed()`, and `PlaylistView.build_embed()` set their own footers; calling `_footer()` on top of those silently overwrites them. Don't stack `set_footer` calls.
 - Music tracks carry who added them in `track.extras.requester_name` (set via `_tag_requester`, default `Autoplay`); the skip-instant owner is the user who started playback (`MusicCog.players_owner`).
-- Music search: `/music play` defaults to searching **all** sources in the order Spotify → SoundCloud → YouTube (`_search_text`); the `source` option (`all`/`youtube`/`soundcloud`/`spotify`) or the `spsearch:`/`ytsearch:`/`scsearch:` prefixes pin one source. `_track_source` resolves a track's source from `extras.requested_source`, falling back to `track.source`.
+- Music search: `/music play` defaults to searching **all** sources in the order Spotify → SoundCloud → YouTube (`_search_text`); the `source` option (value `auto`, shown as "All", or `youtube`/`soundcloud`/`spotify`) or the `spsearch:`/`ytsearch:`/`scsearch:` prefixes pin one source, and a saved `music_source` user pref (`cogs/prefs.py`) overrides `auto`. `_track_source` resolves a track's source from `extras.requested_source`, falling back to `track.source`.
 - There is a test for the pure music helpers in `tests/test_music.py`; keep it network free (no wavelink/Lavalink) by only exercising module-level helpers.
 - Outage announcements are file driven and shared by both processes: `outage.json` at the repo root (gitignored, like `qotd.json`, so `git pull` never clobbers a live announcement) holds `label`, `message` (optional `{start}`/`{end}` placeholders), `start`/`end` unix seconds and `tz`. `outage.py` (stdlib only, imported by `cogs/events.py` and `app.py`) re-reads it on mtime change, so an edit needs no restart; `end` is what expires it, and a missing (the normal state on a fresh host), corrupt, or `end: 0` file means no announcement. `outage.status_text()` prepends a line to the `rotate_status` cycle in `cogs/events.py`, `app.py::inject_outage` injects it into every template via `templates/partials/_outage_banner.html` (included by `index.html` and `status.html`). The Discord bio cannot be set by code, so `python outage.py` prints it for copy paste from the tracked `bot_bio.txt` plus `<t:...:t>` stamps; restore `bot_bio.txt` as the bio on its own after the outage. The CLI (`outage.py show|set|clear`, `set` merges into the existing file) is the intended way to create one. Covered by `tests/test_outage.py`.
 
