@@ -61,13 +61,44 @@ DOCUMENTED_ALIASES = {
 }
 
 
-def _check_help_docs(bot):
+def _check_help_docs(bot, cog):
     registered = {cmd.qualified_name for cmd in bot.tree.walk_commands() if not getattr(cmd, "commands", None)}
     documented = {cmd for cmds in DOCUMENTED_COMMANDS.values() for cmd in cmds}
     for cmd in sorted(registered - documented):
         logger.warning("Command /%s is registered but missing from the /help menu", cmd)
     for cmd in sorted(documented - registered):
         logger.warning("Help menu documents /%s but it isn't registered (removed or renamed?)", cmd)
+    for cat in LABELS:
+        try:
+            embed = cog._help_embed(cat)
+        except Exception:
+            logger.warning("Help embed for '%s' failed to build", cat, exc_info=True)
+            continue
+        if len(embed.title or "") > 256:
+            logger.warning("Help embed '%s' title is %s chars (limit 256)", cat, len(embed.title))
+        if len(embed.description or "") > 4096:
+            logger.warning("Help embed '%s' description is %s chars (limit 4096)", cat, len(embed.description or ""))
+        for field in embed.fields:
+            if len(field.value) > 1024:
+                logger.warning("Help embed '%s' field '%s' is %s chars (limit 1024)", cat, field.name, len(field.value))
+
+
+def _resolve_topic(text):
+    query = text.strip().lower().replace("/", "")
+    if not query:
+        return None
+    if query in LABELS:
+        return query
+    for cat, label in LABELS.items():
+        if query == label.lower():
+            return cat
+    alias = DOCUMENTED_ALIASES.get(query)
+    if alias:
+        return alias
+    for cat, cmds in DOCUMENTED_COMMANDS.items():
+        if query in cmds:
+            return cat
+    return None
 
 
 async def _help_topic_autocomplete(interaction, current: str):
@@ -282,7 +313,7 @@ class GeneralCog(commands.Cog):
             ).add_field(
                 name="Slash Commands",
                 value=(
-                    "`/music play <query> [source]` - Play or queue a song (source: all/youtube/soundcloud/spotify)\n"
+                    "`/music play <query> [source]` - Play or queue a song (all/youtube/soundcloud/spotify)\n"
                     "`/music random [genre] [source]` - Queue a random track, optionally by genre\n"
                     "`/music radio <query> [source]` - Start an endless radio station from a seed\n"
                     "`/music queue` - View the queue\n"
@@ -293,14 +324,14 @@ class GeneralCog(commands.Cog):
                     "`/music shuffle` - Shuffle the queue\n"
                     "`/music loop <mode>` - Loop off/track/queue\n"
                     "`/music volume <level>` - Volume (1-100)\n"
-                    "`/music seek <time>` - Seek to a position (e.g. 1:30)\n"
+                    "`/music seek <time>` - Seek to a position (1:30)\n"
                     "`/music lyrics` - Lyrics for the current track\n"
                     "`/music lyricslive <on|off>` - Live synced lyrics on the player\n"
                     "`/music autoplay <on|off>` - Auto-play related tracks\n"
                     "`/music controller` - Re-open the player controller\n"
                     "`/music disconnect` - Leave the voice channel\n\n"
-                    "**Idle:** leaves 3 minutes after the queue ends. If the voice channel "
-                    "empties, playback pauses until someone rejoins (leaves after 3 minutes)."
+                    "**Idle:** auto-leaves 3 min after the queue ends; pauses when the channel "
+                    "empties and resumes on rejoin (leaves after 3 min)."
                 ),
                 inline=False,
             ).add_field(
@@ -386,7 +417,7 @@ class GeneralCog(commands.Cog):
         return HelpCategorySelect(
             placeholder=current,
             disabled_category=current,
-            categories=["overview", "leveling", "utilities", "fun", "games", "music", "reminders", "giveaways", "moderation", "configuration"],
+            categories=list(LABELS),
         )
 
     def _help_buttons(self):
@@ -402,7 +433,7 @@ class GeneralCog(commands.Cog):
 
     @commands.Cog.listener()
     async def on_ready(self):
-        _check_help_docs(self.bot)
+        _check_help_docs(self.bot, self)
 
     @discord.app_commands.allowed_installs(guilds=True, users=True)
     @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
@@ -410,14 +441,23 @@ class GeneralCog(commands.Cog):
     @app_commands.describe(topic="Get help for a specific category (or search a command)")
     @app_commands.autocomplete(topic=_help_topic_autocomplete)
     async def help_command(self, interaction: discord.Interaction, topic: str = None):
-        category = topic or "overview"
-        embed = self._help_embed(category)
-        if topic is None:
-            view = HelpView(self, self._help_select(category))
+        if not topic:
+            embed = self._help_embed("overview")
+            view = HelpView(self, self._help_select("overview"))
             view.author_id = interaction.user.id
             await interaction.response.send_message(embed=embed, ephemeral=True, view=view)
-        else:
-            await interaction.response.send_message(embed=embed, ephemeral=True)
+            return
+        category = _resolve_topic(topic)
+        if category is None:
+            labels = ", ".join(LABELS.values())
+            await interaction.response.send_message(
+                f"I don't have a help topic for `{topic.strip()}`. Try one of: {labels}, "
+                "or run `/help` to browse the menu.",
+                ephemeral=True,
+            )
+            return
+        embed = self._help_embed(category)
+        await interaction.response.send_message(embed=embed, ephemeral=True)
 
     @discord.app_commands.allowed_installs(guilds=True, users=True)
     @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
