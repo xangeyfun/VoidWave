@@ -1,3 +1,4 @@
+import base64
 import hashlib
 import hmac
 import json
@@ -577,6 +578,55 @@ def status_page():
         db_detail=db['detail'],
     ), 200
 
+def _vote_info(user_id):
+    """Public profile vote info: lifetime votes, active boost, badge, streak, per-list timers."""
+    now = time.time()
+    today = int(now // 86400)
+    info = {
+        "vote_count": 0,
+        "boost_minutes": None,
+        "badge": None,
+        "badge_progress": None,
+        "streak": 0,
+        "longest_streak": 0,
+        "sites": [],
+    }
+    conn = get_db()
+    try:
+        row = conn.execute("SELECT vote_count, expires_at FROM vote_boosts WHERE user_id=?", (user_id,)).fetchone()
+        try:
+            streak_row = conn.execute(
+                "SELECT current_streak, longest_streak, last_day FROM vote_streaks WHERE user_id=?",
+                (user_id,),
+            ).fetchone()
+            site_rows = conn.execute(
+                "SELECT source, voted_at FROM vote_site_history WHERE user_id=?", (user_id,)
+            ).fetchall()
+        except sqlite3.OperationalError:
+            streak_row = None
+            site_rows = []
+    finally:
+        conn.close()
+    if row:
+        info["vote_count"] = row["vote_count"] or 0
+        info["badge"] = _vote_badge_label(info["vote_count"])
+        info["badge_progress"] = _vote_badge_progress(info["vote_count"])
+        if row["expires_at"] and row["expires_at"] > now:
+            info["boost_minutes"] = int((row["expires_at"] - now) // 60)
+    if streak_row:
+        if streak_row["last_day"] in (today, today - 1):
+            info["streak"] = streak_row["current_streak"] or 0
+        info["longest_streak"] = streak_row["longest_streak"] or 0
+    history = {site["source"]: site["voted_at"] for site in site_rows}
+    for name, url in VOTE_SITE_LINKS:
+        voted_at = history.get(name)
+        ready_minutes = None
+        if voted_at and voted_at + VOTE_SITE_COOLDOWN > now:
+            ready_minutes = max(1, int((voted_at + VOTE_SITE_COOLDOWN - now) // 60))
+        info["sites"].append({"name": name, "url": url, "ready_minutes": ready_minutes})
+    return info
+
+
 @app.route('/stats/<int:guild_id>/<int:user_id>')
 def stats(guild_id: int, user_id: int):
     user_data = get_user_stats(user_id, guild_id)
@@ -600,7 +650,8 @@ def stats(guild_id: int, user_id: int):
             xp_to_overtake=None,
             guild_id=guild_id,
             user_id=user_id,
-            avatar_url='https://cdn.discordapp.com/embed/avatars/0.png'
+            avatar_url='https://cdn.discordapp.com/embed/avatars/0.png',
+            vote={"vote_count": 0, "boost_minutes": None, "badge": None, "streak": 0, "longest_streak": 0, "sites": []}
         ), 200
     
     progress_percent = (user_data['progress'] / user_data['out_of'] * 100) if user_data['out_of'] > 0 else 0
@@ -608,6 +659,8 @@ def stats(guild_id: int, user_id: int):
     avatar_ext = 'gif' if (user_data['avatar_hash'] or '').startswith('a_') else 'png'
     avatar_url = f'https://cdn.discordapp.com/avatars/{user_id}/{user_data["avatar_hash"]}.{avatar_ext}?size=128' if user_data['avatar_hash'] else 'https://cdn.discordapp.com/embed/avatars/0.png'
     
+    vote = _vote_info(user_id)
+
     return render_template('stats.html',
         username=user_data['username'],
         display_name=user_data['display_name'] or user_data['username'],
@@ -626,7 +679,8 @@ def stats(guild_id: int, user_id: int):
         xp_to_overtake=user_data['xp_to_overtake'],
         guild_id=guild_id,
         user_id=user_id,
-        avatar_url=avatar_url
+        avatar_url=avatar_url,
+        vote=vote
     ), 200
 
 def _lb_find_rank(username_query, guild_id, sort_by, direction, combined=False, period='all'):
@@ -858,6 +912,196 @@ def leaderboard():
         find_avatar_hash=find_avatar_hash,
         find_matches=find_matches,
         find_idx=find_idx
+    ), 200
+
+
+def _fmt_ago(ts, now=None):
+    now = time.time() if now is None else now
+    delta = int(now - ts)
+    if delta < 60:
+        return "just now"
+    if delta < 3600:
+        return f"{delta // 60}m ago"
+    if delta < 86400:
+        return f"{delta // 3600}h ago"
+    return f"{delta // 86400}d ago"
+
+
+def _avatar_url(user_id, avatar_hash, size=128):
+    if not avatar_hash:
+        return "https://cdn.discordapp.com/embed/avatars/0.png"
+    ext = "gif" if avatar_hash.startswith("a_") else "png"
+    return f"https://cdn.discordapp.com/avatars/{user_id}/{avatar_hash}.{ext}?size={size}"
+
+
+@app.route('/voters')
+def voters():
+    current_month = time.strftime("%Y-%m", time.gmtime())
+    today = int(time.time() // 86400)
+    per_page = 25
+    conn = get_db()
+    try:
+        try:
+            month_rows = conn.execute(
+                "SELECT DISTINCT month FROM vote_monthly WHERE votes > 0 ORDER BY month DESC LIMIT 12"
+            ).fetchall()
+        except sqlite3.OperationalError:
+            # tables appear once the bot or a webhook has run since upgrading
+            month_rows = []
+    finally:
+        conn.close()
+
+    available = [current_month]
+    for row in month_rows:
+        if row["month"] not in available:
+            available.append(row["month"])
+    available = available[:12]
+
+    requested = (request.args.get("month") or "").strip()
+    month = requested if re.fullmatch(r"\d{4}-(0[1-9]|1[0-2])", requested) and requested in available else current_month
+    month_label = time.strftime("%B %Y", time.strptime(month + "-01", "%Y-%m-%d"))
+    months = [
+        {
+            "value": value,
+            "label": (
+                time.strftime("%B %Y", time.strptime(value + "-01", "%Y-%m-%d"))
+                + (" (current)" if value == current_month else "")
+            ),
+        }
+        for value in available
+    ]
+
+    find = (request.args.get("find") or "").strip()[:80]
+    raw_page = request.args.get("page", type=int)
+    page = max(1, raw_page or 1)
+    find_user_id = None
+    find_rank = None
+    find_votes = 0
+    find_name = None
+    find_missing = False
+
+    ranked_sql = (
+        "SELECT m.user_id, m.votes, v.vote_count, v.last_vote_at, "
+        "u.username, u.display_name, u.avatar_hash, u.guild_id, "
+        "s.current_streak, s.longest_streak, s.last_day, "
+        "ROW_NUMBER() OVER (ORDER BY m.votes DESC, COALESCE(v.last_vote_at, 0) DESC, m.user_id ASC) AS rk "
+        "FROM vote_monthly m "
+        "LEFT JOIN vote_boosts v ON v.user_id = m.user_id "
+        "LEFT JOIN (SELECT user_id, MAX(total_xp) AS total_xp, username, display_name, "
+        "avatar_hash, MAX(guild_id) AS guild_id FROM users GROUP BY user_id) u "
+        "ON u.user_id = m.user_id "
+        "LEFT JOIN vote_streaks s ON s.user_id = m.user_id "
+        "WHERE m.month = ? AND m.votes > 0"
+    )
+
+    rows = []
+    total = 0
+    streak_leaders = []
+    conn = get_db()
+    try:
+        try:
+            total = conn.execute(
+                "SELECT COUNT(*) FROM vote_monthly WHERE month = ? AND votes > 0", (month,)
+            ).fetchone()[0]
+
+            if find:
+                like = "%" + find.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
+                match = conn.execute(
+                    f"SELECT * FROM ({ranked_sql}) AS ranked "
+                    "WHERE LOWER(COALESCE(username, '')) = LOWER(?) "
+                    "OR LOWER(COALESCE(display_name, '')) = LOWER(?) "
+                    "OR LOWER(COALESCE(username, '')) LIKE ? ESCAPE '\\' "
+                    "OR LOWER(COALESCE(display_name, '')) LIKE ? ESCAPE '\\' "
+                    "ORDER BY CASE WHEN LOWER(COALESCE(username, '')) = LOWER(?) "
+                    "OR LOWER(COALESCE(display_name, '')) = LOWER(?) THEN 0 ELSE 1 END, rk "
+                    "LIMIT 1",
+                    (month, find, find, like, like, find, find),
+                ).fetchone()
+                if match:
+                    find_user_id = match["user_id"]
+                    find_rank = match["rk"]
+                    find_votes = match["votes"]
+                    find_name = match["display_name"] or match["username"] or f"Voter {find_user_id}"
+                    if raw_page is None:
+                        page = (find_rank - 1) // per_page + 1
+                else:
+                    find_missing = True
+
+            total_pages = max(1, (total + per_page - 1) // per_page)
+            page = min(page, total_pages)
+            offset = (page - 1) * per_page
+            rows = conn.execute(
+                f"SELECT * FROM ({ranked_sql}) AS ranked ORDER BY rk LIMIT ? OFFSET ?",
+                (month, per_page, offset),
+            ).fetchall()
+
+            streak_leaders = conn.execute(
+                "SELECT s.user_id, s.current_streak, s.longest_streak, "
+                "u.username, u.display_name, u.avatar_hash, u.guild_id "
+                "FROM vote_streaks s "
+                "LEFT JOIN (SELECT user_id, MAX(total_xp) AS total_xp, username, display_name, "
+                "avatar_hash, MAX(guild_id) AS guild_id FROM users GROUP BY user_id) u "
+                "ON u.user_id = s.user_id "
+                "WHERE s.current_streak >= 2 AND s.last_day IN (?, ?) "
+                "ORDER BY s.current_streak DESC, s.longest_streak DESC, s.user_id ASC LIMIT 5",
+                (today, today - 1),
+            ).fetchall()
+        except sqlite3.OperationalError:
+            # tables appear once the bot or a webhook has run since upgrading
+            rows, total, streak_leaders = [], 0, []
+            total_pages = 1
+    finally:
+        conn.close()
+
+    entries = []
+    for row in rows:
+        streak = 0
+        if row["last_day"] in (today, today - 1):
+            streak = row["current_streak"] or 0
+        entries.append({
+            "rank": row["rk"],
+            "user_id": row["user_id"],
+            "name": row["display_name"] or row["username"] or f"Voter {row['user_id']}",
+            "votes": row["votes"],
+            "badge": _vote_badge_label(row["vote_count"] or 0),
+            "streak": streak,
+            "last_ago": _fmt_ago(row["last_vote_at"]) if row["last_vote_at"] else "-",
+            "avatar_url": _avatar_url(row["user_id"], row["avatar_hash"]),
+            "guild_id": row["guild_id"] or 0,
+        })
+
+    leaders = [
+        {
+            "user_id": row["user_id"],
+            "name": row["display_name"] or row["username"] or f"Voter {row['user_id']}",
+            "streak": row["current_streak"],
+            "longest_streak": row["longest_streak"],
+            "avatar_url": _avatar_url(row["user_id"], row["avatar_hash"], size=64),
+            "guild_id": row["guild_id"] or 0,
+        }
+        for row in streak_leaders
+    ]
+
+    return render_template(
+        "voters.html",
+        entries=entries,
+        podium=entries[:3] if page == 1 else [],
+        rest=entries[3:] if page == 1 else entries,
+        total=total,
+        page=page,
+        total_pages=total_pages,
+        month=month,
+        month_label=month_label,
+        months=months,
+        is_current=month == current_month,
+        find=find,
+        find_user_id=find_user_id,
+        find_rank=find_rank,
+        find_votes=find_votes,
+        find_name=find_name,
+        find_missing=find_missing,
+        streak_leaders=leaders,
+        vote_sites=VOTE_SITE_LINKS,
     ), 200
 
 @app.route('/stats')
@@ -1130,6 +1374,267 @@ def api_stats():
         'total_vc_minutes': r[3] or 0
     })
 
+# --- Vote webhooks -------------------------------------------------------
+# Rewards for votes from any bot list. The 2x XP boost STACKS: every vote
+# extends the expiry instead of overwriting it, so voting on both lists
+# in one round (4h each) buys up to 8h of boosted XP.
+VOTE_BOOST_MULTIPLIER = 2.0
+VOTE_BOOST_DURATION = 14400          # 4h, top.gg weekday vote / any other list
+VOTE_BOOST_WEEKEND_DURATION = 21600  # 6h, top.gg weight=2 (weekend) vote
+VOTE_SITE_COOLDOWN = 12 * 3600       # per-list cooldown, matches utils.VOTE_SITE_COOLDOWN
+
+# Keep in sync with utils.VOTE_LINKS (web process cannot import utils).
+VOTE_SITE_LINKS = (
+    ("Top.gg", "https://top.gg/bot/1442229230384709752/vote"),
+    ("Discord List", "https://discordlist.gg/bot/1442229230384709752/vote"),
+)
+
+# Cosmetic voter badges by lifetime votes; keep in sync with utils.VOTE_BADGES.
+VOTE_BADGE_TIERS = (
+    (100, "🥇 Gold Voter"),
+    (25, "🥈 Silver Voter"),
+    (5, "🥉 Bronze Voter"),
+)
+VOTE_STREAK_MILESTONES = {3, 7, 14, 30, 60, 100, 365}
+
+
+def _vote_badge_label(vote_count):
+    """Badge label for a lifetime vote count, or None below the first tier."""
+    for threshold, label in VOTE_BADGE_TIERS:
+        if vote_count >= threshold:
+            return label
+    return None
+
+
+def _vote_badge_progress(vote_count):
+    """Next badge tier as {"label", "threshold", "remaining"}, or None at the top."""
+    for threshold, label in reversed(VOTE_BADGE_TIERS):
+        if vote_count < threshold:
+            return {
+                "label": label,
+                "threshold": threshold,
+                "remaining": threshold - vote_count,
+            }
+    return None
+
+
+def _record_vote(user_id, username, source, duration, hours):
+    """Upsert one vote arriving from a bot list.
+
+    Stacks the vote duration onto an active 2x XP boost, bumps the lifetime
+    vote counter, queues the thanks DM and guild announcement, and refreshes
+    the vote reminder of users who opted in via /vote-remind. A repeat from the
+    same list inside its cooldown is ignored. Raises on failure so the calling
+    route can answer 500.
+    """
+    now = int(time.time())
+    conn = get_db()
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+        CREATE TABLE IF NOT EXISTS vote_boosts (
+            user_id INTEGER PRIMARY KEY,
+            multiplier REAL DEFAULT 2.0,
+            expires_at INTEGER,
+            last_vote_at INTEGER,
+            vote_count INTEGER DEFAULT 0
+        )
+        """)
+        for column in ("last_vote_at INTEGER", "vote_count INTEGER DEFAULT 0"):
+            try:
+                cur.execute(f"ALTER TABLE vote_boosts ADD COLUMN {column}")
+            except sqlite3.OperationalError:
+                pass
+
+        # per-list cooldown timer, one row per (user, list). The guarded upsert
+        # is atomic, so retries from a list webhook only reward once.
+        cur.execute("""
+        CREATE TABLE IF NOT EXISTS vote_site_history (
+            user_id INTEGER,
+            source TEXT,
+            voted_at INTEGER,
+            PRIMARY KEY (user_id, source)
+        )
+        """)
+        cur.execute("""
+        INSERT INTO vote_site_history (user_id, source, voted_at) VALUES (?, ?, ?)
+        ON CONFLICT(user_id, source) DO UPDATE SET voted_at = excluded.voted_at
+        WHERE excluded.voted_at - COALESCE(vote_site_history.voted_at, 0) >= ?
+        """, (int(user_id), source, now, VOTE_SITE_COOLDOWN))
+        if cur.rowcount == 0:
+            logger.webhook("Ignoring duplicate %s vote from discord user %s", source, user_id)
+            return False
+
+        prev_row = cur.execute(
+            "SELECT vote_count FROM vote_boosts WHERE user_id = ?", (int(user_id),)
+        ).fetchone()
+        prev_count = (prev_row["vote_count"] or 0) if prev_row else 0
+        new_count = prev_count + 1
+
+        cur.execute("""
+        INSERT INTO vote_boosts (user_id, multiplier, expires_at, last_vote_at, vote_count)
+        VALUES (?, ?, ?, ?, 1)
+        ON CONFLICT(user_id) DO UPDATE SET
+            multiplier = excluded.multiplier,
+            expires_at = MAX(COALESCE(vote_boosts.expires_at, 0), excluded.last_vote_at) + ?,
+            last_vote_at = excluded.last_vote_at,
+            vote_count = COALESCE(vote_boosts.vote_count, 0) + 1
+        """, (int(user_id), VOTE_BOOST_MULTIPLIER, now + duration, now, duration))
+
+        # daily voting streak, counted in UTC days (unix day number)
+        cur.execute("""
+        CREATE TABLE IF NOT EXISTS vote_streaks (
+            user_id INTEGER PRIMARY KEY,
+            current_streak INTEGER DEFAULT 0,
+            longest_streak INTEGER DEFAULT 0,
+            last_day INTEGER
+        )
+        """)
+        streak_row = cur.execute(
+            "SELECT current_streak, longest_streak, last_day FROM vote_streaks WHERE user_id = ?",
+            (int(user_id),),
+        ).fetchone()
+        today = now // 86400
+        if not streak_row:
+            streak, streak_incremented = 1, True
+        elif streak_row["last_day"] == today:
+            streak, streak_incremented = streak_row["current_streak"] or 1, False
+        elif streak_row["last_day"] == today - 1:
+            streak, streak_incremented = (streak_row["current_streak"] or 0) + 1, True
+        else:
+            streak, streak_incremented = 1, True
+        longest = max((streak_row["longest_streak"] or 0) if streak_row else 0, streak)
+        cur.execute("""
+        INSERT INTO vote_streaks (user_id, current_streak, longest_streak, last_day)
+        VALUES (?, ?, ?, ?)
+        ON CONFLICT(user_id) DO UPDATE SET
+            current_streak = excluded.current_streak,
+            longest_streak = excluded.longest_streak,
+            last_day = excluded.last_day
+        """, (int(user_id), streak, longest, today))
+
+        # monthly tally used by the voters leaderboard
+        cur.execute("""
+        CREATE TABLE IF NOT EXISTS vote_monthly (
+            user_id INTEGER,
+            month TEXT,
+            votes INTEGER DEFAULT 0,
+            PRIMARY KEY (user_id, month)
+        )
+        """)
+        month = time.strftime("%Y-%m", time.gmtime(now))
+        cur.execute("""
+        INSERT INTO vote_monthly (user_id, month, votes) VALUES (?, ?, 1)
+        ON CONFLICT(user_id, month) DO UPDATE SET votes = votes + 1
+        """, (int(user_id), month))
+
+        badge = _vote_badge_label(new_count)
+        site_votes = {
+            row["source"]: row["voted_at"]
+            for row in cur.execute(
+                "SELECT source, voted_at FROM vote_site_history WHERE user_id = ?", (int(user_id),)
+            ).fetchall()
+        }
+        other_ready, other_cooling = [], []
+        for name, _ in VOTE_SITE_LINKS:
+            if name == source:
+                continue
+            voted_at = site_votes.get(name)
+            if voted_at and voted_at + VOTE_SITE_COOLDOWN > now:
+                other_cooling.append(name)
+            else:
+                other_ready.append(name)
+        vote_payload = {
+            "hours": hours,
+            "source": source,
+            "vote_count": new_count,
+            "badge": badge,
+            "unlocked_badge": badge if badge != _vote_badge_label(prev_count) else None,
+            "streak": streak,
+            "longest_streak": longest,
+            "streak_milestone": streak_incremented and streak in VOTE_STREAK_MILESTONES,
+            "other_ready": other_ready,
+            "other_cooling": other_cooling,
+        }
+
+        cur.execute("""
+        CREATE TABLE IF NOT EXISTS pending_dms (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            kind TEXT,
+            payload TEXT,
+            created_at INTEGER
+        )
+        """)
+        cur.execute(
+            "INSERT INTO pending_dms (user_id, kind, payload, created_at) VALUES (?, 'vote_thanks', ?, ?)",
+            (int(user_id), json.dumps(vote_payload), now)
+        )
+
+        cur.execute("""
+        CREATE TABLE IF NOT EXISTS vote_reminders (
+            user_id INTEGER PRIMARY KEY,
+            remind_at INTEGER,
+            risk_ping_day INTEGER
+        )
+        """)
+        # only refresh reminders for users who opted in via /vote-remind;
+        # fire when the soonest list frees up (each list has its own cooldown)
+        nexts = [
+            row["voted_at"] + VOTE_SITE_COOLDOWN
+            for row in cur.execute(
+                "SELECT voted_at FROM vote_site_history WHERE user_id = ?", (int(user_id),)
+            ).fetchall()
+        ]
+        remind_at = min(nexts) if nexts else now + VOTE_SITE_COOLDOWN
+        cur.execute("UPDATE vote_reminders SET remind_at = ? WHERE user_id = ?", (remind_at, int(user_id)))
+
+        cur.execute("""
+        CREATE TABLE IF NOT EXISTS pending_vote_announcements (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            username TEXT,
+            payload TEXT,
+            created_at INTEGER
+        )
+        """)
+        cur.execute(
+            "INSERT INTO pending_vote_announcements (user_id, username, payload, created_at) VALUES (?, ?, ?, ?)",
+            (int(user_id), username, json.dumps({"hours": hours, "source": source}), now)
+        )
+
+        conn.commit()
+        logger.webhook("%s vote from discord user %s (%sh boost)", source, user_id, hours)
+    finally:
+        conn.close()
+
+
+def _hs256_jwt_claims(token, secret):
+    """Verify an HS256 JWT with the stdlib only; return its claims or None."""
+    try:
+        header_b64, payload_b64, signature_b64 = token.split(".")
+    except ValueError:
+        return None
+    expected = base64.urlsafe_b64encode(
+        hmac.new(secret.encode(), f"{header_b64}.{payload_b64}".encode(), hashlib.sha256).digest()
+    ).rstrip(b"=").decode()
+    if not hmac.compare_digest(expected, signature_b64):
+        return None
+    try:
+        header = json.loads(base64.urlsafe_b64decode(header_b64 + "=" * (-len(header_b64) % 4)))
+        claims = json.loads(base64.urlsafe_b64decode(payload_b64 + "=" * (-len(payload_b64) % 4)))
+    except (ValueError, json.JSONDecodeError):
+        return None
+    if header.get("alg") != "HS256":
+        return None
+    try:
+        if claims.get("exp") is not None and int(claims["exp"]) < time.time():
+            return None
+    except (TypeError, ValueError):
+        return None
+    return claims
+
+
 @app.route('/webhooks/topgg', methods=['POST'])
 def topgg_webhook():
     secret = os.getenv("TOPGG_WEBHOOK_AUTH")
@@ -1173,72 +1678,63 @@ def topgg_webhook():
             return 'OK', 200
 
         weight = vote_data.get('weight', 1)
-        duration = 21600 if weight == 2 else 14400
+        duration = VOTE_BOOST_WEEKEND_DURATION if weight == 2 else VOTE_BOOST_DURATION
 
-        conn = get_db()
         try:
-            cur = conn.cursor()
-            cur.execute("""
-            CREATE TABLE IF NOT EXISTS vote_boosts (
-                user_id INTEGER PRIMARY KEY,
-                multiplier REAL DEFAULT 2.0,
-                expires_at INTEGER,
-                last_vote_at INTEGER
-            )
-            """)
-            try:
-                cur.execute("ALTER TABLE vote_boosts ADD COLUMN last_vote_at INTEGER")
-            except sqlite3.OperationalError:
-                pass
-            cur.execute("""
-            INSERT INTO vote_boosts (user_id, multiplier, expires_at, last_vote_at) VALUES (?, 2.0, ?, ?)
-            ON CONFLICT(user_id) DO UPDATE SET multiplier = excluded.multiplier, expires_at = excluded.expires_at, last_vote_at = excluded.last_vote_at
-            """, (int(user_id), int(time.time()) + duration, int(time.time())))
-
-            cur.execute("""
-            CREATE TABLE IF NOT EXISTS pending_dms (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER,
-                kind TEXT,
-                payload TEXT,
-                created_at INTEGER
-            )
-            """)
-            cur.execute(
-                "INSERT INTO pending_dms (user_id, kind, payload, created_at) VALUES (?, 'vote_thanks', ?, ?)",
-                (int(user_id), json.dumps({"hours": 6 if weight == 2 else 4}), int(time.time()))
-            )
-
-            cur.execute("""
-            CREATE TABLE IF NOT EXISTS vote_reminders (
-                user_id INTEGER PRIMARY KEY,
-                remind_at INTEGER
-            )
-            """)
-            # only refresh reminders for users who opted in via /vote-remind
-            cur.execute("UPDATE vote_reminders SET remind_at = ? WHERE user_id = ?", (int(time.time()) + 12 * 3600, int(user_id)))
-
-            cur.execute("""
-            CREATE TABLE IF NOT EXISTS pending_vote_announcements (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER,
-                username TEXT,
-                payload TEXT,
-                created_at INTEGER
-            )
-            """)
-            cur.execute(
-                "INSERT INTO pending_vote_announcements (user_id, username, payload, created_at) VALUES (?, ?, ?, ?)",
-                (int(user_id), username, json.dumps({"hours": 6 if weight == 2 else 4}), int(time.time()))
-            )
-
-            conn.commit()
-            logger.webhook("Top.gg vote from discord user %s (%s boost)", user_id, '6h weekend' if weight == 2 else '4h')
+            _record_vote(user_id, username, "Top.gg", duration, 6 if weight == 2 else 4)
         except Exception as e:
             logger.error("Top.gg webhook error: %s", e)
             return 'Internal Server Error', 500
-        finally:
-            conn.close()
+
+    return 'OK', 200
+
+
+@app.route('/webhooks/discordlist', methods=['POST'])
+def discordlist_webhook():
+    """discordlist.gg vote webhook.
+
+    Their documented format is an HS256 JWT signed with the Webhook
+    Authorization key, sent as the raw body with claims
+    {user_id, bot_id, is_test}. Two fallbacks are accepted because delivery
+    has been flaky (discordlist-gg/beta-issues#340): the JWT in an
+    Authorization: Bearer header, or a plain JSON body with the shared secret
+    as the Authorization header.
+    """
+    secret = os.getenv("DLIST_WEBHOOK_AUTH")
+    if not secret:
+        logger.error("discordlist.gg webhook hit but DLIST_WEBHOOK_AUTH is not set in .env")
+        return 'Not configured', 500
+
+    raw_body = request.get_data(as_text=True).strip()
+    claims = None
+
+    if raw_body and not raw_body.startswith('{'):
+        claims = _hs256_jwt_claims(raw_body, secret)
+    if claims is None:
+        auth = request.headers.get('Authorization', '')
+        if auth.startswith('Bearer '):
+            claims = _hs256_jwt_claims(auth[7:], secret)
+    if claims is None:
+        auth = request.headers.get('Authorization', '')
+        if auth and hmac.compare_digest(auth, secret):
+            claims = request.get_json(silent=True)
+    if not isinstance(claims, dict):
+        return 'Unauthorized', 401
+
+    if claims.get('is_test'):
+        logger.webhook("discordlist.gg webhook test ping accepted")
+        return 'OK', 200
+
+    user_id = claims.get('user_id') or claims.get('id')
+    if not user_id:
+        logger.warning("discordlist.gg vote without a Discord user id")
+        return 'OK', 200
+
+    try:
+        _record_vote(user_id, claims.get('username'), "Discord List", VOTE_BOOST_DURATION, 4)
+    except Exception as e:
+        logger.error("discordlist.gg webhook error: %s", e)
+        return 'Internal Server Error', 500
 
     return 'OK', 200
 
