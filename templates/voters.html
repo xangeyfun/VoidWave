@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+
+{% block title %}Vote · VoidWave{% endblock %}
+
+{% block og_tags %}
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="VoidWave">
+<meta property="og:url" content="https://voidwave.xangey.dev/voters">
+<meta property="og:title" content="Vote for VoidWave">
+<meta property="og:description" content="Vote on Top.gg and Discord List to stack a 2x XP boost, then see the monthly top voters, with badges and streaks.">
+<meta property="og:image" content="https://voidwave.xangey.dev/static/images/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+{% endblock %}
+
+{% block content %}
+{% import "_icons.html" as icons %}
+<div class="voters-page">
+    <header class="bs-hero voters-hero">
+        <h1 class="bs-title">Vote for <span>VoidWave</span></h1>
+        <p class="bs-sub">Free, takes a few seconds, and doubles your XP on every message and voice minute for 4 hours. Vote on both lists to stack both boosts.</p>
+        <div class="hero-buttons voters-hero-actions">
+            {% for site_name, site_url in vote_sites %}
+            <a class="btn {% if loop.first %}btn-primary{% else %}btn-secondary{% endif %}" href="{{ site_url }}" target="_blank" rel="noopener">🗳️ Vote on {{ site_name }}</a>
+            {% endfor %}
+        </div>
+        <div class="vote-chips">
+            <span class="vote-chip">⚡ 2x XP on messages and voice</span>
+            <span class="vote-chip">🕒 4h per vote, 6h Top.gg weekends</span>
+            <span class="vote-chip">🥇 Badges, streaks and the monthly board</span>
+        </div>
+    </header>
+
+    <section class="voters-board">
+        <div class="voters-board-head">
+            <div>
+                <h2 class="voters-board-title">Monthly top voters</h2>
+                <p class="voters-board-sub">{{ month_label }}{% if is_current %} (current){% endif %} &middot; Page {{ page }} of {{ total_pages }} &middot; {{ total }} voter{{ 's' if total != 1 }} &middot; ranked by votes (UTC)</p>
+            </div>
+            <div class="voters-board-tools">
+                <form class="find-me" method="get" action="/voters">
+                    <input type="hidden" name="month" value="{{ month }}">
+                    <input class="find-input" type="text" name="find" value="{{ find }}" placeholder="Find a voter..." maxlength="80" aria-label="Find a voter">
+                    <button class="find-btn" type="submit">Locate</button>
+                </form>
+                <form class="voters-month-picker" method="get" action="/voters">
+                    <label for="voters-month">Month</label>
+                    <select id="voters-month" name="month" onchange="this.form.submit()">
+                        {% for m in months %}
+                        <option value="{{ m.value }}" {% if m.value == month %}selected{% endif %}>{{ m.label }}</option>
+                        {% endfor %}
+                    </select>
+                    <noscript><button class="btn btn-secondary btn-sm" type="submit">Go</button></noscript>
+                </form>
+            </div>
+        </div>
+
+        {% if find %}
+        <div class="lb-locate-float {% if not find_rank %}lb-locate-miss{% endif %}" role="status">
+            {% if find_rank %}
+            <span class="lb-float-info"><strong>{{ find_name }}</strong> is <span class="lb-float-rank">#{{ find_rank }}</span> with {{ find_votes }} vote{{ 's' if find_votes != 1 }} this month.</span>
+            {% else %}
+            <span class="lb-float-info">No voter found for &ldquo;<strong>{{ find }}</strong>&rdquo; in {{ month_label }}.</span>
+            {% endif %}
+            <a class="lb-nav-btn lb-clear" href="/voters?month={{ month }}" aria-label="Clear search">&times;</a>
+        </div>
+        {% endif %}
+
+        {% if streak_leaders %}
+        <section class="voters-streaks" aria-label="Current vote streaks">
+            <span class="voters-streaks-title">🔥 Streak leaders</span>
+            <div class="voters-streaks-list">
+                {% for l in streak_leaders %}
+                <div class="voters-streak">
+                    <img loading="lazy" class="voters-streak-avatar" src="{{ l.avatar_url }}" onerror="this.onerror=null;this.src='https://cdn.discordapp.com/embed/avatars/0.png'" alt="">
+                    <span class="voters-streak-name">{% if l.guild_id %}<a href="/stats/{{ l.guild_id }}/{{ l.user_id }}">{{ l.name }}</a>{% else %}{{ l.name }}{% endif %}</span>
+                    <span class="voters-streak-count">🔥 {{ l.streak }}d</span>
+                </div>
+                {% endfor %}
+            </div>
+        </section>
+        {% endif %}
+
+        {% if podium %}
+        <div class="voters-podium">
+            {% for e in podium %}
+            <div class="voters-podium-card voters-podium-card--{{ e.rank }}{% if find_user_id and e.user_id == find_user_id %} voters-podium-card--found{% endif %}">
+                <span class="voters-podium-medal">{{ ['🥇', '🥈', '🥉'][e.rank - 1] }}</span>
+                <img loading="lazy" class="voters-podium-avatar" src="{{ e.avatar_url }}" onerror="this.onerror=null;this.src='https://cdn.discordapp.com/embed/avatars/0.png'" alt="{{ e.name }}">
+                <span class="voters-podium-name">
+                    {% if e.guild_id %}<a href="/stats/{{ e.guild_id }}/{{ e.user_id }}">{{ e.name }}</a>{% else %}{{ e.name }}{% endif %}
+                </span>
+                <span class="voters-podium-votes">{{ e.votes }} vote{{ 's' if e.votes != 1 }}</span>
+                <div class="voters-podium-meta">
+                    {% if e.badge %}<span class="stats-vote-badge">{{ e.badge }}</span>{% endif %}
+                    {% if e.streak >= 2 %}<span class="voters-podium-streak">🔥 {{ e.streak }} day streak</span>{% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <div class="voters-list">
+            {% for e in rest %}
+            <div class="voters-row{% if find_user_id and e.user_id == find_user_id %} voters-row--found{% endif %}">
+                <span class="voters-rank">#{{ e.rank }}</span>
+                <img loading="lazy" class="voters-avatar" src="{{ e.avatar_url }}" onerror="this.onerror=null;this.src='https://cdn.discordapp.com/embed/avatars/0.png'" alt="{{ e.name }}">
+                <span class="user-name">
+                    {% if e.guild_id %}<a href="/stats/{{ e.guild_id }}/{{ e.user_id }}">{{ e.name }}</a>{% else %}{{ e.name }}{% endif %}
+                    {% if e.badge %}<span class="stats-vote-badge">{{ e.badge }}</span>{% endif %}
+                </span>
+                <span class="voters-month">{{ e.votes }} vote{{ 's' if e.votes != 1 }}</span>
+                <span class="voters-meta">{% if e.streak >= 2 %}🔥 {{ e.streak }} day streak{% else %}-{% endif %}</span>
+                <span class="voters-meta">{{ e.last_ago }}</span>
+            </div>
+            {% else %}
+                {% if not entries %}
+                <div class="voters-row">
+                    <span class="voters-empty">No votes yet this month. Be the first! 🗳️</span>
+                </div>
+                {% endif %}
+            {% endfor %}
+        </div>
+    </section>
+
+    <div class="lb-foot">
+        <span class="leaderboard-info">Resets on the 1st (UTC) &middot; Vote on both lists to stack your boost</span>
+        <div class="pagination">
+            {% if page > 1 %}
+            <a href="/voters?month={{ month }}&page={{ page - 1 }}{% if find %}&find={{ find|urlencode }}{% endif %}">&larr; Previous</a>
+            {% endif %}
+            <span class="voters-page-info">Page {{ page }} of {{ total_pages }}</span>
+            {% if page < total_pages %}
+            <a href="/voters?month={{ month }}&page={{ page + 1 }}{% if find %}&find={{ find|urlencode }}{% endif %}">Next &rarr;</a>
+            {% endif %}
+            <a href="/leaderboard">XP Leaderboard</a>
+            <a href="/docs/voting">Voting docs</a>
+        </div>
+    </div>
+</div>
+{% endblock %}
