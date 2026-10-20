@@ -12,7 +12,13 @@ from dotenv import load_dotenv
 import utils
 from logconf import setup_logging
 from schema import create_schema
-from utils import block_reply, is_blocked, start_admin_event_writer
+from utils import (
+    VOTE_NUDGE_COMMANDS,
+    block_reply,
+    is_blocked,
+    start_admin_event_writer,
+    vote_nudge,
+)
 
 setup_logging()
 
@@ -45,6 +51,49 @@ async def _command_gate(interaction: discord.Interaction) -> bool:
     return True
 
 bot.tree.interaction_check = _command_gate
+
+
+class VoteNudgeView(discord.ui.View):
+    def __init__(self, url, emoji):
+        super().__init__(timeout=None)
+        self.add_item(discord.ui.Button(
+            label="VoidWave says you should vote",
+            url=url,
+            emoji=discord.PartialEmoji(name=emoji[0], id=emoji[1]) if emoji else "🗳️",
+        ))
+
+
+def _nudge_view(nudge):
+    return VoteNudgeView(nudge["url"], nudge.get("emoji"))
+
+
+async def _maybe_attach_vote_nudge(interaction: discord.Interaction) -> None:
+    """Attach a "you should vote" button to a command's result when the user can
+    vote on at least one list right now and the command did not provide its own view."""
+    command = getattr(interaction, "command", None)
+    if command is None or command.name not in VOTE_NUDGE_COMMANDS:
+        return
+    if not interaction.guild or not interaction.user or interaction.user.bot:
+        return
+    try:
+        nudge = await asyncio.to_thread(vote_nudge, interaction.user.id)
+        if not nudge:
+            return
+        message = await interaction.original_response()
+        if message.components and message.components[0].components:
+            return
+        try:
+            await message.edit(view=_nudge_view(nudge))
+        except discord.NotFound:
+            pass
+    except (discord.HTTPException, RuntimeError):
+        pass
+
+
+@bot.event
+async def on_app_command_completion(interaction: discord.Interaction, command: discord.app_commands.Command) -> None:
+    await _maybe_attach_vote_nudge(interaction)
+
 
 async def setup_hook():
     start_admin_event_writer()
