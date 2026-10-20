@@ -8,7 +8,19 @@ from discord.ext import commands
 
 from cogs.config import config_help_embed
 from cogs.rating import send_rating_prompt
-from utils import block_reply, get_db, is_blocked, startup
+from utils import (
+    VOTE_LINKS,
+    VOTE_PRIMARY_LINK,
+    block_reply,
+    get_db,
+    is_blocked,
+    startup,
+    vote_badge_progress,
+    vote_player_info,
+    vote_site_emoji,
+    vote_site_rows,
+    vote_site_status,
+)
 
 logger = logging.getLogger("cogs.general")
 
@@ -207,7 +219,7 @@ class GeneralCog(commands.Cog):
                 value=(
                     "> <https://voidwave.xangey.dev/> Website\n"
                     "> <https://github.com/xangeyfun/VoidWave> Source & issues\n"
-                    "> <https://top.gg/bot/1442229230384709752/vote> Vote for 2x XP"
+                    f"> <{VOTE_PRIMARY_LINK}> Vote for 2x XP (both lists)"
                 ),
                 inline=False,
             ),
@@ -235,7 +247,7 @@ class GeneralCog(commands.Cog):
                     "`/ping` - Bot latency\n"
                     "`/uptime` - Uptime & links\n"
                     "`/github` - Source code & issues\n"
-                    "`/vote` - Vote for the bot on Top.gg\n"
+                    "`/vote` - Vote on Top.gg and Discord List for 2x XP\n"
                     "`/vote-remind` - Toggle vote reminders\n"
                     "`/ai <message>` - Chat with the AI\n"
                     "`/aitoggle [enabled]` - Turn AI replies on or off for yourself\n"
@@ -426,7 +438,7 @@ class GeneralCog(commands.Cog):
         buttons = [
             discord.ui.Button(label="Website", style=discord.ButtonStyle.link, url="https://voidwave.xangey.dev/", emoji="🌐", row=1),
             discord.ui.Button(label="Invite", style=discord.ButtonStyle.link, url=invite, emoji="➕", row=1),
-            discord.ui.Button(label="Vote", style=discord.ButtonStyle.link, url="https://top.gg/bot/1442229230384709752/vote", emoji="🗳️", row=1),
+            discord.ui.Button(label="Vote", style=discord.ButtonStyle.link, url=VOTE_PRIMARY_LINK, emoji="🗳️", row=1),
             discord.ui.Button(label="Source", style=discord.ButtonStyle.link, url="https://github.com/xangeyfun/VoidWave", emoji="📘", row=1),
         ]
         return buttons
@@ -482,8 +494,7 @@ class GeneralCog(commands.Cog):
             f"> GitHub: <https://github.com/xangeyfun/VoidWave>\n"
             f"> Website: <https://voidwave.xangey.dev/>\n"
             f"> Vote on Top.gg: <https://top.gg/bot/1442229230384709752/vote>\n"
-            f"> Vote on Discord List: <https://discordlist.gg/bot/1442229230384709752/vote>\n"
-            f"> Vote on DiscordBotList: <https://discordbotlist.com/bots/voidwave/upvote>",
+            f"> Vote on Discord List: <https://discordlist.gg/bot/1442229230384709752/vote>",
             ephemeral=True,
             allowed_mentions=discord.AllowedMentions(users=False)
         )
@@ -504,41 +515,93 @@ class GeneralCog(commands.Cog):
     async def vote(self, interaction: discord.Interaction):
         boost = None
         reminder = None
+        vote_count = 0
         conn = get_db()
         try:
             cur = conn.cursor()
-            boost = cur.execute("SELECT multiplier, expires_at FROM vote_boosts WHERE user_id=? AND expires_at > ?", (interaction.user.id, int(time.time()))).fetchone()
+            row = cur.execute("SELECT multiplier, expires_at, vote_count FROM vote_boosts WHERE user_id=?", (interaction.user.id,)).fetchone()
+            if row:
+                vote_count = row["vote_count"] or 0
+                if row["expires_at"] and row["expires_at"] > time.time():
+                    boost = row
             reminder = cur.execute("SELECT remind_at FROM vote_reminders WHERE user_id=?", (interaction.user.id,)).fetchone()
         finally:
             conn.close()
 
+        info = vote_player_info(interaction.user.id)
+
         if boost:
             minutes = int((boost["expires_at"] - time.time()) // 60)
-            boost_line = f"> ⚡ Your **{boost['multiplier']:.1f}x XP boost** is active for another **{minutes} minute{'s' if minutes != 1 else ''}**!"
+            boost_value = (
+                f"**{boost['multiplier']:.1f}x XP** active for **{minutes} minute{'s' if minutes != 1 else ''}**\n"
+                "More votes stack more time."
+            )
         else:
-            boost_line = "> ⚡ **Vote now to get 2x XP for 4 hours!** (6 hours on weekends)"
+            boost_value = (
+                "**Not active.** Vote now for **2x XP** for 4 hours (6 on top.gg weekends).\n"
+                "Votes on both lists stack."
+            )
 
-        reminder_line = ""
-        if reminder and reminder["remind_at"]:
-            reminder_line = f"\n> ⏰ Reminder set! I'll DM you when it's time to vote again (<t:{reminder['remind_at']}:R>)."
+        stats_bits = []
+        if vote_count:
+            stats_bits.append(f"**{vote_count} vote{'s' if vote_count != 1 else ''}** lifetime")
+        else:
+            stats_bits.append("No votes yet")
+        stats_bits.append(info["badge"] or "No badge yet")
+        progress = vote_badge_progress(vote_count)
+        if progress:
+            stats_bits.append(f"{progress['remaining']} more to {progress['label']}")
+        else:
+            stats_bits.append("Top badge reached")
+        if info["streak"] >= 2:
+            streak_bit = f"🔥 **{info['streak']} day streak**"
+            if info["longest_streak"] > info["streak"]:
+                streak_bit += f" (best {info['longest_streak']})"
+            stats_bits.append(streak_bit)
+        else:
+            stats_bits.append("Streak starts at 2 days in a row")
+
+        site_lines = []
+        for name, url, ready_at in vote_site_status(interaction.user.id):
+            emoji = vote_site_emoji(name)
+            prefix = f"<:{emoji[0]}:{emoji[1]}> " if emoji else ""
+            timer = f"ready <t:{int(ready_at)}:R>" if ready_at else "**ready now**"
+            site_lines.append(f"> {prefix}**{name}** · {timer}\n> <{url}>")
 
         embed = discord.Embed(
-            title="🗳️ Vote for VoidWave!",
+            title="🗳️ Vote for VoidWave",
             description=(
-                "Voting is free, takes 5 seconds, and helps VoidWave reach more servers. 🚀\n\n"
-                f"{boost_line}{reminder_line}"
+                "Voting is free, takes a few seconds, and helps more servers find VoidWave. "
+                "Every vote doubles XP on **messages and voice** for 4 hours, and votes on both lists stack."
             ),
             color=0x7128fc,
         )
-        embed.add_field(
-            name="Vote Link",
-            value="> <https://top.gg/bot/1442229230384709752/vote>",
-            inline=False,
-        )
+        embed.add_field(name="⚡ Your boost", value=boost_value, inline=True)
+        embed.add_field(name="🎖️ Your stats", value="\n".join(stats_bits), inline=True)
+        embed.add_field(name="🗳️ Vote now", value="\n".join(site_lines), inline=False)
+        if reminder and reminder["remind_at"]:
+            embed.add_field(
+                name="⏰ Reminder",
+                value=f"You'll get a DM when your first list is ready again (<t:{reminder['remind_at']}:R>).",
+                inline=False,
+            )
+        else:
+            embed.add_field(
+                name="⏰ Never miss a vote",
+                value="Run `/vote-remind` and I'll DM you when a list is ready again.",
+                inline=False,
+            )
         embed.set_thumbnail(url=self.bot.user.display_avatar.url)
-        embed.set_footer(text="Vote for 2x XP! /vote")
+        embed.set_footer(text="Both lists count · stack both · 4h each (6h Top.gg weekends)")
         embed.timestamp = datetime.datetime.now(datetime.timezone.utc)
-        await interaction.response.send_message(embed=embed, ephemeral=True)
+
+        view = discord.ui.View()
+        for name, url, emoji in VOTE_LINKS:
+            view.add_item(discord.ui.Button(
+                label=name, url=url, emoji=discord.PartialEmoji(name=emoji[0], id=emoji[1])
+            ))
+        view.add_item(discord.ui.Button(label="Top voters", url=VOTE_PRIMARY_LINK, emoji="🏆"))
+        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
 
     @discord.app_commands.allowed_installs(guilds=True, users=True)
     @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
@@ -554,18 +617,23 @@ class GeneralCog(commands.Cog):
 
             if turn_on:
                 now = int(time.time())
-                boost = cur.execute("SELECT last_vote_at FROM vote_boosts WHERE user_id=?", (interaction.user.id,)).fetchone()
-                last_vote = boost["last_vote_at"] if boost else None
+                history = vote_site_rows(interaction.user.id)
 
-                if last_vote is None:
+                if not history:
                     remind_at = now + 12 * 3600
-                    confirm = f"⏰ Got it! I'll DM you **12 hours** from now (<t:{remind_at}:R>). Once you vote, reminders stay synced to your most recent vote."
+                    confirm = f"⏰ Got it! I'll DM you **12 hours** from now (<t:{remind_at}:R>). Vote any time before then and I'll sync the reminder to your lists."
                 else:
-                    remind_at = max(last_vote + 12 * 3600, now + 60)
-                    if last_vote + 12 * 3600 <= now:
-                        confirm = "⏰ Your Top.gg cooldown is already over! I'll DM you in about a minute so you can vote again."
+                    nexts = [
+                        ready_at
+                        for _, _, ready_at in vote_site_status(interaction.user.id, now)
+                        if ready_at
+                    ]
+                    if nexts:
+                        remind_at = min(nexts)
+                        confirm = f"⏰ Got it! I'll DM you as soon as your first list is ready again (<t:{remind_at}:R>). Each list has its own 12 hour cooldown."
                     else:
-                        confirm = f"⏰ Got it! Your Top.gg cooldown ends <t:{remind_at}:R>, and I'll DM you then."
+                        remind_at = now + 60
+                        confirm = "⏰ Your vote cooldown is already over! I'll DM you in about a minute so you can vote again."
 
                 cur.execute(
                     "INSERT INTO vote_reminders (user_id, remind_at) VALUES (?, ?) ON CONFLICT(user_id) DO UPDATE SET remind_at = excluded.remind_at",
