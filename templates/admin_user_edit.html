@@ -14,7 +14,7 @@
 {% if error %}<div class="alert alert-error">{{ error }}</div>{% endif %}
 {% if flash_msg %}<div class="alert alert-success" data-auto-dismiss>{{ flash_msg }}</div>{% endif %}
 
-<div class="admin-grid cols-3" style="margin-bottom:1.25rem;">
+<div class="admin-grid cols-4" style="margin-bottom:1.25rem;">
     <div class="stat-card">
         <div class="stat-icon">&#127942;</div>
         <div class="stat-value">{{ user['level'] }}</div>
@@ -32,6 +32,15 @@
         <div class="stat-value">{{ "{:,}".format(user['vc_minutes']) }}m</div>
         <div class="stat-label">Voice Time</div>
         <div class="stat-hint">{{ "{:,}".format(user['vc_xp_minutes']) }}m with XP</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon">&#11088;</div>
+        <div class="stat-value">{{ "{:,}".format(vote['vote_count']) }}</div>
+        <div class="stat-label">Lifetime Votes</div>
+        <div class="stat-hint">
+            {% if vote['badge'] %}{{ vote['badge'] }}{% else %}No badge yet{% endif %}
+            &middot; {{ vote['monthly_votes'] }} this month
+        </div>
     </div>
 </div>
 
@@ -91,7 +100,7 @@
                     <input type="checkbox" name="migrate_related">
                     <div>
                         <strong>Move related records to the new user ID</strong>
-                        <div class="hint">Re-points vote boosts, blocks, AI preference, vote reminders, and ratings from the old user ID to the new one. Tick this if you are fixing a wrong/mis-entered user ID.</div>
+                        <div class="hint">Re-points vote boosts, per-list vote history, streaks, monthly votes, blocks, AI preference, vote reminders, ratings, and playlists from the old user ID to the new one. Tick this if you are fixing a wrong/mis-entered user ID.</div>
                     </div>
                 </label>
             </div>
@@ -177,12 +186,190 @@
 
     <div>
         <div class="admin-card">
-            <h2>Voice / Vote Boost</h2>
-            <p class="card-sub">Global per-user boost from top.gg votes.</p>
+            <h2>Voting</h2>
+            <p class="card-sub">Lifetime and monthly votes, badge, streak, per-list cooldowns, and reminder state. Vote records are global across guilds.</p>
+
+            <div class="stat-chips" style="margin:0 0 0.75rem;">
+                <div class="stat-chip"><span class="num">{{ "{:,}".format(vote['vote_count']) }}</span>lifetime votes</div>
+                <div class="stat-chip"><span class="num">{{ "{:,}".format(vote['monthly_votes']) }}</span>{{ vote['month'] }} votes</div>
+                <div class="stat-chip"><span class="num">{{ vote['current_streak'] }}</span>day streak</div>
+            </div>
+
+            <table class="admin-table compact">
+                <tbody>
+                    <tr><td>Badge</td><td class="text-right">
+                        {% if vote['badge'] %}
+                            <span class="badge ok">{{ vote['badge'] }}</span>
+                        {% else %}
+                            <span class="badge muted">none yet</span>
+                        {% endif %}
+                        {% if vote['badge_progress'] %}
+                            <div class="muted" style="font-size:0.75rem; margin-top:0.2rem;">{{ vote['badge_progress']['remaining'] }} more for {{ vote['badge_progress']['label'] }}</div>
+                        {% elif vote['badge'] %}
+                            <div class="muted" style="font-size:0.75rem; margin-top:0.2rem;">Top badge unlocked</div>
+                        {% endif %}
+                    </td></tr>
+                    <tr><td>Longest Streak</td><td class="text-right num">{{ vote['longest_streak'] }} days</td></tr>
+                    <tr><td>Last Streak Day</td><td class="text-right">
+                        {% if vote['last_day_date'] %}
+                            <span class="mono">{{ vote['last_day_date'] }}</span>
+                        {% else %}
+                            <span class="badge muted">never</span>
+                        {% endif %}
+                    </td></tr>
+                    <tr><td>Reminder</td><td class="text-right">
+                        {% if vote['reminder'] and vote['reminder']['remind_at'] %}
+                            <span class="mono">{{ vote['reminder']['remind_at'] }}</span>
+                            <div class="muted" style="font-size:0.75rem; margin-top:0.2rem;">{{ vote['reminder']['remind_at']|dt }}</div>
+                        {% else %}
+                            <span class="badge muted">off</span>
+                        {% endif %}
+                        {% if vote['risk_ping_date'] %}
+                            <div class="muted" style="font-size:0.75rem; margin-top:0.2rem;">streak risk ping: {{ vote['risk_ping_date'] }}</div>
+                        {% endif %}
+                    </td></tr>
+                </tbody>
+            </table>
+
+            <h3 style="margin-top:0.9rem;">Vote Cooldowns</h3>
+            <p class="card-sub">Each list has its own 12 hour cooldown.</p>
+            <div class="admin-table-wrap">
+                <table class="admin-table compact">
+                    <thead>
+                        <tr><th>List</th><th>Last Vote</th><th>Status</th><th></th></tr>
+                    </thead>
+                    <tbody>
+                        {% for site in vote['sites'] %}
+                        <tr>
+                            <td>{{ site['name'] }}</td>
+                            <td>
+                                {% if site['voted_at'] %}
+                                    <span class="mono">{{ site['voted_at'] }}</span>
+                                    <div class="muted" style="font-size:0.75rem; margin-top:0.2rem;">{{ site['voted_at']|dt }}</div>
+                                {% else %}
+                                    <span class="badge muted">never</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if site['ready_at'] %}
+                                    <span class="badge ok">{{ (site['ready_at'] - now)|delta }} left</span>
+                                    <div class="muted" style="font-size:0.75rem; margin-top:0.2rem;">{{ site['ready_at']|dt }}</div>
+                                {% elif site['voted_at'] %}
+                                    <span class="badge ok">ready</span>
+                                {% else %}
+                                    <span class="badge muted">not voted</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-right">
+                                {% if site['voted_at'] %}
+                                <form method="POST" action="{{ url_for('admin.user_edit', guild_id=user['guild_id'], user_id=user['user_id']) }}">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <input type="hidden" name="action" value="clear_vote_site">
+                                    <input type="hidden" name="site" value="{{ site['name'] }}">
+                                    <button class="btn btn-secondary btn-sm" type="submit" data-armed>Clear</button>
+                                </form>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <h3 style="margin-top:0.9rem;">Edit Vote Records</h3>
+            <p class="card-sub">Changing lifetime votes does not grant or revoke an active boost. A current streak with no date uses today.</p>
+            <form method="POST" action="{{ url_for('admin.user_edit', guild_id=user['guild_id'], user_id=user['user_id']) }}" class="admin-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="action" value="save_votes">
+                <div class="form-grid">
+                    <div class="form-field">
+                        <label>Lifetime Votes</label>
+                        <input type="number" name="lifetime_votes" min="0" step="1" value="{{ vote['vote_count'] }}" required>
+                    </div>
+                    <div class="form-field">
+                        <label>Votes in {{ vote['month'] }}</label>
+                        <input type="number" name="monthly_votes" min="0" step="1" value="{{ vote['monthly_votes'] }}" required>
+                        <div class="hint">Updates the current UTC month row.</div>
+                    </div>
+                    <div class="form-field">
+                        <label>Current Streak</label>
+                        <input type="number" name="current_streak" min="0" step="1" value="{{ vote['current_streak'] }}" required>
+                    </div>
+                    <div class="form-field">
+                        <label>Longest Streak</label>
+                        <input type="number" name="longest_streak" min="0" step="1" value="{{ vote['longest_streak'] }}" required>
+                        <div class="hint">Raised to the current streak if lower.</div>
+                    </div>
+                    <div class="form-field">
+                        <label>Last Streak Day</label>
+                        <input type="date" name="streak_last_day" value="{{ vote['last_day_date'] }}">
+                        <div class="hint">Leave blank to clear it when restoring a streak.</div>
+                    </div>
+                </div>
+                <button class="btn btn-primary btn-sm" type="submit">Save Vote Records</button>
+            </form>
+
+            <h3 style="margin-top:0.9rem;">Vote Reminder</h3>
+            <p class="card-sub">Leave blank to keep the current reminder, or type &ldquo;off&rdquo; to remove it.</p>
+            <form method="POST" action="{{ url_for('admin.user_edit', guild_id=user['guild_id'], user_id=user['user_id']) }}" class="admin-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="action" value="save_vote_reminder">
+                <div class="form-field">
+                    <label>Next Reminder</label>
+                    <input type="text" name="remind_at" value="{{ vote['reminder_value'] }}" placeholder="YYYY-MM-DD HH:MM, now, unix timestamp, or off">
+                    <div class="hint">Risk ping day: {{ vote['risk_ping_date'] or 'not sent' }}.</div>
+                </div>
+                <button class="btn btn-secondary btn-sm" type="submit">Save Reminder</button>
+            </form>
+            {% if vote['reminder'] %}
+            <form method="POST" action="{{ url_for('admin.user_edit', guild_id=user['guild_id'], user_id=user['user_id']) }}" style="margin-top:0.5rem;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="action" value="clear_vote_reminder">
+                <button class="btn btn-danger btn-sm" type="submit" data-armed>Clear Reminder</button>
+            </form>
+            {% endif %}
+
+            <h3 style="margin-top:0.9rem;">Reset</h3>
+            <p class="card-sub">Targeted resets, or reset all vote history. Resetting history does not revoke an active boost.</p>
+            <div class="flex gap-1 flex-wrap">
+                {% if vote['sites']|selectattr('voted_at')|list %}
+                <form method="POST" action="{{ url_for('admin.user_edit', guild_id=user['guild_id'], user_id=user['user_id']) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="action" value="clear_vote_sites">
+                    <button class="btn btn-secondary btn-sm" type="submit" data-armed>Clear All Cooldowns</button>
+                </form>
+                {% endif %}
+                {% if vote['current_streak'] or vote['longest_streak'] or vote['last_day'] %}
+                <form method="POST" action="{{ url_for('admin.user_edit', guild_id=user['guild_id'], user_id=user['user_id']) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="action" value="reset_vote_streak">
+                    <button class="btn btn-secondary btn-sm" type="submit" data-armed>Reset Streak</button>
+                </form>
+                {% endif %}
+                {% if vote['monthly_votes'] %}
+                <form method="POST" action="{{ url_for('admin.user_edit', guild_id=user['guild_id'], user_id=user['user_id']) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="action" value="clear_vote_month">
+                    <button class="btn btn-secondary btn-sm" type="submit" data-armed>Clear {{ vote['month'] }} Votes</button>
+                </form>
+                {% endif %}
+                <form method="POST" action="{{ url_for('admin.user_edit', guild_id=user['guild_id'], user_id=user['user_id']) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="action" value="reset_vote_data">
+                    <button class="btn btn-danger btn-sm" type="submit" data-armed>Reset All Vote Data</button>
+                </form>
+            </div>
+            <div class="hint" style="margin-top:0.5rem;">Reset All clears cooldowns, streak, monthly votes, reminder, and lifetime counts. It leaves the boost multiplier and expiry alone.</div>
+        </div>
+
+        <div class="admin-card" style="margin-top:1rem;">
+            <h2>Vote Boost</h2>
+            <p class="card-sub">Global per-user boost from vote rewards. Real votes stack onto an active boost; setting one here replaces it.</p>
             {% if boost %}
                 <table class="admin-table compact">
                     <tbody>
                         <tr><td>Multiplier</td><td class="text-right num">{{ boost['multiplier'] }}x</td></tr>
+                        <tr><td>Lifetime Votes</td><td class="text-right num">{{ boost['vote_count'] or 0 }}</td></tr>
                         <tr><td>Last Vote</td><td class="text-right">
                             {% if boost['last_vote_at'] %}
                                 <span class="mono">{{ boost['last_vote_at'] }}</span>
@@ -221,9 +408,9 @@
                 <div class="form-field">
                     <label>Last Vote</label>
                     <input type="text" name="boost_last_vote" placeholder="leave blank to keep, or 'now' or a unix timestamp">
-                    <div class="hint">Sets the &ldquo;last voted&rdquo; timestamp used by the voters leaderboard.</div>
+                    <div class="hint">Sets the &ldquo;last voted&rdquo; timestamp used by profiles and as the voters leaderboard tiebreak.</div>
                 </div>
-                <div class="hint">Replaces the boost and counts the duration from now. Max 720 hours.</div>
+                <div class="hint">Admin override: replaces the current boost and counts the duration from now. Max 720 hours.</div>
                 <button class="btn btn-primary btn-sm" type="submit">Save Boost</button>
             </form>
 
