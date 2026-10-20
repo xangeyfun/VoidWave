@@ -12,6 +12,7 @@ from utils import (
     LEVEL_RANK_UP_LEVELS,
     LEVEL_TIERS,
     VC_COOLDOWN,
+    VOTE_PRIMARY_LINK,
     XP_COOLDOWN,
     build_level_up_embed,
     bump_daily_stats,
@@ -23,6 +24,8 @@ from utils import (
     period_start_day,
     prune_daily_stats,
     resolve_hidden,
+    vote_badge_label,
+    vote_badge_progress,
 )
 
 logger = logging.getLogger("cogs.leveling")
@@ -190,30 +193,36 @@ def _fetch_leaderboard(guild_id, sort, global_lb, page, per_page=PER_PAGE, combi
             return rows, total
 
         if sort == "Voters":
+            month = time.strftime("%Y-%m", time.gmtime())
             if guild_scope:
                 total = cur.execute(
-                    "SELECT COUNT(*) FROM users u JOIN vote_boosts v ON v.user_id = u.user_id "
-                    "WHERE u.guild_id=? AND v.last_vote_at IS NOT NULL",
-                    (guild_id,)
+                    "SELECT COUNT(*) FROM vote_monthly m JOIN users u ON u.user_id = m.user_id "
+                    "WHERE u.guild_id=? AND m.month=? AND m.votes > 0",
+                    (guild_id, month)
                 ).fetchone()[0]
                 rows = cur.execute(
-                    "SELECT u.user_id, u.username, v.last_vote_at AS value FROM users u "
-                    "JOIN vote_boosts v ON v.user_id = u.user_id "
-                    "WHERE u.guild_id=? AND v.last_vote_at IS NOT NULL "
-                    "ORDER BY v.last_vote_at DESC, u.user_id ASC LIMIT ? OFFSET ?",
-                    (guild_id, per_page, (page - 1) * per_page)
+                    "SELECT u.user_id, u.username, m.votes AS value, v.vote_count, v.last_vote_at "
+                    "FROM vote_monthly m "
+                    "JOIN users u ON u.user_id = m.user_id "
+                    "JOIN vote_boosts v ON v.user_id = m.user_id "
+                    "WHERE u.guild_id=? AND m.month=? AND m.votes > 0 "
+                    "ORDER BY m.votes DESC, v.last_vote_at DESC, u.user_id ASC LIMIT ? OFFSET ?",
+                    (guild_id, month, per_page, (page - 1) * per_page)
                 ).fetchall()
             else:
                 total = cur.execute(
-                    "SELECT COUNT(*) FROM vote_boosts WHERE last_vote_at IS NOT NULL"
+                    "SELECT COUNT(*) FROM vote_monthly WHERE month=? AND votes > 0",
+                    (month,)
                 ).fetchone()[0]
                 rows = cur.execute(
-                    "SELECT u.user_id, u.username, v.last_vote_at AS value FROM vote_boosts v "
+                    "SELECT v.user_id, u.username, m.votes AS value, v.vote_count, v.last_vote_at "
+                    "FROM vote_monthly m "
+                    "JOIN vote_boosts v ON v.user_id = m.user_id "
                     "LEFT JOIN (SELECT user_id, MAX(total_xp) AS total_xp, username FROM users GROUP BY user_id) u "
                     "ON u.user_id = v.user_id "
-                    "WHERE v.last_vote_at IS NOT NULL "
-                    "ORDER BY v.last_vote_at DESC, v.user_id ASC LIMIT ? OFFSET ?",
-                    (per_page, (page - 1) * per_page)
+                    "WHERE m.month=? AND m.votes > 0 "
+                    "ORDER BY m.votes DESC, v.last_vote_at DESC, v.user_id ASC LIMIT ? OFFSET ?",
+                    (month, per_page, (page - 1) * per_page)
                 ).fetchall()
             return rows, total
 
@@ -276,6 +285,8 @@ def _build_leaderboard_embed(bot, guild, sort, global_lb, rows, page, total_page
     guild_scope = bool(guild) and not global_lb and not combined
     mode = "Combined" if combined else ("Server" if guild_scope else "Global")
     period_label = "" if period == "All Time" else f"{period} "
+    if sort == "Voters":
+        period_label = "Monthly "
 
     embed = discord.Embed(
         title=f"🏆 {mode} {period_label}{sort} Leaderboard",
@@ -309,7 +320,11 @@ def _build_leaderboard_embed(bot, guild, sort, global_lb, rows, page, total_page
 
         marker = "➤ " if highlight_user_id and user_id == highlight_user_id else ""
         if sort == "Voters":
-            lines.append(f"{marker}{rank} **{name}** | <t:{int(value)}:R>")
+            badge = vote_badge_label(row["vote_count"] or 0)
+            line = f"{marker}{rank} **{name}** | `{value} vote{'s' if value != 1 else ''}`"
+            if badge:
+                line += f" {badge}"
+            lines.append(line)
         elif sort == "Level" and (combined or period != "All Time"):
             lines.append(f"{marker}{rank} **{name}** | Level `{_level_from_xp(value)}`")
         else:
@@ -317,18 +332,26 @@ def _build_leaderboard_embed(bot, guild, sort, global_lb, rows, page, total_page
             lines.append(f"{marker}{rank} **{name}** | `{label}`")
 
     if lines:
-        chunks = ["\n".join(lines)]
+        chunks = []
+        if sort == "Voters":
+            chunks.append("Ranked by votes this month (UTC). Resets on the 1st.")
+        chunks.append("\n".join(lines))
         if rank_info:
             chunks.append(f"📍 You are **#{rank_info['rank']}** of **{rank_info['total']:,}**")
-        if combined:
-            link = "https://voidwave.xangey.dev/leaderboard?mode=combined"
-        elif guild_scope:
-            link = f"https://voidwave.xangey.dev/leaderboard?guild={guild.id}"
+        if sort == "Voters":
+            link = "https://voidwave.xangey.dev/voters"
+            label = "Voters"
         else:
-            link = "https://voidwave.xangey.dev/leaderboard"
-        if period != "All Time":
-            link += ("&" if "?" in link else "?") + f"period={period.lower()}"
-        chunks.append(f"**View online:** [Leaderboard]({link})")
+            if combined:
+                link = "https://voidwave.xangey.dev/leaderboard?mode=combined"
+            elif guild_scope:
+                link = f"https://voidwave.xangey.dev/leaderboard?guild={guild.id}"
+            else:
+                link = "https://voidwave.xangey.dev/leaderboard"
+            if period != "All Time":
+                link += ("&" if "?" in link else "?") + f"period={period.lower()}"
+            label = "Leaderboard"
+        chunks.append(f"**View online:** [{label}]({link})")
         embed.description = "\n\n".join(chunks)
     else:
         embed.description = "no data yet :("
@@ -684,7 +707,7 @@ class LevelingCog(commands.Cog):
             minutes = int((boost["expires_at"] - time.time()) // 60)
             boost_line = f"\n⚡ **{boost['multiplier']:.1f}x XP boost** active for **{minutes} min**!"
         else:
-            boost_line = "\n⚡ Vote for **2x XP** for **4 hours**! `/vote`"
+            boost_line = f"\n⚡ Vote for **2x XP** for **4 hours**! <{VOTE_PRIMARY_LINK}>"
 
         embed = discord.Embed(
             title=f"{user.display_name}'s Level", # type: ignore
@@ -826,6 +849,8 @@ class LevelingCog(commands.Cog):
             total_xp = cur.execute("SELECT SUM(total_xp) FROM users WHERE user_id=?", (user.id,)).fetchone()[0] or 0
             total_messages = cur.execute("SELECT SUM(total_messages) FROM users WHERE user_id=?", (user.id,)).fetchone()[0] or 0
             total_vc_minutes = cur.execute("SELECT SUM(vc_minutes) FROM users WHERE user_id=?", (user.id,)).fetchone()[0] or 0
+            vote_row = cur.execute("SELECT vote_count, multiplier, expires_at FROM vote_boosts WHERE user_id=?", (user.id,)).fetchone()
+            streak_row = cur.execute("SELECT current_streak, longest_streak, last_day FROM vote_streaks WHERE user_id=?", (user.id,)).fetchone()
 
         except Exception as e:
             logger.error("Failed to fetch profile for %s (ID: %s): %s", user, user.id, e)
@@ -866,6 +891,43 @@ class LevelingCog(commands.Cog):
             value=(
                 f"**Time:** `{format_minutes(total_vc_minutes)}`\n"
             ),
+            inline=True
+        )
+
+        vote_count = (vote_row["vote_count"] or 0) if vote_row else 0
+        badge = vote_badge_label(vote_count)
+        streak = 0
+        longest_streak = 0
+        if streak_row:
+            today = int(time.time() // 86400)
+            if streak_row["last_day"] in (today, today - 1):
+                streak = streak_row["current_streak"] or 0
+            longest_streak = streak_row["longest_streak"] or 0
+        boost_active = bool(vote_row and vote_row["expires_at"] and vote_row["expires_at"] > time.time())
+        voting_bits = []
+        if vote_count:
+            vote_line = f"🗳️ **{vote_count} vote{'s' if vote_count != 1 else ''}**, thank you!"
+            if badge:
+                vote_line += f" {badge}"
+            voting_bits.append(vote_line)
+        progress = vote_badge_progress(vote_count)
+        if progress:
+            voting_bits.append(f"{progress['remaining']} more to {progress['label']}")
+        elif vote_count:
+            voting_bits.append("Top badge reached")
+        if streak >= 2:
+            streak_line = f"🔥 **{streak} day streak**"
+            if longest_streak > streak:
+                streak_line += f" (best {longest_streak})"
+            voting_bits.append(streak_line)
+        if boost_active:
+            minutes = int((vote_row["expires_at"] - time.time()) // 60)
+            voting_bits.append(f"⚡ **{vote_row['multiplier']:.1f}x XP boost** active for **{minutes} min**!")
+        else:
+            voting_bits.append(f"Vote for **2x XP** for **4 hours**: <{VOTE_PRIMARY_LINK}>")
+        embed.add_field(
+            name="🗳️ Support",
+            value="\n".join(voting_bits),
             inline=True
         )
 
