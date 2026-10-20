@@ -19,7 +19,8 @@
 ![Code size](https://img.shields.io/github/languages/code-size/xangeyfun/VoidWave)
 
 [![Invite](https://img.shields.io/badge/Invite-VoidWave-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.com/api/oauth2/authorize?client_id=1442229230384709752&scope=bot%20applications.commands)
-[![Top.gg](https://img.shields.io/badge/Top.gg-VoidWave-FF7A00?style=for-the-badge&logo=topdotgg&logoColor=white)](https://top.gg/bot/1442229230384709752)
+[![Top.gg](https://img.shields.io/badge/Top.gg-Vote-FF7A00?style=for-the-badge&logo=topdotgg&logoColor=white)](https://top.gg/bot/1442229230384709752/vote)
+[![Discord List](https://img.shields.io/badge/Discord_List-Vote-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discordlist.gg/bot/1442229230384709752/vote)
 
 </div>
 
@@ -33,7 +34,7 @@
 * Auto role rewards at level milestones
 * Daily Question of the Day with auto-threads
 * Moderation commands (kick, ban, timeout, slowmode, lock, role management)
-* Vote for 2x XP boosts, 4 hours on weekdays and 6 on weekends
+* Vote on Top.gg and Discord List for 2x XP boosts, stacked across both lists, with voter badges, badge progress, daily streaks, streak leaders, and a searchable monthly top voters board
 * DM or channel reminders with human-friendly times (`10m`, `tomorrow 16:00`, `friday 18:30`) and recurring options (`daily`, `weekly`, `every 2h`)
 * Fun commands (animal pics, quotes, facts, calculator)
 * Games (8-ball, rock-paper-scissors, tic-tac-toe, connect four, hangman, blackjack, trivia, wordle, minesweeper, battleship, 15-puzzle)
@@ -137,7 +138,8 @@ per [SECURITY.md](SECURITY.md).
 
 [![Invite](https://img.shields.io/badge/Invite-VoidWave-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.com/api/oauth2/authorize?client_id=1442229230384709752&scope=bot%20applications.commands)
 [![Support Server](https://img.shields.io/badge/Support_Discord-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/tyQksBReAS)
-[![Top.gg](https://img.shields.io/badge/Top.gg-VoidWave-FF7A00?style=for-the-badge&logo=topdotgg&logoColor=white)](https://top.gg/bot/1442229230384709752)
+[![Top.gg](https://img.shields.io/badge/Top.gg-Vote-FF7A00?style=for-the-badge&logo=topdotgg&logoColor=white)](https://top.gg/bot/1442229230384709752/vote)
+[![Discord List](https://img.shields.io/badge/Discord_List-Vote-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discordlist.gg/bot/1442229230384709752/vote)
 [![Website](https://img.shields.io/badge/Website-voidwave.xangey.dev-blue?style=for-the-badge&logo=googlechrome&logoColor=white)](https://voidwave.xangey.dev/)
 [![GitHub](https://img.shields.io/badge/GitHub-xangeyfun-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/xangeyfun/VoidWave)
 

@@ -47,3 +47,5 @@ venv/bin/python -m ruff check .    # lint, also enforced in CI
 ## Adding a command
 
 Add a new cog file to `cogs/` and load it in `bot.py::setup_hook` (the list is explicit, not auto-discovered). Cogs are mostly slash-command `@app_commands` groups; interaction handlers and background loops (e.g. QOTD, giveaways) are started from `cogs/events.py::on_ready`. Register every new slash command (subcommands too, as `group name`) in `DOCUMENTED_COMMANDS` in `cogs/general.py` so `/help` and its autocomplete list it.
+
+The "VoidWave says you should vote" nudge is attach-on-completion, not per-command: `bot.py::on_app_command_completion` edits in a link button when the user has never voted (`utils.vote_nudge`) and the command is in `utils.VOTE_NUDGE_COMMANDS`. Add a new button-free command there if it should nudge; leave view-owning commands (games, music, help, `/vote`) out so the extra button never fights their own view.

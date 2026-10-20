@@ -113,6 +113,36 @@ The tool needs the **same Python that the bot runs with**; the command spawns it
 via `sys.executable`, so it uses whichever venv the bot itself runs in; just
 make sure that venv has the extra deps installed.
 
+## Vote webhooks
+
+Voting on **Top.gg** and **Discord List** (discordlist.gg) both grant a
+stacking 2x XP boost. The vote pings hit the **website** service
+(`/webhooks/topgg` and `/webhooks/discordlist` in `app.py`), not the bot, so
+the reverse proxy must route them publicly and `voidwave_website.service` is
+the unit to restart after changing the secrets.
+
+1. **Top.gg**: <https://top.gg/bot/1442229230384709752>/settings, open the
+   **Webhooks** section, enable the vote webhook and set its URL to
+   `https://voidwave.xangey.dev/webhooks/topgg`. top.gg sends the shared
+   secret as the `Authorization` header; copy that value into
+   `TOPGG_WEBHOOK_AUTH` in `.env`.
+2. **Discord List**: <https://discordlist.gg/bot/1442229230384709752>/manage/webhooks.
+   Set the URL to `https://voidwave.xangey.dev/webhooks/discordlist` and copy
+   the **Webhook Authorization** field into `DLIST_WEBHOOK_AUTH` in `.env`.
+   They sign every ping as an HS256 JWT with that key; the route verifies it
+   with stdlib `hmac` (no PyJWT needed) and also accepts the secret in an
+   `Authorization: Bearer` header or a plain JSON body, in case their format
+   ever changes.
+3. Restart the website service so the new secrets load:
+   `sudo systemctl restart voidwave_website.service`. You can check both
+   endpoints return `500 Not configured` before the secret is set (expected)
+   and `401 Unauthorized` with a wrong secret.
+
+Caveat: discordlist.gg has a known bug where webhooks sometimes do not fire
+(<https://github.com/discordlist-gg/beta-issues/issues/340>). The rewards
+still work the moment a ping lands, and users can always claim manually via
+`/vote`, so a delayed ping only delays the boost.
+
 ## systemd units
 
 The example units use `User=your-user`, `WorkingDirectory=/home/your-user/VoidWave`
