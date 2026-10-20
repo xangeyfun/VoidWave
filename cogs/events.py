@@ -19,9 +19,12 @@ from utils import (
     DBL_TOKEN,
     LLM_COOLDOWN,
     TOPGG_TOKEN,
+    VOTE_LINKS,
+    VOTE_PRIMARY_LINK,
     LLMRequest,
     add_message_xp,
     block_reply,
+    disable_vote_reminders,
     extract_options,
     get_command_path,
     get_db,
@@ -36,9 +39,24 @@ from utils import (
     qotd_now,
     send_qotd,
     startup,
+    vote_next_ready_at,
+    vote_site_emoji,
+    vote_site_status,
 )
 
 logger = logging.getLogger("cogs.events")
+
+
+def streak_risk_candidates(cur, day, limit=10):
+    """Reminder opt-ins with a 2+ day streak who have not voted today and can still save it."""
+    return cur.execute(
+        "SELECT s.user_id, s.current_streak, s.longest_streak "
+        "FROM vote_streaks s JOIN vote_reminders r ON r.user_id = s.user_id "
+        "WHERE s.current_streak >= 2 AND s.last_day = ? "
+        "AND COALESCE(r.risk_ping_day, 0) < ? "
+        "ORDER BY s.current_streak DESC LIMIT ?",
+        (day - 1, day, limit),
+    ).fetchall()
 
 
 def _save_command_logs(line):
@@ -99,11 +117,51 @@ def _fetch_ai_prefs(guild_id, user_id):
         conn.close()
 
 
+class VoteReminderOffView(discord.ui.View):
+    def __init__(self, ready=()):
+        super().__init__(timeout=None)
+        for name, url in ready[:2]:
+            emoji = vote_site_emoji(name)
+            self.add_item(discord.ui.Button(
+                label=f"Vote on {name}",
+                url=url,
+                emoji=discord.PartialEmoji(name=emoji[0], id=emoji[1]) if emoji else "🗳️",
+            ))
+
+    @discord.ui.button(
+        label="Turn off reminders",
+        style=discord.ButtonStyle.secondary,
+        emoji="🔕",
+        custom_id="vote_reminders_off",
+    )
+    async def turn_off(self, interaction: discord.Interaction, button: discord.ui.Button):
+        removed = await asyncio.to_thread(disable_vote_reminders, interaction.user.id)
+        if removed:
+            message = "Vote reminders are off. Run `/vote-remind` any time to turn them back on."
+        else:
+            message = "Vote reminders were already off. Run `/vote-remind` any time to turn them back on."
+        await interaction.response.send_message(message, ephemeral=True)
+        if interaction.message and interaction.message.view:
+            for item in interaction.message.view.children:
+                if getattr(item, "custom_id", None) == "vote_reminders_off":
+                    item.disabled = True
+            try:
+                await interaction.message.edit(view=interaction.message.view)
+            except discord.HTTPException:
+                pass
+
+
 class EventsCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.feedback_webhook = None
         self._ready_done = False
+
+    async def cog_load(self):
+        try:
+            self.bot.add_view(VoteReminderOffView())
+        except Exception as e:
+            logger.error("Failed to register vote reminder view: %s", e)
 
     async def _graceful_exit(self, code: int = 1) -> None:
         """Ask bot.py's runner to shut down cleanly (closes the gateway, avoids
@@ -578,6 +636,7 @@ class EventsCog(commands.Cog):
         statuses = [
             f"/help • {guilds} Servers",
             f"/help • {members:,} Members",
+            "/vote • 🗳️ 2x XP",
             "/help • voidwave.xangey.dev",
             "/help • VoidWave",
         ]
@@ -606,8 +665,20 @@ class EventsCog(commands.Cog):
             due = cur.execute("SELECT user_id, remind_at FROM vote_reminders WHERE remind_at <= ?", (int(time.time()),)).fetchall()
             for row in due:
                 await self.send_vote_reminder(row["user_id"])
-                cur.execute("UPDATE vote_reminders SET remind_at = NULL WHERE user_id = ?", (row["user_id"],))
+                # a list that is still cooling down keeps the reminder armed,
+                # so each list can ping once per voting round
+                next_ready = vote_next_ready_at(row["user_id"], time.time() + 1)
+                cur.execute("UPDATE vote_reminders SET remind_at = ? WHERE user_id = ?", (next_ready, row["user_id"]))
                 conn.commit()
+
+            now = int(time.time())
+            utc_hour = time.gmtime(now).tm_hour
+            if 20 <= utc_hour < 23:
+                day = now // 86400
+                for row in streak_risk_candidates(cur, day):
+                    await self.send_streak_risk(row["user_id"], row["current_streak"], row["longest_streak"])
+                    cur.execute("UPDATE vote_reminders SET risk_ping_day = ? WHERE user_id = ?", (day, row["user_id"]))
+                    conn.commit()
 
             announcements = cur.execute("SELECT id, user_id, username, payload FROM pending_vote_announcements ORDER BY id LIMIT 10").fetchall()
             for ann in announcements:
@@ -621,16 +692,47 @@ class EventsCog(commands.Cog):
 
     async def send_vote_thanks(self, user_id, payload):
         try:
-            hours = json.loads(payload or "{}").get("hours", 4)
+            data = json.loads(payload or "{}")
+            hours = data.get("hours", 4)
+            source = data.get("source", "Top.gg")
         except ValueError:
-            hours = 4
+            data, hours, source = {}, 4, "Top.gg"
+
+        streak = data.get("streak") or 0
+        longest = data.get("longest_streak") or 0
+        badge = data.get("badge")
+        unlocked = data.get("unlocked_badge")
+        other_ready = [name for name in (data.get("other_ready") or []) if name]
+        other_cooling = [name for name in (data.get("other_cooling") or []) if name]
+
+        description = (
+            f"Hey, thanks for voting for VoidWave on **{source}**! 💜\n\n"
+            f"Your vote registered and you now have **{hours} hours of Double XP** ⚡. "
+            "It doubles **every message and voice minute** while it lasts."
+        )
+        if other_ready:
+            names = " and ".join(f"**{name}**" for name in other_ready)
+            description += f"\n\nThere's still time to vote on {names} too and stack another 4 hours."
+        elif other_cooling:
+            description += "\n\nYou've voted on every list, so they are all cooling down. See you next round!"
+        else:
+            description += "\n\nVoted on the other list too? That one adds more time!"
+        if streak >= 2:
+            if data.get("streak_milestone"):
+                description += f"\n\n🔥 **{streak} day voting streak!** That's dedication."
+            else:
+                streak_line = f"\n\n🔥 You're on a **{streak} day voting streak**"
+                if longest > streak:
+                    streak_line += f" (best {longest})"
+                description += streak_line + "!"
+        if unlocked:
+            description += f"\n🎖️ You unlocked the **{unlocked}** badge!"
+        elif badge:
+            description += f"\n🎖️ Your badge: **{badge}**"
 
         embed = discord.Embed(
             title="🗳️ Thanks for voting!",
-            description=(
-                f"Hey, thanks for voting for VoidWave on **Top.gg**! 💜\n\n"
-                f"Your vote has been successfully registered and you now have **{hours} hours of Double XP**. ⚡"
-            ),
+            description=description,
             color=0x7128fc,
         )
         embed.add_field(
@@ -641,9 +743,25 @@ class EventsCog(commands.Cog):
         embed.set_thumbnail(url=self.bot.user.display_avatar.url if self.bot.user else None)
         embed.set_footer(text="VoidWave • Vote for 2x XP! /vote")
 
+        view = None
+        links = {name: (url, emoji) for name, url, emoji in VOTE_LINKS}
+        buttons = [
+            (name, links[name])
+            for name in other_ready[:2]
+            if name in links
+        ]
+        if buttons:
+            view = discord.ui.View()
+            for name, (url, emoji) in buttons:
+                view.add_item(discord.ui.Button(
+                    label=f"Vote on {name} too",
+                    url=url,
+                    emoji=discord.PartialEmoji(name=emoji[0], id=emoji[1]),
+                ))
+
         try:
             user = self.bot.get_user(user_id) or await self.bot.fetch_user(user_id)
-            await user.send(embed=embed)
+            await user.send(embed=embed, view=view)
             logger.info("Sent vote thanks DM to %s (%s)", user, user_id)
         except discord.Forbidden:
             logger.warning("Could not DM vote thanks to %s (DMs closed)", user_id)
@@ -651,36 +769,83 @@ class EventsCog(commands.Cog):
             logger.error("Failed to send vote thanks DM to %s: %s", user_id, e)
 
     async def send_vote_reminder(self, user_id):
+        sites = vote_site_status(user_id)
+        site_lines = []
+        ready = []
+        for name, url, ready_at in sites:
+            timer = f"ready <t:{int(ready_at)}:R>" if ready_at else "ready now"
+            site_lines.append(f"> **{name}** <{url}> · {timer}")
+            if not ready_at:
+                ready.append((name, url))
+        view = VoteReminderOffView(ready)
+
         embed = discord.Embed(
             title="⏰ Time to vote again!",
             description=(
-                "Hey! You asked me to remind you. Your Top.gg vote cooldown is over, so you can vote for VoidWave again! 🗳️\n\n"
-                "Voting gets you **2x XP for 4 hours** (**6h on weekends**). Thanks for supporting VoidWave! 💜"
+                "Hey! You asked me to remind you, and at least one of your lists has freed up. 🗳️\n\n"
+                "Voting gives you **2x XP for 4 hours**, doubling every message and voice minute. "
+                "Each list has its own 12 hour cooldown and the rewards **stack**. Thanks for supporting VoidWave! 💜"
             ),
             color=0x7128fc,
         )
         embed.add_field(
-            name="Vote Link",
-            value="<https://top.gg/bot/1442229230384709752/vote>",
+            name="Where you stand",
+            value="\n".join(site_lines),
             inline=False,
         )
         embed.set_thumbnail(url=self.bot.user.display_avatar.url if self.bot.user else None)
-        embed.set_footer(text="Don't want these? Run /vote-remind again to turn them off.")
+        embed.set_footer(text="Use the button below to turn reminders off.")
 
         try:
             user = self.bot.get_user(user_id) or await self.bot.fetch_user(user_id)
-            await user.send(embed=embed)
+            await user.send(embed=embed, view=view)
             logger.info("Sent vote reminder DM to %s (%s)", user, user_id)
         except discord.Forbidden:
             logger.warning("Could not DM vote reminder to %s (DMs closed)", user_id)
         except (discord.NotFound, discord.HTTPException) as e:
             logger.error("Failed to send vote reminder DM to %s: %s", user_id, e)
 
+    async def send_streak_risk(self, user_id, streak, longest):
+        ready = [
+            (name, url)
+            for name, url, ready_at in vote_site_status(user_id)
+            if not ready_at
+        ]
+        ends = (int(time.time()) // 86400 + 1) * 86400
+        description = (
+            f"You're on a **{streak} day voting streak**, but you haven't voted today. "
+            f"Vote before <t:{ends}:R> to keep it going.\n\n"
+            "One list is enough, and it still gives you 2x XP for 4 hours."
+        )
+        embed = discord.Embed(
+            title="🔥 Your voting streak is at risk!",
+            description=description,
+            color=0x7128fc,
+        )
+        if longest > streak:
+            embed.add_field(name="Your best", value=f"{longest} days", inline=True)
+        embed.set_thumbnail(url=self.bot.user.display_avatar.url if self.bot.user else None)
+        embed.set_footer(text="Use the button below to turn reminders off.")
+
+        view = VoteReminderOffView(ready)
+
+        try:
+            user = self.bot.get_user(user_id) or await self.bot.fetch_user(user_id)
+            await user.send(embed=embed, view=view)
+            logger.info("Sent streak risk DM to %s (%s)", user, user_id)
+        except discord.Forbidden:
+            logger.warning("Could not DM streak risk to %s (DMs closed)", user_id)
+        except (discord.NotFound, discord.HTTPException) as e:
+            logger.error("Failed to send streak risk DM to %s: %s", user_id, e)
+
     async def send_vote_announcement(self, user_id, username, payload):
         try:
-            hours = json.loads(payload or "{}").get("hours", 4)
+            data = json.loads(payload or "{}")
+            hours = data.get("hours", 4)
+            source = data.get("source", "Top.gg")
         except ValueError:
             hours = 4
+            source = "Top.gg"
 
         if not username:
             try:
@@ -694,9 +859,10 @@ class EventsCog(commands.Cog):
         embed = discord.Embed(
             title=f"🗳️ {username} just voted!",
             description=(
-                f"**{display}** just voted for VoidWave on **Top.gg**! 💜\n\n"
+                f"**{display}** just voted for VoidWave on **{source}**! 💜\n\n"
                 f"They now have **{hours} hours of 2x XP** ⚡\n"
-                f"Want it too? <https://top.gg/bot/1442229230384709752/vote>"
+                f"Want it too? Run `/vote`, or open <{VOTE_PRIMARY_LINK}> to pick a list. "
+                "Both lists stack, so voting both adds their full durations."
             ),
             color=0x7128fc,
             timestamp=datetime.datetime.now(datetime.timezone.utc),
@@ -706,6 +872,14 @@ class EventsCog(commands.Cog):
         member = self.bot.get_user(user_id)
         if member:
             embed.set_thumbnail(url=member.display_avatar.url)
+
+        view = discord.ui.View()
+        for name, url, emoji in VOTE_LINKS:
+            view.add_item(discord.ui.Button(
+                label=f"Vote on {name}",
+                url=url,
+                emoji=discord.PartialEmoji(name=emoji[0], id=emoji[1]),
+            ))
 
         conn = get_db()
         try:
@@ -732,7 +906,7 @@ class EventsCog(commands.Cog):
             if not member_present:
                 continue
             try:
-                await channel.send(embed=embed)
+                await channel.send(embed=embed, view=view)
                 sent += 1
             except discord.Forbidden:
                 continue
