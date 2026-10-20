@@ -11,7 +11,9 @@ from .constants import (
     REQUIRED_GUILD_COLUMNS,
     REQUIRED_USERS_COLUMNS,
     REQUIRED_VOTE_BOOST_COLUMNS,
+    REQUIRED_VOTE_REMINDER_COLUMNS,
     TABLES,
+    VOTE_TABLES,
 )
 from .helpers import _clear_cache, _db, _list_backups, _log, _normalize_progress
 
@@ -35,6 +37,12 @@ _VOTE_BOOST_SCHEMA_FIXES = (
     ("multiplier", "INTEGER DEFAULT 1"),
     ("expires_at", "INTEGER"),
     ("last_vote_at", "INTEGER"),
+    ("vote_count", "INTEGER DEFAULT 0"),
+)
+
+_VOTE_REMINDER_SCHEMA_FIXES = (
+    ("remind_at", "INTEGER"),
+    ("risk_ping_day", "INTEGER"),
 )
 
 
@@ -136,6 +144,18 @@ def _run_checks():
             "missing: " + ", ".join(missing_b) if missing_b else "all present",
             fix="vote_boost_schema" if missing_b else None,
             sql="PRAGMA table_info(vote_boosts)")
+
+        missing_vote_tables = sorted(VOTE_TABLES - tables)
+        add("Structure", "Vote tables", not missing_vote_tables,
+            "missing: " + ", ".join(missing_vote_tables) if missing_vote_tables else "all present",
+            sql="SELECT name FROM sqlite_master WHERE type='table'")
+
+        r_cols = {r["name"] for r in q("PRAGMA table_info(vote_reminders)")}
+        missing_r = sorted(REQUIRED_VOTE_REMINDER_COLUMNS - r_cols)
+        add("Structure", "vote_reminders columns", not missing_r,
+            "missing: " + ", ".join(missing_r) if missing_r else "all present",
+            fix="vote_reminder_schema" if missing_r and "user_id" in r_cols else None,
+            sql="PRAGMA table_info(vote_reminders)")
 
         try:
             backups = _list_backups()
@@ -548,6 +568,14 @@ def check_fix(kind):
             for col, ddl in _VOTE_BOOST_SCHEMA_FIXES:
                 if col not in cols:
                     stmt = f"ALTER TABLE vote_boosts ADD COLUMN {col} {ddl}"
+                    executed_sql.append(stmt)
+                    cur.execute(stmt)
+                    changed += 1
+        elif kind == "vote_reminder_schema":
+            cols = {r["name"] for r in cur.execute("PRAGMA table_info(vote_reminders)")}
+            for col, ddl in _VOTE_REMINDER_SCHEMA_FIXES:
+                if col not in cols:
+                    stmt = f"ALTER TABLE vote_reminders ADD COLUMN {col} {ddl}"
                     executed_sql.append(stmt)
                     cur.execute(stmt)
                     changed += 1

@@ -50,7 +50,20 @@ REQUIRED_GUILD_COLUMNS = {
     "delete_old_qotd", "qotd_time", "qotd_tz", "last_qotd_date",
 }
 
-REQUIRED_VOTE_BOOST_COLUMNS = {"user_id", "multiplier", "expires_at", "last_vote_at"}
+REQUIRED_VOTE_BOOST_COLUMNS = {"user_id", "multiplier", "expires_at", "last_vote_at", "vote_count"}
+REQUIRED_VOTE_REMINDER_COLUMNS = {"user_id", "remind_at", "risk_ping_day"}
+
+VOTE_TABLES = {"vote_reminders", "vote_site_history", "vote_streaks", "vote_monthly"}
+
+# Keep in sync with utils.VOTE_LINKS, utils.VOTE_SITE_COOLDOWN and utils.VOTE_BADGES.
+# The web process deliberately does not import utils (it pulls in discord.py).
+ADMIN_VOTE_SITES = ("Top.gg", "Discord List")
+ADMIN_VOTE_SITE_COOLDOWN = 12 * 3600
+ADMIN_VOTE_BADGES = (
+    (100, "🥇 Gold Voter"),
+    (25, "🥈 Silver Voter"),
+    (5, "🥉 Bronze Voter"),
+)
 
 USER_FIELDS = {
     "guild_id": "pk",
@@ -79,6 +92,9 @@ RELATED_USER_TABLES = (
     "user_blocks",
     "user_prefs",
     "vote_reminders",
+    "vote_site_history",
+    "vote_streaks",
+    "vote_monthly",
     "user_ratings",
     "playlists",
 )
