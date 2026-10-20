@@ -7,7 +7,14 @@ import time
 from flask import Response, abort, flash, redirect, render_template, request, url_for
 
 from . import admin_bp
-from .constants import RELATED_USER_TABLES, USER_FIELDS, USER_PK_FIELDS
+from .constants import (
+    ADMIN_VOTE_BADGES,
+    ADMIN_VOTE_SITE_COOLDOWN,
+    ADMIN_VOTE_SITES,
+    RELATED_USER_TABLES,
+    USER_FIELDS,
+    USER_PK_FIELDS,
+)
 from .helpers import (
     _clear_cache,
     _db,
@@ -67,6 +74,113 @@ def _apply_grant(user, xp, messages, vc, levels):
 
     return (level, progress, out_of, total_xp,
             total_messages, total_messages_xp, vc_minutes, vc_xp_minutes)
+
+
+def _vote_badge(vote_count):
+    for threshold, label in ADMIN_VOTE_BADGES:
+        if vote_count >= threshold:
+            return label
+    return None
+
+
+def _vote_badge_progress(vote_count):
+    for threshold, label in reversed(ADMIN_VOTE_BADGES):
+        if vote_count < threshold:
+            return {
+                "label": label,
+                "threshold": threshold,
+                "remaining": threshold - vote_count,
+            }
+    return None
+
+
+def _epoch_day_to_date(day):
+    if not day:
+        return ""
+    try:
+        return datetime.datetime.fromtimestamp(
+            int(day) * 86400, datetime.timezone.utc
+        ).strftime("%Y-%m-%d")
+    except (TypeError, ValueError, OSError, OverflowError):
+        return ""
+
+
+def _date_to_epoch_day(value):
+    s = str(value or "").strip()
+    if not s:
+        return None
+    try:
+        parsed = datetime.datetime.strptime(s, "%Y-%m-%d").replace(
+            tzinfo=datetime.timezone.utc
+        )
+    except ValueError as exc:
+        raise ValueError(s) from exc
+    return int(parsed.timestamp() // 86400)
+
+
+def _reminder_input(value):
+    if not value:
+        return ""
+    try:
+        return datetime.datetime.fromtimestamp(int(value)).strftime("%Y-%m-%d %H:%M")
+    except (TypeError, ValueError, OSError, OverflowError):
+        return ""
+
+
+def _vote_sites(conn, user_id, now):
+    rows = conn.execute(
+        "SELECT source, voted_at FROM vote_site_history WHERE user_id=?", (user_id,)
+    ).fetchall()
+    history = {row["source"]: row["voted_at"] for row in rows}
+    names = list(ADMIN_VOTE_SITES)
+    names.extend(name for name in history if name not in ADMIN_VOTE_SITES)
+
+    sites = []
+    for name in names:
+        voted_at = history.get(name)
+        ready_at = None
+        if voted_at and voted_at + ADMIN_VOTE_SITE_COOLDOWN > now:
+            ready_at = voted_at + ADMIN_VOTE_SITE_COOLDOWN
+        sites.append({"name": name, "voted_at": voted_at, "ready_at": ready_at})
+    return sites
+
+
+def _vote_context(conn, user_id, now):
+    boost = conn.execute(
+        "SELECT * FROM vote_boosts WHERE user_id=?", (user_id,)
+    ).fetchone()
+    vote_count = (boost["vote_count"] or 0) if boost else 0
+
+    streak = conn.execute(
+        "SELECT current_streak, longest_streak, last_day FROM vote_streaks WHERE user_id=?",
+        (user_id,),
+    ).fetchone()
+    month = time.strftime("%Y-%m", time.gmtime(now))
+    monthly = conn.execute(
+        "SELECT votes FROM vote_monthly WHERE user_id=? AND month=?", (user_id, month)
+    ).fetchone()
+    reminder = conn.execute(
+        "SELECT remind_at, risk_ping_day FROM vote_reminders WHERE user_id=?", (user_id,)
+    ).fetchone()
+
+    return {
+        "boost": boost,
+        "vote_count": vote_count,
+        "badge": _vote_badge(vote_count),
+        "badge_progress": _vote_badge_progress(vote_count),
+        "month": month,
+        "monthly_votes": monthly["votes"] if monthly else 0,
+        "current_streak": (streak["current_streak"] or 0) if streak else 0,
+        "longest_streak": (streak["longest_streak"] or 0) if streak else 0,
+        "last_day": streak["last_day"] if streak else None,
+        "last_day_date": _epoch_day_to_date(streak["last_day"] if streak else None),
+        "reminder": reminder,
+        "reminder_value": _reminder_input(reminder["remind_at"] if reminder else None),
+        "risk_ping_date": _epoch_day_to_date(
+            reminder["risk_ping_day"] if reminder else None
+        ),
+        "sites": _vote_sites(conn, user_id, now),
+    }
 
 
 @admin_bp.route("/users")
@@ -220,6 +334,7 @@ def user_edit(guild_id, user_id):
             abort(404)
 
         def render_page(error=None, flash_msg=None):
+            now = int(time.time())
             rank = conn.execute(
                 "SELECT COUNT(*) + 1 r FROM users WHERE guild_id=? AND total_xp > ?",
                 (guild_id, user["total_xp"])
@@ -228,9 +343,7 @@ def user_edit(guild_id, user_id):
                 "SELECT COUNT(*) + 1 r FROM users WHERE total_xp > ?",
                 (user["total_xp"],)
             ).fetchone()["r"]
-            boost = conn.execute(
-                "SELECT * FROM vote_boosts WHERE user_id=?", (user_id,)
-            ).fetchone()
+            vote = _vote_context(conn, user_id, now)
             guild_rows = conn.execute(
                 "SELECT guild_id FROM users WHERE user_id=?", (user_id,)
             ).fetchall()
@@ -250,18 +363,178 @@ def user_edit(guild_id, user_id):
                 user=user,
                 rank=rank,
                 global_rank=global_rank,
-                boost=boost,
+                boost=vote["boost"],
+                vote=vote,
                 guild_rows=guild_rows,
                 ai_pref=ai_pref,
                 ratings=ratings,
                 block_count=block_count,
                 flash_msg=flash_msg,
                 error=error,
-                now=int(time.time()),
+                now=now,
             )
 
         if request.method == "POST":
             action = request.form.get("action", "save_user")
+            now = int(time.time())
+
+            if action == "save_votes":
+                try:
+                    lifetime = int(request.form.get("lifetime_votes") or 0)
+                    monthly = int(request.form.get("monthly_votes") or 0)
+                    current = int(request.form.get("current_streak") or 0)
+                    longest = int(request.form.get("longest_streak") or 0)
+                except (TypeError, ValueError):
+                    return render_page(error="Vote counts and streak values must be whole numbers.")
+                if min(lifetime, monthly, current, longest) < 0:
+                    return render_page(error="Vote counts and streak values cannot be negative.")
+
+                try:
+                    last_day = _date_to_epoch_day(request.form.get("streak_last_day"))
+                except ValueError:
+                    return render_page(error="Last streak day must be a YYYY-MM-DD date.")
+                if current and last_day is None:
+                    last_day = now // 86400
+                longest = max(longest, current)
+
+                existing_boost = conn.execute(
+                    "SELECT 1 FROM vote_boosts WHERE user_id=?", (user_id,)
+                ).fetchone()
+                if existing_boost:
+                    conn.execute(
+                        "UPDATE vote_boosts SET vote_count=? WHERE user_id=?",
+                        (lifetime, user_id),
+                    )
+                elif lifetime:
+                    conn.execute(
+                        "INSERT INTO vote_boosts "
+                        "(user_id, multiplier, expires_at, last_vote_at, vote_count) "
+                        "VALUES (?, 2.0, 0, NULL, ?)",
+                        (user_id, lifetime),
+                    )
+
+                month = time.strftime("%Y-%m", time.gmtime(now))
+                if monthly:
+                    conn.execute(
+                        "INSERT INTO vote_monthly (user_id, month, votes) VALUES (?, ?, ?) "
+                        "ON CONFLICT(user_id, month) DO UPDATE SET votes=excluded.votes",
+                        (user_id, month, monthly),
+                    )
+                else:
+                    conn.execute(
+                        "DELETE FROM vote_monthly WHERE user_id=? AND month=?",
+                        (user_id, month),
+                    )
+
+                if current or longest or last_day is not None:
+                    conn.execute(
+                        "INSERT INTO vote_streaks "
+                        "(user_id, current_streak, longest_streak, last_day) "
+                        "VALUES (?, ?, ?, ?) "
+                        "ON CONFLICT(user_id) DO UPDATE SET "
+                        "current_streak=excluded.current_streak, "
+                        "longest_streak=excluded.longest_streak, "
+                        "last_day=excluded.last_day",
+                        (user_id, current, longest, last_day),
+                    )
+                else:
+                    conn.execute("DELETE FROM vote_streaks WHERE user_id=?", (user_id,))
+
+                conn.commit()
+                _clear_cache()
+                _log("VOTE RECORDS EDIT", f"user={user_id} lifetime={lifetime} "
+                     f"month={month} monthly={monthly} current={current} "
+                     f"longest={longest} last_day={last_day}")
+                return render_page(flash_msg="Vote records updated.")
+
+            if action == "save_vote_reminder":
+                raw = (request.form.get("remind_at") or "").strip()
+                if not raw:
+                    return render_page(flash_msg="Vote reminder left unchanged.")
+                if raw.lower() in ("off", "none", "clear"):
+                    conn.execute("DELETE FROM vote_reminders WHERE user_id=?", (user_id,))
+                    conn.commit()
+                    _clear_cache()
+                    _log("VOTE REMINDER CLEAR", f"user={user_id}")
+                    return render_page(flash_msg="Vote reminder cleared.")
+                try:
+                    remind_at = _parse_timestamp(raw)
+                except ValueError:
+                    return render_page(
+                        error="Reminder must be 'off', 'now', a unix timestamp, "
+                              "or a YYYY-MM-DD HH:MM date."
+                    )
+                conn.execute(
+                    "INSERT INTO vote_reminders (user_id, remind_at) VALUES (?, ?) "
+                    "ON CONFLICT(user_id) DO UPDATE SET remind_at=excluded.remind_at",
+                    (user_id, remind_at),
+                )
+                conn.commit()
+                _clear_cache()
+                _log("VOTE REMINDER SET", f"user={user_id} remind_at={remind_at}")
+                return render_page(flash_msg="Vote reminder updated.")
+
+            if action == "clear_vote_site":
+                site = (request.form.get("site") or "").strip()
+                if not site:
+                    return render_page(error="Choose a vote list to clear.")
+                cur = conn.execute(
+                    "DELETE FROM vote_site_history WHERE user_id=? AND source=?",
+                    (user_id, site),
+                )
+                conn.commit()
+                _clear_cache()
+                _log("VOTE SITE CLEAR", f"user={user_id} site={site} rows={cur.rowcount}")
+                return render_page(flash_msg=f"Cleared the {site} cooldown.")
+
+            if action == "clear_vote_sites":
+                cur = conn.execute(
+                    "DELETE FROM vote_site_history WHERE user_id=?", (user_id,)
+                )
+                conn.commit()
+                _clear_cache()
+                _log("VOTE SITES CLEAR", f"user={user_id} rows={cur.rowcount}")
+                return render_page(flash_msg="All vote list cooldowns cleared.")
+
+            if action == "clear_vote_month":
+                month = time.strftime("%Y-%m", time.gmtime(now))
+                conn.execute(
+                    "DELETE FROM vote_monthly WHERE user_id=? AND month=?",
+                    (user_id, month),
+                )
+                conn.commit()
+                _clear_cache()
+                _log("VOTE MONTH CLEAR", f"user={user_id} month={month}")
+                return render_page(flash_msg=f"Cleared votes for {month}.")
+
+            if action == "reset_vote_streak":
+                conn.execute("DELETE FROM vote_streaks WHERE user_id=?", (user_id,))
+                conn.commit()
+                _clear_cache()
+                _log("VOTE STREAK RESET", f"user={user_id}")
+                return render_page(flash_msg="Vote streak reset.")
+
+            if action == "clear_vote_reminder":
+                conn.execute("DELETE FROM vote_reminders WHERE user_id=?", (user_id,))
+                conn.commit()
+                _clear_cache()
+                _log("VOTE REMINDER CLEAR", f"user={user_id}")
+                return render_page(flash_msg="Vote reminder cleared.")
+
+            if action == "reset_vote_data":
+                conn.execute("DELETE FROM vote_site_history WHERE user_id=?", (user_id,))
+                conn.execute("DELETE FROM vote_streaks WHERE user_id=?", (user_id,))
+                conn.execute("DELETE FROM vote_monthly WHERE user_id=?", (user_id,))
+                conn.execute("DELETE FROM vote_reminders WHERE user_id=?", (user_id,))
+                conn.execute(
+                    "UPDATE vote_boosts SET vote_count=0 WHERE user_id=?", (user_id,)
+                )
+                conn.commit()
+                _clear_cache()
+                _log("VOTE DATA RESET", f"user={user_id}")
+                return render_page(
+                    flash_msg="Vote history reset. Any active boost was left unchanged."
+                )
 
             if action == "clear_boost":
                 conn.execute("DELETE FROM vote_boosts WHERE user_id=?", (user_id,))
