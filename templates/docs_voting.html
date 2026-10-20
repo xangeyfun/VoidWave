@@ -2,19 +2,27 @@
 
 {% block docs_page_title %}Voting and boosts{% endblock %}
 
-{% block docs_meta_description %}How voting works for VoidWave: the Top.gg vote link, the 2x XP boost, vote reminders, vote announcements in your server, and the voters leaderboard.{% endblock %}
+{% block docs_meta_description %}How voting works for VoidWave: the vote links for Top.gg and Discord List, the 2x XP boost, vote reminders, vote announcements in your server, voter badges, streaks, and the monthly top voters board.{% endblock %}
 
 {% block docs_og_url %}/docs/voting{% endblock %}
 {% block docs_og_title %}Voting and Boosts Guide{% endblock %}
 {% block docs_og_description %}Vote for VoidWave to double your XP, set up vote reminders, and announce votes in your server.{% endblock %}
 
 {% block docs_hero_title %}Voting and boosts{% endblock %}
-{% block docs_hero_lead %}Voting is free, takes a few seconds, and doubles your XP. Here is everything around voting: the boost, reminders, announcements, and the voters leaderboard.{% endblock %}
+{% block docs_hero_lead %}Voting is free, takes a few seconds, and doubles your XP. Here is everything around voting: the boost, reminders, announcements, plus badges, streaks and the monthly top voters. The <a href="/voters">vote page</a> has both lists and the board in one place.{% endblock %}
 
 {% block docs_content %}
 
 <div class="docs-intro-block">
-    <p class="docs-lead">Every vote for VoidWave on Top.gg grants a <strong>2x XP boost</strong> that applies everywhere, in every server, to both message and voice XP. The boost is tied to your user, not to a single server, so it follows you around.</p>
+    <p class="docs-lead">Every vote for VoidWave grants a <strong>2x XP boost</strong> that applies everywhere, in every server, to both message and voice XP. The boost is tied to your user, not to a single server, so it follows you around. You can vote on <strong>Top.gg</strong> and <strong>Discord List</strong>, both give the same reward, and the boosts <strong>stack</strong>.</p>
+    <div class="hero-buttons">
+        <a href="https://top.gg/bot/1442229230384709752/vote" target="_blank" rel="noopener" class="btn btn-primary">
+            <span>🗳️ Vote on Top.gg</span>
+        </a>
+        <a href="https://discordlist.gg/bot/1442229230384709752/vote" target="_blank" rel="noopener" class="btn btn-secondary">
+            <span>🗳️ Vote on Discord List</span>
+        </a>
+    </div>
 </div>
 
 <!-- ------------------------------------------------------------------ -->
@@ -38,21 +46,22 @@
             </tr>
             <tr>
                 <td>Duration</td>
-                <td>4 hours on a weekday, 6 hours on a weekend. Weekend votes on Top.gg carry double weight, which extends the boost.</td>
+                <td>4 hours per vote (6 hours on a weekend on Top.gg, where weekend votes carry double weight). Votes <strong>stack</strong>: voting on both lists in one round adds both durations, up to 10 hours on a Top.gg weekend.</td>
             </tr>
             <tr>
                 <td>Registration</td>
-                <td>Voting through the Top.gg link registers automatically via webhook. You get a <strong>thanks for voting</strong> DM right after.</td>
+                <td>Voting through any of the links registers automatically via webhook. You get a <strong>thanks for voting</strong> DM right after. If the other list is still ready, the DM includes a button to vote there too and stack another 4 hours.</td>
             </tr>
             <tr>
                 <td>Cooldown</td>
-                <td>Top.gg allows one boost per user every 12 hours.</td>
+                <td>Each list allows one vote per user every 12 hours. The lists keep separate timers, and <code>/vote</code> shows when each one is ready again.</td>
             </tr>
         </tbody>
     </table>
 
     <div class="doc-callout">
-        <p><strong>Keep the streak going.</strong> After a vote, <code>/vote-remind</code> syncs a reminder to 12 hours after your most recent vote, so you are pinged right when you can vote again. You never have to remember the cooldown yourself.</p>
+        <p><strong>Keep the streak going.</strong> After a vote, <code>/vote-remind</code> syncs a reminder to the soonest list that frees up, so you are pinged right when you can vote again. The reminder DM shows the timer for each list and puts a vote button on every list that is ready. Every reminder also has a <strong>Turn off reminders</strong> button, so you do not need the command to opt out.</p>
+        <p>If you have a streak of 2 or more days and have not voted by late in the UTC day, the same opt-in sends one <strong>streak at risk</strong> DM with a vote button, so a missed day does not reset it by surprise.</p>
     </div>
 </div>
 
@@ -68,7 +77,7 @@
             <code>/vote</code>
             <span class="doc-tag">servers, DMs and private channels</span>
         </div>
-        <p class="doc-cmd-desc">Shows the Top.gg vote link, whether your 2x XP boost is currently active and for how long, and whether a reminder is set. The message is only visible to you.</p>
+        <p class="doc-cmd-desc">Shows the vote links for both lists as clickable buttons with each list's own cooldown timer, plus a button to the monthly voters board. It also shows whether your 2x XP boost is active and for how long, your lifetime votes, badge, progress to the next badge, streak and best streak, and whether a reminder is set. The message is only visible to you.</p>
     </div>
 
     <div class="doc-cmd">
@@ -76,7 +85,7 @@
             <code>/vote-remind</code>
             <span class="doc-tag">servers, DMs and private channels</span>
         </div>
-        <p class="doc-cmd-desc">Turns DM reminders on or off. When you vote, the reminder re-syncs to your most recent vote, 12 hours ahead. When the cooldown is already over, the reminder fires within about a minute.</p>
+        <p class="doc-cmd-desc">Turns DM reminders on or off. When you vote, the reminder re-syncs to the soonest list that frees up. Each list has its own 12 hour cooldown, so you may get pinged once per list per round. When a list is already ready, the reminder fires within about a minute. Reminders also include the late-day streak at risk ping.</p>
         <div class="doc-cmd-widgets">
             <div class="doc-widget">
                 <div class="doc-widget-label">Parameters</div>
@@ -97,18 +106,59 @@
             <code>/uptime</code>
             <span class="doc-tag">servers, DMs and private channels</span>
         </div>
-        <p class="doc-cmd-desc">Shows the bot uptime and lists the official links, including the vote pages on Top.gg, Discord List, and DiscordBotList.</p>
+        <p class="doc-cmd-desc">Shows the bot uptime and lists the official links, including the vote pages on Top.gg and Discord List.</p>
     </div>
 </div>
 
 <!-- ------------------------------------------------------------------ -->
 <div class="docs-section" id="leaderboard">
     <div class="docs-section-head">
-        <h2>Voters leaderboard</h2>
-        <span class="docs-section-tag">who voted, when</span>
+        <h2>Top voters</h2>
+        <span class="docs-section-tag">badges, streaks, monthly board</span>
     </div>
 
-    <p class="docs-lead">The Discord leaderboard has a <strong>Voters</strong> sort that lists members by when they last voted, most recent first. Through the command, pick it with the <code>sort</code> option. The <a href="/leaderboard">website leaderboard</a> ranks by level, total XP, messages, and voice time, so it does not include the voters list.</p>
+    <p class="docs-lead">The <a href="/voters">vote page</a> is one place to vote and to see who is winning: both vote buttons at the top, then a streak leaders strip and the monthly board with a podium for the top 3, badges and streaks. The board pages 25 voters at a time and the month picker shows previous months, with the current month marked. Use the find field to locate any voter and jump straight to their rank. The Discord leaderboard also has a <strong>Voters</strong> sort that ranks members by votes this month (UTC). The regular <a href="/leaderboard">website leaderboard</a> ranks by level, total XP, messages and voice time.</p>
+</div>
+
+<!-- ------------------------------------------------------------------ -->
+<div class="docs-section" id="rewards">
+    <div class="docs-section-head">
+        <h2>Badges and streaks</h2>
+        <span class="docs-section-tag">show off your support</span>
+    </div>
+
+    <p class="docs-lead">Voting also earns bragging rights, tracked per user and shown on your profile, on <code>/vote</code>, and on the monthly board. Your profile and <code>/vote</code> also show how many votes are left until your next badge.</p>
+
+    <table class="doc-table">
+        <thead>
+            <tr>
+                <th>Reward</th>
+                <th>How to earn it</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>🥉 Bronze Voter</td>
+                <td>5 lifetime votes.</td>
+            </tr>
+            <tr>
+                <td>🥈 Silver Voter</td>
+                <td>25 lifetime votes.</td>
+            </tr>
+            <tr>
+                <td>🥇 Gold Voter</td>
+                <td>100 lifetime votes.</td>
+            </tr>
+            <tr>
+                <td>🔥 Voting streak</td>
+                <td>Vote on any list on consecutive days (UTC days). Your current streak and your best streak show on <code>/vote</code> and your profile. With reminders on, a late-day ping warns you before a streak resets.</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <div class="doc-callout">
+        <p><strong>Badges are cosmetic.</strong> They never change your XP. The XP reward is always the stacking 2x boost.</p>
+    </div>
 </div>
 
 <!-- ------------------------------------------------------------------ -->
@@ -122,7 +172,7 @@
         <p><strong>Admins only.</strong> Vote announcements require the <strong>Administrator</strong> permission.</p>
     </div>
 
-    <p class="docs-lead">Admins can announce member votes in the level up channel. This nudges the whole server to vote, since each vote shows the voting member and their new 2x XP boost.</p>
+    <p class="docs-lead">Admins can announce member votes in the level up channel. This nudges the whole server to vote, since each vote shows the voting member and their new 2x XP boost. Each announcement has a vote button for both lists, plus a pointer to <code>/vote</code> and the <a href="/voters">vote page</a>.</p>
 
     <div class="doc-cmd">
         <div class="doc-cmd-head">
