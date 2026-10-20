@@ -27,6 +27,160 @@ DBL_TOKEN = os.getenv("DBL_TOKEN")
 VOTE_BOOST_MULTIPLIER = 2.0
 VOTE_BOOST_DURATION = 14400
 VOTE_BOOST_WEEKEND_DURATION = 21600
+# Every list below grants the same reward. Display order matters (top.gg
+# first); keep in sync with the vote links in the website templates.
+# The emoji is the bot emoji (name, id) for each list.
+VOTE_LINKS = (
+    ("Top.gg", "https://top.gg/bot/1442229230384709752/vote", ("topgg", 1562055047422935040)),
+    ("Discord List", "https://discordlist.gg/bot/1442229230384709752/vote", ("discordlist", 1562055045984424056)),
+)
+VOTE_PRIMARY_LINK = "https://voidwave.xangey.dev/voters"
+
+# Each list has its own per-user vote cooldown; the timers are tracked
+# separately in vote_site_history so /vote and the reminder DMs can show
+# what is ready and when the next list frees up.
+VOTE_SITE_COOLDOWN = 12 * 3600
+
+# Commands that show the "you should vote" nudge button when the user can vote.
+# Commands that bring their own buttons (games, music, help, ...) are excluded
+# on purpose so the extra button never fights their view.
+VOTE_NUDGE_COMMANDS = frozenset({
+    "8ball", "ai", "animal", "calc", "fact", "feedback", "flip", "github",
+    "kirkify", "level", "ping", "profile", "quote", "random", "rate",
+    "uptime", "userinfo",
+})
+
+
+def vote_nudge(user_id, now=None):
+    """Return {"site", "url", "emoji"} for a list the user can vote on right now,
+    else None when every list is still cooling down.
+
+    Uses the same per-list 12 hour cooldown as /vote, so a user is nudged
+    whenever at least one list has freed up, first-time voter or not."""
+    now = time.time() if now is None else now
+    for name, url, ready_at in vote_site_status(user_id, now):
+        if ready_at is None:
+            emoji = vote_site_emoji(name)
+            return {"site": name, "url": url, "emoji": emoji}
+    return None
+
+
+def vote_site_emoji(name):
+    """Custom bot emoji for a vote list, or None if it has none."""
+    for site_name, _url, emoji in VOTE_LINKS:
+        if site_name == name:
+            return emoji
+    return None
+
+
+def vote_site_rows(user_id):
+    """Last vote timestamp per list for this user, keyed by display name."""
+    conn = get_db()
+    try:
+        try:
+            rows = conn.execute(
+                "SELECT source, voted_at FROM vote_site_history WHERE user_id=?", (user_id,)
+            ).fetchall()
+        except sqlite3.OperationalError:
+            # table appears once the bot or a webhook has run since upgrading
+            rows = []
+    finally:
+        conn.close()
+    return {row["source"]: row["voted_at"] for row in rows}
+
+
+def vote_site_status(user_id, now=None):
+    """Per-list vote availability: [(name, url, ready_at or None)], ready_at
+    being the unix second the list frees up, None meaning ready right now."""
+    now = time.time() if now is None else now
+    history = vote_site_rows(user_id)
+    status = []
+    for name, url, _emoji in VOTE_LINKS:
+        voted_at = history.get(name)
+        ready_at = None
+        if voted_at and voted_at + VOTE_SITE_COOLDOWN > now:
+            ready_at = voted_at + VOTE_SITE_COOLDOWN
+        status.append((name, url, ready_at))
+    return status
+
+
+def vote_next_ready_at(user_id, now=None):
+    """Unix second the soonest list frees up, or None if every list is ready."""
+    now = time.time() if now is None else now
+    ready = [ready_at for _, _, ready_at in vote_site_status(user_id, now) if ready_at]
+    return min(ready) if ready else None
+
+
+# Cosmetic voter badges by lifetime votes; keep in sync with app.py VOTE_BADGE_TIERS.
+VOTE_BADGES = (
+    (100, "🥇 Gold Voter"),
+    (25, "🥈 Silver Voter"),
+    (5, "🥉 Bronze Voter"),
+)
+
+
+def vote_badge_label(vote_count):
+    """Badge label for a lifetime vote count, or None below the first tier."""
+    for threshold, label in VOTE_BADGES:
+        if vote_count >= threshold:
+            return label
+    return None
+
+
+def vote_badge_progress(vote_count):
+    """Next badge tier as {"label", "threshold", "remaining"}, or None at the top."""
+    for threshold, label in reversed(VOTE_BADGES):
+        if vote_count < threshold:
+            return {
+                "label": label,
+                "threshold": threshold,
+                "remaining": threshold - vote_count,
+            }
+    return None
+
+
+def disable_vote_reminders(user_id):
+    """Remove a user's /vote-remind opt-in. True when a row was deleted."""
+    conn = get_db()
+    try:
+        try:
+            cur = conn.execute("DELETE FROM vote_reminders WHERE user_id=?", (user_id,))
+            conn.commit()
+            return cur.rowcount > 0
+        except sqlite3.OperationalError:
+            return False
+    finally:
+        conn.close()
+
+
+def vote_player_info(user_id, now=None):
+    """Badge, lifetime votes and (unbroken) streak for a user."""
+    now = time.time() if now is None else now
+    info = {"vote_count": 0, "badge": None, "streak": 0, "longest_streak": 0}
+    conn = get_db()
+    try:
+        try:
+            boost = conn.execute(
+                "SELECT vote_count FROM vote_boosts WHERE user_id=?", (user_id,)
+            ).fetchone()
+            streak_row = conn.execute(
+                "SELECT current_streak, longest_streak, last_day FROM vote_streaks WHERE user_id=?",
+                (user_id,),
+            ).fetchone()
+        except sqlite3.OperationalError:
+            boost = streak_row = None
+    finally:
+        conn.close()
+    count = (boost["vote_count"] or 0) if boost else 0
+    info["vote_count"] = count
+    info["badge"] = vote_badge_label(count)
+    if streak_row:
+        today = int(now // 86400)
+        # a streak only survives if the last vote was today or yesterday
+        if streak_row["last_day"] in (today, today - 1):
+            info["streak"] = streak_row["current_streak"] or 0
+        info["longest_streak"] = streak_row["longest_streak"] or 0
+    return info
 
 # Shared state
 startup = time.time()
@@ -281,7 +435,7 @@ def build_level_up_embed(member, level, progress, out_of, boost=None, new_roles=
             + (
                 f"⚡ **{boost['multiplier']:.1f}x XP boost** active for **{int((boost['expires_at'] - time.time()) // 60)} min**!"
                 if boost
-                else "⚡ Vote for **2x XP** for **4 hours**! `/vote`"
+                else f"⚡ Vote for **2x XP** for **4 hours**, doubling every message and voice minute! <{VOTE_PRIMARY_LINK}>"
             )
         ),
         inline=False,
