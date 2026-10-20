@@ -120,21 +120,61 @@ def create_schema(conn):
         user_id INTEGER PRIMARY KEY,
         multiplier REAL DEFAULT 2.0,
         expires_at INTEGER,
-        last_vote_at INTEGER
+        last_vote_at INTEGER,
+        vote_count INTEGER DEFAULT 0
     )
     """)
     conn.commit()
 
-    try:
-        cur.execute("ALTER TABLE vote_boosts ADD COLUMN last_vote_at INTEGER")
-    except sqlite3.OperationalError:
-        pass
+    for column in ("last_vote_at INTEGER", "vote_count INTEGER DEFAULT 0"):
+        try:
+            cur.execute(f"ALTER TABLE vote_boosts ADD COLUMN {column}")
+        except sqlite3.OperationalError:
+            pass
     conn.commit()
 
     cur.execute("""
     CREATE TABLE IF NOT EXISTS vote_reminders (
         user_id INTEGER PRIMARY KEY,
-        remind_at INTEGER
+        remind_at INTEGER,
+        risk_ping_day INTEGER
+    )
+    """)
+    conn.commit()
+
+    for column in ("risk_ping_day INTEGER",):
+        try:
+            cur.execute(f"ALTER TABLE vote_reminders ADD COLUMN {column}")
+        except sqlite3.OperationalError:
+            pass
+    conn.commit()
+
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS vote_site_history (
+        user_id INTEGER,
+        source TEXT,
+        voted_at INTEGER,
+        PRIMARY KEY (user_id, source)
+    )
+    """)
+    conn.commit()
+
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS vote_streaks (
+        user_id INTEGER PRIMARY KEY,
+        current_streak INTEGER DEFAULT 0,
+        longest_streak INTEGER DEFAULT 0,
+        last_day INTEGER
+    )
+    """)
+    conn.commit()
+
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS vote_monthly (
+        user_id INTEGER,
+        month TEXT,
+        votes INTEGER DEFAULT 0,
+        PRIMARY KEY (user_id, month)
     )
     """)
     conn.commit()
