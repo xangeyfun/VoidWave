@@ -26,7 +26,7 @@
             </span>
             {% endif %}
         </div>
-        <h1 class="stats-username">{{ display_name }}</h1>
+        <h1 class="stats-username">{{ display_name }}{% if vote.badge %} <span class="stats-vote-badge">{{ vote.badge }}</span>{% endif %}</h1>
         <p class="stats-username-sub">@{{ username }}</p>
         <p class="stats-level">
             Level {{ level }}
@@ -74,15 +74,48 @@
         </div>
 
         {% if xp_to_overtake %}
-        <div class="stats-rank-up">
+        <div class="stats-rank-up stats-rank-up--xp">
             <span>{{ "{:,}".format(xp_to_overtake|int) }} XP away from overtaking server rank #{{ rank - 1 }}</span>
         </div>
         {% endif %}
+
+        <div class="stats-rank-up stats-vote-strip">
+            <span>
+                {% if vote.boost_minutes %}
+                ⚡ 2x XP boost active for {{ vote.boost_minutes }} min
+                {% elif vote.vote_count %}
+                🗳️ {{ vote.vote_count }} vote{{ 's' if vote.vote_count != 1 }}
+                {% else %}
+                🗳️ Vote for VoidWave and get 2x XP for 4 hours
+                {% endif %}
+                {% if vote.badge %} &middot; {{ vote.badge }}{% endif %}
+                {% if vote.vote_count and vote.badge_progress %} &middot; {{ vote.badge_progress.remaining }} to {{ vote.badge_progress.label }}{% elif vote.vote_count %} &middot; Top badge reached{% endif %}
+                {% if vote.streak >= 2 %} &middot; 🔥 {{ vote.streak }} day streak{% if vote.longest_streak > vote.streak %} (best {{ vote.longest_streak }}){% endif %}{% endif %}
+            </span>
+        </div>
+
+        <div class="stats-vote-panel">
+            <div class="stats-vote-panel-head">
+                <span>🗳️ Voting</span>
+                <span class="stats-vote-panel-note">This user's cooldowns, each list has its own 12h timer</span>
+            </div>
+            <div class="stats-vote-site-list">
+                {% for site in vote.sites %}
+                <div class="stats-vote-site">
+                    <span class="stats-vote-site-name">{{ site.name }}</span>
+                    <span class="stats-vote-site-timer">{% if site.ready_minutes %}{% if site.ready_minutes >= 60 %}ready in {{ site.ready_minutes // 60 }}h{% if site.ready_minutes % 60 %} {{ site.ready_minutes % 60 }}m{% endif %}{% else %}ready in {{ site.ready_minutes }}m{% endif %}{% else %}ready now{% endif %}</span>
+                    <a class="btn btn-secondary btn-sm" href="{{ site.url }}" target="_blank" rel="noopener">Vote</a>
+                </div>
+                {% endfor %}
+            </div>
+            <a class="stats-vote-all" href="/voters">See the monthly top voters</a>
+        </div>
 
         <div class="stats-actions">
             <button class="btn btn-secondary btn-sm" id="copyImageBtn">{{ icons.camera() }}Copy image</button>
             <button class="btn btn-secondary btn-sm" data-copy="{{ request.url }}">{{ icons.link() }}Copy link</button>
             <a class="btn btn-primary btn-sm" href="{% if guild_id %}/leaderboard?guild={{ guild_id }}&find={{ username|urlencode }}{% else %}/leaderboard?mode=combined&find={{ username|urlencode }}{% endif %}">{{ icons.chart() }}{% if guild_id %}View server leaderboard{% else %}View combined leaderboard{% endif %}</a>
+            <a class="btn btn-primary btn-sm" href="/voters">🗳️ Vote for 2x XP</a>
         </div>
     </div>
 </section>

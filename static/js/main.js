@@ -919,6 +919,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const clone = statsCard.cloneNode(true);
             clone.classList.add('stats-card--share');
             clone.querySelector('.stats-actions')?.remove();
+            clone.querySelector('.stats-vote-panel')?.remove();
+            clone.querySelector('.stats-vote-strip')?.remove();
             const avatarImg = clone.querySelector('.stats-avatar');
             if (avatarImg?.src) avatarImg.src = avatarImg.src.replace('size=128', 'size=512');
 
@@ -944,7 +946,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             clone.querySelector('.xp-bar-container')?.insertAdjacentElement('afterend', xpLine);
 
-            let rankUp = clone.querySelector('.stats-rank-up');
+            let rankUp = clone.querySelector('.stats-rank-up--xp');
             let fillPct = 0;
             if (rankUp) {
                 const m = rankUp.textContent.match(/[\d,]+/);
