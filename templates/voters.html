@@ -73,7 +73,7 @@
                 {% for l in streak_leaders %}
                 <div class="voters-streak">
                     <img loading="lazy" class="voters-streak-avatar" src="{{ l.avatar_url }}" onerror="this.onerror=null;this.src='https://cdn.discordapp.com/embed/avatars/0.png'" alt="">
-                    <span class="voters-streak-name">{% if l.guild_id %}<a href="/stats/{{ l.guild_id }}/{{ l.user_id }}">{{ l.name }}</a>{% else %}{{ l.name }}{% endif %}</span>
+                    <span class="voters-streak-name">{% if l.guild_id %}<a href="/stats/0/{{ l.user_id }}">{{ l.name }}</a>{% else %}{{ l.name }}{% endif %}</span>
                     <span class="voters-streak-count">🔥 {{ l.streak }}d</span>
                 </div>
                 {% endfor %}
@@ -88,7 +88,7 @@
                 <span class="voters-podium-medal">{{ ['🥇', '🥈', '🥉'][e.rank - 1] }}</span>
                 <img loading="lazy" class="voters-podium-avatar" src="{{ e.avatar_url }}" onerror="this.onerror=null;this.src='https://cdn.discordapp.com/embed/avatars/0.png'" alt="{{ e.name }}">
                 <span class="voters-podium-name">
-                    {% if e.guild_id %}<a href="/stats/{{ e.guild_id }}/{{ e.user_id }}">{{ e.name }}</a>{% else %}{{ e.name }}{% endif %}
+                    {% if e.guild_id %}<a href="/stats/0/{{ e.user_id }}">{{ e.name }}</a>{% else %}{{ e.name }}{% endif %}
                 </span>
                 <span class="voters-podium-votes">{{ e.votes }} vote{{ 's' if e.votes != 1 }}</span>
                 <div class="voters-podium-meta">
@@ -106,7 +106,7 @@
                 <span class="voters-rank">#{{ e.rank }}</span>
                 <img loading="lazy" class="voters-avatar" src="{{ e.avatar_url }}" onerror="this.onerror=null;this.src='https://cdn.discordapp.com/embed/avatars/0.png'" alt="{{ e.name }}">
                 <span class="user-name">
-                    {% if e.guild_id %}<a href="/stats/{{ e.guild_id }}/{{ e.user_id }}">{{ e.name }}</a>{% else %}{{ e.name }}{% endif %}
+                    {% if e.guild_id %}<a href="/stats/0/{{ e.user_id }}">{{ e.name }}</a>{% else %}{{ e.name }}{% endif %}
                     {% if e.badge %}<span class="stats-vote-badge">{{ e.badge }}</span>{% endif %}
                 </span>
                 <span class="voters-month">{{ e.votes }} vote{{ 's' if e.votes != 1 }}</span>
