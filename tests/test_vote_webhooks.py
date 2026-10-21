@@ -497,7 +497,7 @@ def test_voters_page_lists_monthly_top():
     now = int(time.time())
     conn = utils.get_db()
     try:
-        for uid, votes, count in ((2, 5, 12), (1, 3, 1)):
+        for uid, votes, count in ((2, 5, 12), (1, 3, 1), (3, 2, 1), (4, 1, 12)):
             conn.execute(
                 "INSERT INTO vote_boosts (user_id, multiplier, expires_at, last_vote_at, vote_count) "
                 "VALUES (?, 2.0, ?, ?, ?)",
@@ -515,8 +515,11 @@ def test_voters_page_lists_monthly_top():
     body = resp.data.decode()
     assert "Vote for" in body
     assert "Monthly top voters" in body
-    assert "Bronze Voter" in body
     assert body.index("Voter 2") < body.index("Voter 1")
+    # the podium cards carry no badge, the list below them still does
+    podium, _, rest = body.partition('class="voters-list"')
+    assert "Bronze Voter" not in podium
+    assert "Bronze Voter" in rest
 
 
 def test_voters_page_month_picker_loads_previous_months():
