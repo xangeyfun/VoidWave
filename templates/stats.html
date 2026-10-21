@@ -26,7 +26,7 @@
             </span>
             {% endif %}
         </div>
-        <h1 class="stats-username">{{ display_name }}{% if vote.badge %} <span class="stats-vote-badge">{{ vote.badge }}</span>{% endif %}</h1>
+        <h1 class="stats-username">{{ display_name }}</h1>
         <p class="stats-username-sub">@{{ username }}</p>
         <p class="stats-level">
             Level {{ level }}
@@ -79,20 +79,14 @@
         </div>
         {% endif %}
 
+        {% if vote.boost_minutes %}
         <div class="stats-rank-up stats-vote-strip">
             <span>
-                {% if vote.boost_minutes %}
                 ⚡ 2x XP boost active for {{ vote.boost_minutes }} min
-                {% elif vote.vote_count %}
-                🗳️ {{ vote.vote_count }} vote{{ 's' if vote.vote_count != 1 }}
-                {% else %}
-                🗳️ Vote for VoidWave and get 2x XP for 4 hours
-                {% endif %}
-                {% if vote.badge %} &middot; {{ vote.badge }}{% endif %}
-                {% if vote.vote_count and vote.badge_progress %} &middot; {{ vote.badge_progress.remaining }} to {{ vote.badge_progress.label }}{% elif vote.vote_count %} &middot; Top badge reached{% endif %}
                 {% if vote.streak >= 2 %} &middot; 🔥 {{ vote.streak }} day streak{% if vote.longest_streak > vote.streak %} (best {{ vote.longest_streak }}){% endif %}{% endif %}
             </span>
         </div>
+        {% endif %}
 
         <div class="stats-vote-panel">
             <div class="stats-vote-panel-head">

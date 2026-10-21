@@ -24,11 +24,6 @@
             <a class="btn {% if loop.first %}btn-primary{% else %}btn-secondary{% endif %}" href="{{ site_url }}" target="_blank" rel="noopener">🗳️ Vote on {{ site_name }}</a>
             {% endfor %}
         </div>
-        <div class="vote-chips">
-            <span class="vote-chip">⚡ 2x XP on messages and voice</span>
-            <span class="vote-chip">🕒 4h per vote, 6h Top.gg weekends</span>
-            <span class="vote-chip">🥇 Badges, streaks and the monthly board</span>
-        </div>
     </header>
 
     <section class="voters-board">
@@ -92,7 +87,6 @@
                 </span>
                 <span class="voters-podium-votes">{{ e.votes }} vote{{ 's' if e.votes != 1 }}</span>
                 <div class="voters-podium-meta">
-                    {% if e.badge %}<span class="stats-vote-badge">{{ e.badge }}</span>{% endif %}
                     {% if e.streak >= 2 %}<span class="voters-podium-streak">🔥 {{ e.streak }} day streak</span>{% endif %}
                 </div>
             </div>
