@@ -73,7 +73,7 @@ async def _maybe_attach_vote_nudge(interaction: discord.Interaction) -> None:
     command = getattr(interaction, "command", None)
     if command is None or command.name not in VOTE_NUDGE_COMMANDS:
         return
-    if not interaction.guild or not interaction.user or interaction.user.bot:
+    if not interaction.user or interaction.user.bot:
         return
     try:
         nudge = await asyncio.to_thread(vote_nudge, interaction.user.id)
