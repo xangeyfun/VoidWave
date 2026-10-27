@@ -141,14 +141,19 @@ class VoteReminderOffView(discord.ui.View):
         else:
             message = "Vote reminders were already off. Run `/vote-remind` any time to turn them back on."
         await interaction.response.send_message(message, ephemeral=True)
-        if interaction.message and interaction.message.view:
-            for item in interaction.message.view.children:
-                if getattr(item, "custom_id", None) == "vote_reminders_off":
-                    item.disabled = True
-            try:
-                await interaction.message.edit(view=interaction.message.view)
-            except discord.HTTPException:
-                pass
+        try:
+            msg = interaction.message
+            view = getattr(msg, "view", None) if msg else None
+            if view:
+                for item in getattr(view, "children", []):
+                    if getattr(item, "custom_id", None) == "vote_reminders_off":
+                        item.disabled = True
+                try:
+                    await msg.edit(view=view)
+                except discord.HTTPException:
+                    pass
+        except Exception:
+            pass
 
 
 class EventsCog(commands.Cog):
