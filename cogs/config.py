@@ -511,9 +511,9 @@ class ConfigCog(commands.Cog):
             )
             view = ConfigHelpView(self, select)
             view.author_id = interaction.user.id
+            await interaction.response.send_message(embed=embed, ephemeral=True, view=view)
         else:
-            view = None
-        await interaction.response.send_message(embed=embed, ephemeral=True, view=view)
+            await interaction.response.send_message(embed=embed, ephemeral=True)
 
     @discord.app_commands.allowed_installs(guilds=True, users=False)
     @discord.app_commands.allowed_contexts(guilds=True, dms=False, private_channels=False)
