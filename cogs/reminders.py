@@ -899,8 +899,8 @@ class ReminderCog(commands.Cog):
             logger.info("Sent reminder #%s to %s", row["id"], row["user_id"])
             return "delivered"
         except discord.Forbidden:
-            logger.warning("Couldn't DM reminder #%s to %s (DMs closed)", row["id"], row["user_id"])
-            return "retry"
+            logger.warning("Couldn't DM reminder #%s to %s (DMs closed or blocked)", row["id"], row["user_id"])
+            return "dropped"
         except (discord.NotFound, discord.HTTPException) as e:
             logger.error("Failed to DM reminder #%s to %s: %s", row["id"], row["user_id"], e)
             return "dropped"
