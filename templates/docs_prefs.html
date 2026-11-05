@@ -2,11 +2,11 @@
 
 {% block docs_page_title %}User Preferences{% endblock %}
 
-{% block docs_meta_description %}VoidWave user preferences guide: save your defaults for private replies, music source, autoplay, and reminder timezone, repeat, time of day and delivery channel.{% endblock %}
+{% block docs_meta_description %}VoidWave user preferences guide: save your defaults for private replies, music source, playback volume, autoplay, search auto pick, and reminder timezone, repeat, time of day and delivery channel.{% endblock %}
 
 {% block docs_og_url %}/docs/prefs{% endblock %}
 {% block docs_og_title %}User Preferences Guide{% endblock %}
-{% block docs_og_description %}Save your default settings once and skip them later: private replies, music source and autoplay, and reminder timezone, repeat, time of day and delivery channel.{% endblock %}
+{% block docs_og_description %}Save your default settings once and skip them later: private replies, music source, volume, autoplay and search auto pick, and reminder timezone, repeat, time of day and delivery channel.{% endblock %}
 
 {% block docs_hero_title %}User Preferences{% endblock %}
 {% block docs_hero_lead %}Set how VoidWave behaves towards you once, then use simpler commands. Defaults apply everywhere you use the bot and are yours alone.{% endblock %}
@@ -29,7 +29,7 @@
             <code>/prefs view</code>
             <span class="doc-tag">servers, DMs and private channels</span>
         </div>
-        <p class="doc-cmd-desc">Shows every saved default: private replies, music source, autoplay on play, and reminder timezone, repeat, time of day and delivery channel. Only you can see the response.</p>
+        <p class="doc-cmd-desc">Shows every saved default: private replies, music source, playback volume, autoplay on play, search auto pick, and reminder timezone, repeat, time of day and delivery channel. Only you can see the response.</p>
     </div>
 
     <div class="doc-cmd">
@@ -88,6 +88,48 @@
                         <tr>
                             <td><code>enabled</code></td>
                             <td><code>true</code> to auto-enable autoplay, <code>false</code> to leave it as-is. Required.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/prefs volume</code>
+            <span class="doc-tag">servers, DMs and private channels</span>
+        </div>
+        <p class="doc-cmd-desc">Sets the volume applied whenever you start a fresh playback session. The default is <code>30%</code> so first time playback is not unexpectedly loud. Set <code>0</code> to stop applying a default and leave the current player volume untouched.</p>
+        <div class="doc-cmd-widgets">
+            <div class="doc-widget">
+                <div class="doc-widget-label">Parameters</div>
+                <table class="doc-params">
+                    <tbody>
+                        <tr>
+                            <td><code>level</code></td>
+                            <td>Volume from <code>1</code> to <code>100</code>, or <code>0</code> to turn the default off. Required.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="doc-cmd">
+        <div class="doc-cmd-head">
+            <code>/prefs search</code>
+            <span class="doc-tag">servers, DMs and private channels</span>
+        </div>
+        <p class="doc-cmd-desc">When on, <code>/music play</code> skips the search picker and immediately plays the best match, exactly like pressing the picker's <b>Auto</b> button. When off, searches with several results show the picker.</p>
+        <div class="doc-cmd-widgets">
+            <div class="doc-widget">
+                <div class="doc-widget-label">Parameters</div>
+                <table class="doc-params">
+                    <tbody>
+                        <tr>
+                            <td><code>enabled</code></td>
+                            <td><code>true</code> to always auto pick the best result, <code>false</code> to show the picker. Required.</td>
                         </tr>
                     </tbody>
                 </table>
