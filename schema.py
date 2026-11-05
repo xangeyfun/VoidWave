@@ -345,6 +345,18 @@ def create_schema(conn):
     conn.commit()
 
     try:
+        cur.execute("ALTER TABLE user_prefs ADD COLUMN music_volume INTEGER DEFAULT 30")
+    except sqlite3.OperationalError:
+        pass
+    conn.commit()
+
+    try:
+        cur.execute("ALTER TABLE user_prefs ADD COLUMN music_autopick BOOLEAN DEFAULT 0")
+    except sqlite3.OperationalError:
+        pass
+    conn.commit()
+
+    try:
         cur.execute("ALTER TABLE user_prefs ADD COLUMN remind_channel INTEGER")
     except sqlite3.OperationalError:
         pass
