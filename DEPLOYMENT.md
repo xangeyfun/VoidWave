@@ -31,7 +31,7 @@ development.
 
 - Python 3.11+ and a `venv/` with `requirements.txt` installed.
 - `.env` in the **repo root**. Scripts use `load_dotenv()` and relative paths
-  (`database.db`, `questions.json`, `prompts/`, `templates/`, `stats_history.json`),
+  (`database.db`, `questions.json`, `holiday_questions.json`, `prompts/`, `templates/`, `stats_history.json`),
   so every service must run with the repo root as its working directory.
 - Full AI chat: Ollama on `localhost:11434` with the `MODEL` pulled.
 - Kirkify (`/kirkify`): the face-swap tool lives in `third_party/kirkify.py`
