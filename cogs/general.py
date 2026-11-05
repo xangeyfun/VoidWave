@@ -52,7 +52,7 @@ EMOJIS = {
 
 DOCUMENTED_COMMANDS = {
     "leveling": {"level", "leaderboard", "profile"},
-    "utilities": {"help", "ping", "uptime", "github", "vote", "vote-remind", "ai", "aitoggle", "kirkify", "userinfo", "feedback", "rate", "prefs view", "prefs private", "prefs source", "prefs autoplay"},
+    "utilities": {"help", "ping", "uptime", "github", "vote", "vote-remind", "ai", "aitoggle", "kirkify", "userinfo", "feedback", "rate", "prefs view", "prefs private", "prefs source", "prefs autoplay", "prefs volume", "prefs search"},
     "fun": {"animal", "calc", "flip", "random", "quote", "fact"},
     "games": {"8ball", "rps", "tictactoe", "connectfour", "trivia-battle", "blackjack", "hangman", "wordle", "minesweeper", "battleship", "15puzzle"},
     "music": {"music play", "music random", "music radio", "music queue", "music nowplaying", "music pause", "music resume", "music skip", "music stop", "music shuffle", "music loop", "music volume", "music seek", "music lyrics", "music lyricslive", "music autoplay", "music controller", "music disconnect", "music playlist create", "music playlist add", "music playlist addcurrent", "music playlist savequeue", "music playlist remove", "music playlist rename", "music playlist delete", "music playlist list", "music playlist clear", "music playlist shuffle", "music playlist play"},
@@ -255,7 +255,7 @@ class GeneralCog(commands.Cog):
                     "`/userinfo <user>` - Look up a user (account, roles, server, permissions, profile)\n"
                     "`/feedback <feedback>` - Message the developers\n"
                     "`/rate` - Rate VoidWave\n"
-                    "`/prefs` - Your defaults: private replies, music source, autoplay on play"
+                    "`/prefs` - Your defaults: private replies, music source, volume, autoplay, search auto pick"
                 ),
                 inline=False,
             ),
