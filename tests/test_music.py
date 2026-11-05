@@ -6,6 +6,8 @@ import wavelink
 from cogs.music import (
     MusicCog,
     VoidWavePlayer,
+    _auto_pick_result,
+    _autoplay_seed_track,
     _current_line,
     _delete_playlist_track,
     _insert_track_row,
@@ -112,6 +114,27 @@ def test_playlist_dup_check_uri():
         assert _playlist_dup_check(conn, 1, "u1", "Hello", "World") is True
     finally:
         conn.close()
+
+
+def test_auto_pick_matches_picker_auto_button():
+    results = [
+        _make_playable("Never Gonna Give You Up", "Rick Astley", "u1"),
+        _make_playable("Some Other Song", "Someone", "u2"),
+    ]
+    assert _auto_pick_result("never gonna give you up", results).uri == "u1"
+    assert _auto_pick_result("some other song", results).uri == "u2"
+
+
+def test_autoplay_seed_prefers_latest_played_track():
+    first = _make_playable("First", "Artist", "u1", source="spotify")
+    last = _make_playable("Last", "Artist", "u2", source="youtube")
+    assert _autoplay_seed_track(previous=last, history=[first, last]) is last
+
+
+def test_autoplay_seed_skips_unsupported_current_track():
+    old = _make_playable("Old", "Artist", "u1", source="spotify")
+    soundcloud = _make_playable("Cloud", "Artist", "u2", source="soundcloud")
+    assert _autoplay_seed_track(current=soundcloud, history=[old, soundcloud]) is old
 
 
 def test_normalize_query_empty():
