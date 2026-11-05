@@ -2220,6 +2220,10 @@ class MusicCog(commands.Cog):
                     logger.warning("Failed to edit player message in guild %s: %s", guild_id, e)
                     await asyncio.sleep(5)
                     continue
+                except (aiohttp.ClientError, OSError, TimeoutError) as e:
+                    logger.warning("Transient player update failure in guild %s, retrying: %s", guild_id, e)
+                    await asyncio.sleep(5)
+                    continue
         except asyncio.CancelledError:
             pass
         except Exception as e:
