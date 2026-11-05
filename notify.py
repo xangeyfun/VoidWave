@@ -12,7 +12,7 @@ DEDUP_WINDOW = 60
 MAX_TEXT_LEN = 1024
 TIME_FORMAT = "%Y-%m-%d %H:%M:%S"
 
-NOISE_LOGGERS = ("notify",)
+NOISE_LOGGERS = ("notify", "TrackException")
 
 _log = logging.getLogger("notify")
 
