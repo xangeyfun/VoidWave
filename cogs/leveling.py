@@ -20,8 +20,8 @@ from utils import (
     get_db,
     last_vc,
     last_xp,
-    log_admin_event,
     period_start_day,
+    prune_admin_events,
     prune_daily_stats,
     resolve_hidden,
     vote_badge_label,
@@ -966,6 +966,7 @@ class LevelingCog(commands.Cog):
         if now - self._last_stats_prune > 3600:
             self._last_stats_prune = now
             await asyncio.to_thread(prune_daily_stats)
+            await asyncio.to_thread(prune_admin_events)
 
         try:
             conn = get_db()
@@ -998,13 +999,6 @@ class LevelingCog(commands.Cog):
                 logger.info("RANK UP: %s (ID: %s) ascended to %s at Level %s in guild %s", ev["display_name"], ev["member_id"], tier[2], ev["level"], ev["guild_id"])
             else:
                 logger.info("Level up: %s (ID: %s) reached level %s in guild %s", ev["display_name"], ev["member_id"], ev["level"], ev["guild_id"])
-
-            log_admin_event(
-                "level_up",
-                f"{ev['display_name']} reached level {ev['level']}",
-                guild_id=ev["guild_id"],
-                user_id=ev["member_id"],
-            )
 
             new_roles = []
             for role_id in ev["new_role_ids"]:
