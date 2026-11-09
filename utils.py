@@ -714,6 +714,24 @@ def bump_daily_stats(cur, guild_id, user_id, now, messages=0, xp=0, vc_minutes=0
     )
 
 
+def prune_admin_events(days=90):
+    """Drop admin activity events older than `days` days to cap table growth."""
+    cutoff = int(time.time()) - days * 86400
+    conn = get_db()
+    try:
+        exists = conn.execute(
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'admin_events'"
+        ).fetchone()
+        if not exists:
+            return
+        conn.execute("DELETE FROM admin_events WHERE ts < ?", (cutoff,))
+        conn.commit()
+    except sqlite3.Error as e:
+        logger.error("Failed to prune admin events: %s", e)
+    finally:
+        conn.close()
+
+
 def prune_daily_stats(days=31):
     """Drop per-day stat buckets older than `days` days; they only back rolling periods."""
     cutoff = int(time.time() // SECONDS_PER_DAY) - days
@@ -888,13 +906,6 @@ async def add_message_xp(bot, message):
         logger.info("RANK UP: %s (ID: %s) ascended to %s at Level %s in guild %s", message.author, user_id, tier[2], level, guild_id)
     else:
         logger.info("Level up: %s (ID: %s) reached level %s in guild %s", message.author, user_id, level, guild_id)
-
-    log_admin_event(
-        "level_up",
-        f"{message.author.display_name} reached level {level}",
-        guild_id=guild_id,
-        user_id=user_id,
-    )
 
     has_channel = bool(
         payload["level_channel_id"]
