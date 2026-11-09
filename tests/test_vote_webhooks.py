@@ -516,10 +516,8 @@ def test_voters_page_lists_monthly_top():
     assert "Vote for" in body
     assert "Monthly top voters" in body
     assert body.index("Voter 2") < body.index("Voter 1")
-    # the podium cards carry no badge, the list below them still does
-    podium, _, rest = body.partition('class="voters-list"')
-    assert "Bronze Voter" not in podium
-    assert "Bronze Voter" in rest
+    # the podium cards and the list below them carry no badge
+    assert "Bronze Voter" not in body
 
 
 def test_voters_page_month_picker_loads_previous_months():
