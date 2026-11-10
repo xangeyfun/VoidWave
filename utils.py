@@ -208,6 +208,8 @@ _PREF_COLUMNS = {
     "default_hidden": "BOOLEAN",
     "music_source": "TEXT",
     "music_autoplay": "BOOLEAN",
+    "music_volume": "INTEGER",
+    "music_autopick": "BOOLEAN",
     "remind_channel": "INTEGER",
     "remind_time": "TEXT",
     "remind_tz": "TEXT",
@@ -309,6 +311,52 @@ def qotd_tz_label(tz_name=None):
     if not label:
         label = now.strftime("%z")
     return label or "UTC"
+
+
+def _easter_date(year):
+    a = year % 19
+    b = year // 100
+    c = year % 100
+    d = b // 4
+    e = b % 4
+    f = (b + 8) // 25
+    g = (b - f + 1) // 3
+    h = (19 * a + b - d - g + 15) % 30
+    i = c // 4
+    k = c % 4
+    ell = (32 + 2 * e + 2 * i - h - k) % 7
+    m = (a + 11 * h + 22 * ell) // 451
+    month = (h + ell - 7 * m + 114) // 31
+    day = ((h + ell - 7 * m + 114) % 31) + 1
+    return datetime.date(year, month, day)
+
+
+def holiday_key(day):
+    """Return the holiday_questions.json key for a date."""
+    if day.month == 11 and day.weekday() == 3 and 22 <= day.day <= 28:
+        return "thanksgiving"
+    if day == _easter_date(day.year):
+        return "easter"
+    return day.strftime("%m-%d")
+
+
+def holiday_qotd(tz_name=None, day=None):
+    """Return a themed question for the date, or None on a normal day."""
+    if day is None:
+        day = qotd_now(tz_name).date()
+    key = holiday_key(day)
+    try:
+        with open("holiday_questions.json", encoding="utf-8") as f:
+            holidays = json.load(f)
+    except FileNotFoundError:
+        return None
+    except Exception as e:
+        logger.error("Failed to load holiday questions: %s", e)
+        return None
+    questions = holidays.get(key) if isinstance(holidays, dict) else None
+    if not isinstance(questions, list) or not questions:
+        return None
+    return random.choice(questions)
 
 
 def qotd_minutes(time_str=None):
@@ -666,6 +714,24 @@ def bump_daily_stats(cur, guild_id, user_id, now, messages=0, xp=0, vc_minutes=0
     )
 
 
+def prune_admin_events(days=90):
+    """Drop admin activity events older than `days` days to cap table growth."""
+    cutoff = int(time.time()) - days * 86400
+    conn = get_db()
+    try:
+        exists = conn.execute(
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'admin_events'"
+        ).fetchone()
+        if not exists:
+            return
+        conn.execute("DELETE FROM admin_events WHERE ts < ?", (cutoff,))
+        conn.commit()
+    except sqlite3.Error as e:
+        logger.error("Failed to prune admin events: %s", e)
+    finally:
+        conn.close()
+
+
 def prune_daily_stats(days=31):
     """Drop per-day stat buckets older than `days` days; they only back rolling periods."""
     cutoff = int(time.time() // SECONDS_PER_DAY) - days
@@ -841,13 +907,6 @@ async def add_message_xp(bot, message):
     else:
         logger.info("Level up: %s (ID: %s) reached level %s in guild %s", message.author, user_id, level, guild_id)
 
-    log_admin_event(
-        "level_up",
-        f"{message.author.display_name} reached level {level}",
-        guild_id=guild_id,
-        user_id=user_id,
-    )
-
     has_channel = bool(
         payload["level_channel_id"]
         and payload["level_channel_enabled"]
@@ -913,7 +972,7 @@ async def send_qotd(bot, channel_id, role_id, guild_id):
     queue = []
 
     try:
-        guild_settings = cur.execute("SELECT last_qotd_id, last_qotd_thread_id, qotd_queue, delete_old_qotd FROM guild_settings WHERE guild_id = ?", (guild_id,)).fetchone()
+        guild_settings = cur.execute("SELECT last_qotd_id, last_qotd_thread_id, qotd_queue, delete_old_qotd, qotd_tz FROM guild_settings WHERE guild_id = ?", (guild_id,)).fetchone()
 
         if guild_settings and guild_settings["last_qotd_id"] and guild_settings["last_qotd_thread_id"] and guild_settings["delete_old_qotd"]:
             try:
@@ -940,15 +999,24 @@ async def send_qotd(bot, channel_id, role_id, guild_id):
     except Exception as e:
         logger.error("Failed to clean up old QOTD: %s", e)
 
-    with open("questions.json", "r") as f:
-        questions = json.load(f)
+    holiday_question = None
+    try:
+        holiday_question = holiday_qotd(guild_settings["qotd_tz"] if guild_settings else None)
+    except Exception as e:
+        logger.error("Failed to load holiday QOTD for guild %s: %s", guild_id, e)
 
-    if not queue:
-        queue = list(range(len(questions)))
-        random.shuffle(queue)
+    if holiday_question:
+        question = holiday_question
+    else:
+        with open("questions.json", "r") as f:
+            questions = json.load(f)
 
-    question_index = queue.pop(0)
-    question = questions[question_index]
+        if not queue:
+            queue = list(range(len(questions)))
+            random.shuffle(queue)
+
+        question_index = queue.pop(0)
+        question = questions[question_index]
 
     embed = discord.Embed(
         title="🧠 Question of the Day",

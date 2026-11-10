@@ -20,6 +20,8 @@ _PREF_LABELS = {
     "default_hidden": ("Private replies", lambda v: "on" if v else "off"),
     "music_source": ("Music source", lambda v: MUSIC_SOURCES.get(v or "auto", v or "auto")),
     "music_autoplay": ("Autoplay on play", lambda v: "on" if v else "off"),
+    "music_volume": ("Playback volume", lambda v: f"{v}%" if v else ("30% (default)" if v is None else "off")),
+    "music_autopick": ("Search auto pick", lambda v: "on" if v else "off"),
     "remind_tz": ("Reminder timezone", lambda v: v or "UTC"),
     "remind_recurring": ("Reminder repeat", lambda v: v or "none"),
     "remind_channel": ("Reminder delivery", lambda v: f"<#{v}>" if v else "your DMs"),
@@ -33,7 +35,12 @@ class PrefsCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    prefs = app_commands.Group(name="prefs", description="Your saved defaults for how VoidWave replies to you")
+    prefs = app_commands.Group(
+        name="prefs",
+        description="Your saved defaults for how VoidWave replies to you",
+        allowed_installs=discord.app_commands.AppInstallationType(guild=True, user=True),
+        allowed_contexts=discord.app_commands.AppCommandContext(guild=True, dm_channel=True, private_channel=True),
+    )
 
     @discord.app_commands.allowed_installs(guilds=True, users=True)
     @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
@@ -96,6 +103,33 @@ class PrefsCog(commands.Cog):
             ephemeral=True,
         )
         logger.info("%s set music autoplay-on-play default to %s", interaction.user, state)
+
+    @discord.app_commands.allowed_installs(guilds=True, users=True)
+    @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
+    @prefs.command(name="volume", description="Set the default volume applied when you start playback")
+    @app_commands.describe(level="Volume from 1 to 100, or 0 to stop applying a default")
+    async def prefs_volume(self, interaction: discord.Interaction, level: int):
+        level = max(0, min(level, 100))
+        set_user_pref(interaction.user.id, music_volume=level)
+        if level:
+            message = f"Default playback volume is now **{level}%**. It will be applied whenever you start a fresh playback session."
+        else:
+            message = "Default playback volume is now **off**. New sessions will keep the volume where it is."
+        await interaction.response.send_message(message, ephemeral=True)
+        logger.info("%s set music default volume to %s", interaction.user, level or "off")
+
+    @discord.app_commands.allowed_installs(guilds=True, users=True)
+    @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
+    @prefs.command(name="search", description="Skip the /music play search menu and auto play the best match")
+    @app_commands.describe(enabled="on to always auto pick the best result, off to show the search picker")
+    async def prefs_search(self, interaction: discord.Interaction, enabled: bool):
+        set_user_pref(interaction.user.id, music_autopick=1 if enabled else 0)
+        if enabled:
+            message = "Search auto pick is now **on**. When `/music play` finds several results, it will play the best match automatically, just like pressing the Auto button."
+        else:
+            message = "Search auto pick is now **off**. `/music play` will show the search picker when there are several results."
+        await interaction.response.send_message(message, ephemeral=True)
+        logger.info("%s set music search auto pick to %s", interaction.user, "on" if enabled else "off")
 
 
 async def setup(bot):

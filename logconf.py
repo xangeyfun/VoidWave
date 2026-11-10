@@ -19,7 +19,6 @@ def setup_logging():
     logging.getLogger("discord").setLevel(logging.WARNING)
     logging.getLogger("discord.http").setLevel(logging.WARNING)
     logging.getLogger("discord.gateway").setLevel(logging.WARNING)
-    logging.getLogger("TrackException").setLevel(logging.WARNING)
     from notify import DiscordAlertHandler
     root = logging.getLogger()
     if not any(isinstance(h, DiscordAlertHandler) for h in root.handlers):

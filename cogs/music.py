@@ -171,6 +171,28 @@ def _balanced_pick(results: list, limit: int = _MAX_SEARCH_RESULTS) -> list:
     return picked
 
 
+def _auto_pick_result(query, results):
+    """Return the track the search picker's Auto button would choose."""
+    tracks = _balanced_pick(results)
+    return _best_result(query, tracks) or tracks[0]
+
+
+def _autoplay_seed_track(populate_track=None, current=None, previous=None, history=()):
+    """Pick the most recent track that a source can seed recommendations from."""
+    candidates = [populate_track, current, previous]
+    try:
+        candidates.extend(reversed(list(history)[-8:]))
+    except TypeError:
+        pass
+    for track in candidates:
+        if track is None:
+            continue
+        source = (getattr(track, "source", None) or "").lower()
+        if source in ("spotify", "youtube", "youtubemusic"):
+            return track
+    return None
+
+
 def _normalize_query(query: str) -> str | None:
     if not query or not query.strip():
         return None
@@ -1019,7 +1041,7 @@ class SearchPickerView(discord.ui.View):
         if self.picked:
             return await interaction.response.send_message("Already picked a track.", ephemeral=True)
         self.picked = True
-        track = _best_result(self.query, self.tracks) or self.tracks[0]
+        track = _auto_pick_result(self.query, self.tracks)
         await self._pick(track, interaction.response.edit_message)
 
     async def on_timeout(self):
@@ -1028,7 +1050,7 @@ class SearchPickerView(discord.ui.View):
         self.picked = True
         for child in self.children:
             child.disabled = True
-        track = _best_result(self.query, self.tracks) or self.tracks[0]
+        track = _auto_pick_result(self.query, self.tracks)
         try:
             await self.interaction.edit_original_response(
                 embed=discord.Embed(title="⏱️ Search timed out", description=f"Auto-{self.verb.lower()} **{track.title}**", color=VOIDWAVE_COLOR),
@@ -1341,59 +1363,22 @@ class VoidWavePlayer(wavelink.Player):
             await self.play(track, add_history=False)
             return
 
-        weighted_history = self.queue.history[::-1][: max(5, 5 * self._auto_weight)]
-        weighted_upcoming = self.auto_queue[: max(3, int((5 * self._auto_weight) / 3))]
-        choices = [*weighted_history, *weighted_upcoming, self._current, self._previous]
-
-        _previous = self._Player__previous_seeds._queue
-        seeds = [t for t in choices if t is not None and t.identifier not in _previous]
-        random.shuffle(seeds)
-
-        if populate_track:
-            seeds.insert(0, populate_track)
-
-        spotify = [t.identifier for t in seeds if t.source == "spotify"]
-        youtube = [t.identifier for t in seeds if t.source == "youtube"]
-
-        youtube_query: str | None = None
-
-        count: int = len(self.queue.history)
-        changed_by: int = min(3, count) if self._history_count is None else count - self._history_count
-
-        if changed_by > 0:
-            self._history_count = count
-
-        changed_history = self.queue.history[::-1]
-
-        added: int = 0
-        for i in range(min(changed_by, 3)):
-            track = changed_history[i]
-
-            if added == 2 and track.source == "spotify":
-                break
-
-            if track.source == "spotify":
-                spotify.insert(0, track.identifier)
-                added += 1
-
-            elif track.source == "youtube":
-                youtube[0] = track.identifier
+        seed = _autoplay_seed_track(
+            populate_track,
+            self._current,
+            self._previous,
+            self.queue.history,
+        )
 
         spotify_queries: list[str] = []
-        if spotify:
-            spotify_seeds = spotify[:3]
-            # LavaSrc 4.x only accepts a single bare track id after `sprec:`;
-            # a comma separated list resolves to nothing, so query each seed
-            # on its own and merge the results.
-            spotify_queries = [f"sprec:{s}" for s in spotify_seeds]
-
-            for s_seed in spotify_seeds:
-                self._add_to_previous_seeds(s_seed)
-
-        if youtube:
-            ytm_seed: str = youtube[0]
-            youtube_query = f"https://music.youtube.com/watch?v={ytm_seed}8&list=RD{ytm_seed}"
-            self._add_to_previous_seeds(ytm_seed)
+        youtube_query: str | None = None
+        if seed is not None:
+            source = (getattr(seed, "source", None) or "").lower()
+            if source == "spotify":
+                spotify_queries = [f"sprec:{seed.identifier}"]
+            else:
+                youtube_query = f"https://music.youtube.com/watch?v={seed.identifier}&list=RD{seed.identifier}"
+            self._add_to_previous_seeds(seed.identifier)
 
         async def _search(query):
             if query is None:
@@ -2220,6 +2205,10 @@ class MusicCog(commands.Cog):
                     logger.warning("Failed to edit player message in guild %s: %s", guild_id, e)
                     await asyncio.sleep(5)
                     continue
+                except (aiohttp.ClientError, OSError, TimeoutError) as e:
+                    logger.warning("Transient player update failure in guild %s, retrying: %s", guild_id, e)
+                    await asyncio.sleep(5)
+                    continue
         except asyncio.CancelledError:
             pass
         except Exception as e:
@@ -2346,6 +2335,14 @@ class MusicCog(commands.Cog):
 
     async def _begin_playback(self, interaction: discord.Interaction, player: wavelink.Player, track) -> bool:
         """Start a track. On failure the player is torn down so the next attempt reconnects fresh."""
+        default_volume = get_user_pref(interaction.user.id, "music_volume")
+        if default_volume is None:
+            default_volume = 30
+        if default_volume:
+            try:
+                await player.set_volume(max(1, min(int(default_volume), 100)))
+            except Exception as e:
+                logger.warning("Could not apply default volume in guild %s: %s", interaction.guild_id, e)
         try:
             await player.play(track)
         except Exception as e:
@@ -2512,7 +2509,7 @@ class MusicCog(commands.Cog):
 
             results = tracks
 
-            if len(results) > 1:
+            if len(results) > 1 and not get_user_pref(interaction.user.id, "music_autopick"):
                 view = SearchPickerView(self, results, interaction, interaction.user.id, query=query)
                 lines = []
                 for i, t in enumerate(view.tracks, 1):
@@ -2525,7 +2522,7 @@ class MusicCog(commands.Cog):
                 embed.set_footer(text="Pick a result or wait to auto-play the best match")
                 await interaction.followup.send(embed=embed, view=view, ephemeral=hidden)
             else:
-                track = results[0]
+                track = _auto_pick_result(query, results) if len(results) > 1 else results[0]
                 _tag_requester(track, interaction.user.display_name)
                 if player.playing:
                     await player.queue.put_wait(track)

@@ -1,4 +1,4 @@
-from datetime import timezone
+from datetime import date, timezone
 from types import SimpleNamespace
 
 from utils import (
@@ -7,6 +7,8 @@ from utils import (
     format_minutes,
     format_seconds,
     get_command_path,
+    holiday_key,
+    holiday_qotd,
     qotd_minutes,
     qotd_now,
     qotd_tz_label,
@@ -54,6 +56,20 @@ def test_qotd_tz_label_fallback():
     label = qotd_tz_label()
     assert isinstance(label, str)
     assert len(label) > 0
+
+
+def test_holiday_key_fixed_and_moving_dates():
+    assert holiday_key(date(2026, 10, 31)) == "10-31"
+    assert holiday_key(date(2026, 11, 26)) == "thanksgiving"
+    assert holiday_key(date(2026, 4, 5)) == "easter"
+    assert holiday_key(date(2026, 7, 15)) == "07-15"
+
+
+def test_holiday_qotd_reads_themed_questions():
+    with open("holiday_questions.json", "w", encoding="utf-8") as f:
+        f.write('{"10-31": ["Boo?"]}')
+    assert holiday_qotd(day=date(2026, 10, 31)) == "Boo?"
+    assert holiday_qotd(day=date(2026, 10, 30)) is None
 
 
 def test_get_command_path_subcommand():

@@ -1,0 +1,47 @@
+{
+  "01-01": [
+    "What is one thing you want to leave behind this year?",
+    "What is your favorite New Year's Eve memory?"
+  ],
+  "02-14": [
+    "What is the best Valentine's Day gift you have ever given or received?",
+    "Who is your favorite fictional couple?"
+  ],
+  "03-17": [
+    "What is the luckiest thing that has ever happened to you?",
+    "If you found a pot of gold, what would you spend it on first?"
+  ],
+  "04-01": [
+    "What is the best April Fools' prank you have ever seen?",
+    "What harmless prank would you play on your friends?"
+  ],
+  "07-04": [
+    "What is your favorite summer celebration?",
+    "What is the best food to share at a summer cookout?"
+  ],
+  "10-31": [
+    "What is your favorite Halloween costume you have ever worn?",
+    "What is the creepiest thing that has ever happened to you?",
+    "Candy corn: delicious treat or forbidden snack?"
+  ],
+  "12-24": [
+    "What is your favorite Christmas Eve tradition?",
+    "What is the best holiday movie to watch on Christmas Eve?"
+  ],
+  "12-25": [
+    "What is the best gift you have ever received?",
+    "What is your favorite holiday food?"
+  ],
+  "12-31": [
+    "What is your best memory from this year?",
+    "What is one thing you are looking forward to next year?"
+  ],
+  "easter": [
+    "What is your favorite Easter tradition?",
+    "What is the best candy to find in an Easter basket?"
+  ],
+  "thanksgiving": [
+    "What are you thankful for this year?",
+    "What is the best Thanksgiving side dish?"
+  ]
+}

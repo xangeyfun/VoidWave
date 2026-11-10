@@ -101,7 +101,6 @@
                 <img loading="lazy" class="voters-avatar" src="{{ e.avatar_url }}" onerror="this.onerror=null;this.src='https://cdn.discordapp.com/embed/avatars/0.png'" alt="{{ e.name }}">
                 <span class="user-name">
                     {% if e.guild_id %}<a href="/stats/0/{{ e.user_id }}">{{ e.name }}</a>{% else %}{{ e.name }}{% endif %}
-                    {% if e.badge %}<span class="stats-vote-badge">{{ e.badge }}</span>{% endif %}
                 </span>
                 <span class="voters-month">{{ e.votes }} vote{{ 's' if e.votes != 1 }}</span>
                 <span class="voters-meta">{% if e.streak >= 2 %}🔥 {{ e.streak }} day streak{% else %}-{% endif %}</span>

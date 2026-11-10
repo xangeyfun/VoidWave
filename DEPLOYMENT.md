@@ -31,7 +31,7 @@ development.
 
 - Python 3.11+ and a `venv/` with `requirements.txt` installed.
 - `.env` in the **repo root**. Scripts use `load_dotenv()` and relative paths
-  (`database.db`, `questions.json`, `prompts/`, `templates/`, `stats_history.json`),
+  (`database.db`, `questions.json`, `holiday_questions.json`, `prompts/`, `templates/`, `stats_history.json`),
   so every service must run with the repo root as its working directory.
 - Full AI chat: Ollama on `localhost:11434` with the `MODEL` pulled.
 - Kirkify (`/kirkify`): the face-swap tool lives in `third_party/kirkify.py`
@@ -93,6 +93,28 @@ Spotify URLs/queries straight to Lavalink; no scraping).
    `sprec:<trackIds>` format (wavelink's default `sprec:seed_tracks=...` form is
    incompatible with LavaSrc 4.x). If you bump `wavelink`, re-check
    `_do_recommendation` in `cogs/music.py`.
+6. YouTube playback (and the YouTube mirror LavaSrc uses for Spotify tracks) is
+   handled by the `youtube-source` plugin. Keep the playback clients current;
+   a TV/MWEB-only list fails with `This video requires login` or `Sign in to
+   confirm you're not a bot`, and the bot then emits `TrackException` /
+   `No mirror found` errors:
+   ```yaml
+   plugins:
+     youtube:
+       enabled: true
+       clients:
+         - MUSIC
+         - ANDROID_VR
+         - WEB
+         - WEBEMBEDDED
+       # Optional fallbacks: TV, TVHTML5_SIMPLY, MWEB
+       oauth:
+         enabled: true
+         # refreshToken: "..."  # required for TV playback; use a burner account
+   ```
+   `MUSIC` (`WEB_REMIX`) only handles search; the other clients load audio.
+   After restarting Lavalink, check that the startup line
+   `YouTube source initialised with clients: ...` includes the playback clients.
 
 ## Kirkify
 
