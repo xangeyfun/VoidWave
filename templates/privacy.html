@@ -19,7 +19,7 @@
 <section class="legal-page">
     <h1>Privacy Policy</h1>
 
-    <p>Last updated: October 2026</p>
+    <p>Last updated: November 2026</p>
 
     <p>This Privacy Policy explains what VoidWave (the Discord bot and web dashboard, "we", "us") collects, how we use it, who can access it, and the choices you have. It applies to the bot, the website at <a href="https://voidwave.xangey.dev">voidwave.xangey.dev</a>, and the admin dashboard.</p>
 
@@ -27,7 +27,7 @@
     <ul>
         <li>We collect the minimum needed to run the bot's features: your Discord IDs, display info, and your activity/XP data.</li>
         <li>We do not sell your data, and we do not run advertising or analytics trackers on the public site.</li>
-        <li>Core records are kept until you ask us to delete them, the server removes the bot, or we no longer need them. A few things expire or are pruned on their own (see <a href="#retention">Data Retention</a>).</li>
+        <li>Core records are kept until you ask us to delete them or we no longer need them. You can delete them yourself with <code>/privacy delete</code> in Discord. Removing the bot from a server only clears that server's settings; it does not erase your account-level data. A few things expire or are pruned on their own (see <a href="#retention">Data Retention</a>).</li>
         <li>The AI chat runs on a self-hosted model on the operator's machine; conversations are not saved in the database.</li>
         <li>Images sent to <code>/kirkify</code> are processed locally and deleted after processing.</li>
         <li>You can request access to or deletion of your data at any time (see <a href="#your-rights">Your Rights</a>).</li>
@@ -54,13 +54,13 @@
         <li><strong>Message counts</strong>: number of messages counted for XP, per server</li>
         <li><strong>Voice activity</strong>: minutes spent in voice channels, for XP calculation</li>
         <li><strong>Daily activity rollups</strong>: per-day totals of XP, messages, and voice minutes (used for Daily/Weekly/Monthly leaderboards); these are pruned after about 31 days</li>
-        <li><strong>Usage flags</strong>: a command-use counter, and flags for whether you've already been shown a rating prompt</li>
+        <li><strong>Usage counter</strong>: a count of slash commands you have used, kept for bot statistics. It does not trigger automatic messages</li>
         <li><strong>Last activity timestamp</strong>: a timestamp string used to apply cooldowns (not message content)</li>
     </ul>
 
     <h3>Preferences &amp; Settings</h3>
     <ul>
-        <li><strong>User preferences</strong>: your AI reply toggle, reminder defaults (time, timezone, recurring, target channel), hidden-by-default preference, and preferred music source/autoplay</li>
+        <li><strong>User preferences</strong>: your AI reply toggle, reminder defaults (time, timezone, recurring, target channel), hidden-by-default preference, preferred music source, volume, autoplay, and search auto-pick</li>
         <li><strong>Server settings</strong>: per-server configuration such as level-up channel, level roles, QOTD channel/time/timezone, and toggles (not personal to you, but stored by server)</li>
     </ul>
 
@@ -77,18 +77,18 @@
 
     <h3>Giveaways</h3>
     <ul>
-        <li><strong>Entries</strong>: your user ID and entry timestamp for giveaways you enter, plus the winners selected</li>
+        <li><strong>Entries</strong>: your user ID and entry timestamp for giveaways you enter, plus the winners selected. Winners are announced only in the giveaway channel; VoidWave never DMs winners</li>
     </ul>
 
     <h3>Feedback &amp; Ratings</h3>
     <ul>
-        <li><strong>Ratings &amp; feedback</strong>: any star rating and optional text feedback you submit, together with your user ID, the relevant server name, and a timestamp. This is forwarded to a private channel so the operator can review it</li>
+        <li><strong>Ratings &amp; feedback</strong>: any star rating and optional text feedback you submit, together with your user ID, the relevant server name, and a timestamp. This is forwarded to a private channel so the operator can review it. VoidWave never sends unsolicited rating prompts; a rating is only requested when you run <code>/rate</code></li>
     </ul>
 
     <h3>Votes &amp; Boosts</h3>
     <ul>
-        <li><strong>Vote records</strong>: your user ID, vote timestamps, and any active XP boost multiplier/expiry</li>
-        <li><strong>Vote reminders</strong>: your user ID and the time you asked to be reminded to vote</li>
+        <li><strong>Vote records</strong>: your user ID, vote timestamps and site history, any active XP boost multiplier/expiry, streak counts, and monthly vote totals</li>
+        <li><strong>Vote reminders and announcements</strong>: your user ID, the time you asked to be reminded to vote, and any pending vote announcement text</li>
     </ul>
 
     <h3>Abuse Prevention</h3>
@@ -100,7 +100,8 @@
     <ul>
         <li><strong>IP address</strong>: only for the admin login. Login codes and rate-limit records store the requesting IP, and the admin activity log records it. The public website itself does not store visitors' IPs, though our edge provider processes them to serve traffic (see <a href="#third-parties">Third-Party Services</a>)</li>
         <li><strong>Session cookie</strong>: the admin panel sets a signed session cookie (HTTP-only) to keep you logged in. The public site does not set tracking or advertising cookies</li>
-        <li><strong>Admin activity log</strong>: administrative actions (logins, edits, deletions, service control) are logged to a local file for security and accountability</li>
+        <li><strong>Admin activity log</strong>: administrative actions (logins, edits, deletions, service control) are recorded in a local database table and a local file for security and accountability. Both copies are pruned after 30 days</li>
+        <li><strong>Deletion markers</strong>: if you use <code>/privacy delete</code> or an admin erasure, we keep only your user ID and the deletion time so the deletion can be re-applied if an old backup is restored</li>
     </ul>
 
     <h2>What Is Stored, Fetched, and Logged</h2>
@@ -108,16 +109,21 @@
     <ul>
         <li><strong>Stored in the database</strong>: everything listed above under Identity, Leveling, Preferences, Reminders, Music, Giveaways, Feedback, Votes, Blocks, and the admin tables. This is the data that persists until it is deleted or pruned.</li>
         <li><strong>Fetched from Discord when needed</strong>: avatars, images, member and channel objects, and similar data. We request these from Discord to display them or to perform an action, and they are not separately stored by us (aside from the identifiers and hashes listed above).</li>
-        <li><strong>Written to logs only</strong>: a limited set of operational and diagnostic lines (see below). Logs may include your user ID, a command you ran, and its arguments.</li>
+        <li><strong>Written to logs and the admin event database</strong>: a limited set of operational and diagnostic lines (see below). These may include your user ID, a command you ran, and its arguments.</li>
+        <li><strong>Shown publicly on the website</strong>: leaderboards and profile views display display names, usernames, user IDs, avatar hashes, XP, level, message counts and voice minutes (see below).</li>
     </ul>
     <p>Outside of debug mode and the command arguments described below, we do not intentionally persist message content. The AI feature does not store your conversations.</p>
+
+    <h3>Public Website Pages</h3>
+    <p>The public site has leaderboards and per-user statistics pages (<code>/leaderboard</code>, <code>/voters</code>, and <code>/stats/&lt;guild_id&gt;/&lt;user_id&gt;</code>). These pages are visible to anyone who opens the site and show the display name, username, user ID, avatar hash, XP, level, message count, and voice minutes that the bot has stored. They do not show message content, playlists, reminders, or private settings. Use <code>/privacy delete</code> to remove this information; public caches clear within seconds.</p>
 
     <h2>Logging &amp; Diagnostics</h2>
     <p>Like most bots, VoidWave keeps operational logs. These are used for debugging, abuse prevention, and keeping the Service running:</p>
     <ul>
-        <li><strong>Command logging</strong>: when a slash command is used, we log the command name and its arguments, your username and user ID, the server/channel, and a timestamp to a local text file and to the local event log. <strong>Text you type as a command argument (for example a reminder message or feedback) can therefore appear in these logs.</strong> The <code>/ai</code> prompt argument is masked unless debug mode is enabled</li>
+        <li><strong>Command logging</strong>: when a slash command is used, we log the command name and its arguments, your username and user ID, the server/channel, and a timestamp to a local text file and to a database-backed admin event log. <strong>Text you type as a command argument (for example a reminder message or feedback) can therefore appear in these logs and in the admin event database.</strong> The <code>/ai</code> prompt argument is masked unless debug mode is enabled</li>
         <li><strong>Debug logging</strong>: when the bot runs with debug mode enabled (not the normal production setting), incoming message content and attachment/embed/sticker links are written to the process's standard output logs</li>
-        <li><strong>Error alerts</strong>: when the bot or dashboard hits an error, a short diagnostic message (which may include a user or guild ID from the failing request) is forwarded to the operator's private Discord channel so it can be fixed</li>
+        <li><strong>Error alerts</strong>: when the bot or dashboard hits an error, a diagnostic message may be forwarded to the operator's private Discord channel so it can be fixed. Depending on the error, this can include usernames, user or guild IDs, command arguments, or an error traceback</li>
+        <li><strong>Startup logs</strong>: when the bot starts, a one-line summary per server includes the server name, ID, member count, and owner name/ID</li>
         <li><strong>Message content</strong>: aside from command arguments described above and the debug mode behavior, message content is not intentionally persisted by VoidWave</li>
     </ul>
     <p>Who can see these logs, and for how long, is described under <a href="#sharing">Data Sharing &amp; Access</a> and <a href="#retention">Data Retention</a>.</p>
@@ -157,7 +163,7 @@
     <p>We do not send your data to third parties for advertising, analytics, or profiling. The Service does interact with the following third parties to provide features:</p>
     <ul>
         <li><strong>Discord</strong>: the platform the bot runs on (messages, commands, profiles, media)</li>
-        <li><strong>Cloudflare</strong>: our website edge network. Cloudflare processes visitors' IP addresses and request metadata to serve and protect the site, under its own privacy policy. It does not receive your XP, playlists, or bot records</li>
+        <li><strong>Cloudflare</strong>: our website edge network. Cloudflare processes visitors' IP addresses and request metadata to serve and protect the site, under its own privacy policy. Public pages that include display names, IDs and statistics pass through Cloudflare like any other webpage; it does not receive your private database, playlists, reminders, or stored messages</li>
         <li><strong>Lavalink audio sources</strong>: YouTube, Spotify, and SoundCloud to resolve and stream music</li>
         <li><strong>lrclib.net</strong>: to fetch song lyrics on request</li>
         <li><strong>Content APIs</strong>: animal/bunny/neko image APIs, zenquotes.io (quotes), uselessfacts.jsph.pl (facts), and opentdb.com (trivia questions)</li>
@@ -191,7 +197,7 @@
     <p>We <strong>do not</strong> sell your data and we do not share it with third parties for advertising, analytics, profiling, or unrelated purposes. The parties that can access your data are:</p>
     <ul>
         <li><strong>Operator</strong>: VoidWave is self-hosted on the operator's own infrastructure, so the operator is the only person who can access the database and logs, and can view the data stored by the bot to operate and maintain it</li>
-        <li><strong>Infrastructure providers</strong>: Cloudflare processes website traffic (IP and request metadata) at the edge; Discord processes everything sent through its platform. Both are necessary to run the Service and are bound by their own terms</li>
+        <li><strong>Infrastructure providers</strong>: Cloudflare processes website traffic (IP and request metadata, including requests for public stats pages) at the edge; Discord processes everything sent through its platform. Both are necessary to run the Service and are bound by their own terms</li>
         <li><strong>Feedback channel</strong>: your <code>/feedback</code>, ratings, and DMs to the bot are forwarded to a private channel in the operator's own Discord server</li>
         <li><strong>Error alerts</strong>: if the bot hits an error, a short diagnostic message may be forwarded to the operator's private Discord server for debugging</li>
         <li><strong>Voting</strong>: when you vote on Top.gg or Discord List, your Discord user ID and vote event are sent to us through that platform so the XP boost can be applied</li>
@@ -202,16 +208,18 @@
     <h2 id="retention">Data Retention</h2>
     <p>We keep data only as long as we need it. In practice:</p>
     <ul>
-        <li><strong>Core records</strong> (your XP, level, message and voice totals, preferences, playlists, blocks, vote records, and ratings/feedback): there is no fixed expiry. They are kept until you ask us to delete them, until the server removes the bot, or until we no longer need them</li>
+        <li><strong>Core records</strong> (your XP, level, message and voice totals, preferences, playlists, blocks, vote records, and ratings/feedback): there is no fixed expiry. They are kept until you ask us to delete them (use <code>/privacy delete</code>), until an admin performs an erasure, or until we no longer need them. Removing the bot from a server only clears that server's settings; it does not delete user-level records</li>
         <li><strong>Daily activity rollups</strong>: pruned automatically after about 31 days</li>
         <li><strong>Reminders</strong>: one-off reminders are deleted after they are delivered; recurring reminders are kept until you delete them</li>
         <li><strong>Giveaway entries</strong>: kept until the giveaway data is cleared or you ask us to delete them</li>
         <li><strong>Vote boosts</strong>: expire automatically after their duration</li>
         <li><strong>Admin login codes</strong>: expire after 2 minutes; <strong>login rate-limit records</strong> roll over on a 15-minute window</li>
-        <li><strong>Admin activity log and bot command log</strong> (<code>admin.log</code>, <code>command_logs.txt</code>): these are append-only files with no fixed automatic retention schedule. They are retained until the operator rotates or clears them</li>
+        <li><strong>Admin activity log and bot command log</strong> (<code>admin.log</code>, <code>command_logs.txt</code>): these are local files pruned automatically after 30 days. When you delete your data, lines containing your user ID are removed from these files immediately</li>
+        <li><strong>Admin event database</strong>: command and admin events are pruned after 30 days; rows tied to your user ID are also removed when you delete your data</li>
+        <li><strong>Deletion markers</strong>: after an erasure we keep only your user ID and deletion time so the deletion can be re-applied after a backup restore. This marker is not used for any other purpose</li>
         <li><strong>Bot and website output logs</strong>: captured by the host's systemd journal, which keeps them for as long as the host's journald retention and size settings allow. We do not control that separately from the host</li>
         <li><strong>Server-wide statistics</strong> (<code>stats_history.json</code>): hourly aggregate totals with no per-user data, kept for the life of the Service</li>
-        <li><strong>Backups</strong>: database backups are kept on the operator's machine as a rolling set of the 48 most recent. If you request deletion, we will remove you from current backups where technically feasible, but older archived backups may persist for a limited period</li>
+        <li><strong>Backups</strong>: database backups are manual snapshots kept on the operator's machine, with a rolling cap of 48 snapshots. There is no automatic backup schedule. If you delete your data, the deletion marker causes the purge to be re-applied whenever an older backup is restored</li>
     </ul>
 
     <h2 id="your-rights">Your Rights</h2>
@@ -226,10 +234,10 @@
         <li><strong>Withdraw consent</strong>: where we rely on consent, withdraw it at any time (this does not affect processing already carried out)</li>
         <li><strong>Lodge a complaint</strong>: complain to your local data protection authority. In the Netherlands this is the <a href="https://www.autoriteitpersoonsgegevens.nl" target="_blank" rel="noopener">Autoriteit Persoonsgegevens</a></li>
     </ul>
-    <p>To exercise any of these, <strong>DM VoidWave directly</strong> (the bot relays DMs to the operator) or use one of the contact methods below. We will respond within a reasonable time and, where the GDPR applies, within one month. Note that some records (such as operational logs, aggregate statistics, and backups) may not be individually removable and may be retained for a limited period as described above.</p>
+    <p>For immediate erasure, run <code>/privacy delete</code> in Discord. You can also <strong>DM VoidWave directly</strong> (the bot relays DMs to the operator) or use one of the contact methods below. We will respond within a reasonable time and, where the GDPR applies, within one month. The deletion removes your rows from the database, scrubs your user ID from command/admin log files, and is re-applied if an old backup is restored. Aggregate statistics that contain no personal data are kept as described above.</p>
 
     <h2>Security</h2>
-    <p>We take reasonable steps to protect your data, including keeping the database on a private host, restricting admin access behind a password and two-factor login, rate-limiting logins, and using WAL-mode SQLite. However, no system is perfectly secure and we cannot guarantee absolute security.</p>
+    <p>We take reasonable steps to protect your data, including keeping the database on a private host with device-level encryption at rest, restricting admin access behind a password and two-factor login, rate-limiting logins, and using WAL-mode SQLite. However, no system is perfectly secure and we cannot guarantee absolute security.</p>
 
     <h2>Children's Privacy</h2>
     <p>VoidWave is not directed at children and is intended for users who are old enough to use Discord in their country (at least 13, or older where local law requires). We do not knowingly collect data from children below the applicable age. If you believe a child has provided us data, contact us and we will delete it.</p>
