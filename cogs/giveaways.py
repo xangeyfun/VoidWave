@@ -495,24 +495,6 @@ class GiveawayCog(commands.Cog):
                 await channel.send(embed=embed, allowed_mentions=discord.AllowedMentions(users=True))
             except discord.HTTPException:
                 pass
-            for user_id in winners:
-                try:
-                    user = self.bot.get_user(user_id) or await self.bot.fetch_user(user_id)
-                except (discord.NotFound, discord.HTTPException):
-                    user = None
-                if user is None:
-                    continue
-                dm = discord.Embed(
-                    title="🎉 You won a giveaway!",
-                    description=f"You won **{gw['prize']}** in {channel.mention}! Congratulations! 🎁",
-                    color=discord.Color(0x7128fc),
-                )
-                if message is not None:
-                    dm.add_field(name="🎉 Giveaway", value=f"[Jump to message]({message.jump_url})", inline=False)
-                try:
-                    await user.send(embed=dm)
-                except (discord.Forbidden, discord.HTTPException):
-                    pass
         else:
             embed = discord.Embed(
                 title="🎊 Giveaway Ended",
