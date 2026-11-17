@@ -18,12 +18,14 @@ from flask import Flask, jsonify, redirect, render_template, request
 from admin import admin_bp
 from logconf import setup_logging
 from outage import announcement as outage_announcement
+from utils import reapply_user_deletions
 
 setup_logging()
 
 logger = logging.getLogger("app")
 
 load_dotenv()
+reapply_user_deletions()
 
 app = Flask(__name__, template_folder='templates', static_folder='static')
 app.secret_key = os.getenv('SECRET_KEY')
