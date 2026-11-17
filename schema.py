@@ -405,3 +405,11 @@ def create_schema(conn):
         except sqlite3.OperationalError:
             pass
     conn.commit()
+
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS deleted_users (
+        user_id INTEGER PRIMARY KEY,
+        deleted_at INTEGER NOT NULL
+    )
+    """)
+    conn.commit()
