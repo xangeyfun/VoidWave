@@ -830,12 +830,14 @@ class EventsCog(commands.Cog):
             hours = 4
             source = "Top.gg"
 
-        if not username:
+        user = self.bot.get_user(user_id)
+        if user is None:
             try:
-                user = self.bot.get_user(user_id) or await self.bot.fetch_user(user_id)
-                username = user.name if user else str(user_id)
+                user = await self.bot.fetch_user(user_id)
             except (discord.NotFound, discord.HTTPException):
-                username = str(user_id)
+                user = None
+        if not username:
+            username = user.name if user else str(user_id)
 
         display = f"<@{user_id}>" if username != str(user_id) else str(user_id)
 
@@ -852,9 +854,8 @@ class EventsCog(commands.Cog):
         )
         embed.set_footer(text="VoidWave • Vote for 2x XP! /vote")
 
-        member = self.bot.get_user(user_id)
-        if member:
-            embed.set_thumbnail(url=member.display_avatar.url)
+        if user:
+            embed.set_thumbnail(url=user.display_avatar.url)
 
         view = discord.ui.View()
         for name, url, emoji in VOTE_LINKS:
