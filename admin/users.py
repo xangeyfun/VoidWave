@@ -732,7 +732,7 @@ def user_delete(guild_id, user_id):
     finally:
         conn.close()
 
-    _log("USER DELETE", f"guild={guild_id} user={user_id} rows={removed}")
+    _log("USER DELETE", f"guild={guild_id} rows={removed}")
     flash(f"Deleted {removed} row(s).", "success")
     return redirect(url_for("admin.users"))
 
