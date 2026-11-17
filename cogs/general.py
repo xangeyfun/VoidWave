@@ -1,3 +1,4 @@
+import asyncio
 import datetime
 import logging
 import time
@@ -14,6 +15,7 @@ from utils import (
     block_reply,
     get_db,
     is_blocked,
+    purge_user_data,
     startup,
     vote_badge_progress,
     vote_player_info,
@@ -52,7 +54,7 @@ EMOJIS = {
 
 DOCUMENTED_COMMANDS = {
     "leveling": {"level", "leaderboard", "profile"},
-    "utilities": {"help", "ping", "uptime", "github", "vote", "vote-remind", "ai", "aitoggle", "kirkify", "userinfo", "feedback", "rate", "prefs view", "prefs private", "prefs source", "prefs autoplay", "prefs volume", "prefs search"},
+    "utilities": {"help", "ping", "uptime", "github", "vote", "vote-remind", "ai", "aitoggle", "kirkify", "userinfo", "feedback", "rate", "privacy delete", "prefs view", "prefs private", "prefs source", "prefs autoplay", "prefs volume", "prefs search"},
     "fun": {"animal", "calc", "flip", "random", "quote", "fact"},
     "games": {"8ball", "rps", "tictactoe", "connectfour", "trivia-battle", "blackjack", "hangman", "wordle", "minesweeper", "battleship", "15puzzle"},
     "music": {"music play", "music random", "music radio", "music queue", "music nowplaying", "music pause", "music resume", "music skip", "music stop", "music shuffle", "music loop", "music volume", "music seek", "music lyrics", "music lyricslive", "music autoplay", "music controller", "music disconnect", "music playlist create", "music playlist add", "music playlist addcurrent", "music playlist savequeue", "music playlist remove", "music playlist rename", "music playlist delete", "music playlist list", "music playlist clear", "music playlist shuffle", "music playlist play"},
@@ -199,11 +201,46 @@ class HelpView(discord.ui.View):
         self.stop()
 
 
+class PrivacyDeleteView(discord.ui.View):
+    def __init__(self, user_id):
+        super().__init__(timeout=120)
+        self.user_id = user_id
+
+    async def _owner_only(self, interaction):
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("That deletion prompt isn't for you.", ephemeral=True)
+            return False
+        return True
+
+    @discord.ui.button(label="Delete my data", style=discord.ButtonStyle.danger, emoji="🗑️")
+    async def confirm_delete(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not await self._owner_only(interaction):
+            return
+        for item in self.children:
+            item.disabled = True
+        counts = await asyncio.to_thread(purge_user_data, self.user_id)
+        total = sum(counts.values())
+        await interaction.response.edit_message(
+            content=f"Done. Removed {total} stored row(s) and scrubbed your ID from command logs. This can't be undone.",
+            view=self,
+        )
+        self.stop()
+
+    @discord.ui.button(label="Cancel", style=discord.ButtonStyle.secondary)
+    async def cancel_delete(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not await self._owner_only(interaction):
+            return
+        await interaction.response.edit_message(content="Cancelled. Nothing was deleted.", view=None)
+        self.stop()
+
+
 class GeneralCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.feedback_cooldowns = {}
         self.rating_cooldowns = {}
+
+    privacy = app_commands.Group(name="privacy", description="Your VoidWave data and privacy.")
 
     def _help_embed(self, category):
         embeds = {
@@ -218,6 +255,7 @@ class GeneralCog(commands.Cog):
                 name="Quick links",
                 value=(
                     "> <https://voidwave.xangey.dev/> Website\n"
+                    "> <https://voidwave.xangey.dev/privacy> Privacy policy (data & deletion)\n"
                     "> <https://github.com/xangeyfun/VoidWave> Source & issues\n"
                     f"> <{VOTE_PRIMARY_LINK}> Vote for 2x XP (both lists)"
                 ),
@@ -254,7 +292,8 @@ class GeneralCog(commands.Cog):
                     "`/kirkify <image> [hidden]` - Kirkify an image with AI (Kirk swap)\n"
                     "`/userinfo <user>` - Look up a user (account, roles, server, permissions, profile)\n"
                     "`/feedback <feedback>` - Message the developers\n"
-                    "`/rate` - Rate VoidWave\n"
+                    "`/rate` - Rate VoidWave (you can also ask for this any time)\n"
+                    "`/privacy delete` - Permanently delete your stored data\n"
                     "`/prefs` - Your defaults: private replies, music source, volume, autoplay, search auto pick"
                 ),
                 inline=False,
@@ -440,6 +479,7 @@ class GeneralCog(commands.Cog):
             discord.ui.Button(label="Invite", style=discord.ButtonStyle.link, url=invite, emoji="➕", row=1),
             discord.ui.Button(label="Vote", style=discord.ButtonStyle.link, url=VOTE_PRIMARY_LINK, emoji="🗳️", row=1),
             discord.ui.Button(label="Source", style=discord.ButtonStyle.link, url="https://github.com/xangeyfun/VoidWave", emoji="📘", row=1),
+            discord.ui.Button(label="Privacy", style=discord.ButtonStyle.link, url="https://voidwave.xangey.dev/privacy", emoji="🔒", row=1),
         ]
         return buttons
 
@@ -701,8 +741,22 @@ class GeneralCog(commands.Cog):
 
     @discord.app_commands.allowed_installs(guilds=True, users=True)
     @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
-    @discord.app_commands.command(name="rate", description="Rate VoidWave.")
+    @privacy.command(name="delete", description="Permanently delete all data VoidWave stores about you.")
+    async def privacy_delete(self, interaction: discord.Interaction):
+        await interaction.response.send_message(
+            "This permanently deletes your XP/stats, settings, playlists, reminders, ratings, vote records, "
+            "blocks and your ID from command logs across every server. Backups are re-purged if restored. Continue?",
+            ephemeral=True,
+            view=PrivacyDeleteView(interaction.user.id),
+        )
+
+    @discord.app_commands.allowed_installs(guilds=True, users=True)
+    @discord.app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
+    @discord.app_commands.command(name="rate", description="Rate VoidWave (sends a rating prompt to your DMs).")
     async def rate(self, interaction: discord.Interaction):
+        if is_blocked(interaction.user.id, "feedback"):
+            await interaction.response.send_message(block_reply(interaction.user.id, "feedback", "rating VoidWave"), ephemeral=True)
+            return
         remaining = self.rating_cooldowns.get(interaction.user.id, 0) + 60 - time.monotonic()
         if remaining > 0:
             await interaction.response.send_message(f"Woah there, one rating at a time! Try again in `{remaining:.0f} seconds`.", ephemeral=True)
