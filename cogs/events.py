@@ -13,7 +13,6 @@ import discord
 from discord.ext import commands, tasks
 
 import utils
-from cogs.rating import send_rating_prompt
 from outage import status_text as outage_status_text
 from utils import (
     DBL_TOKEN,
@@ -79,24 +78,6 @@ def _record_command_use(guild_id, user_id, display_name, username):
                 display_name = excluded.display_name,
                 username = excluded.username
         """, (guild_id, user_id, display_name, username))
-        conn.commit()
-        total = cur.execute(
-            "SELECT COALESCE(SUM(command_uses), 0) FROM users WHERE user_id=?",
-            (user_id,)
-        ).fetchone()[0]
-        flags = cur.execute(
-            "SELECT COALESCE(MAX(rated), 0) AS rated, COALESCE(MAX(prompt_sent), 0) AS prompt_sent FROM users WHERE user_id=?",
-            (user_id,)
-        ).fetchone()
-        return total, flags["rated"], flags["prompt_sent"]
-    finally:
-        conn.close()
-
-
-def _mark_prompt_sent(user_id):
-    conn = get_db()
-    try:
-        conn.execute("UPDATE users SET prompt_sent = 1 WHERE user_id = ?", (user_id,))
         conn.commit()
     finally:
         conn.close()
@@ -268,16 +249,13 @@ class EventsCog(commands.Cog):
 
             try:
                 if interaction.guild and interaction.user and not interaction.user.bot:
-                    total, rated, prompt_sent = await asyncio.to_thread(
+                    await asyncio.to_thread(
                         _record_command_use,
                         interaction.guild.id,
                         interaction.user.id,
                         interaction.user.display_name,
                         interaction.user.name,
                     )
-                    if total >= 10 and not rated and not prompt_sent:
-                        await send_rating_prompt(self.bot, interaction.user.id, interaction.guild.name)
-                        await asyncio.to_thread(_mark_prompt_sent, interaction.user.id)
             except Exception as e:
                 logger.error("Failed to update command usage stats: %s", e)
 
