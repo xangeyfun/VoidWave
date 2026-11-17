@@ -203,6 +203,133 @@ def get_db():
     return conn
 
 
+USER_DATA_TABLES = (
+    "users",
+    "user_ratings",
+    "vote_boosts",
+    "vote_reminders",
+    "vote_site_history",
+    "vote_streaks",
+    "vote_monthly",
+    "pending_dms",
+    "pending_vote_announcements",
+    "user_prefs",
+    "reminders",
+    "giveaway_entries",
+    "playlists",
+    "user_stats_daily",
+    "user_blocks",
+    "admin_events",
+)
+
+USER_DATA_LOG_FILES = ("command_logs.txt", "admin.log")
+
+
+def _redact_user_from_logs(user_id):
+    needle = str(user_id)
+    for path in USER_DATA_LOG_FILES:
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                lines = f.readlines()
+            kept = [line for line in lines if needle not in line]
+            if len(kept) == len(lines):
+                continue
+            tmp = f"{path}.purge.tmp"
+            with open(tmp, "w", encoding="utf-8") as f:
+                f.writelines(kept)
+            os.replace(tmp, path)
+        except OSError:
+            pass
+
+
+def prune_user_text_logs(days=30):
+    cutoff = datetime.datetime.now() - datetime.timedelta(days=days)
+    for path in USER_DATA_LOG_FILES:
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                lines = f.readlines()
+            kept = []
+            for line in lines:
+                try:
+                    ts = datetime.datetime.strptime(line[:19], "%Y-%m-%d %H:%M:%S")
+                except ValueError:
+                    kept.append(line)
+                    continue
+                if ts >= cutoff:
+                    kept.append(line)
+            if len(kept) == len(lines):
+                continue
+            tmp = f"{path}.prune.tmp"
+            with open(tmp, "w", encoding="utf-8") as f:
+                f.writelines(kept)
+            os.replace(tmp, path)
+        except OSError:
+            pass
+
+
+def _delete_user_rows(conn, user_id):
+    counts = {}
+    try:
+        playlist_ids = [row[0] for row in conn.execute("SELECT id FROM playlists WHERE user_id=?", (user_id,))]
+    except sqlite3.OperationalError:
+        playlist_ids = []
+    for table in USER_DATA_TABLES:
+        try:
+            cur = conn.execute(f"DELETE FROM {table} WHERE user_id=?", (user_id,))
+        except sqlite3.OperationalError:
+            continue
+        counts[table] = max(0, cur.rowcount)
+    if playlist_ids:
+        marks = ",".join("?" * len(playlist_ids))
+        cur = conn.execute(f"DELETE FROM playlist_tracks WHERE playlist_id IN ({marks})", playlist_ids)
+        counts["playlist_tracks"] = max(0, cur.rowcount)
+    return counts
+
+
+def purge_user_data(user_id, conn=None, redact_logs=True):
+    """Delete everything stored about a user, across every table and log file.
+
+    A tombstone is kept so the purge is re-applied if an old backup is restored.
+    Returns a dict of table -> row counts deleted.
+    """
+    owns_conn = conn is None
+    if owns_conn:
+        conn = get_db()
+    try:
+        counts = _delete_user_rows(conn, user_id)
+        try:
+            conn.execute(
+                "INSERT OR REPLACE INTO deleted_users (user_id, deleted_at) VALUES (?, ?)",
+                (user_id, int(time.time())),
+            )
+        except sqlite3.OperationalError:
+            pass
+        conn.commit()
+    finally:
+        if owns_conn:
+            conn.close()
+    for cache in (last_xp, last_vc):
+        for key in [key for key in cache if key[1] == user_id]:
+            cache.pop(key, None)
+    if redact_logs:
+        _redact_user_from_logs(user_id)
+    return counts
+
+
+def reapply_user_deletions():
+    """Re-run stored purges, e.g. after a database backup is restored."""
+    try:
+        conn = get_db()
+        rows = conn.execute("SELECT user_id FROM deleted_users").fetchall()
+        conn.close()
+    except sqlite3.OperationalError:
+        rows = []
+    for row in rows:
+        purge_user_data(row["user_id"])
+    prune_admin_events()
+    prune_user_text_logs()
+
+
 _PREF_COLUMNS = {
     "ai_enabled": "BOOLEAN",
     "default_hidden": "BOOLEAN",
@@ -714,7 +841,7 @@ def bump_daily_stats(cur, guild_id, user_id, now, messages=0, xp=0, vc_minutes=0
     )
 
 
-def prune_admin_events(days=90):
+def prune_admin_events(days=30):
     """Drop admin activity events older than `days` days to cap table growth."""
     cutoff = int(time.time()) - days * 86400
     conn = get_db()
