@@ -9,12 +9,12 @@
 {% block docs_og_description %}Create, manage, end, reroll, and cancel giveaways with fair random winners plus an enter button.{% endblock %}
 
 {% block docs_hero_title %}Giveaways{% endblock %}
-{% block docs_hero_lead %}Create, manage, end, reroll, and cancel giveaways with fair random winners. Members enter with a button, winners are announced and DM'd.{% endblock %}
+{% block docs_hero_lead %}Create, manage, end, reroll, and cancel giveaways with fair random winners. Members enter with a button, winners are announced in the channel.{% endblock %}
 
 {% block docs_content %}
 
 <div class="docs-intro-block">
-    <p class="docs-lead">Giveaways run entirely in your server. Admins with Manage Server permission start them, members enter with a button, and winners are drawn at the deadline, announced in the channel, and DM'd. All commands require the <strong>Manage Server</strong> permission.</p>
+    <p class="docs-lead">Giveaways run entirely in your server. Admins with Manage Server permission start them, members enter with a button, and winners are drawn at the deadline and announced in the channel. VoidWave never DMs winners. All commands require the <strong>Manage Server</strong> permission.</p>
 </div>
 
 <!-- ------------------------------------------------------------------ -->
@@ -29,7 +29,7 @@
             <code>/giveaway start</code>
             <span class="doc-tag admin">manage server</span>
         </div>
-        <p class="doc-cmd-desc">Create a new giveaway. The bot posts an embed with an Enter button in the chosen channel. Members click to enter. At the deadline winners are picked at random, announced, and DM'd.</p>
+        <p class="doc-cmd-desc">Create a new giveaway. The bot posts an embed with an Enter button in the chosen channel. Members click to enter. At the deadline winners are picked at random and announced in the channel.</p>
         <div class="doc-cmd-widgets">
             <div class="doc-widget">
                 <div class="doc-widget-label">Parameters</div>
@@ -160,7 +160,7 @@
         <span class="docs-section-tag">fair and random</span>
     </div>
 
-    <p class="docs-lead">When a giveaway ends (naturally or via <code>/giveaway end</code>), the bot picks the specified number of winners uniformly at random from all valid entries. Winners are announced in the giveaway channel, the embed updates with the winner list, and each winner receives a DM. If there are fewer entries than winners, all entrants win.</p>
+    <p class="docs-lead">When a giveaway ends (naturally or via <code>/giveaway end</code>), the bot picks the specified number of winners uniformly at random from all valid entries. Winners are announced in the giveaway channel and the embed updates with the winner list. VoidWave never DMs winners. If there are fewer entries than winners, all entrants win.</p>
 
     <p class="docs-lead">Rerolls work the same way but exclude anyone who already won that giveaway, so the new winners are different people.</p>
 </div>
