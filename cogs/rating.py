@@ -4,7 +4,7 @@ import time
 
 import discord
 
-from utils import get_db
+from utils import get_db, is_blocked
 
 logger = logging.getLogger("cogs.rating")
 
@@ -12,6 +12,8 @@ RATING_CHANNEL_ID = 1540471117557403648
 
 
 async def send_rating_prompt(bot, user_id, guild_name):
+    if is_blocked(user_id, "feedback"):
+        return False
     try:
         user = bot.get_user(user_id) or await bot.fetch_user(user_id)
     except discord.NotFound:
