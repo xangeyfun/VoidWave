@@ -29,7 +29,6 @@ load_dotenv()
 # create bot with intents
 intents = discord.Intents.default()
 intents.message_content = True
-intents.members = True
 bot = commands.Bot(
     command_prefix="%",
     intents=intents,
@@ -274,6 +273,7 @@ if __name__ == "__main__":
     conn = sqlite3.connect("database.db")
     create_schema(conn)
     conn.close()
+    utils.reapply_user_deletions()
 
     async def _run_bot() -> None:
         loop = asyncio.get_running_loop()
