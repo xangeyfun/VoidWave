@@ -5,6 +5,8 @@ from datetime import datetime, timedelta
 
 from flask import abort, render_template, request, session
 
+from utils import purge_user_data
+
 from . import admin_bp
 from .constants import TABLES
 from .helpers import _clear_cache, _db, _log, _parse_int, _read_log_lines
@@ -130,20 +132,31 @@ def _forget_execute(spec):
             return n
 
         if spec["type"] == "user_all":
-            marks = ",".join("?" * len(spec["user_ids"]))
-            run("users", f"DELETE FROM users WHERE user_id IN ({marks})", spec["user_ids"])
-            run("vote_boosts", f"DELETE FROM vote_boosts WHERE user_id IN ({marks})", spec["user_ids"])
+            for user_id in spec["user_ids"]:
+                for table, count in purge_user_data(user_id, conn=conn).items():
+                    counts[table] = counts.get(table, 0) + count
+                    counts["_total"] = counts.get("_total", 0) + count
         elif spec["type"] == "user_guild":
             marks = ",".join("?" * len(spec["user_ids"]))
             run("users", f"DELETE FROM users WHERE guild_id=? AND user_id IN ({marks})",
                 [spec["guild_id"]] + spec["user_ids"])
+            run("user_stats_daily", f"DELETE FROM user_stats_daily WHERE guild_id=? AND user_id IN ({marks})",
+                [spec["guild_id"]] + spec["user_ids"])
         elif spec["type"] == "guild_users":
             run("users", "DELETE FROM users WHERE guild_id=?", (spec["guild_id"],))
+            run("user_stats_daily", "DELETE FROM user_stats_daily WHERE guild_id=?", (spec["guild_id"],))
         elif spec["type"] == "guild_full":
             gid = spec["guild_id"]
             run("users", "DELETE FROM users WHERE guild_id=?", (gid,))
+            run("user_stats_daily", "DELETE FROM user_stats_daily WHERE guild_id=?", (gid,))
             run("guild_settings", "DELETE FROM guild_settings WHERE guild_id=?", (gid,))
             run("level_roles", "DELETE FROM level_roles WHERE guild_id=?", (gid,))
+            run("music_controller", "DELETE FROM music_controller WHERE guild_id=?", (gid,))
+            gids = [row[0] for row in conn.execute("SELECT id FROM giveaways WHERE guild_id=?", (gid,))]
+            if gids:
+                marks = ",".join("?" * len(gids))
+                run("giveaway_entries", f"DELETE FROM giveaway_entries WHERE giveaway_id IN ({marks})", gids)
+            run("giveaways", "DELETE FROM giveaways WHERE guild_id=?", (gid,))
         elif spec["type"] == "boost":
             marks = ",".join("?" * len(spec["user_ids"]))
             run("vote_boosts", f"DELETE FROM vote_boosts WHERE user_id IN ({marks})", spec["user_ids"])
@@ -293,5 +306,5 @@ def forget_confirm():
     counts = _forget_execute(spec)
     session.pop("pending_forget_spec", None)
     session.pop("pending_forget_word", None)
-    _log("FORGET EXEC", json.dumps({"spec": spec, "counts": counts}))
+    _log("FORGET EXEC", json.dumps({"type": spec["type"], "counts": counts}))
     return render_template("admin_forget_result.html", spec=spec, counts=counts)
