@@ -23,6 +23,7 @@ from utils import (
     period_start_day,
     prune_admin_events,
     prune_daily_stats,
+    prune_user_text_logs,
     resolve_hidden,
     vote_badge_label,
     vote_badge_progress,
@@ -967,6 +968,7 @@ class LevelingCog(commands.Cog):
             self._last_stats_prune = now
             await asyncio.to_thread(prune_daily_stats)
             await asyncio.to_thread(prune_admin_events)
+            await asyncio.to_thread(prune_user_text_logs)
 
         try:
             conn = get_db()
