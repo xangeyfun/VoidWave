@@ -7,11 +7,15 @@ from utils import (
     format_minutes,
     format_seconds,
     get_command_path,
+    get_db,
     holiday_key,
     holiday_qotd,
+    prune_user_text_logs,
+    purge_user_data,
     qotd_minutes,
     qotd_now,
     qotd_tz_label,
+    reapply_user_deletions,
 )
 
 
@@ -115,3 +119,61 @@ def test_block_reply_with_expiry_and_note():
     reply = block_reply(12345, "leveling", "earning XP")
     assert "You are blocked from earning XP." in reply
     assert "test reason" in reply
+
+
+def test_purge_user_data_and_reapply_after_restore():
+    conn = get_db()
+    try:
+        conn.execute("INSERT INTO users (guild_id, user_id) VALUES (1, 42)")
+        conn.execute("INSERT INTO vote_boosts (user_id) VALUES (42)")
+        conn.execute("INSERT INTO user_prefs (user_id) VALUES (42)")
+        conn.execute(
+            "INSERT INTO playlists (user_id, name, name_lower, created_at) VALUES (42, 'p', 'p', 0)"
+        )
+        playlist_id = conn.execute("SELECT id FROM playlists WHERE user_id=42").fetchone()[0]
+        conn.execute(
+            "INSERT INTO playlist_tracks (playlist_id, position, query, added_at) VALUES (?, 1, 'q', 0)",
+            (playlist_id,),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    counts = purge_user_data(42)
+    assert counts["users"] == 1
+    assert counts["playlist_tracks"] == 1
+
+    conn = get_db()
+    try:
+        for table in ("users", "vote_boosts", "user_prefs", "playlists", "playlist_tracks"):
+            assert conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0] == 0
+        assert conn.execute("SELECT deleted_at FROM deleted_users WHERE user_id=42").fetchone()
+    finally:
+        conn.close()
+
+    conn = get_db()
+    try:
+        conn.execute("INSERT INTO users (guild_id, user_id) VALUES (1, 42)")
+        conn.commit()
+    finally:
+        conn.close()
+
+    reapply_user_deletions()
+    conn = get_db()
+    try:
+        assert conn.execute("SELECT COUNT(*) FROM users WHERE user_id=42").fetchone()[0] == 0
+    finally:
+        conn.close()
+
+
+def test_prune_user_text_logs():
+    with open("command_logs.txt", "w", encoding="utf-8") as f:
+        f.write("2020-01-01 00:00:00 COMMAND old\n")
+        f.write("2099-01-01 00:00:00 COMMAND new\n")
+
+    prune_user_text_logs()
+
+    with open("command_logs.txt", encoding="utf-8") as f:
+        lines = f.readlines()
+    assert len(lines) == 1
+    assert "2099-01-01" in lines[0]
